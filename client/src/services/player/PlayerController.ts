@@ -190,7 +190,15 @@ class PlayerController {
     /**
      * DPlayer と PlayerManager を初期化し、再生準備を行う
      */
-    public async init(seek_seconds: number | null = null): Promise<void> {
+    public async init(options: {
+        default_quality: string | null;
+        playback_rate: number | null;
+        seek_seconds: number | null;
+    } = {
+        default_quality: null,
+        playback_rate: null,
+        seek_seconds: null,
+    }): Promise<void> {
         const channels_store = useChannelsStore();
         const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
@@ -231,6 +239,7 @@ class PlayerController {
         // 2秒プラスしているのは、実際の放送波では EPG (EIT[p/f]) の変更より2〜4秒後に実際に番組が切り替わる場合が多いため
         // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
         // seek_seconds はこの後 DPlayer を初期化した後の初回シーク時に参照される
+        let seek_seconds = options.seek_seconds;
         if (seek_seconds === null) {
             const history = settings_store.settings.watched_history.find(
                 history => history.video_id === player_store.recorded_program.id
@@ -312,8 +321,13 @@ class PlayerController {
                         }
                     }
                     // デフォルトの画質
-                    // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
                     let default_quality: string = this.quality_profile.tv_streaming_quality;
+                    if (options.default_quality !== null) {
+                        // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
+                        // 画質プロファイルに記載の画質ではなく、指定された（前回再生時の）画質を使ってレジュームする
+                        default_quality = options.default_quality;
+                    }
+                    // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
                     if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
@@ -339,8 +353,13 @@ class PlayerController {
                         });
                     }
                     // デフォルトの画質
-                    // 録画ではラジオは考慮しない
-                    const default_quality: string = this.quality_profile.video_streaming_quality;
+                    // ビデオ視聴時はラジオは考慮しない
+                    let default_quality: string = this.quality_profile.video_streaming_quality;
+                    if (options.default_quality !== null) {
+                        // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
+                        // 画質プロファイルに記載の画質ではなく、指定された（前回再生時の）画質を使ってレジュームする
+                        default_quality = options.default_quality;
+                    }
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
@@ -666,10 +685,16 @@ class PlayerController {
         // プレイヤーのコントロール UI を表示する (初回実行)
         this.setControlDisplayTimer();
 
-        // ビデオ視聴時のみ、指定秒数シークする
+        // ビデオ視聴時のみ、指定されている場合は再生速度をレジュームし、指定秒数シークする
         if (this.playback_mode === 'Video') {
 
+            // 指定されている場合はプレイヤー再起動前の再生速度を復元する
+            if (options.playback_rate !== null) {
+                this.player.speed(options.playback_rate);
+            }
+
             // 初期化前に算出しておいた秒数分初回シークを実行
+            // 録画マージン分シークするケースと、プレイヤー再起動前の再生位置を復元するケースの2通りある
             this.player.seek(seek_seconds);
 
             // 初回シーク時は確実にエンコーダーの起動が発生するため、ロードに若干時間がかかる
@@ -723,18 +748,28 @@ class PlayerController {
             }
             is_player_restarting = true;
 
-            // 現在の再生位置を取得
-            const current_time = this.player?.video.currentTime ?? 0;
+            // 現在の再生画質・再生速度・再生位置を取得
+            // この情報がプレイヤー再起動後にレジュームされる
+            const current_quality = this.player?.qualityIndex ? this.player.options.video.quality![this.player.qualityIndex] : null;
+            const current_playback_rate = this.player?.video.playbackRate ?? null;
+            const current_time = this.player?.video.currentTime ?? null;
 
             // PlayerController 自身を破棄
             await this.destroy();
 
-            // 即座に再起動すると諸々問題があるので、少し待つ
-            await Utils.sleep(0.5);
+            // ライブ視聴時のみ即座に再起動すると諸々問題があるので、少し待つ
+            if (this.playback_mode === 'Live') {
+                await Utils.sleep(0.5);
+            }
 
             // PlayerController 自身を再初期化
-            // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
-            await this.init(this.playback_mode === 'Video' ? current_time : null);
+            // 再起動完了時点でこの PlayerRestartRequired のイベントハンドラーは再登録されているはず
+            await this.init({
+                // 現在の再生画質・再生速度 (ビデオ視聴時のみ)・再生位置 (ビデオ視聴時のみ) を引き継ぐ
+                default_quality: current_quality ? current_quality.name : null,
+                playback_rate: this.playback_mode === 'Video' ? current_playback_rate : null,
+                seek_seconds: this.playback_mode === 'Video' ? current_time : null,
+            });
             is_player_restarting = false;
 
             // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーを再起動中である旨) を通知する
@@ -770,9 +805,26 @@ class PlayerController {
         `);
         // PlayerRestartRequired イベントとは異なり、通知メッセージなしで即座に PlayerController を再起動する
         this.player.container.querySelector('.dplayer-player-restart-icon')!.addEventListener('click', async () => {
-            const current_time = this.player?.video.currentTime ?? 0;
+
+            // 現在の再生画質・再生速度・再生位置を取得
+            // この情報がプレイヤー再起動後にレジュームされる
+            const current_quality = this.player?.qualityIndex ? this.player.options.video.quality![this.player.qualityIndex] : null;
+            const current_playback_rate = this.player?.video.playbackRate ?? null;
+            const current_time = this.player?.video.currentTime ?? null;
+
+            // PlayerController 自身を破棄
+            // このイベントは手動で再起動した際に実行されるものなので、再初期化までは待たずに即座に再初期化する
             await this.destroy();
-            await this.init(this.playback_mode === 'Video' ? current_time : null);
+
+            // PlayerController 自身を再初期化
+            await this.init({
+                // 現在の再生画質・再生速度 (ビデオ視聴時のみ)・再生位置 (ビデオ視聴時のみ) を引き継ぐ
+                default_quality: current_quality ? current_quality.name : null,
+                playback_rate: this.playback_mode === 'Video' ? current_playback_rate : null,
+                seek_seconds: this.playback_mode === 'Video' ? current_time : null,
+            });
+
+            // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             this.player?.notice('プレイヤーを再起動しました。', undefined, undefined, undefined);
         });
 
@@ -1023,14 +1075,14 @@ class PlayerController {
                     // すぐ再起動すると問題があるケースがあるので、少し待機する
                     await Utils.sleep(1);
 
-                    // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
-                    // 存在しない場合は unknown error として扱う
                     if (this.player.video.error) {
                         console.error('\u001b[31m[PlayerController] HTMLVideoElement error event:', this.player.video.error);
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
                         });
                     } else {
+                        // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
+                        // 存在しない場合は unknown error として扱う
                         player_store.event_emitter.emit('PlayerRestartRequired', {
                             message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーを再起動しています…',
                         });
@@ -1210,6 +1262,32 @@ class PlayerController {
                     player_store.is_background_display = false;
                 };
                 this.player.video.oncanplaythrough = on_canplay;
+
+                // HTMLVideoElement ネイティブの再生時エラーのイベントハンドラーを登録
+                // HLS 再生時にブラウザが呼び出す HW デコーダーがクラッシュした場合など、意図せず発生してしまうことがある
+                // プレイヤー自体の破棄・再生成以外では基本復旧できないので、PlayerController の再起動を要求する
+                this.player.on('error', async (event: MediaError) => {
+
+                    // DPlayer がすでに破棄されていれば何もしない
+                    if (this.player === null) {
+                        return;
+                    }
+
+                    // ライブ視聴時とは異なり、録画なので待たなくても再起動できる
+                    if (this.player.video.error) {
+                        console.error('\u001b[31m[PlayerController] HTMLVideoElement error event:', this.player.video.error);
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: `再生中にエラーが発生しました。(Native: ${this.player.video.error.code}: ${this.player.video.error.message}) プレイヤーを再起動しています…`,
+                        });
+                    } else {
+                        // MediaError オブジェクトは場合によっては存在しないことがあるらしい…
+                        // 存在しない場合は unknown error として扱う
+                        player_store.event_emitter.emit('PlayerRestartRequired', {
+                            message: '再生中にエラーが発生しました。(Native: unknown error) プレイヤーを再起動しています…',
+                        });
+                    }
+                });
+
             }
         };
 
@@ -1242,13 +1320,16 @@ class PlayerController {
             };
         }
 
-        // 録画再生時のみ実行する処理
+        // ビデオ視聴時のみ実行する処理
         if (this.playback_mode === 'Video') {
 
             // 再生位置の変更（再生の進行状況）を Comment.vue にイベントとして通知する
             this.player.on('timeupdate', () => {
+                if (!this.player || !this.player.video) {
+                    return;
+                }
                 player_store.event_emitter.emit('PlaybackPositionChanged', {
-                    playback_position: this.player!.video.currentTime,
+                    playback_position: this.player.video.currentTime,
                 });
             });
 
@@ -1500,7 +1581,10 @@ class PlayerController {
         let video_element = this.player.video;
         // 画質切り替え後に新しい映像要素が生成されるため、画質切り替え後にリサイズ対象を更新する
         this.player.on('quality_end', () => {
-            video_element = this.player!.video;
+            if (!this.player || !this.player.video) {
+                return;
+            }
+            video_element = this.player.video;
             crop();
         });
 

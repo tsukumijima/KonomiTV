@@ -28,7 +28,7 @@
             </div>
             <div class="niconico-account" v-if="userStore.user !== null && userStore.user.niconico_user_id !== null">
                 <div class="niconico-account-wrapper">
-                    <img class="niconico-account__icon" :src="userStore.user_niconico_icon_url ?? ''">
+                    <img class="niconico-account__icon" :src="userStore.user_niconico_icon_url ?? ''" @error="setDefaultIcon">
                     <div class="niconico-account__info">
                         <div class="niconico-account__info-name">
                             <span class="niconico-account__info-name-text">{{userStore.user.niconico_user_name}} と連携しています</span>
@@ -179,6 +179,10 @@ export default defineComponent({
         }
     },
     methods: {
+        setDefaultIcon(event: Event) {
+            (event.target as HTMLImageElement).src = '/assets/images/account-icon-default.png';
+        },
+
         async loginNiconicoAccount() {
 
             // ログインしていない場合はエラーにする

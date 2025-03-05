@@ -22,6 +22,8 @@ from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.RecordedProgram import RecordedProgram
+from app.models.User import User
+from app.routers.UsersRouter import GetCurrentAdminUser
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.JikkyoClient import JikkyoClient
 
@@ -709,8 +711,7 @@ async def VideoJikkyoCommentsAPI(
 @router.post(
     '/{video_id}/reanalyze',
     summary = '録画番組メタデータ再解析 API',
-    response_description = 'メタデータ再解析結果のステータス。',
-    response_model = schemas.ReanalyzeStatus,
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
@@ -731,17 +732,12 @@ async def VideoReanalyzeAPI(
                 force_update = True,
             )
 
-        return {
-            'is_success': True,
-            'detail': 'Successfully reanalyzed the video.',
-        }
-
     except Exception as ex:
-        logging.error(f'Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
-        return {
-            'is_success': False,
-            'detail': f'Failed to reanalyze the video: {ex!s}',
-        }
+        logging.error(f'[VideoReanalyzeAPI] Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to reanalyze the video: {ex!s}',
+        )
 
 
 @router.get(
@@ -793,8 +789,7 @@ async def VideoThumbnailTileAPI(
 @router.post(
     '/{video_id}/thumbnail/regenerate',
     summary = 'サムネイル再生成 API',
-    response_description = 'サムネイル再生成結果のステータス。',
-    response_model = schemas.ThumbnailRegenerationStatus,
+    status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoThumbnailRegenerateAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
@@ -816,14 +811,127 @@ async def VideoThumbnailRegenerateAPI(
             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
             await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
 
-        return {
-            'is_success': True,
-            'detail': 'Successfully regenerated thumbnails.',
-        }
+    except Exception as ex:
+        logging.error(f'[VideoThumbnailRegenerateAPI] Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to regenerate thumbnails: {ex!s}',
+        )
+
+
+@router.delete(
+    '/{video_id}',
+    summary = '録画ファイル削除 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def VideoDeleteAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
+):
+    """
+    指定された録画番組のファイルとメタデータを削除する。不可逆な処理であるため、慎重に実行すること。
+    - データベースから録画番組情報・録画ファイル情報を削除
+    - 録画ファイルに紐づくサムネイルファイルを削除
+    - 録画ファイルに関連する補助ファイル (.ts.program.txt, .ts.err) を削除
+    - 録画ファイル本体を削除
+
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # 録画ファイルの情報を取得
+    file_path = anyio.Path(recorded_program.recorded_video.file_path)
+    file_hash = recorded_program.recorded_video.file_hash
+    file_name = file_path.name
+    file_dir = file_path.parent
+
+    # 万が一処理が失敗してもダメージが比較的少ない順に実行する
+    try:
+        # 1. データベースから録画番組情報・録画ファイル情報を削除
+        # RecordedVideo も CASCADE 制約で削除される
+        try:
+            await recorded_program.delete()
+        except Exception as ex:
+            logging.error('[VideoDeleteAPI] Failed to delete recorded program from database:', exc_info=ex)
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = f'Failed to delete recorded program from database: {ex!s}',
+            )
+
+        # 2. サムネイルファイルの削除
+        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+        if await thumbnails_dir.is_dir():
+            # 通常サムネイル (.webp または .jpg)
+            for ext in ['.webp', '.jpg']:
+                thumbnail_path = thumbnails_dir / f'{file_hash}{ext}'
+                if await thumbnail_path.is_file():
+                    try:
+                        await thumbnail_path.unlink()
+                    except Exception as ex:
+                        logging.error(f'[VideoDeleteAPI] Failed to delete thumbnail file: {thumbnail_path}', exc_info=ex)
+                        raise HTTPException(
+                            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail = f'Failed to delete thumbnail file: {ex!s}',
+                        )
+                elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
+                    logging.warning(f'[VideoDeleteAPI] Thumbnail file does not exist: {thumbnail_path}')
+
+            # タイルサムネイル (.webp または .jpg)
+            for ext in ['.webp', '.jpg']:
+                tile_thumbnail_path = thumbnails_dir / f'{file_hash}_tile{ext}'
+                if await tile_thumbnail_path.is_file():
+                    try:
+                        await tile_thumbnail_path.unlink()
+                    except Exception as ex:
+                        logging.error(f'[VideoDeleteAPI] Failed to delete tile thumbnail file: {tile_thumbnail_path}', exc_info=ex)
+                        raise HTTPException(
+                            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail = f'Failed to delete tile thumbnail file: {ex!s}',
+                        )
+                elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
+                    logging.warning(f'[VideoDeleteAPI] Tile thumbnail file does not exist: {tile_thumbnail_path}')
+
+        # 3. 関連する補助ファイルの削除 (.ts.program.txt, .ts.err)
+        ## .ts.program.txt ファイル (録画ファイルが hoge.ts の場合は hoge.ts.program.txt)
+        ts_program_txt_path = anyio.Path(f'{file_dir}/{file_name}.program.txt')
+        if await ts_program_txt_path.is_file():
+            try:
+                await ts_program_txt_path.unlink()
+            except Exception as ex:
+                logging.error(f'[VideoDeleteAPI] Failed to delete .ts.program.txt file: {ts_program_txt_path}', exc_info=ex)
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = f'Failed to delete .ts.program.txt file: {ex!s}',
+                )
+        ## .ts.err ファイル (録画ファイルが hoge.ts の場合は hoge.ts.err)
+        ts_err_path = anyio.Path(f'{file_dir}/{file_name}.err')
+        if await ts_err_path.is_file():
+            try:
+                await ts_err_path.unlink()
+            except Exception as ex:
+                logging.error(f'[VideoDeleteAPI] Failed to delete .ts.err file: {ts_err_path}', exc_info=ex)
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = f'Failed to delete .ts.err file: {ex!s}',
+                )
+
+        # 4. 録画ファイル本体の削除
+        if await file_path.is_file():
+            try:
+                await file_path.unlink()
+                logging.info(f'[VideoDeleteAPI] Successfully deleted recorded video file: {file_path}')
+            except Exception as ex:
+                # 録画ファイル本体の削除に失敗した場合はクリティカルなエラー
+                logging.error(f'[VideoDeleteAPI] Failed to delete recorded video file: {file_path}', exc_info=ex)
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = f'Failed to delete recorded video file: {ex!s}',
+                )
+        else:
+            logging.warning(f'[VideoDeleteAPI] Recorded video file does not exist: {file_path}')
 
     except Exception as ex:
-        logging.error(f'Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)
-        return {
-            'is_success': False,
-            'detail': f'Failed to regenerate thumbnails: {ex!s}',
-        }
+        logging.error('[VideoDeleteAPI] Failed to delete recorded program:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to delete recorded program: {ex!s}',
+        )

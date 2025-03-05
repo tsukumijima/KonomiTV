@@ -157,9 +157,7 @@ async def VideoHLSBufferAPI(
     録画番組の HLS バッファ範囲を Server-Sent Events で随時配信する。
 
     イベントには、
-
     - バッファ範囲の更新を示す **buffer_range_update**
-
     の1種類がある。
 
     どのイベントでも配信される JSON 構造は同じ。<br>

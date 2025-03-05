@@ -11,7 +11,7 @@
                         <Icon icon="line-md:loading-twotone-loop" class="mr-1 spin" width="20px" height="20px" />
                         <span>検索中...</span>
                     </template>
-                    <template v-else>{{total}}件</template>
+                    <template v-else>{{displayTotal}}件</template>
                 </div>
             </h2>
             <div class="recorded-program-list__actions" :class="{'recorded-program-list__actions--mylist': forMylist}">
@@ -48,12 +48,12 @@
         <div class="recorded-program-list__grid"
             :class="{
                 'recorded-program-list__grid--loading': isLoading || isSearching,
-                'recorded-program-list__grid--empty': total === 0 && showEmptyMessage,
+                'recorded-program-list__grid--empty': displayTotal === 0 && showEmptyMessage,
                 'recorded-program-list__grid--searching': isSearching,
             }">
             <div class="recorded-program-list__empty"
                 :class="{
-                    'recorded-program-list__empty--show': total === 0 && showEmptyMessage && !isSearching,
+                    'recorded-program-list__empty--show': displayTotal === 0 && showEmptyMessage && !isSearching,
                 }">
                 <div class="recorded-program-list__empty-content">
                     <Icon class="recorded-program-list__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
@@ -63,16 +63,16 @@
                 </div>
             </div>
             <div class="recorded-program-list__grid-content">
-                <RecordedProgram v-for="program in programs" :key="program.id" :program="program"
-                    :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" />
+                <RecordedProgram v-for="program in displayPrograms" :key="program.id" :program="program"
+                    :forMylist="forMylist" :forWatchedHistory="forWatchedHistory" @deleted="handleProgramDeleted" />
             </div>
         </div>
-        <div class="recorded-program-list__pagination" v-if="!hidePagination && total > 0">
+        <div class="recorded-program-list__pagination" v-if="!hidePagination && displayTotal > 0">
             <v-pagination
                 v-model="current_page"
                 active-color="primary"
                 density="comfortable"
-                :length="Math.ceil(total / 30)"
+                :length="Math.ceil(displayTotal / 30)"
                 :total-visible="7"
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
@@ -140,6 +140,11 @@ const current_page = ref(props.page);
 // 並び順
 const sort_order = ref<SortOrder | MylistSortOrder>(props.sortOrder);
 
+// 内部で管理するプログラムリスト
+const displayPrograms = ref<IRecordedProgram[]>([...props.programs]);
+// 内部で管理する合計数
+const displayTotal = ref<number>(props.total);
+
 // props の page が変更されたら current_page を更新
 watch(() => props.page, (newPage) => {
     current_page.value = newPage;
@@ -149,6 +154,24 @@ watch(() => props.page, (newPage) => {
 watch(() => props.sortOrder, (newOrder) => {
     sort_order.value = newOrder;
 });
+
+// props の programs が変更されたら displayPrograms を更新
+watch(() => props.programs, (newPrograms) => {
+    displayPrograms.value = [...newPrograms];
+});
+
+// props の total が変更されたら displayTotal を更新
+watch(() => props.total, (newTotal) => {
+    displayTotal.value = newTotal;
+});
+
+// 録画ファイルが削除された時の処理
+const handleProgramDeleted = (id: number) => {
+    // 内部のプログラムリストから削除されたプログラムを除外
+    displayPrograms.value = displayPrograms.value.filter(program => program.id !== id);
+    // 合計数を1減らす
+    displayTotal.value--;
+};
 
 </script>
 <style lang="scss" scoped>

@@ -117,9 +117,6 @@ export default defineComponent({
                 display: none;
             }
         }
-        .watch-header__now {
-            display: none;
-        }
     }
 
     .watch-header__back-icon {

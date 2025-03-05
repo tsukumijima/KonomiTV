@@ -1,20 +1,29 @@
 
 import anyio
 import asyncio
+import json
 import os
 import psutil
 import signal
 import sys
 import threading
-from fastapi import APIRouter, Depends, Request, status
+import time
+from fastapi import APIRouter, Depends, Request, status, Path
 from fastapi.exceptions import HTTPException
+from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
-from typing import Any, Annotated, Coroutine
+from sse_starlette.sse import EventSourceResponse
+from typing import Any, Annotated, Coroutine, Literal
 
 from app import logging
 from app import schemas
 from app.config import Config
-from app.constants import RESTART_REQUIRED_LOCK_PATH, THUMBNAILS_DIR
+from app.constants import (
+    KONOMITV_ACCESS_LOG_PATH,
+    KONOMITV_SERVER_LOG_PATH,
+    RESTART_REQUIRED_LOCK_PATH,
+    THUMBNAILS_DIR,
+)
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -31,6 +40,7 @@ from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 router = APIRouter(
     tags = ['Maintenance'],
     prefix = '/api/maintenance',
+    dependencies = [Depends(GetCurrentAdminUser)],  # 管理者ユーザーのみアクセス可能
 )
 
 # 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
@@ -62,6 +72,90 @@ async def GetCurrentAdminUserOrLocal(
             headers = {'WWW-Authenticate': 'Bearer'},
         )
     return await GetCurrentAdminUser(await GetCurrentUser(token))
+
+
+@router.get(
+    '/logs/{log_type}',
+    summary = 'サーバーログストリーミング API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'サーバーログまたはアクセスログが随時配信されるイベントストリーム。',
+            'content': {'text/event-stream': {}},
+        }
+    }
+)
+def LogStreamAPI(
+    log_type: Annotated[Literal['server', 'access'], Path(description='ログの種類。server: サーバーログ、access: アクセスログ')],
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
+):
+    """
+    サーバーログまたはアクセスログを Server-Sent Events で随時配信する。
+
+    イベントには、
+    - 初回にログファイルの先頭から現在の最新行までのすべての行を送信する **initial_log_update**
+    - リアルタイムに追加されたログを送信する **log_update**
+    の2種類がある。
+
+    初回接続時にはログファイルの先頭から現在の最新行までのすべての行が initial_log_update イベントで一括送信され、<br>
+    その後ログに更新があれば log_update イベントで1行ずつ送信される。
+
+    ファイル I/O を伴うため敢えて同期関数として実装している。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # ログファイルのパスを決定
+    log_path = KONOMITV_SERVER_LOG_PATH if log_type == 'server' else KONOMITV_ACCESS_LOG_PATH
+
+    # ログファイルが存在しない場合はエラー
+    if not log_path.exists():
+        logging.error(f'[MaintenanceRouter][LogStreamAPI] Log file not found: {log_path}')
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = f'Log file not found: {log_path}',
+        )
+
+    # ログの変更を監視し、変更があればログ行をイベントストリームとして出力する
+    def generator():
+        """イベントストリームを出力するジェネレーター"""
+
+        # ファイルを開く
+        with open(log_path, 'r', encoding='utf-8') as f:
+            # 初回接続時に全ての行を送信
+            all_lines = [line.rstrip('\n') for line in f.readlines() if line.strip()]  # 空行は除外
+            yield {
+                'event': 'initial_log_update',
+                'data': json.dumps(all_lines, ensure_ascii=False),
+            }
+
+            # ファイルの現在位置を記録
+            current_position = f.tell()
+
+            # 継続的に新しい行を監視
+            while True:
+                # ファイルが更新されたかチェック
+                f.seek(0, os.SEEK_END)
+                if f.tell() > current_position:
+                    # ファイルが更新された場合、前回の位置に戻る
+                    f.seek(current_position)
+
+                    # 新しい行を読み込む
+                    for line in f:
+                        line = line.rstrip('\n')
+                        if line:  # 空行は送信しない
+                            yield {
+                                'event': 'log_update',
+                                'data': json.dumps(line, ensure_ascii=False),
+                            }
+
+                    # 現在位置を更新
+                    current_position = f.tell()
+
+                # 少し待機
+                time.sleep(0.5)
+
+    # EventSourceResponse でイベントストリームを配信する
+    return EventSourceResponse(generator())
 
 
 @router.post(

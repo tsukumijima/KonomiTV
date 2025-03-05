@@ -105,7 +105,7 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="debug_encoder">エンコーダーのログを有効にする</label>
                 <label class="settings__item-label" for="debug_encoder">
-                    有効にすると、エンコーダーのログが server/logs/ 以下に保存されます。
+                    有効にすると、ライブ視聴時のエンコーダーのログが server/logs/ 以下に保存されます。
                     さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="debug_encoder" hide-details
@@ -268,6 +268,22 @@
                 <Icon icon="fluent:wrench-settings-20-filled" width="22px" />
                 <span class="ml-2">メンテナンス</span>
             </div>
+        </div>
+        <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
+            <div class="settings__item">
+                <div class="settings__item-heading">サーバーログの表示</div>
+                <div class="settings__item-label">
+                    KonomiTV サーバーの動作ログとアクセスログをリアルタイムで表示します。<br>
+                    サーバーの動作状況の確認やトラブルシューティングに役立ちます。<br>
+                </div>
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                @click="server_log_dialog = !server_log_dialog">
+                <Icon icon="fluent:document-text-16-regular" height="20px" />
+                <span class="ml-2">サーバーログを表示</span>
+            </v-btn>
+        </div>
+        <div class="settings__content">
             <div class="settings__item">
                 <div class="settings__item-heading">KonomiTV のデータベースを更新</div>
                 <div class="settings__item-label">
@@ -341,6 +357,7 @@
             </v-btn>
         </div>
         <AccountManageSettings :modelValue="account_manage_settings_modal" @update:modelValue="account_manage_settings_modal = $event" />
+        <ServerLogDialog :modelValue="server_log_dialog" @update:modelValue="server_log_dialog = $event" />
     </SettingsBase>
 </template>
 <script lang="ts" setup>
@@ -348,6 +365,7 @@
 import { ref } from 'vue';
 
 import AccountManageSettings from '@/components/Settings/AccountManageSettings.vue';
+import ServerLogDialog from '@/components/Settings/ServerLogDialog.vue';
 import Message from '@/message';
 import Maintenance from '@/services/Maintenance';
 import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
@@ -400,6 +418,8 @@ async function updateServerSettings() {
 
 // ユーザー管理モーダルの表示状態
 const account_manage_settings_modal = ref(false);
+// サーバーログダイアログの表示状態
+const server_log_dialog = ref(false);
 
 // データベースを更新する関数
 async function updateDatabase() {

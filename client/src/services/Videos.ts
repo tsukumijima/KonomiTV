@@ -158,18 +158,6 @@ export interface IJikkyoComments {
     detail: string;
 }
 
-/** メタデータ再解析のレスポンスを表すインターフェース */
-export interface IReanalyzeStatus {
-    is_success: boolean;
-    detail: string;
-}
-
-/** サムネイル再作成のレスポンスを表すインターフェース */
-export interface IThumbnailRegenerationStatus {
-    is_success: boolean;
-    detail: string;
-}
-
 class Videos {
 
     /**
@@ -284,23 +272,27 @@ class Videos {
     /**
      * 録画番組のメタデータを再解析する
      * @param video_id 録画番組の ID
-     * @returns メタデータ再解析結果のステータス
+     * @returns メタデータ再解析に成功した場合は true
      */
-    static async reanalyzeVideo(video_id: number): Promise<IReanalyzeStatus> {
+    static async reanalyzeVideo(video_id: number): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post<IReanalyzeStatus>(`/videos/${video_id}/reanalyze`);
+        const response = await APIClient.post(`/videos/${video_id}/reanalyze`, undefined, {
+            // 数分以上かかるのでタイムアウトを 10 分に設定
+            timeout: 10 * 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'メタデータの再解析に失敗しました。');
-            return {
-                is_success: false,
-                detail: 'メタデータの再解析に失敗しました。',
-            };
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'メタデータの再解析に失敗しました。');
+                    break;
+            }
+            return false;
         }
 
-        return response.data;
+        return true;
     }
 
 
@@ -308,12 +300,12 @@ class Videos {
      * 録画番組のサムネイルを再作成する
      * @param video_id 録画番組の ID
      * @param skip_tile_if_exists 既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
-     * @returns サムネイル再作成結果のステータス
+     * @returns サムネイル再作成に成功した場合は true
      */
-    static async regenerateThumbnail(video_id: number, skip_tile_if_exists: boolean = false): Promise<IThumbnailRegenerationStatus> {
+    static async regenerateThumbnail(video_id: number, skip_tile_if_exists: boolean = false): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post<IThumbnailRegenerationStatus>(`/videos/${video_id}/thumbnail/regenerate`, undefined, {
+        const response = await APIClient.post(`/videos/${video_id}/thumbnail/regenerate`, undefined, {
             params: {
                 skip_tile_if_exists: skip_tile_if_exists ? 'true' : 'false',
             },
@@ -323,14 +315,38 @@ class Videos {
 
         // エラー処理
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'サムネイルの再作成に失敗しました。');
-            return {
-                is_success: false,
-                detail: 'サムネイルの再作成に失敗しました。',
-            };
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'サムネイルの再作成に失敗しました。');
+                    break;
+            }
+            return false;
         }
 
-        return response.data;
+        return true;
+    }
+
+    /**
+     * 録画番組を削除する
+     * @param video_id 録画番組の ID
+     * @returns 削除に成功した場合は true
+     */
+    static async deleteVideo(video_id: number): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.delete(`/videos/${video_id}`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, '録画ファイルの削除に失敗しました。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
     }
 }
 

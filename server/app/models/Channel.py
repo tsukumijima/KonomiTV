@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     from app.models.Program import Program
 
 
+# すでに閉局済みの BS チャンネルの service_id
+# 左から順に「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「BSJapanext」「Dlife」
+ALREADY_CLOSED_BS_SERVICE_IDS = [103, 104, 238, 241, 258, 263]
+
+
 class Channel(TortoiseModel):
 
     # データベース上のテーブル名
@@ -75,6 +80,23 @@ class Channel(TortoiseModel):
         ## 循環参照を避けるために遅延インポート
         from app.streams.LiveStream import LiveStream
         return LiveStream.getViewerCount(self.display_channel_id)
+
+
+    @classmethod
+    async def isReferencedByRecordedProgram(cls, channel_id: str) -> bool:
+        """
+        指定されたチャンネル ID を持つチャンネルが RecordedProgram から参照されているかどうかを確認する
+
+        Args:
+            channel_id (str): チャンネル ID
+
+        Returns:
+            bool: RecordedProgram から参照されている場合は True、そうでない場合は False
+        """
+
+        # 循環参照を避けるために遅延インポート
+        from app.models.RecordedProgram import RecordedProgram
+        return await RecordedProgram.filter(channel_id=channel_id).exists()
 
 
     @classmethod
@@ -154,9 +176,13 @@ class Channel(TortoiseModel):
                 if duplicate_channel is None:
                     # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
                     # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
-                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    ## 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
                     unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
                     if unwatchable_channel is not None:
+                        ## すでに閉局済みの BS チャンネルだった場合、既に同じチャンネルの is_watchable = False な
+                        ## チャンネル情報が存在することになるので、以降の処理を全てスキップ
+                        if unwatchable_channel.type == 'BS' and unwatchable_channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                            continue
                         channel = unwatchable_channel
                         channel.is_watchable = True
                         logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
@@ -173,24 +199,23 @@ class Channel(TortoiseModel):
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['name'])
                 channel.jikkyo_force = None
-                channel.is_watchable = True
+                channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
-                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                # すでに閉局済みの BS チャンネルを is_watchable = False に設定
+                ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
+                ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
+                ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
+                ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
+                if channel.type == 'BS' and channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                    channel.is_watchable = False
 
-                # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
-                # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
+                ## CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                ## 以前はレコードから完全に削除していたが、そうすると例えば試験チャンネルを録画した際の番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
                 if channel.name.startswith('試験チャンネル'):
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                    channel.is_watchable = False
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
                 # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
@@ -232,7 +257,17 @@ class Channel(TortoiseModel):
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
                 try:
-                    await duplicate_channel.delete()
+                    # RecordedProgram から参照されているかどうかを確認
+                    if await cls.isReferencedByRecordedProgram(duplicate_channel.id):
+                        # 参照されている場合は削除せず、is_watchable を False に設定
+                        # RecordedProgram から参照されているのに削除すると、CASCADE 制約で録画番組情報も削除されてしまう
+                        duplicate_channel.is_watchable = False
+                        await duplicate_channel.save()
+                        logging.info(f'Channel: {duplicate_channel.name} ({duplicate_channel.id}) is referenced by RecordedProgram, set is_watchable to False.')
+                    else:
+                        # 参照されていない場合は削除
+                        await duplicate_channel.delete()
+                        logging.info(f'Delete Channel: {duplicate_channel.id}')
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
                 except OperationalError as ex:
                     if 'Can\'t delete unpersisted record' not in str(ex):
@@ -312,9 +347,13 @@ class Channel(TortoiseModel):
                 if duplicate_channel is None:
                     # 既に登録されているが、現在は is_watchable = False (録画番組のメタデータのみでライブで視聴不可) なチャンネル情報がある可能性もある
                     # その場合は is_watchable = True (ライブで視聴可能) なチャンネル情報として更新する
-                    # 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
+                    ## 録画番組更新とのタイミングの関係でごく稀に発生しうる問題への対応
                     unwatchable_channel = await Channel.filter(id=channel_id, is_watchable=False).first()
                     if unwatchable_channel is not None:
+                        ## すでに閉局済みの BS チャンネルだった場合、既に同じチャンネルの is_watchable = False な
+                        ## チャンネル情報が存在することになるので、以降の処理を全てスキップ
+                        if unwatchable_channel.type == 'BS' and unwatchable_channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                            continue
                         channel = unwatchable_channel
                         channel.is_watchable = True
                         logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered but is_watchable = False.')
@@ -332,24 +371,23 @@ class Channel(TortoiseModel):
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['service_name'])
                 channel.jikkyo_force = None
-                channel.is_watchable = True
+                channel.is_watchable = True  # 下記条件を満たすチャンネルでない限り、ライブ視聴可能なチャンネルとして登録する
 
-                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
-                ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
-                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                # すでに閉局済みの BS チャンネルを is_watchable = False に設定
+                ## 放送終了後にチャンネルスキャンしていないなどの理由で、閉局後もバックエンド側にはチャンネル情報が残っている場合がある
+                ## 特に「NHK BSプレミアム」(Ch: 103) は既存受信機への互換性維持のためか停波後も SDT にサービス情報が残っているため、
+                ## 明示的に視聴不可としないとチャンネル一覧に表示されてしまう
+                ## 以前はレコードから完全に削除していたが、そうすると例えば NHK BSプレミアムで過去録画した番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
+                if channel.type == 'BS' and channel.service_id in ALREADY_CLOSED_BS_SERVICE_IDS:
+                    channel.is_watchable = False
 
-                # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
-                # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                # 「試験チャンネル」という名前（前方一致）のチャンネルを is_watchable = False に設定
+                ## CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
+                ## 以前はレコードから完全に削除していたが、そうすると例えば試験チャンネルを録画した際の番組情報も CASCADE 制約で削除されてしまうため、
+                ## is_watchable = False でチャンネル一覧からは非表示にした上で、DB 上には残しておく形に変更した
                 if channel.name.startswith('試験チャンネル'):
-                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
-                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
-                    duplicate_channels[channel.id] = channel
-                    continue
+                    channel.is_watchable = False
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
                 # 今のところ、ラジオに該当するチャンネルは放送大学ラジオのみ
@@ -416,7 +454,17 @@ class Channel(TortoiseModel):
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
                 try:
-                    await duplicate_channel.delete()
+                    # RecordedProgram から参照されているかどうかを確認
+                    if await cls.isReferencedByRecordedProgram(duplicate_channel.id):
+                        # 参照されている場合は削除せず、is_watchable を False に設定
+                        # RecordedProgram から参照されているのに削除すると、CASCADE 制約で録画番組情報も削除されてしまう
+                        duplicate_channel.is_watchable = False
+                        await duplicate_channel.save()
+                        logging.info(f'Channel: {duplicate_channel.name} ({duplicate_channel.id}) is referenced by RecordedProgram, set is_watchable to False.')
+                    else:
+                        # 参照されていない場合は削除
+                        await duplicate_channel.delete()
+                        logging.info(f'Delete Channel: {duplicate_channel.id}')
                 # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
                 except OperationalError as ex:
                     if 'Can\'t delete unpersisted record' not in str(ex):
