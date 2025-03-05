@@ -151,7 +151,7 @@ class VideoStream:
         """
         ログのプレフィックス
         """
-        return f'[Video: {self.session_id}/{self.quality}]'
+        return f'[Video: {self.recorded_program.id}/{self.session_id}/{self.quality}]'
 
 
     @property

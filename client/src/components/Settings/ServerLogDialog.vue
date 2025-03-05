@@ -45,7 +45,7 @@
 <script lang='ts' setup>
 
 import { VList as VirtuaList } from 'virtua/vue';
-import { PropType, ref, watch, onMounted, onBeforeUnmount, useTemplateRef } from 'vue';
+import { PropType, ref, watch, onMounted, onBeforeUnmount, useTemplateRef, nextTick } from 'vue';
 
 import Maintenance from '@/services/Maintenance';
 
@@ -135,21 +135,33 @@ function startLogStreaming(log_type: 'server' | 'access') {
     }
 
     // ログの取得を開始
-    const abort_controller = Maintenance.streamLogs(log_type, (log_line: string) => {
-        // ログタイプに応じたログ行配列を更新
-        const log_lines = log_type === 'server' ? server_log_lines : access_log_lines;
-
-        // ログ行を追加
-        log_lines.value.push(log_line);
-
-        // 最大表示行数を制限（パフォーマンス対策）
-        if (log_lines.value.length > MAX_LINES) {
-            log_lines.value = log_lines.value.slice(-MAX_LINES);
+    const abort_controller = Maintenance.streamLogs(
+        log_type,
+        (lines: string[]) => {
+            // ログタイプに応じたログ行配列を更新
+            const log_lines = log_type === 'server' ? server_log_lines : access_log_lines;
+            // ログ行を一括追加
+            log_lines.value = lines;
+            // 最大表示行数を制限（パフォーマンス対策）
+            if (log_lines.value.length > MAX_LINES) {
+                log_lines.value = log_lines.value.slice(-MAX_LINES);
+            }
+            // 対応するスクローラーを最下部に移動
+            scrollToBottom(log_type);
+        },
+        (line: string) => {
+            // ログタイプに応じたログ行配列を更新
+            const log_lines = log_type === 'server' ? server_log_lines : access_log_lines;
+            // ログ行を追加
+            log_lines.value.push(line);
+            // 最大表示行数を制限（パフォーマンス対策）
+            if (log_lines.value.length > MAX_LINES) {
+                log_lines.value = log_lines.value.slice(-MAX_LINES);
+            }
+            // 対応するスクローラーを最下部に移動
+            scrollToBottom(log_type);
         }
-
-        // 対応するスクローラーを最下部に移動（表示状態に関わらず）
-        scrollToBottom(log_type);
-    });
+    );
 
     // 接続に失敗した場合
     if (abort_controller === null) {
@@ -189,11 +201,17 @@ function stopAllLogStreaming() {
 
 // 指定されたログタイプのスクローラーを最下部に移動する関数
 function scrollToBottom(log_type: 'server' | 'access') {
-    if (log_type === 'server' && server_scroller.value) {
-        server_scroller.value.scrollTo(server_scroller.value.scrollSize);
-    } else if (log_type === 'access' && access_scroller.value) {
-        access_scroller.value.scrollTo(access_scroller.value.scrollSize);
-    }
+    nextTick(() => {
+        if (log_type === 'server' && server_scroller.value) {
+            server_scroller.value.scrollToIndex(server_log_lines.value.length - 1, {
+                align: 'end',
+            });
+        } else if (log_type === 'access' && access_scroller.value) {
+            access_scroller.value.scrollToIndex(access_log_lines.value.length - 1, {
+                align: 'end',
+            });
+        }
+    });
 }
 
 // コンポーネントがマウントされたときにログの取得を開始（すでにダイアログが開いている場合）

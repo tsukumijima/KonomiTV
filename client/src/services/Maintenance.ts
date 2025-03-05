@@ -11,10 +11,15 @@ class Maintenance {
     /**
      * サーバーログまたはアクセスログをリアルタイムに取得する
      * @param log_type ログの種類 ('server' または 'access')
+     * @param initial_callback 初回接続時にログ行を受け取るコールバック関数
      * @param callback ログ行を受け取るコールバック関数
      * @returns リクエストを中止するための AbortController
      */
-    static streamLogs(log_type: 'server' | 'access', callback: (log_line: string) => void): AbortController | null {
+    static streamLogs(
+        log_type: 'server' | 'access',
+        initial_callback: (log_lines: string[]) => void,
+        callback: (log_line: string) => void,
+    ): AbortController | null {
 
         // リクエストを中止するための AbortController
         const abort_controller = new AbortController();
@@ -39,9 +44,10 @@ class Maintenance {
             openWhenHidden: true,
             // EventStream からメッセージを受け取った時のイベント
             onmessage: (event) => {
-                // 受信したログ行をコールバック関数に渡す
-                if (event.event === 'log_update') {
-                    callback(event.data);
+                if (event.event === 'initial_log_update') {
+                    initial_callback(JSON.parse(event.data));
+                } else if (event.event === 'log_update') {
+                    callback(JSON.parse(event.data));
                 }
             },
             // エラー発生時の処理

@@ -1,6 +1,7 @@
 
 import anyio
 import asyncio
+import json
 import os
 import psutil
 import signal
@@ -92,11 +93,12 @@ def LogStreamAPI(
     サーバーログまたはアクセスログを Server-Sent Events で随時配信する。
 
     イベントには、
-    - 各ログ行の更新を示す **log_update**
-    の1種類がある。
+    - 初回にログファイルの先頭から現在の最新行までのすべての行を送信する **initial_log_update**
+    - リアルタイムに追加されたログを送信する **log_update**
+    の2種類がある。
 
-    初回接続時にはログファイルの先頭から現在の最新行までのすべての行が順次送信され、<br>
-    その後ログに更新があれば log_update イベントとして1行ずつ送信される。
+    初回接続時にはログファイルの先頭から現在の最新行までのすべての行が initial_log_update イベントで一括送信され、<br>
+    その後ログに更新があれば log_update イベントで1行ずつ送信される。
 
     ファイル I/O を伴うため敢えて同期関数として実装している。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
@@ -120,13 +122,11 @@ def LogStreamAPI(
         # ファイルを開く
         with open(log_path, 'r', encoding='utf-8') as f:
             # 初回接続時に全ての行を送信
-            for line in f:
-                line = line.rstrip('\n')
-                if line:  # 空行は送信しない
-                    yield {
-                        'event': 'log_update',
-                        'data': line,
-                    }
+            all_lines = [line.rstrip('\n') for line in f.readlines() if line.strip()]  # 空行は除外
+            yield {
+                'event': 'initial_log_update',
+                'data': json.dumps(all_lines, ensure_ascii=False),
+            }
 
             # ファイルの現在位置を記録
             current_position = f.tell()
@@ -145,7 +145,7 @@ def LogStreamAPI(
                         if line:  # 空行は送信しない
                             yield {
                                 'event': 'log_update',
-                                'data': line,
+                                'data': json.dumps(line, ensure_ascii=False),
                             }
 
                     # 現在位置を更新
