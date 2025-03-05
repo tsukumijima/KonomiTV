@@ -1,8 +1,65 @@
 
+import { fetchEventSource } from '@microsoft/fetch-event-source';
+
+import Message from '@/message';
 import APIClient from '@/services/APIClient';
+import Utils from '@/utils';
 
 
 class Maintenance {
+
+    /**
+     * サーバーログまたはアクセスログをリアルタイムに取得する
+     * @param log_type ログの種類 ('server' または 'access')
+     * @param callback ログ行を受け取るコールバック関数
+     * @returns リクエストを中止するための AbortController
+     */
+    static streamLogs(log_type: 'server' | 'access', callback: (log_line: string) => void): AbortController | null {
+
+        // リクエストを中止するための AbortController
+        const abort_controller = new AbortController();
+
+        // アクセストークンを取得
+        const access_token = Utils.getAccessToken();
+        if (access_token === null) {
+            Message.error('サーバーログの表示には管理者権限が必要です。\n管理者アカウントでログインし直してください。');
+            return null;
+        }
+
+        // EventStream の受信を開始する
+        fetchEventSource(`${Utils.api_base_url}/maintenance/logs/${log_type}`, {
+            method: 'GET',
+            signal: abort_controller.signal,
+            // 認証ヘッダーを設定
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'X-KonomiTV-Version': Utils.version,
+            },
+            // ブラウザタブが非アクティブな時も接続を維持する
+            openWhenHidden: true,
+            // EventStream からメッセージを受け取った時のイベント
+            onmessage: (event) => {
+                // 受信したログ行をコールバック関数に渡す
+                if (event.event === 'log_update') {
+                    callback(event.data);
+                }
+            },
+            // エラー発生時の処理
+            onerror: (error) => {
+                console.error('Log stream error:', error);
+                // 認証エラーなどの場合は再接続を試みない
+                if (error instanceof Response && (error.status === 401 || error.status === 403)) {
+                    Message.error('サーバーログの表示には管理者権限が必要です。\n管理者アカウントでログインし直してください。');
+                    abort_controller.abort();
+                    return;
+                }
+                // その他のエラーは再接続を試みる
+                return;
+            }
+        });
+
+        return abort_controller;
+    }
 
 
     /**

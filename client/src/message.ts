@@ -2,7 +2,7 @@
 import { useSnackbarsStore } from '@/stores/SnackbarsStore';
 
 
-export default {
+const Message = {
     success(message: string, timeout?: number): void {
         useSnackbarsStore().show('success', message, timeout);
     },
@@ -19,3 +19,5 @@ export default {
         useSnackbarsStore().show('default', message, timeout);
     }
 };
+
+export default Message;
