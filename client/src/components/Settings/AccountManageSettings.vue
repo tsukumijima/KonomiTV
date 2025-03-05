@@ -176,6 +176,7 @@ function deleteAccount() {
         });
     }
 }
+
 </script>
 <style lang="scss" scoped>
 
@@ -189,7 +190,7 @@ function deleteAccount() {
     .v-card-title span {
         font-size: 20px;
         @include smartphone-vertical {
-            font-size: 15.5px;
+            font-size: 19px;
         }
     }
 }

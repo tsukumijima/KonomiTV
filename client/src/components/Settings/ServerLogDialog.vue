@@ -1,5 +1,5 @@
 <template>
-    <v-dialog max-width="800" transition="slide-y-transition" v-model="server_log_dialog_modal">
+    <v-dialog max-width="900" transition="slide-y-transition" v-model="server_log_dialog_modal">
         <v-card class="server-log-dialog">
             <v-card-title class="px-5 pt-6 pb-0 d-flex align-center font-weight-bold" style="height: 60px;">
                 <Icon icon="fluent:document-text-16-regular" height="26px" />
@@ -17,13 +17,26 @@
                 <div class="server-log-dialog__label">
                     リアルタイムでログを表示しています。最新のログが下部に表示されます。
                 </div>
-                <div class="server-log-dialog__console" ref="logConsole">
-                    <div v-for="(line, index) in log_lines" :key="index" class="server-log-dialog__line">
-                        {{ line }}
-                    </div>
-                    <div v-if="log_lines.length === 0" class="server-log-dialog__empty">
-                        ログを取得中...
-                    </div>
+                <div class="server-log-dialog__console-container">
+                    <!-- サーバーログ表示エリア -->
+                    <VirtuaList
+                        ref="server_scroller"
+                        class="server-log-dialog__console"
+                        :class="{ 'hidden': active_tab !== 'server' }"
+                        :data="server_log_lines"
+                        #default="{ item }">
+                        <div class="server-log-dialog__line" v-html="formatLogLine(item)"></div>
+                    </VirtuaList>
+
+                    <!-- アクセスログ表示エリア -->
+                    <VirtuaList
+                        ref="access_scroller"
+                        class="server-log-dialog__console"
+                        :class="{ 'hidden': active_tab !== 'access' }"
+                        :data="access_log_lines"
+                        #default="{ item }">
+                        <div class="server-log-dialog__line" v-html="formatLogLine(item)"></div>
+                    </VirtuaList>
                 </div>
             </div>
         </v-card>
@@ -31,7 +44,8 @@
 </template>
 <script lang='ts' setup>
 
-import { PropType, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { VList as VirtuaList } from 'virtua/vue';
+import { PropType, ref, watch, onMounted, onBeforeUnmount, useTemplateRef } from 'vue';
 
 import Maintenance from '@/services/Maintenance';
 
@@ -48,10 +62,10 @@ watch(() => props.modelValue, (newValue) => {
     server_log_dialog_modal.value = newValue;
     if (newValue) {
         // ダイアログが開かれたらログの取得を開始
-        startLogStreaming();
+        startAllLogStreaming();
     } else {
         // ダイアログが閉じられたらログの取得を停止
-        stopLogStreaming();
+        stopAllLogStreaming();
     }
 });
 watch(server_log_dialog_modal, (newValue) => {
@@ -59,33 +73,72 @@ watch(server_log_dialog_modal, (newValue) => {
 });
 
 // 最大表示行数
-const MAX_LINES = 5000;
+const MAX_LINES = 10000;
 
 // ログ表示用の変数
-const log_lines = ref<string[]>([]);
-const logConsole = ref<HTMLElement | null>(null);
+const server_log_lines = ref<string[]>([]);
+const access_log_lines = ref<string[]>([]);
+const server_scroller = useTemplateRef('server_scroller');
+const access_scroller = useTemplateRef('access_scroller');
 const active_tab = ref<string>('server');
-let abort_controller: AbortController | null = null;
+let server_abort_controller: AbortController | null = null;
+let access_abort_controller: AbortController | null = null;
 
-// タブが切り替わったらログをクリアして新しいログの取得を開始
-watch(active_tab, () => {
-    stopLogStreaming();
-    log_lines.value = [];
-    startLogStreaming();
-});
+// ログレベルに応じた色付けを行う関数
+function formatLogLine(line: string): string {
+    // ログレベルのパターン
+    const logLevelPattern = /(DEBUG|INFO|WARNING|ERROR|CRITICAL):/;
+    const match = line.match(logLevelPattern);
 
-// ログストリーミングを開始する関数
-function startLogStreaming() {
-    // すでに接続中なら一度切断
-    if (abort_controller !== null) {
-        stopLogStreaming();
+    if (match) {
+        const logLevel = match[1];
+        let color = '';
+
+        // ログレベルに応じた色を設定
+        switch (logLevel) {
+            case 'DEBUG':
+                color = '#7cbfcb';
+                break;
+            case 'INFO':
+                color = '#aeca91';
+                break;
+            case 'WARNING':
+                color = '#e5cb95';
+                break;
+            case 'ERROR':
+                color = '#da8789';
+                break;
+        }
+
+        // ログレベル部分のみ色付け
+        return line.replace(logLevelPattern, `<span style="color: ${color};">${logLevel}</span>:`);
     }
 
-    // 現在のタブに応じたログタイプを取得
-    const log_type = active_tab.value === 'server' ? 'server' : 'access';
+    return line;
+}
+
+// すべてのログストリーミングを開始する関数
+function startAllLogStreaming() {
+    // サーバーログのストリーミングを開始
+    startLogStreaming('server');
+    // アクセスログのストリーミングを開始
+    startLogStreaming('access');
+}
+
+// ログストリーミングを開始する関数
+function startLogStreaming(log_type: 'server' | 'access') {
+    // すでに接続中なら一度切断
+    if (log_type === 'server' && server_abort_controller !== null) {
+        stopLogStreaming('server');
+    } else if (log_type === 'access' && access_abort_controller !== null) {
+        stopLogStreaming('access');
+    }
 
     // ログの取得を開始
-    abort_controller = Maintenance.streamLogs(log_type, (log_line: string) => {
+    const abort_controller = Maintenance.streamLogs(log_type, (log_line: string) => {
+        // ログタイプに応じたログ行配列を更新
+        const log_lines = log_type === 'server' ? server_log_lines : access_log_lines;
+
         // ログ行を追加
         log_lines.value.push(log_line);
 
@@ -94,38 +147,65 @@ function startLogStreaming() {
             log_lines.value = log_lines.value.slice(-MAX_LINES);
         }
 
-        // 次のティックでスクロールを最下部に移動
-        nextTick(() => {
-            if (logConsole.value) {
-                logConsole.value.scrollTop = logConsole.value.scrollHeight;
-            }
-        });
+        // 対応するスクローラーを最下部に移動（表示状態に関わらず）
+        scrollToBottom(log_type);
     });
 
     // 接続に失敗した場合
     if (abort_controller === null) {
-        log_lines.value = ['サーバーログの表示には管理者権限が必要です。\n管理者アカウントでログインし直してください。'];
+        const error_message = 'サーバーログの表示には管理者権限が必要です。\n管理者アカウントでログインし直してください。';
+        if (log_type === 'server') {
+            server_log_lines.value = [error_message];
+        } else {
+            access_log_lines.value = [error_message];
+        }
+        return;
+    }
+
+    // AbortController を保存
+    if (log_type === 'server') {
+        server_abort_controller = abort_controller;
+    } else {
+        access_abort_controller = abort_controller;
     }
 }
 
-// ログストリーミングを停止する関数
-function stopLogStreaming() {
-    if (abort_controller !== null) {
-        abort_controller.abort();
-        abort_controller = null;
+// 特定のログストリーミングを停止する関数
+function stopLogStreaming(log_type: 'server' | 'access') {
+    if (log_type === 'server' && server_abort_controller !== null) {
+        server_abort_controller.abort();
+        server_abort_controller = null;
+    } else if (log_type === 'access' && access_abort_controller !== null) {
+        access_abort_controller.abort();
+        access_abort_controller = null;
+    }
+}
+
+// すべてのログストリーミングを停止する関数
+function stopAllLogStreaming() {
+    stopLogStreaming('server');
+    stopLogStreaming('access');
+}
+
+// 指定されたログタイプのスクローラーを最下部に移動する関数
+function scrollToBottom(log_type: 'server' | 'access') {
+    if (log_type === 'server' && server_scroller.value) {
+        server_scroller.value.scrollTo(server_scroller.value.scrollSize);
+    } else if (log_type === 'access' && access_scroller.value) {
+        access_scroller.value.scrollTo(access_scroller.value.scrollSize);
     }
 }
 
 // コンポーネントがマウントされたときにログの取得を開始（すでにダイアログが開いている場合）
 onMounted(() => {
     if (server_log_dialog_modal.value) {
-        startLogStreaming();
+        startAllLogStreaming();
     }
 });
 
 // コンポーネントが破棄される前にログの取得を停止
 onBeforeUnmount(() => {
-    stopLogStreaming();
+    stopAllLogStreaming();
 });
 
 </script>
@@ -141,7 +221,7 @@ onBeforeUnmount(() => {
     .v-card-title span {
         font-size: 20px;
         @include smartphone-vertical {
-            font-size: 15.5px;
+            font-size: 19px;
         }
     }
 }
@@ -161,20 +241,30 @@ onBeforeUnmount(() => {
     }
 }
 
-.server-log-dialog__console {
+.server-log-dialog__console-container {
+    position: relative;
     margin-top: 16px;
-    height: 60vh;
-    height: 60dvh;
+    height: 60vh !important;
+    height: 60dvh !important;
+}
+
+.server-log-dialog__console {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     overflow-y: auto;
     color: rgb(var(--v-theme-text));
     background-color: #101010;
     border-radius: 6px;
     padding: 12px;
-    font-family: 'Consolas', 'Monaco', 'Courier New', 'Hiragino Sans', 'Noto Sans JP', monospace;
+    font-family: 'SF Mono', 'Consolas', 'Hiragino Sans', 'Noto Sans JP', monospace;
     font-size: 13px;
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-all;
+    transition: opacity 0.2s ease;
 
     &::-webkit-scrollbar-track {
         background: #101010;
@@ -183,17 +273,16 @@ onBeforeUnmount(() => {
     @include smartphone-vertical {
         font-size: 11px;
     }
+
+    &.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
 }
 
 .server-log-dialog__line {
     margin: 0;
     padding: 0;
-}
-
-.server-log-dialog__empty {
-    color: rgb(var(--v-theme-text-darken-1));
-    text-align: center;
-    padding: 20px 0;
 }
 
 </style>

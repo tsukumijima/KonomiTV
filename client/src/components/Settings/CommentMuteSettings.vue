@@ -207,6 +207,12 @@ export default defineComponent({
             padding-right: 12px !important;
         }
     }
+    .v-card-title span {
+        font-size: 20px;
+        @include smartphone-vertical {
+            font-size: 19px;
+        }
+    }
 }
 
 // views/Settings/Base.vue から抜粋して一部編集
