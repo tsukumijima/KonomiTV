@@ -125,7 +125,7 @@ class VideoEncodingTask:
 
         ## ビットレートと品質
         options.append(f'-flags +cgop+global_header -vb {QUALITY[quality].video_bitrate} -maxrate {QUALITY[quality].video_bitrate_max}')
-        options.append('-preset veryfast -aspect 16:9')
+        options.append('-preset veryfast -aspect 16:9 -pix_fmt:v yuv420p')
         if QUALITY[quality].is_hevc is True:
             options.append('-profile:v main')
         else:
