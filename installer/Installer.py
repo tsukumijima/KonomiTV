@@ -12,6 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 import urllib.parse
+import zipfile
 from pathlib import Path
 from rich import print
 from rich.padding import Padding
@@ -492,9 +493,11 @@ def Installer(version: str) -> None:
     if is_git_installed is True:
 
         # git clone でソースコードをダウンロード
+        ## latest の場合は master ブランチを、それ以外は指定されたバージョンのタグをチェックアウト
+        revision = 'master' if version == 'latest' else f'v{version}'
         result = RunSubprocess(
             'KonomiTV のソースコードを Git でダウンロードしています…',
-            ['git', 'clone', '-b', f'v{version}', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
+            ['git', 'clone', '-b', revision, 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
             cwd = install_path.parent,
             error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
             error_log_name = 'Git のエラーログ',
@@ -511,7 +514,11 @@ def Installer(version: str) -> None:
         progress = CreateDownloadInfiniteProgress()
 
         # GitHub からソースコードをダウンロード
-        source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')
+        ## latest の場合は master ブランチを、それ以外は指定されたバージョンのタグをダウンロード
+        if version == 'latest':
+            source_code_response = requests.get('https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/heads/master')
+        else:
+            source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')
         task_id = progress.add_task('', total=None)
 
         # ダウンロードしたデータを随時一時ファイルに書き込む
@@ -526,7 +533,10 @@ def Installer(version: str) -> None:
 
         # ソースコードを解凍して展開
         shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
-        shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)
+        if version == 'latest':
+            shutil.move(install_path.parent / 'KonomiTV-master/', install_path)
+        else:
+            shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)
         Path(source_code_file.name).unlink()
 
     # ***** リッスンポートの重複チェック *****
@@ -600,39 +610,53 @@ def Installer(version: str) -> None:
         progress = CreateDownloadProgress()
 
         # GitHub からサードパーティーライブラリをダウンロード
-        thirdparty_file = 'thirdparty-windows.7z'
+        if version == 'latest':
+            thirdparty_base_url = 'https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/'
+        else:
+            thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
+        thirdparty_compressed_file_name = 'thirdparty-windows.7z'
         if platform_type == 'Linux' and is_arm_device is False:
-            thirdparty_file = 'thirdparty-linux.tar.xz'
+            thirdparty_compressed_file_name = 'thirdparty-linux.tar.xz'
         elif platform_type == 'Linux' and is_arm_device is True:
-            thirdparty_file = 'thirdparty-linux-arm.tar.xz'
-        thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
-        thirdparty_url = thirdparty_base_url + thirdparty_file
+            thirdparty_compressed_file_name = 'thirdparty-linux-arm.tar.xz'
+        thirdparty_url = thirdparty_base_url + thirdparty_compressed_file_name
+        if version == 'latest':
+            thirdparty_url = thirdparty_url + '.zip'
         thirdparty_response = requests.get(thirdparty_url, stream=True)
         task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
         # ダウンロードしたデータを随時一時ファイルに書き込む
-        thirdparty_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+        thirdparty_compressed_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
         with progress:
             for chunk in thirdparty_response.iter_content(chunk_size=1048576):  # サイズが大きいので1MBごとに読み込み
-                thirdparty_file.write(chunk)
+                thirdparty_compressed_file.write(chunk)
                 progress.update(task_id, advance=len(chunk))
-        thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+        thirdparty_compressed_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
         # サードパーティーライブラリを解凍して展開
         print(Padding('サードパーティーライブラリを展開しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
+
+            # latest のみ、圧縮ファイルがさらに zip で包まれているので、それを解凍
+            thirdparty_compressed_file_path = thirdparty_compressed_file.name
+            if version == 'latest':
+                with zipfile.ZipFile(thirdparty_compressed_file.name, mode='r') as zip_file:
+                    zip_file.extractall(install_path / 'server/')
+                thirdparty_compressed_file_path = install_path / 'server' / thirdparty_compressed_file_name
+                Path(thirdparty_compressed_file.name).unlink()
+
             if platform_type == 'Windows':
                 # Windows: 7-Zip 形式のアーカイブを解凍
-                with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
+                with py7zr.SevenZipFile(thirdparty_compressed_file_path, mode='r') as seven_zip:
                     seven_zip.extractall(install_path / 'server/')
             elif platform_type == 'Linux':
                 # Linux: tar.xz 形式のアーカイブを解凍
                 ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
-                with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
+                with tarfile.open(thirdparty_compressed_file_path, mode='r:xz') as tar_xz:
                     tar_xz.extractall(install_path / 'server/')
-            Path(thirdparty_file.name).unlink()
+            Path(thirdparty_compressed_file_path).unlink()
             # server/thirdparty/.gitkeep が消えてたらもう一度作成しておく
             if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
                 Path(install_path / 'server/thirdparty/.gitkeep').touch()
