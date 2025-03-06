@@ -27,6 +27,7 @@ class VideoEncodingTask:
 
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
+    ## TODO: 実際のセグメント長が GOP 長で割り切れない場合にどうするか考える (特に tsreplace された TS)
     GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
 
     # エンコードタスクの最大リトライ回数
@@ -379,7 +380,7 @@ class VideoEncodingTask:
             # セグメント開始位置よりも後のキーフレームは採用せず、直前の DTS を記録
             if kf['offset'] > self._current_segment.start_file_position:
                 break
-            output_ts_offset = kf['dts'] / ts.HZ
+            output_ts_offset = kf['dts'] / ts.HZ  # 秒単位
 
         # 録画ファイルを開く
         file = open(self.video_stream.recorded_program.recorded_video.file_path, 'rb')
@@ -595,11 +596,12 @@ class VideoEncodingTask:
                     elif pid == self._video_pid:
                         self._video_parser.push(packet)
                         for video in self._video_parser:
-                            timestamp = cast(int, video.dts() or video.pts()) / ts.HZ
+                            current_timestamp = cast(int, video.dts() or video.pts()) / ts.HZ  # 秒単位
+                            next_segment_start_timestamp = (self._current_segment.start_dts / ts.HZ) + self._current_segment.duration_seconds  # 秒単位
 
-                            # セグメントの終了時刻を超えたら、現在のセグメントを確定して次のセグメントへ
-                            if self._current_segment is not None and \
-                                timestamp >= (self._current_segment.start_dts + self._current_segment.duration_seconds * ts.HZ) / ts.HZ:
+                            # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ
+                            # TODO: 現在の映像 PES がキーフレームかどうかを厳密にチェックしてから、当該 PES 以前まででセグメントを確定するようにする
+                            if self._current_segment is not None and current_timestamp >= next_segment_start_timestamp:
                                 # Future がまだ未完了の場合にのみ結果を設定する
                                 if not self._current_segment.encoded_segment_ts_future.done():
                                     self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
@@ -614,6 +616,8 @@ class VideoEncodingTask:
                                     logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
                                     break
 
+                                # 新しいセグメント用のデータと状態を初期化
+                                ## ここで encoded_segment は空にリセットされる
                                 logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
                                 self._current_segment = self.video_stream.segments[current_sequence]
                                 self._current_segment.encode_status = 'Encoding'

@@ -33,7 +33,8 @@ class VideoStreamSegment:
     # HLS セグメントの開始タイムスタンプ (90kHz)
     start_dts: int
     # HLS セグメント長 (秒単位)
-    ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
+    ## 基本 SEGMENT_DURATION_SECONDS と一致するはずだが、キーフレーム単位で切り出す必要があるため
+    ## 録画データによってはより長くなることがある (tsreplace で H.264 / HEVC 化した TS で顕著)
     duration_seconds: float
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
@@ -67,8 +68,6 @@ class VideoStream:
     MAX_READED_SEGMENTS: ClassVar[int] = 10
 
     # エンコードする HLS セグメントの最低長さ (秒)
-    ## キーフレーム間隔の最大値がこの SEGMENT_DURATION_SECONDS より大きい場合は、
-    ## キーフレーム間隔の最大値が最低セグメント間隔として利用される
     SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
@@ -243,12 +242,6 @@ class VideoStream:
                 interval = (next_frame['dts'] - current_frame['dts']) / ts.HZ
                 max_key_frame_interval = max(max_key_frame_interval, interval)
 
-            # キーフレーム間隔の最大値が SEGMENT_DURATION_SECONDS より大きい場合は、
-            # キーフレーム間隔の最大値を最低セグメント間隔として使用する
-            segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
-            logging.info(f'{self.log_prefix} Segment duration: {segment_duration_seconds:.3f} seconds'
-                         f' (max keyframe interval: {max_key_frame_interval:.3f} seconds)')
-
             segment_sequence = 0
             accumulated_duration: float = 0.0
             # セグメントの開始フレーム（フレーム情報全体を保持）
@@ -262,8 +255,8 @@ class VideoStream:
                 duration = (next_frame['dts'] - current_frame['dts']) / ts.HZ
                 accumulated_duration += duration
 
-                # 十分な累積時間が確保できた場合、新しいセグメントを作成
-                if accumulated_duration >= segment_duration_seconds:
+                # キーフレーム間隔が SEGMENT_DURATION_SECONDS 以上になったら、新しいセグメントに切り替える
+                if accumulated_duration >= self.SEGMENT_DURATION_SECONDS:
                     self._segments.append(VideoStreamSegment(
                         sequence_index = segment_sequence,
                         start_file_position = segment_start_frame['offset'],
