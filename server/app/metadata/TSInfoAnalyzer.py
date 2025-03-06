@@ -120,7 +120,7 @@ class TSInfoAnalyzer:
                         return True
 
                     # PAT, NIT, SDT, TOT, EIT を取り出す
-                    if not self.__readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
+                    if not TSInfoAnalyzer.readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
                         logging.warning(f'{psc_path}: File contents may be invalid.')
                     if last_tot_time_sec is not None:
                         self.last_tot_timedelta = timedelta(seconds = last_time_sec - last_tot_time_sec)
@@ -912,8 +912,8 @@ class TSInfoAnalyzer:
         return None
 
 
-    @classmethod
-    def __readPSIData(cls, reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
+    @staticmethod
+    def readPSIData(reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
         """
         書庫から PSI/SI セクションを取り出す
 
