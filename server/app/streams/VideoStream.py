@@ -33,8 +33,8 @@ class VideoStreamSegment:
     # HLS セグメントの開始タイムスタンプ (90kHz)
     start_dts: int
     # HLS セグメント長 (秒単位)
-    ## 基本 SEGMENT_DURATION_SECONDS と一致するはずだが、キーフレーム単位で切り出す必要があるため
-    ## 録画データによってはより長くなることがある (tsreplace で H.264 / HEVC 化した TS で顕著)
+    ## 無変換の TS では通常 SEGMENT_DURATION_SECONDS と一致するが、キーフレーム単位で切り出すため録画データによってはさらに長くなる
+    ## tsreplace で H.264 / H.265 化した TS で顕著で、例えば GOP 長が3秒の録画データなら、実際のセグメント長は12秒になる
     duration_seconds: float
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
@@ -280,6 +280,16 @@ class VideoStream:
                     encode_status = 'Pending',
                     encoded_segment_ts_future = asyncio.Future(),
                 ))
+
+            # HLS セグメント長の最小値・最大値・平均値をロギング
+            # 最後のセグメントの長さは通常 SEGMENT_DURATION_SECONDS と一致しないので統計から除外している
+            if len(self._segments) > 0:
+                min_duration = min(segment.duration_seconds for segment in self._segments[:-1])
+                max_duration = max(segment.duration_seconds for segment in self._segments[:-1])
+                avg_duration = sum(segment.duration_seconds for segment in self._segments[:-1]) / (len(self._segments) - 1)
+                logging.info(
+                    f'{self.log_prefix} Total {len(self._segments)} segments (min: {min_duration:.2f}s, max: {max_duration:.2f}s, avg: {avg_duration:.2f}s)'
+                )
 
         # キャッシュキーが指定されていない場合は UUID の - で区切って一番左側のみを使う
         if cache_key is None:
