@@ -193,11 +193,19 @@ def main(
     # Uvicorn のサーバーインスタンスを初期化
     server = uvicorn.Server(server_config)
 
-    # Windows では Winloop 、Linux では Uvloop をイベントループとして利用する
+    # Linux では Uvloop をイベントループとして利用する
+    # Windows では Winloop をイベントループとして利用する予定だったが、2025年3月時点では
+    # キャプチャ保存時 (?) に稀にプロセスごと無言で落ちる問題があるため、当面は通常の asyncio (ProactorEventLoop) を利用する
     # ref: https://github.com/Vizonex/Winloop
     if sys.platform == 'win32':
-        import winloop
-        winloop.install()
+        if reload is True:
+            logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
+            logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
+        # Aerich 0.8.2 以降では Windows のみインポート時にイベントループポリシーが SelectorEventLoop に変更されてしまうが、
+        # asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、明示的に ProactorEventLoop に戻す
+        # psycopg3 バックエンドが SelectorEventLoop しか対応していない件の対策らしいが、KonomiTV では SQLite を利用しているため問題ない
+        # ref: https://github.com/tortoise/aerich/pull/251
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     else:
         import uvloop
         uvloop.install()
