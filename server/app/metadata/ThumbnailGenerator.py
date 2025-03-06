@@ -132,6 +132,7 @@ class ThumbnailGenerator:
     def __init__(
         self,
         file_path: anyio.Path,
+        container_format: Literal['MPEG-TS', 'MPEG-4'],
         file_hash: str,
         duration_sec: float,
         candidate_time_ranges: list[tuple[float, float]],
@@ -142,6 +143,7 @@ class ThumbnailGenerator:
 
         Args:
             file_path (anyio.Path): 動画ファイルのパス
+            container_format (Literal['MPEG-TS', 'MPEG-4']): 動画ファイルのコンテナ形式
             file_hash (str): 動画ファイルのハッシュ値（ファイル名の一意性を保証するため）
             duration_sec (float): 動画の再生時間(秒)
             candidate_time_ranges (list[tuple[float, float]]): 代表サムネ候補とする区間 [(start, end), ...]
@@ -149,6 +151,7 @@ class ThumbnailGenerator:
         """
 
         self.file_path = file_path
+        self.container_format = container_format
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
@@ -262,6 +265,7 @@ class ThumbnailGenerator:
         # コンストラクタに渡す
         return cls(
             file_path = anyio.Path(recorded_program.recorded_video.file_path),
+            container_format = recorded_program.recorded_video.container_format,
             file_hash = recorded_program.recorded_video.file_hash,
             duration_sec = duration_sec,
             candidate_time_ranges = candidate_time_ranges,
@@ -454,8 +458,8 @@ class ThumbnailGenerator:
                         '-y',
                         # 非対話モードで実行し、不意のフリーズを回避する
                         '-nostdin',
-                        # 入力フォーマットを指定（現状 MPEG-TS 固定）
-                        '-f', 'mpegts',
+                        # 入力フォーマットを指定
+                        '-f', 'mpegts' if self.container_format == 'MPEG-TS' else 'mp4',
                         # I フレームのみをデコードする (nokey ではなく nointra でないと一部フレームが緑色になる…)
                         '-skip_frame', 'nointra',
                         # 抽出開始位置

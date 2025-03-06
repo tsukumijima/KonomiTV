@@ -48,7 +48,8 @@ class VideoEncodingTask:
         # このエンコードタスクが紐づく録画視聴セッションのインスタンス
         self.video_stream = video_stream
 
-        # tsreadex とエンコーダーのプロセス
+        # psisimux と tsreadex とエンコーダーのプロセス
+        self._psisimux_process: asyncio.subprocess.Process | None = None
         self._tsreadex_process: asyncio.subprocess.Process | None = None
         self._encoder_process: asyncio.subprocess.Process | None = None
 
@@ -388,8 +389,11 @@ class VideoEncodingTask:
                 break
             output_ts_offset = kf['dts'] / ts.HZ  # 秒単位
 
-        # 録画ファイルを開く
-        file = open(self.video_stream.recorded_program.recorded_video.file_path, 'rb')
+        # MPEG-TS 形式の場合のみ、録画ファイルを開く
+        # それ以外の場合は一旦 None とする
+        file = None
+        if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-TS':
+            file = open(self.video_stream.recorded_program.recorded_video.file_path, 'rb')
 
         # 切り出した HLS セグメント用 MPEG-TS パケットを一時的に保持するバッファ
         encoded_segment = bytearray()
@@ -412,8 +416,50 @@ class VideoEncodingTask:
                 self._audio_pid = None
                 self._audio_cc = 0
 
-                # ファイルポインタを移動
-                file.seek(self._current_segment.start_file_position)
+                # 録画ファイルが MPEG-4 形式の場合、psisimux で MPEG-TS に変換し、
+                # TS ファイル入力の代わりに psisimux からの出力を tsreadex への入力として渡す
+                psisimux_read_pipe = None
+                if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-4':
+                    assert file is None
+
+                    # psisimux のオプション
+                    ## MPEG-4 コンテナに字幕や PSI/SI を結合して MPEG-TS にするツール
+                    ## オプション内容は https://github.com/xtne6f/psisimux を参照
+                    psisimux_options = [
+                        # 出力ファイルのミリ秒単位の初期シーク量
+                        '-m', str(int(output_ts_offset * 1000)),
+                        # NetworkID/TransportStreamID/ServiceID
+                        '-b', '1/2/3' if self.video_stream.recorded_program.channel is None else \
+                            f'{self.video_stream.recorded_program.channel.network_id}/' \
+                            f'{self.video_stream.recorded_program.channel.transport_stream_id}/' \
+                            f'{self.video_stream.recorded_program.channel.service_id}',
+                        # 文字コードが UTF-8 の字幕を ARIB8 単位符号に変換する
+                        '-8',
+                        # 字幕ファイルの拡張子
+                        '-x', '.vtt',
+                        # 入力ファイル名
+                        self.video_stream.recorded_program.recorded_video.file_path,
+                        # 標準出力
+                        '-',
+                    ]
+
+                    # psisimux の読み込み用パイプと書き込み用パイプを作成
+                    psisimux_read_pipe, psisimux_write_pipe = os.pipe()
+
+                    # psisimux のプロセスを作成・実行
+                    self._psisimux_process = await asyncio.subprocess.create_subprocess_exec(
+                        LIBRARY_PATH['psisimux'], *psisimux_options,
+                        stdin = asyncio.subprocess.DEVNULL,  # 利用しない
+                        stdout = psisimux_write_pipe,  # tsreadex に繋ぐ
+                        stderr = asyncio.subprocess.DEVNULL,  # 利用しない
+                    )
+
+                    # psisimux の書き込み用パイプを閉じる
+                    os.close(psisimux_write_pipe)
+                else:
+                    # ファイルポインタを移動
+                    assert file is not None
+                    file.seek(self._current_segment.start_file_position)
 
                 # tsreadex のオプション
                 ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -459,7 +505,7 @@ class VideoEncodingTask:
                 # tsreadex のプロセスを作成・実行
                 self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
                     LIBRARY_PATH['tsreadex'], *tsreadex_options,
-                    stdin = file,  # シークされたファイルポインタを直接渡す
+                    stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
                     stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
                     stderr = asyncio.subprocess.DEVNULL,  # 利用しない
                 )
@@ -679,6 +725,16 @@ class VideoEncodingTask:
                     except (TimeoutError, Exception) as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
 
+                # psisimux プロセスを終了
+                if self._psisimux_process is not None:
+                    try:
+                        if self._psisimux_process.returncode is None:
+                            self._psisimux_process.kill()
+                            await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)  # プロセスの終了を待機
+                    except (TimeoutError, Exception) as ex:
+                        logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
+                    self._psisimux_process = None
+
                 # この時点で video_pid と audio_pid が取得できていない場合、正常にエンコード済み TS が出力されていないと考えられるため、
                 # エンコーダー起動をリトライする
                 if self._video_pid is None or self._audio_pid is None:
@@ -708,8 +764,17 @@ class VideoEncodingTask:
                 break
 
         finally:
-            # ファイルを閉じる
-            file.close()
+            if not file:
+                # psisimux プロセスを強制終了する
+                if self._psisimux_process is not None:
+                    try:
+                        self._psisimux_process.kill()
+                    except Exception as ex:
+                        logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
+                    self._psisimux_process = None
+            else:
+                # ファイルを閉じる
+                file.close()
 
             # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
             if CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT:
@@ -757,6 +822,14 @@ class VideoEncodingTask:
             ## この時点でまだ run() やエンコーダーが実行中であれば、run() やエンコーダーはこのフラグを見て自ら終了する
             ## できるだけ早い段階でフラグを立てておくことが重要
             self._is_cancelled = True
+
+            # psisimux プロセスを強制終了する
+            if self._psisimux_process is not None:
+                try:
+                    self._psisimux_process.kill()
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
+                self._psisimux_process = None
 
             # tsreadex プロセスを強制終了する
             if self._tsreadex_process is not None:

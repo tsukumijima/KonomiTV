@@ -251,7 +251,7 @@ async def BackgroundAnalysisAPI():
 
                 # キーフレーム情報が未解析の場合、タスクに追加
                 if not db_recorded_video.has_key_frames:
-                    tasks.append(KeyFrameAnalyzer(file_path).analyzeAndSave())
+                    tasks.append(KeyFrameAnalyzer(file_path, db_recorded_video.container_format).analyzeAndSave())
 
                 # CM 区間情報が未解析の場合、タスクに追加
                 ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
