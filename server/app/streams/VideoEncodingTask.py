@@ -337,6 +337,8 @@ class VideoEncodingTask:
 
         # 出力 TS のタイムスタンプオフセット
         options.append(f'-m output_ts_offset:{output_ts_offset}')
+        # dts 合わせにするため、B フレームによる pts-dts ずれ量を補正する
+        options.append(f'--offset-video-dts-advance')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
