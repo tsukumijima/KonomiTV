@@ -682,19 +682,27 @@ class ThumbnailGenerator:
         try:
             # PNG フレームを OpenCV の画像データに変換
             candidate_images = []
-            for png_data in png_frames:
-                try:
-                    # PNG バイナリを numpy 配列に変換
-                    image_data = np.frombuffer(png_data, dtype=np.uint8)
-                    # OpenCV で画像デコード
-                    frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
-                    if frame is None:
-                        logging.warning(f'{self.file_path}: Failed to decode PNG frame. Using black image instead.')
-                        # デコードに失敗した場合、黒画像を代わりに使用
-                        frame = np.zeros((height, width, 3), dtype=np.uint8)
-                except Exception as ex:
-                    logging.warning(f'{self.file_path}: Exception occurred while decoding PNG frame. Using black image instead:', exc_info=ex)
-                    # 例外が発生した場合、黒画像を代わりに使用
+            for i in range(len(png_frames)):
+                frame = None
+                if not png_frames[i]:
+                    # 動画末尾付近はその先に I フレームがないことが多くこのときその要素は空になる
+                    # この条件は頻繁なので、先頭要素でなく以降の要素がすべて空であるなら警告は出さない
+                    for j in range(i, len(png_frames)):
+                        if j == 0 or png_frames[j]:
+                            logging.warning(f'{self.file_path}: Failed to extract PNG frame. Using black image instead.')
+                            break
+                else:
+                    try:
+                        # PNG バイナリを numpy 配列に変換
+                        image_data = np.frombuffer(png_frames[i], dtype=np.uint8)
+                        # OpenCV で画像デコード
+                        frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+                        if frame is None:
+                            logging.warning(f'{self.file_path}: Failed to decode PNG frame. Using black image instead.')
+                    except Exception as ex:
+                        logging.warning(f'{self.file_path}: Exception occurred while decoding PNG frame. Using black image instead:', exc_info=ex)
+                if frame is None:
+                    # 黒画像を代わりに使用
                     frame = np.zeros((height, width, 3), dtype=np.uint8)
                 candidate_images.append(frame)
 
