@@ -118,11 +118,13 @@ def main():
     ShowPanel([
         '01. KonomiTV をインストールするときは 1 を、アップデートするときは 2 を、',
         '    アンインストールするときは 3 を入力してください。',
+        '    開発版 (4,5) には master ブランチの最新コミットが反映されています。',
+        '    安定動作は保証されておらずサポートもありませんので、ご了承の上ご利用ください。',
     ], padding=(1, 2, 1, 2))
 
     # 実行タイプ (インストール or アップデート or アンインストール)
     ## choices を指定することで、自動的にバリデーションが行われる（超便利）
-    run_type = int(CustomPrompt.ask('インストール(1) / アップデート(2) / アンインストール(3)', default='1', choices=['1', '2', '3']))
+    run_type = int(CustomPrompt.ask('インストール(1) / アップデート(2) / アンインストール(3)\n  開発版をインストール(4) / 開発版にアップデート(5)', default='1', choices=['1', '2', '3', '4', '5']))
 
     # Windows: コンソール出力前のおまじないとして、適当な PowerShell コマンドを実行する
     ## なぜ直るのかは全くもって謎だが、一度 PowerShell コマンドを実行しておくことで、print(Padding('Test', (1, 2, 0, 2)) のように
@@ -143,6 +145,10 @@ def main():
         Updater(TARGET_VERSION)
     elif run_type == 3:
         Uninstaller()
+    elif run_type == 4:
+        Installer('latest')
+    elif run_type == 5:
+        Updater('latest')
 
 
 if __name__ == '__main__':

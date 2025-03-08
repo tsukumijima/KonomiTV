@@ -33,7 +33,8 @@ class VideoStreamSegment:
     # HLS セグメントの開始タイムスタンプ (90kHz)
     start_dts: int
     # HLS セグメント長 (秒単位)
-    ## 基本 SEGMENT_DURATION_SECONDS に近い値になるが、キーフレーム単位で切り出すために少し長くなる
+    ## 無変換の TS では通常 SEGMENT_DURATION_SECONDS と一致するが、キーフレーム単位で切り出すため録画データによってはさらに長くなる
+    ## tsreplace で H.264 / H.265 化した TS で顕著で、例えば GOP 長が4秒の録画データなら、実際のセグメント長は6秒を超えて8秒になる
     duration_seconds: float
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
@@ -67,9 +68,7 @@ class VideoStream:
     MAX_READED_SEGMENTS: ClassVar[int] = 10
 
     # エンコードする HLS セグメントの最低長さ (秒)
-    ## キーフレーム間隔の最大値がこの SEGMENT_DURATION_SECONDS より大きい場合は、
-    ## キーフレーム間隔の最大値が最低セグメント間隔として利用される
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
+    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(6)  # 6秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
@@ -243,12 +242,6 @@ class VideoStream:
                 interval = (next_frame['dts'] - current_frame['dts']) / ts.HZ
                 max_key_frame_interval = max(max_key_frame_interval, interval)
 
-            # キーフレーム間隔の最大値が SEGMENT_DURATION_SECONDS より大きい場合は、
-            # キーフレーム間隔の最大値を最低セグメント間隔として使用する
-            segment_duration_seconds = max(self.SEGMENT_DURATION_SECONDS, max_key_frame_interval)
-            logging.info(f'{self.log_prefix} Segment duration: {segment_duration_seconds:.3f} seconds'
-                         f' (max keyframe interval: {max_key_frame_interval:.3f} seconds)')
-
             segment_sequence = 0
             accumulated_duration: float = 0.0
             # セグメントの開始フレーム（フレーム情報全体を保持）
@@ -262,8 +255,8 @@ class VideoStream:
                 duration = (next_frame['dts'] - current_frame['dts']) / ts.HZ
                 accumulated_duration += duration
 
-                # 十分な累積時間が確保できた場合、新しいセグメントを作成
-                if accumulated_duration >= segment_duration_seconds:
+                # キーフレーム間隔が SEGMENT_DURATION_SECONDS 以上になったら、新しいセグメントに切り替える
+                if accumulated_duration >= self.SEGMENT_DURATION_SECONDS:
                     self._segments.append(VideoStreamSegment(
                         sequence_index = segment_sequence,
                         start_file_position = segment_start_frame['offset'],
@@ -287,6 +280,16 @@ class VideoStream:
                     encode_status = 'Pending',
                     encoded_segment_ts_future = asyncio.Future(),
                 ))
+
+            # HLS セグメント長の最小値・最大値・平均値をロギング
+            # 最後のセグメントの長さは通常 SEGMENT_DURATION_SECONDS と一致しないので統計から除外している
+            if len(self._segments) > 0:
+                min_duration = min(segment.duration_seconds for segment in self._segments[:-1])
+                max_duration = max(segment.duration_seconds for segment in self._segments[:-1])
+                avg_duration = sum(segment.duration_seconds for segment in self._segments[:-1]) / (len(self._segments) - 1)
+                logging.info(
+                    f'{self.log_prefix} Total {len(self._segments)} segments (min: {min_duration:.2f}s, max: {max_duration:.2f}s, avg: {avg_duration:.2f}s)'
+                )
 
         # キャッシュキーが指定されていない場合は UUID の - で区切って一番左側のみを使う
         if cache_key is None:
