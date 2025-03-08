@@ -34,7 +34,7 @@ class VideoStreamSegment:
     start_dts: int
     # HLS セグメント長 (秒単位)
     ## 無変換の TS では通常 SEGMENT_DURATION_SECONDS と一致するが、キーフレーム単位で切り出すため録画データによってはさらに長くなる
-    ## tsreplace で H.264 / H.265 化した TS で顕著で、例えば GOP 長が3秒の録画データなら、実際のセグメント長は12秒になる
+    ## tsreplace で H.264 / H.265 化した TS で顕著で、例えば GOP 長が4秒の録画データなら、実際のセグメント長は6秒を超えて8秒になる
     duration_seconds: float
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
@@ -68,7 +68,7 @@ class VideoStream:
     MAX_READED_SEGMENTS: ClassVar[int] = 10
 
     # エンコードする HLS セグメントの最低長さ (秒)
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(10)  # 10秒
+    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(6)  # 6秒
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている

@@ -28,7 +28,7 @@ class VideoEncodingTask:
     # エンコード後のストリームの GOP 長 (秒)
     ## ライブではないため、GOP 長は H.264 / H.265 共通で長めに設定する
     ## TODO: 実際のセグメント長が GOP 長で割り切れない場合にどうするか考える (特に tsreplace された TS)
-    GOP_LENGTH_SECOND: ClassVar[float] = float(2.5)  # 2.5秒
+    GOP_LENGTH_SECOND: ClassVar[float] = float(3)  # 3秒
 
     # エンコードタスクの最大リトライ回数
     ## この数を超えた場合はエンコードタスクを再起動しない（無限ループを避ける）
@@ -100,7 +100,7 @@ class VideoEncodingTask:
         analyzeduration = round(500000 + (self._retry_count * 250000))  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
             # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            analyzeduration += 250000
+            analyzeduration += 500000
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
@@ -112,9 +112,10 @@ class VideoEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになる
-        ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
-        max_interleave_delta = round(500 + (self._retry_count * 100))
+        ## max_interleave_delta: mux 時に影響するオプションで、ライブ再生では増やしすぎると CM で詰まりがちになる
+        ## 録画再生では逆に大きめでないと映像/音声のずれが大きくなりセグメント分割時に問題が生じるため、
+        ## 5000K (5秒) に設定し、リトライ回数に応じて 500K (0.5秒) ずつ増やす
+        max_interleave_delta = round(5000 + (self._retry_count * 500))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 0 -tune zerolatency -max_interleave_delta {max_interleave_delta}K -threads auto')
 
         # 映像
@@ -202,8 +203,8 @@ class VideoEncodingTask:
         input_analyze = round(0.7 + (self._retry_count * 0.5), 1)  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
             # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            input_probesize += 500
-            input_analyze += 1.3
+            input_probesize += 1000
+            input_analyze += 4.3
 
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
