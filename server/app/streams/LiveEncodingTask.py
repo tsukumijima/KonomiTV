@@ -285,7 +285,7 @@ class LiveEncodingTask:
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
         options.append(f'--input-format mpegts --input-probesize {input_probesize}K --input-analyze {input_analyze}')
-        ## BS4K 以外では 30fps を指定する
+        ## BS4K 以外では 29.97fps (59.94i) を指定する
         if channel_type != 'BS4K':
             options.append('--fps 30000/1001')
         ## 入力を指定する
