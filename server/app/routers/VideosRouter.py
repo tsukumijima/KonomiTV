@@ -849,6 +849,13 @@ async def VideoDeleteAPI(
         # 1. データベースから録画番組情報・録画ファイル情報を削除
         # RecordedVideo も CASCADE 制約で削除される
         try:
+            # 同じ file_hash を持つ他のレコードが存在するかチェック
+            duplicate_records = await RecordedProgram.filter(
+                recorded_video__file_hash=file_hash,
+            ).exclude(id=recorded_program.id).count()
+            has_duplicates = duplicate_records > 0
+
+            # データベースから録画番組情報を削除
             await recorded_program.delete()
         except Exception as ex:
             logging.error('[VideoDeleteAPI] Failed to delete recorded program from database:', exc_info=ex)
@@ -858,8 +865,9 @@ async def VideoDeleteAPI(
             )
 
         # 2. サムネイルファイルの削除
+        # 同じ file_hash を持つ他のレコードが存在する場合はスキップ
         thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
-        if await thumbnails_dir.is_dir():
+        if await thumbnails_dir.is_dir() and not has_duplicates:
             # 通常サムネイル (.webp または .jpg)
             for ext in ['.webp', '.jpg']:
                 thumbnail_path = thumbnails_dir / f'{file_hash}{ext}'
@@ -889,6 +897,8 @@ async def VideoDeleteAPI(
                         )
                 elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
                     logging.warning(f'[VideoDeleteAPI] Tile thumbnail file does not exist: {tile_thumbnail_path}')
+        elif has_duplicates:
+            logging.info(f'[VideoDeleteAPI] Skip deleting thumbnail files because other records with the same file_hash exist: {file_hash}')
 
         # 3. 関連する補助ファイルの削除 (.ts.program.txt, .ts.err)
         ## .ts.program.txt ファイル (録画ファイルが hoge.ts の場合は hoge.ts.program.txt)
