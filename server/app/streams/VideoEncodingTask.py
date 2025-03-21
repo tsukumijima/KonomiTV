@@ -600,8 +600,8 @@ class VideoEncodingTask:
                     elif pid == self._video_pid:
                         self._video_parser.push(packet)
                         for video in self._video_parser:
-                            current_timestamp = cast(int, video.dts() or video.pts()) / ts.HZ  # 秒単位
-                            next_segment_start_timestamp = (self._current_segment.start_dts / ts.HZ) + self._current_segment.duration_seconds  # 秒単位
+                            current_timestamp = cast(int, video.dts() or video.pts())
+                            next_segment_start_timestamp = self._current_segment.start_dts + int(self._current_segment.duration_seconds * ts.HZ + 0.5)
 
                             # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ
                             # TODO: 現在の映像 PES がキーフレームかどうかを厳密にチェックしてから、当該 PES 以前まででセグメントを確定するようにする
