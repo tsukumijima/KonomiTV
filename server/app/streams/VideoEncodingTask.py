@@ -233,9 +233,9 @@ class VideoEncodingTask:
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
         if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
             options.append('--disable-opencl')
-        ## NVEncC では NVML によるモニタリングと DX11 を無効化することで初期化フェーズを高速化する
+        ## NVEncC では NVML によるモニタリングと DX11, Vulkan を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
-            options.append('--disable-nvml 1 --disable-dx11')
+            options.append('--disable-nvml 1 --disable-dx11 --disable-vulkan')
 
         # 映像
         ## コーデック
