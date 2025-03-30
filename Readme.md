@@ -1,7 +1,17 @@
 
 # <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">　<!-- omit in toc -->
-
 <img width="100%" src="https://github.com/user-attachments/assets/6971f354-0418-4305-bf6d-b061142ffec6"><br>
+
+## 本 Fork の特徴（追加機能） 
+- Cloudflare　Zerotrust 環境の自動判別
+- ログインページの自動リダイレクト
+- 「CFからログアウト」ボタンをサイドバーに実装
+- 放送局ロゴのスプライト化
+## Fork デプロイ方法
+本 Fork は現在クライアントサイドの変更のみを含みます。そのため、以下の手順で簡単に適用できます：
+
+- [リリースページ](https://github.com/makeding/KonomiTV-cloudflare-zerotrust/releases/latest) から最新のビルドをダウンロード
+- `client/dist` を置き換えだけで適用完了です！🎉
 
 **いろいろな場所とデバイスでテレビと録画を快適に見れる、モダンな Web ベースのソフトウェアです。**
 
@@ -21,6 +31,8 @@
 今後もより快適な視聴体験を実現すべく、「番組表」「録画予約管理（EDCB 連携）」「録画番組の自動エンコード」「キャプチャ画像の管理」など、さらに便利で使いやすい機能を順次追加していく予定です。
 
 ## 目次 <!-- omit in toc -->
+- [本 Fork の特徴（追加機能）](#本-fork-の特徴追加機能)
+- [Fork デプロイ方法](#fork-デプロイ方法)
 - [設計思想](#設計思想)
 - [動作環境](#動作環境)
   - [サーバー](#サーバー)
