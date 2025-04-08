@@ -5,12 +5,13 @@ import asyncio
 import concurrent.futures
 import pathlib
 from datetime import datetime
-from typing import ClassVar, TypedDict
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import anyio
 from fastapi import HTTPException, status
 from tortoise import transactions
+from typing_extensions import TypedDict
 from watchfiles import Change, awatch
 
 from app import logging, schemas

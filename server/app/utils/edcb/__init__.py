@@ -1,7 +1,9 @@
 
 import datetime
 from enum import IntEnum
-from typing import NotRequired, TypedDict
+from typing import NotRequired
+
+from typing_extensions import TypedDict
 
 
 # 以下、 CtrlCmdUtil で受け渡しする辞書の型ヒント

@@ -115,7 +115,7 @@ class LiveStream:
         if live_stream_id not in cls.__instances:
 
             # 新しいライブストリームのインスタンスを生成する
-            instance = super(LiveStream, cls).__new__(cls)
+            instance = super().__new__(cls)
 
             # ライブストリーム ID を設定
             instance.live_stream_id = live_stream_id

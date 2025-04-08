@@ -4,11 +4,12 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any, ClassVar, Literal, TypedDict, cast
+from typing import Any, ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
+from typing_extensions import TypedDict
 
 from app import logging, schemas
 from app.constants import HTTPX_CLIENT

@@ -84,7 +84,7 @@ class VideoStream:
         if session_id not in cls.__instances:
 
             # 新しい録画視聴セッションのインスタンスを生成する
-            instance = super(VideoStream, cls).__new__(cls)
+            instance = super().__new__(cls)
 
             # セッション ID を設定
             instance.session_id = session_id
