@@ -3,7 +3,7 @@
 ## タイムゾーンが UTC の環境ではログの日時が日本時間より9時間遅れてしまうため
 ## デフォルトを Asia/Tokyo に変更することで、万が一のタイムゾーン関連のバグを防ぐ防波堤としての意味合いもある
 ## Windows ではタイムゾーンを変更することができないため、何もしない
-import os
+import os  # noqa: I001
 import sys
 import time
 if sys.platform != 'win32':
@@ -19,10 +19,11 @@ import atexit
 import logging
 import platform
 import subprocess
+from pathlib import Path
+
 import typer
 import uvicorn
 from aerich import Command
-from pathlib import Path
 from tortoise import Tortoise
 from uvicorn.supervisors.watchfilesreload import WatchFilesReload
 

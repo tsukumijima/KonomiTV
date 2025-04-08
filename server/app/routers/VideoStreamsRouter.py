@@ -1,15 +1,11 @@
 
 import asyncio
 import json
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Query
-from fastapi import status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
-from typing import Annotated
 
 from app import logging
 from app.constants import QUALITY, QUALITY_TYPES

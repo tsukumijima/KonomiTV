@@ -3,28 +3,27 @@
 # ref: https://metallapan.se/post/windows-service-pywin32-pyinstaller/
 
 # Windows 以外では動作しないので終了
-import os
-import sys
+import sys  # noqa: I001
 if sys.platform != 'win32':
     print('KonomiTV-Service.py is for Windows only. Doesn\'t work on Linux.')
     sys.exit(1)
 
-# 通常モジュール
-import httpx
-import psutil
+import os
 import subprocess
 import threading
-import typer
 import winreg
 from pathlib import Path
 from typing import Any, cast
 
-# pywin32 モジュール
+import httpx
+import psutil
 import servicemanager
+import typer
 import win32api
 import win32security
 import win32service
 import win32serviceutil
+
 
 # KonomiTV サーバーのベースディレクトリ
 BASE_DIR = Path(__file__).parent

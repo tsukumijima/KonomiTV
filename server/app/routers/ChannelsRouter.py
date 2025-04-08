@@ -1,27 +1,19 @@
 
-import anyio
 import asyncio
 import hashlib
-import httpx
 import json
-from datetime import datetime
-from datetime import timedelta
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Request
-from fastapi import status
-from fastapi.responses import FileResponse
-from fastapi.responses import JSONResponse
-from fastapi.responses import Response
-from fastapi.security.utils import get_authorization_scheme_param
-from tortoise import connections
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-from app import logging
-from app import schemas
+import anyio
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.security.utils import get_authorization_scheme_param
+from tortoise import connections
+
+from app import logging, schemas
 from app.config import Config
 from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
 from app.models.Channel import Channel
@@ -471,7 +463,7 @@ async def ChannelLogoAPI(
     if channel_id == 'NID0-SID0' or channel_id == 'gr000':
         return FileResponse(LOGO_DIR / 'default.png', headers={
             'Cache-Control': CACHE_CONTROL,
-            'ETag': GetETag('default'.encode()),
+            'ETag': GetETag(b'default'),
         })
     channel = await GetChannel(channel_id)
 
@@ -517,7 +509,7 @@ async def ChannelLogoAPI(
     # 同梱のロゴファイルも Mirakurun や EDCB からのロゴもない場合は、デフォルトのロゴ画像を返す
     return FileResponse(LOGO_DIR / 'default.png', headers={
         'Cache-Control': CACHE_CONTROL,
-        'ETag': GetETag('default'.encode()),
+        'ETag': GetETag(b'default'),
     })
 
 

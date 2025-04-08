@@ -1,22 +1,23 @@
 
-import anyio
 import asyncio
 import json
 import os
-import psutil
 import signal
 import sys
 import threading
 import time
-from fastapi import APIRouter, Depends, Request, status, Path
+from collections.abc import Coroutine
+from typing import Annotated, Any, Literal
+
+import anyio
+import psutil
+from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
-from typing import Any, Annotated, Coroutine, Literal
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.config import Config
 from app.constants import (
     KONOMITV_ACCESS_LOG_PATH,
@@ -120,7 +121,7 @@ def LogStreamAPI(
         """イベントストリームを出力するジェネレーター"""
 
         # ファイルを開く
-        with open(log_path, 'r', encoding='utf-8') as f:
+        with open(log_path, encoding='utf-8') as f:
             # 初回接続時に全ての行を送信
             all_lines = [line.rstrip('\n') for line in f.readlines() if line.strip()]  # 空行は除外
             yield {

@@ -1,20 +1,17 @@
 
-import ariblib.constants
 import re
-from fastapi import APIRouter
-from fastapi import Body
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import status
-from typing import Annotated, Any, cast, Literal
+from typing import Annotated, Any, Literal, cast
 
-from app import logging
-from app import schemas
+import ariblib.constants
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
+
+from app import logging, schemas
 from app.models.Channel import Channel
-from app.routers.ReservationsRouter import DecodeEDCBRecSettingData
-from app.routers.ReservationsRouter import EncodeEDCBRecSettingData
-from app.routers.ReservationsRouter import GetCtrlCmdUtil
+from app.routers.ReservationsRouter import (
+    DecodeEDCBRecSettingData,
+    EncodeEDCBRecSettingData,
+    GetCtrlCmdUtil,
+)
 from app.utils.edcb import (
     AutoAddData,
     AutoAddDataRequired,

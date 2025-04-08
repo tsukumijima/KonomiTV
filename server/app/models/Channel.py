@@ -3,17 +3,16 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import httpx
 import time
 from datetime import datetime
-from tortoise import fields
-from tortoise import transactions
-from tortoise.exceptions import OperationalError
+from typing import TYPE_CHECKING, Any, Literal, cast
+from zoneinfo import ZoneInfo
+
+import httpx
+from tortoise import fields, transactions
+from tortoise.exceptions import IntegrityError, OperationalError
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
-from tortoise.exceptions import IntegrityError
-from typing import Any, cast, Literal, TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 from app import logging
 from app.config import Config
@@ -23,6 +22,7 @@ from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.JikkyoClient import JikkyoClient
 from app.utils.TSInformation import TSInformation
+
 
 if TYPE_CHECKING:
     from app.models.Program import Program

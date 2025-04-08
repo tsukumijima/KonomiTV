@@ -1,14 +1,10 @@
 
-from fastapi import APIRouter
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Query
-from fastapi import status
-from tortoise.expressions import Q
 from typing import Annotated, Literal
 
-from app import logging
-from app import schemas
+from fastapi import APIRouter, HTTPException, Path, Query, status
+from tortoise.expressions import Q
+
+from app import logging, schemas
 from app.models.Series import Series
 
 

@@ -2,18 +2,17 @@
 import hashlib
 import io
 import re
-import typer
-from biim.mpeg2ts import ts
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from pymediainfo import MediaInfo
-from rich import print
-from typing import cast, Literal
+from typing import Literal, cast
 from zoneinfo import ZoneInfo
 
-from app import logging
-from app import schemas
+import typer
+from biim.mpeg2ts import ts
+from pymediainfo import MediaInfo
+from rich import print
+
+from app import logging, schemas
 from app.config import Config, LoadConfig
 from app.constants import LIBRARY_DIR
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer

@@ -2,10 +2,11 @@
 
 # Usage: poetry run python -m misc.LiveBitrateCalculator
 
-import requests
 import time
-import typer
 from concurrent.futures import ThreadPoolExecutor
+
+import requests
+import typer
 
 
 app = typer.Typer()

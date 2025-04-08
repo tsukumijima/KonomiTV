@@ -74,12 +74,22 @@ target-version = "py311"
 extend-exclude = ["data/", "thirdparty/"]
 
 [tool.ruff.lint]
-# flake8, pycodestyle, Ruff 固有のルールを使う
-select = ["F", "E", "W", "RUF"]
+# flake8, pycodestyle, pyupgrade, isort, Ruff 固有のルールを使う
+select = ["F", "E", "W", "UP", "I", "RUF", "TID251"]
 ignore = [
     "E501",    # 1行の長さを超えている場合の警告を抑制
     "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
     "RUF001",  # 全角記号など `ambiguous unicode character` も使いたいため
     "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
     "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF012",
 ]
+
+[tool.ruff.lint.isort]
+# インポートブロックの後に2行空ける
+lines-after-imports = 2
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Python 3.11 + Pydantic で TypedDict を扱う際は、typing_extensions.TypedDict を使う必要がある
+# ref: https://github.com/langchain-ai/langgraph/pull/2910
+"typing.TypedDict".msg = "Use typing_extensions.TypedDict instead."

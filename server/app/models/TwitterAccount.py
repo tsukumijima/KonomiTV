@@ -6,14 +6,16 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from typing import TYPE_CHECKING
+
 import tweepy
 from requests.cookies import RequestsCookieJar
 from tortoise import fields
 from tortoise.models import Model as TortoiseModel
 from tweepy_authlib import CookieSessionUserHandler
-from typing import TYPE_CHECKING
 
 from app import logging
+
 
 if TYPE_CHECKING:
     from app.models.User import User

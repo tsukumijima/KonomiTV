@@ -1,19 +1,12 @@
 
-from fastapi import APIRouter
-from fastapi import Body
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import status
 from typing import Annotated
 
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+
 from app import logging
-from app.config import ClientSettings
-from app.config import Config
-from app.config import SaveConfig
-from app.config import ServerSettings
+from app.config import ClientSettings, Config, SaveConfig, ServerSettings
 from app.models.User import User
-from app.routers.UsersRouter import GetCurrentAdminUser
-from app.routers.UsersRouter import GetCurrentUser
+from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 
 
 # ルーター

@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import asyncio
 import time
-from hashids import Hashids
 from typing import ClassVar, Literal
+
+from hashids import Hashids
 
 from app import logging
 from app.constants import QUALITY_TYPES
@@ -16,7 +17,7 @@ from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils.edcb.EDCBTuner import EDCBTuner
 
 
-class LiveStreamClient():
+class LiveStreamClient:
     """ ライブストリームのクライアントを表すクラス """
 
     def __init__(self, live_stream: LiveStream, client_type: Literal['mpegts']) -> None:
@@ -97,7 +98,7 @@ class LiveStreamClient():
         self._queue.put_nowait(stream_data)
 
 
-class LiveStream():
+class LiveStream:
     """ ライブストリームを管理するクラス """
 
     # ライブストリームのインスタンスが入る、ライブストリーム ID をキーとした辞書
