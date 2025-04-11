@@ -4,14 +4,11 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-from datetime import date
-from datetime import datetime
-from pydantic import BaseModel
-from pydantic import computed_field
-from pydantic import Field
-from pydantic import RootModel
+from datetime import date, datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, RootModel, computed_field
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Annotated, Literal, Union
 from typing_extensions import TypedDict
 
 
@@ -519,8 +516,8 @@ class Tweet(BaseModel):
     retweeted: bool
     favorite_count: int
     favorited: bool
-    retweeted_tweet: Union['Tweet', None]
-    quoted_tweet: Union['Tweet', None]
+    retweeted_tweet: Tweet | None
+    quoted_tweet: Tweet | None
 
 class TweetUser(BaseModel):
     id: str

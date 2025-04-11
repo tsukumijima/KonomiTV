@@ -7,17 +7,19 @@ import asyncio
 import math
 import os
 import sys
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
+
 from biim.mpeg2ts import ts
-from biim.mpeg2ts.parser import SectionParser, PESParser
+from biim.mpeg2ts.packetize import packetize_pes, packetize_section
+from biim.mpeg2ts.parser import PESParser, SectionParser
 from biim.mpeg2ts.pat import PATSection
-from biim.mpeg2ts.pmt import PMTSection
 from biim.mpeg2ts.pes import PES
-from biim.mpeg2ts.packetize import packetize_section, packetize_pes
-from typing import cast, ClassVar, Literal, TYPE_CHECKING
+from biim.mpeg2ts.pmt import PMTSection
 
 from app import logging
 from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY, QUALITY_TYPES
+
 
 if TYPE_CHECKING:
     from app.streams.VideoStream import VideoStream, VideoStreamSegment
@@ -338,7 +340,7 @@ class VideoEncodingTask:
         # 出力 TS のタイムスタンプオフセット
         options.append(f'-m output_ts_offset:{output_ts_offset}')
         # dts 合わせにするため、B フレームによる pts-dts ずれ量を補正する
-        options.append(f'--offset-video-dts-advance')
+        options.append('--offset-video-dts-advance')
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
@@ -665,7 +667,7 @@ class VideoEncodingTask:
                         if self._encoder_process.returncode is None:
                             self._encoder_process.kill()
                             await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (Exception, asyncio.TimeoutError) as ex:
+                    except (TimeoutError, Exception) as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
 
                 # tsreadex プロセスを終了
@@ -674,7 +676,7 @@ class VideoEncodingTask:
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
                             await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (Exception, asyncio.TimeoutError) as ex:
+                    except (TimeoutError, Exception) as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
 
                 # この時点で video_pid と audio_pid が取得できていない場合、正常にエンコード済み TS が出力されていないと考えられるため、

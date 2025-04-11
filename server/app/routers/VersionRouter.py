@@ -1,8 +1,9 @@
 
-import httpx
 import time
-from fastapi import APIRouter
 from typing import Any
+
+import httpx
+from fastapi import APIRouter
 
 from app import schemas
 from app.config import Config

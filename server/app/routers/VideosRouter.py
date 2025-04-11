@@ -1,23 +1,25 @@
 
-import anyio
 import json
 import pathlib
 from email.utils import parsedate
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Query
-from fastapi import Request
-from fastapi import Response
-from fastapi import status
+from typing import Annotated, Any, Literal
+
+import anyio
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import FileResponse
 from starlette.datastructures import Headers
 from tortoise import connections
-from typing import Annotated, Any, Literal, Union
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -156,7 +158,7 @@ async def GetThumbnailResponse(
     request: Request,
     recorded_program: RecordedProgram,
     return_tiled: bool = False,
-) -> Union[FileResponse, Response]:
+) -> FileResponse | Response:
     """
     サムネイル画像のレスポンスを生成する共通処理
     ETags と Last-Modified を使ったキャッシュ制御を行う
@@ -596,12 +598,12 @@ async def VideosSearchAPI(
     params.extend([str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)])
 
     # 総数を取得するクエリを構築
-    total_query = """
+    total_query = f"""
         SELECT COUNT(*) as count
         FROM recorded_programs rp
         LEFT JOIN channels ch ON rp.channel_id = ch.id
         WHERE {where_clause}
-    """.format(where_clause=where_clause)
+    """
     total_params = params[:-2]  # LIMIT と OFFSET を除外
 
     try:

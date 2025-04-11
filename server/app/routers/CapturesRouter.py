@@ -1,14 +1,11 @@
 
 import errno
-import puremagic
 import shutil
-from fastapi import APIRouter
-from fastapi import File
-from fastapi import HTTPException
-from fastapi import status
-from fastapi import UploadFile
 from pathlib import Path
 from typing import Annotated, cast
+
+import puremagic
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app import logging
 from app.config import Config

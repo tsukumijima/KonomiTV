@@ -3,17 +3,17 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import httpx
 import json
 import re
-from bs4 import BeautifulSoup
-from bs4 import Tag
 from datetime import datetime
-from typing import Any, cast, ClassVar, Literal, NotRequired, TypedDict
+from typing import Any, ClassVar, Literal, NotRequired, cast
 from zoneinfo import ZoneInfo
 
-from app import logging
-from app import schemas
+import httpx
+from bs4 import BeautifulSoup, Tag
+from typing_extensions import TypedDict
+
+from app import logging, schemas
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH
 from app.models.User import User
 
@@ -29,7 +29,7 @@ class JikkyoClient:
 
     # 実況チャンネル ID とサービス ID (SID)・ネットワーク ID (NID) の対照表
     ## NicoJK の jkch.sh.txt (https://github.com/xtne6f/NicoJK/blob/master/jkch.sh.txt) をベースに、情報更新の上で JSON に変換したもの
-    with open(JIKKYO_CHANNELS_PATH, mode='r', encoding='utf-8') as file:
+    with open(JIKKYO_CHANNELS_PATH, encoding='utf-8') as file:
         JIKKYO_CHANNELS: ClassVar[list[dict[str, Any]]] = json.load(file)
 
     # 旧来の実況チャンネル ID とニコニコチャンネル ID のマッピング

@@ -1,19 +1,12 @@
 
 import asyncio
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
-from fastapi import APIRouter
-from fastapi import Body
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import status
-from tortoise import transactions
-from typing import Annotated, Any, cast, Literal
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any, Literal, cast
 
-from app import logging
-from app import schemas
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
+from tortoise import transactions
+
+from app import logging, schemas
 from app.config import Config
 from app.models.Channel import Channel
 from app.models.Program import Program
@@ -99,13 +92,18 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         )
         # GR 以外のみサービス ID からリモコン ID を算出できるので、それを実行
         if channel.type != 'GR':
-            channel.remocon_id = channel.calculateRemoconID()
+            channel.remocon_id = TSInformation.calculateRemoconID(channel.type, channel.service_id)
         # チャンネル番号を算出
-        channel.channel_number = await channel.calculateChannelNumber()
+        channel.channel_number = await TSInformation.calculateChannelNumber(
+            channel.type,
+            channel.network_id,
+            channel.service_id,
+            channel.remocon_id,
+        )
         # 改めて表示用チャンネル ID を算出
         channel.display_channel_id = channel.type.lower() + channel.channel_number
         # このチャンネルがサブチャンネルかを算出
-        channel.is_subchannel = channel.calculateIsSubchannel()
+        channel.is_subchannel = TSInformation.calculateIsSubchannel(channel.type, channel.service_id)
 
     # 録画予約番組のイベント ID
     event_id: int = reserve_data['eid']

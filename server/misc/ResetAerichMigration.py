@@ -3,6 +3,7 @@
 # Usage: poetry run python -m misc.ResetAerichMigration
 
 import asyncio
+
 import typer
 from aerich import Command
 from tortoise import Tortoise

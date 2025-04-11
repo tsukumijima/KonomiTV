@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Literal, cast
+
 from tortoise import fields
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
-from typing import cast, Literal
 
 from app.models.RecordedProgram import RecordedProgram
 from app.schemas import CMSection, KeyFrame

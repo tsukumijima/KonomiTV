@@ -1,11 +1,12 @@
 
 import multiprocessing
 import re
+from typing import ClassVar, Literal, cast
+
 from ariblib.aribstr import AribString
 from tortoise import Tortoise, connections
 from tortoise.exceptions import ConfigurationError
 from tortoise.expressions import Q
-from typing import cast, ClassVar, Literal
 
 from app.constants import DATABASE_CONFIG
 

@@ -1,22 +1,22 @@
 
 from __future__ import annotations
 
-import anyio
 import asyncio
 import concurrent.futures
-import cv2
 import math
-import numpy as np
 import pathlib
 import random
 import subprocess
 import time
+from typing import ClassVar, Literal, cast
+
+import anyio
+import cv2
+import numpy as np
 import typer
 from numpy.typing import NDArray
-from typing import cast, ClassVar, Literal
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.config import Config, LoadConfig
 from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
 
@@ -532,7 +532,7 @@ class ThumbnailGenerator:
                         try:
                             # 同期イベントが発火するまで待機（キャンセル可能）
                             await asyncio.wait_for(sync_event.wait(), timeout=30.0)
-                        except (asyncio.CancelledError, asyncio.TimeoutError):
+                        except (TimeoutError, asyncio.CancelledError):
                             # キャンセルまたはタイムアウト時は即座に終了
                             return
                         finally:
@@ -607,7 +607,7 @@ class ThumbnailGenerator:
                                 await asyncio.gather(*worker_tasks, return_exceptions=True)
                                 break
 
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             # タイムアウト時はエラーとして扱う
                             raise RuntimeError('Timeout while waiting for frame')
 

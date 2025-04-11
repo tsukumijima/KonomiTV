@@ -24,7 +24,7 @@ class EDCBTuner:
     def __new__(cls, network_id: int, service_id: int, transport_stream_id: int) -> EDCBTuner:
 
         # 新しいチューナーインスタンスを生成する
-        instance = super(EDCBTuner, cls).__new__(cls)
+        instance = super().__new__(cls)
 
         # 生成したチューナーインスタンスを登録する
         cls.__instances.append(instance)

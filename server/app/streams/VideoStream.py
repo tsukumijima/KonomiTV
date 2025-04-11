@@ -7,10 +7,12 @@ from __future__ import annotations
 import asyncio
 import math
 import uuid
-from biim.mpeg2ts import ts
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import ClassVar, Literal
+
+from biim.mpeg2ts import ts
 from fastapi import HTTPException, status
-from typing import Callable, ClassVar, Literal
 
 from app import logging
 from app.constants import QUALITY_TYPES
@@ -82,7 +84,7 @@ class VideoStream:
         if session_id not in cls.__instances:
 
             # 新しい録画視聴セッションのインスタンスを生成する
-            instance = super(VideoStream, cls).__new__(cls)
+            instance = super().__new__(cls)
 
             # セッション ID を設定
             instance.session_id = session_id

@@ -3,8 +3,9 @@ import datetime
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pydantic_core import Url
 from typing import Literal
+
+from pydantic_core import Url
 
 from app.config import Config
 from app.utils.edcb import ChSet5Item

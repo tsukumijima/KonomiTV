@@ -3,15 +3,17 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import aiofiles
 import asyncio
 import datetime
 import struct
 import sys
 import time
-from pydantic_core import Url
-from typing import Callable, cast, Literal, TypeVar
+from collections.abc import Callable
+from typing import Literal, TypeVar, cast
 from zoneinfo import ZoneInfo
+
+import aiofiles
+from pydantic_core import Url
 
 from app.utils.edcb import (
     AudioComponentInfo,

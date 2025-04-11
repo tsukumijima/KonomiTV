@@ -1,11 +1,12 @@
 
 from __future__ import annotations
 
-import anyio
 import asyncio
-import psutil
 import sys
 from typing import ClassVar
+
+import anyio
+import psutil
 
 
 class DriveIOLimiter:

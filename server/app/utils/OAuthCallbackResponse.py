@@ -1,6 +1,7 @@
 
-from fastapi.responses import HTMLResponse
 from typing import Any
+
+from fastapi.responses import HTMLResponse
 
 
 class OAuthCallbackResponse(HTMLResponse):

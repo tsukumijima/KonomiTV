@@ -1,7 +1,8 @@
 
 import asyncio
-import psutil
 from typing import ClassVar
+
+import psutil
 
 
 class ProcessLimiter:

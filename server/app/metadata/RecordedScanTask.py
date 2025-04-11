@@ -1,23 +1,24 @@
 
 from __future__ import annotations
 
-import anyio
 import asyncio
 import concurrent.futures
 import pathlib
 from datetime import datetime
-from fastapi import HTTPException, status
-from tortoise import transactions
-from typing import ClassVar, TypedDict
-from watchfiles import awatch, Change
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
-from app import logging
-from app import schemas
+import anyio
+from fastapi import HTTPException, status
+from tortoise import transactions
+from typing_extensions import TypedDict
+from watchfiles import Change, awatch
+
+from app import logging, schemas
 from app.config import Config
 from app.constants import THUMBNAILS_DIR
-from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
+from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram

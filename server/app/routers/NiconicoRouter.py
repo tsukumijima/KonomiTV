@@ -1,19 +1,14 @@
 
 import base64
-import httpx
 import json
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import Query
-from fastapi import Request
-from fastapi import status
-from fastapi.security.utils import get_authorization_scheme_param
-from jose import jwt
 from typing import Annotated, Any, cast
 
-from app import logging
-from app import schemas
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.security.utils import get_authorization_scheme_param
+from jose import jwt
+
+from app import logging, schemas
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser

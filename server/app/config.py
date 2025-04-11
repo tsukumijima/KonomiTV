@@ -1,29 +1,30 @@
 
 import asyncio
 import concurrent.futures
-import httpx
 import platform
-import psutil
 import re
-import ruamel.yaml
-import ruamel.yaml.scalarstring
 import subprocess
 import sys
+from pathlib import Path
+from typing import Annotated, Any, Literal, cast
+
+import httpx
+import psutil
+import ruamel.yaml
+import ruamel.yaml.scalarstring
 from pydantic import (
     BaseModel,
-    confloat,
     DirectoryPath,
-    field_validator,
     FilePath,
     PositiveFloat,
     PositiveInt,
     UrlConstraints,
     ValidationError,
     ValidationInfo,
+    confloat,
+    field_validator,
 )
 from pydantic_core import Url
-from pathlib import Path
-from typing import Annotated, Any, cast, Literal
 
 from app.constants import (
     API_REQUEST_HEADERS,
@@ -355,7 +356,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
 
     # 設定ファイルからサーバー設定をロードする
     try:
-        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_raw = ruamel.yaml.YAML().load(file)
             if config_raw is None:
                 logging.error('設定ファイルが空のため、KonomiTV を起動できません。')
@@ -441,7 +442,7 @@ def SaveConfig(config: ServerSettings) -> None:
     yaml.width = 20
     yaml.indent(mapping=4, sequence=4, offset=4)
     try:
-        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_raw = yaml.load(file)
     except Exception as error:
         # 回復不可能
@@ -503,7 +504,7 @@ def GetServerPort() -> int:
     try:
 
         # 設定ファイルからサーバー設定をロードし、ポート番号だけを返す
-        with open(_CONFIG_YAML_PATH, mode='r', encoding='utf-8') as file:
+        with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_dict: dict[str, dict[str, Any]] = dict(ruamel.yaml.YAML().load(file))
         return config_dict['server']['port']
 

@@ -1,18 +1,15 @@
 
-import ariblib.constants
-from datetime import datetime
-from datetime import timedelta
-from fastapi import APIRouter
-from fastapi import Body
-from fastapi import Depends
+from datetime import datetime, timedelta
 from typing import Annotated, cast
 from zoneinfo import ZoneInfo
+
+import ariblib.constants
+from fastapi import APIRouter, Body, Depends
 
 from app import schemas
 from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
-from app.utils.edcb import EventInfo
-from app.utils.edcb import SearchKeyInfo
+from app.utils.edcb import EventInfo, SearchKeyInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.TSInformation import TSInformation

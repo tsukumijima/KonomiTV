@@ -3,15 +3,17 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import httpx
 import json
+from typing import TYPE_CHECKING, Any, cast
+
+import httpx
 from tortoise import fields
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
-from typing import Any, cast, TYPE_CHECKING
 
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, NICONICO_OAUTH_CLIENT_ID
 from app.utils import Interlaced
+
 
 if TYPE_CHECKING:
     from app.models.TwitterAccount import TwitterAccount

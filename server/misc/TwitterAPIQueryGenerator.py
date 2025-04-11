@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import urllib.parse
+
 from rich import print
 from rich.rule import Rule
 

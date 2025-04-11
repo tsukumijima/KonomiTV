@@ -1,25 +1,28 @@
 
 import asyncio
 import json
+from collections.abc import Coroutine
+from typing import Annotated, Any, Literal, cast
+
 import tweepy
 import tweepy.models
 import tweepy.parsers
-from fastapi import APIRouter
-from fastapi import Body
-from fastapi import Depends
-from fastapi import File
-from fastapi import Form
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Query
-from fastapi import Request
-from fastapi import status
-from fastapi import UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from tweepy_authlib import CookieSessionUserHandler
-from typing import Annotated, Any, cast, Coroutine, Literal
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser

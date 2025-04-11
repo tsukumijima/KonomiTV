@@ -1,21 +1,15 @@
 
 import asyncio
-import httpx
 import socket
 import time
-from fastapi import APIRouter
-from fastapi import Form
-from fastapi import HTTPException
-from fastapi import Path
-from fastapi import Query
-from fastapi import Request
-from fastapi import status
-from fastapi.responses import StreamingResponse
-from ping3 import ping
 from typing import Annotated
 
-from app import logging
-from app import schemas
+import httpx
+from fastapi import APIRouter, Form, HTTPException, Path, Query, Request, status
+from fastapi.responses import StreamingResponse
+from ping3 import ping
+
+from app import logging, schemas
 from app.constants import API_REQUEST_HEADERS
 
 

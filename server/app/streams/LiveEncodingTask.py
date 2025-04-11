@@ -3,28 +3,38 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import anyio
-import aiofiles
-import aiohttp
 import asyncio
-import httpx
 import gc
 import os
 import re
 import sys
 import time
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
+
+import aiofiles
+import aiohttp
+import anyio
+import httpx
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
-from typing import AsyncIterator, cast, ClassVar, Literal, TYPE_CHECKING
 
 from app import logging
 from app.config import Config
-from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
+from app.constants import (
+    API_REQUEST_HEADERS,
+    HTTPX_CLIENT,
+    LIBRARY_PATH,
+    LOGS_DIR,
+    QUALITY,
+    QUALITY_TYPES,
+)
 from app.models.Channel import Channel
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.edcb.EDCBTuner import EDCBTuner
 from app.utils.edcb.PipeStreamReader import PipeStreamReader
+
 
 if TYPE_CHECKING:
     from app.streams.LiveStream import LiveStream
@@ -33,7 +43,7 @@ if TYPE_CHECKING:
 class LiveEncodingTask:
 
     # H.264 再生時のエンコード後のストリームの GOP 長 (秒)
-    GOP_LENGTH_SECONDS_H264: ClassVar[float] = float(0.5)
+    GOP_LENGTH_SECONDS_H264: ClassVar[float] = 0.5
 
     # H.265 再生時のエンコード後のストリームの GOP 長 (秒)
     GOP_LENGTH_SECONDS_H265: ClassVar[float] = float(2)
@@ -671,7 +681,7 @@ class LiveEncodingTask:
                     headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
                     timeout = aiohttp.ClientTimeout(connect=15, sock_connect=15, sock_read=15)
                 )
-            except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
+            except (TimeoutError, aiohttp.ClientConnectorError):
 
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if program_present is None or program_present.isOffTheAirProgram():

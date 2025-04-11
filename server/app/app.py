@@ -2,21 +2,18 @@
 import asyncio
 import atexit
 import mimetypes
-import tortoise.contrib.fastapi
-import tortoise.log
-from fastapi import FastAPI
-from fastapi import Request
-from fastapi import status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
+import tortoise.contrib.fastapi
+import tortoise.log
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi_utils.tasks import repeat_every
+
 from app import logging
-from app.config import Config
-from app.config import LoadConfig
+from app.config import Config, LoadConfig
 from app.constants import (
     CLIENT_DIR,
     DATABASE_CONFIG,
@@ -43,8 +40,8 @@ from app.routers import (
     UsersRouter,
     VersionRouter,
     VideosRouter,
+    VideoStreamsRouter,
 )
-from app.routers import VideoStreamsRouter
 from app.streams.LiveStream import LiveStream
 from app.utils.edcb.EDCBTuner import EDCBTuner
 
