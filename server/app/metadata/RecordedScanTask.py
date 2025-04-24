@@ -25,6 +25,7 @@ from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.ProcessLimiter import ProcessLimiter
+from app.metadata.CMSectionsDetector import CMSectionsDetector
 
 
 class FileRecordingInfo(TypedDict):
@@ -531,6 +532,7 @@ class RecordedScanTask:
         録画完了後のバックグラウンド解析タスク
         - キーフレーム解析
         - サムネイル生成
+        - CM区間検出
         など、時間のかかる処理を非同期に同時実行する
 
         Args:
@@ -552,6 +554,8 @@ class RecordedScanTask:
                         ## skip_tile_if_exists=True を指定し、同一内容のファイルが複数ある場合などに
                         ## 既に生成されている時間のかかるシークバー用サムネイルを使い回し、処理時間短縮を図る
                         ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True),
+                        # CM区間を検出し DB に保存
+                        self.__detectAndSaveCMSections(recorded_program),
                     )
             logging.info(f'{file_path}: Background analysis completed.')
 
@@ -560,6 +564,28 @@ class RecordedScanTask:
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
+
+
+    @staticmethod
+    async def __detectAndSaveCMSections(recorded_program: schemas.RecordedProgram) -> None:
+        """
+        録画ファイルの CM 区間を検出し、DB に保存する
+
+        Args:
+            recorded_program (schemas.RecordedProgram): 解析対象の録画番組情報
+        """
+        try:
+            # まず RecordedVideo レコードを取得
+            db_recorded_video = await RecordedVideo.get_or_none(file_path=recorded_program.recorded_video.file_path)
+            if db_recorded_video is None:
+                logging.warning(f'{recorded_program.recorded_video.file_path}: RecordedVideo record not found for CM section detection.')
+                return
+
+            # CMSectionsDetector を使って CM 区間を検出して DB に保存
+            await CMSectionsDetector(db_recorded_video).save_to_db()
+
+        except Exception as ex:
+            logging.error(f'{recorded_program.recorded_video.file_path}: Error detecting CM sections:', exc_info=ex)
 
 
     async def watchRecordedFolders(self) -> None:
