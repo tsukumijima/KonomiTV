@@ -50,7 +50,7 @@ env:
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: 'd106fe2885d4b3503f9689f324931b7830eb225d'
+  AKEBI_COMMIT_HASH: '33e3cd7b11f4bbb554d6729c040ead76e120b224'
 
 # ジョブの定義
 jobs:
