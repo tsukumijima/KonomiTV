@@ -33,21 +33,6 @@ class CMSectionsDetector:
         self.duration_sec = duration_sec
 
 
-    @classmethod
-    def fromRecordedVideo(cls, recorded_video: schemas.RecordedVideo) -> CMSectionsDetector:
-        """
-        録画ファイル情報から CM 区間を検出するクラスを初期化する
-
-        Args:
-            recorded_video (schemas.RecordedVideo): 録画ファイル情報
-
-        Returns:
-            CMSectionsDetector: 初期化された CMSectionsDetector インスタンス
-        """
-
-        return cls(anyio.Path(recorded_video.file_path), recorded_video.duration)
-
-
     async def detectAndSave(self) -> None:
         """
         録画ファイルの CM 区間を検出し、データベースに保存する
@@ -241,7 +226,10 @@ if __name__ == "__main__":
             return
 
         # CMSectionsDetector を初期化
-        detector = CMSectionsDetector.fromRecordedVideo(recorded_program.recorded_video)
+        detector = CMSectionsDetector(
+            file_path = anyio.Path(recorded_program.recorded_video.file_path),
+            duration_sec = recorded_program.recorded_video.duration,
+        )
 
         # CM 区間を検出
         asyncio.run(detector.detectAndSave())

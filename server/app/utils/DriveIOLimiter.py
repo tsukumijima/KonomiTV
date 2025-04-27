@@ -45,8 +45,6 @@ class DriveIOLimiter:
                 # Linux の場合はマウントポイントを取得
                 partitions = psutil.disk_partitions(all=True)
                 mount_point = ''
-
-                # パスを anyio.Path オブジェクトに変換して正規化
                 target_parts = target_path.parts
 
                 # 最も適切なマウントポイントを探す

@@ -553,7 +553,7 @@ class RecordedScanTask:
                         # 録画ファイルのキーフレーム情報を解析し DB に保存
                         KeyFrameAnalyzer(file_path).analyzeAndSave(),
                         # 録画ファイルの CM 区間を検出し DB に保存
-                        CMSectionsDetector.fromRecordedVideo(recorded_program.recorded_video).detectAndSave(),
+                        CMSectionsDetector(file_path, recorded_program.recorded_video.duration).detectAndSave(),
                         # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
                         ## skip_tile_if_exists=True を指定し、同一内容のファイルが複数ある場合などに
                         ## 既に生成されている時間のかかるシークバー用サムネイルを使い回し、処理時間短縮を図る

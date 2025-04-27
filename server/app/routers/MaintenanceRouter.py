@@ -257,9 +257,10 @@ async def BackgroundAnalysisAPI():
                 ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
                 ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
                 if db_recorded_video.cm_sections is None:
-                    # RecordedVideo モデルを schemas.RecordedVideo に変換
-                    recorded_video = schemas.RecordedVideo.model_validate(db_recorded_video, from_attributes=True)
-                    tasks.append(CMSectionsDetector.fromRecordedVideo(recorded_video).detectAndSave())
+                    tasks.append(CMSectionsDetector(
+                        file_path = anyio.Path(db_recorded_video.file_path),
+                        duration_sec = db_recorded_video.duration,
+                    ).detectAndSave())
 
                 # サムネイルが未生成の場合、タスクに追加
                 # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
