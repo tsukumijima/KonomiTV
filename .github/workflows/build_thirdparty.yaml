@@ -47,10 +47,11 @@ env:
   LIBMEDIAINFO_VERSION: '22.09'
   # Akebi HTTPS Server ビルド用の Golang のバージョン
   GOLANG_VERSION: '1.23.8'
-  # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
+  # ビルド対象の tsreadex・psisiarc・psisimux・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '33e3cd7b11f4bbb554d6729c040ead76e120b224'
+  PSISIMUX_COMMIT_HASH: '1a01a38886dc41bac81d547ba31fa9eef1bad46b'
+  AKEBI_COMMIT_HASH: 'be986980f7a560b4f74eefcfa2cd474f892f3bc7'
 
 # ジョブの定義
 jobs:
@@ -89,6 +90,17 @@ jobs:
           mkdir ../thirdparty/psisiarc/
           cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
           cp License.txt ../thirdparty/psisiarc/
+
+      # psisimux のビルド
+      - name: Build psisimux
+        run: |
+          git clone https://github.com/xtne6f/psisimux
+          cd psisimux/
+          git checkout ${{ env.PSISIMUX_COMMIT_HASH }}
+          msbuild psisimux.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
+          mkdir ../thirdparty/psisimux/
+          cp x64/Release/psisimux.exe ../thirdparty/psisimux/psisimux.exe
+          cp License.txt ../thirdparty/psisimux/
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
@@ -244,6 +256,18 @@ jobs:
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
           chmod a+x ../thirdparty/psisiarc/psisiarc.elf
           cp License.txt ../thirdparty/psisiarc/
+
+      # psisimux のビルド
+      - name: Build psisimux
+        run: |
+          git clone https://github.com/xtne6f/psisimux
+          cd psisimux/
+          git checkout ${{ env.PSISIMUX_COMMIT_HASH }}
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'make'
+          mkdir ../thirdparty/psisimux/
+          cp psisimux ../thirdparty/psisimux/psisimux.elf
+          chmod a+x ../thirdparty/psisimux/psisimux.elf
+          cp License.txt ../thirdparty/psisimux/
 
       # デフォルトで勝手にキャッシュされてる (?) Golang を削除
       # ここで削除しておかないと意図しないバージョンの Golang が使われてしまうことがある (?)
