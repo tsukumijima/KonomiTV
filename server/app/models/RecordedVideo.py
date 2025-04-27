@@ -52,8 +52,9 @@ class RecordedVideo(TortoiseModel):
     secondary_audio_sampling_rate = cast(TortoiseField[int | None], fields.IntField(null=True))
     key_frames = cast(TortoiseField[list[KeyFrame]],
         fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
-    cm_sections = cast(TortoiseField[list[CMSection]],
-        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
+    cm_sections = cast(TortoiseField[list[CMSection] | None],
+        # None は未解析状態を表す ([] は解析したが CM 区間がなかった/検出に失敗したことを表す)
+        fields.JSONField(default=None, encoder=lambda x: json.dumps(x, ensure_ascii=False), null=True))  # type: ignore
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

@@ -269,7 +269,7 @@ class ThumbnailGenerator:
         )
 
 
-    async def generate(self, skip_tile_if_exists: bool = False) -> None:
+    async def generateAndSave(self, skip_tile_if_exists: bool = False) -> None:
         """
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
@@ -1542,6 +1542,6 @@ if __name__ == "__main__":
             generator.face_detection_mode = face_detection_mode
 
         # サムネイルを生成
-        asyncio.run(generator.generate(skip_tile_if_exists=skip_tile_if_exists))
+        asyncio.run(generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists))
 
     typer.run(main)

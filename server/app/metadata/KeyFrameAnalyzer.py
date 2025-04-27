@@ -32,9 +32,9 @@ class KeyFrameAnalyzer:
         self.file_path = file_path
 
 
-    async def analyze(self) -> None:
+    async def analyzeAndSave(self) -> None:
         """
-        録画ファイルのキーフレーム情報を解析し、DB に保存する
+        録画ファイルのキーフレーム情報を解析し、データベースに保存する
         ffprobe を使い、録画ファイルから以下の情報を取得して、DB に保存する
         - キーフレームの位置 (ファイル内のバイトオフセット)
         - キーフレームの DTS (Decoding Time Stamp)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         key_frame_analyzer = KeyFrameAnalyzer(anyio.Path(str(recorded_file_path)))
         async def amain():
             await Tortoise.init(config=DATABASE_CONFIG)
-            await key_frame_analyzer.analyze()
+            await key_frame_analyzer.analyzeAndSave()
             await Tortoise.close_connections()
         asyncio.run(amain())
     typer.run(main)

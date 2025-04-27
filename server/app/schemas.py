@@ -113,7 +113,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_sampling_rate: int | None = None
     # key_frames はデータ量が多いため、キーフレーム情報を取得できているかを表す has_key_frames のみ返す
     has_key_frames: bool = False
-    cm_sections: list[CMSection] = []
+    cm_sections: list[CMSection] | None = None
     created_at: datetime
     updated_at: datetime
 

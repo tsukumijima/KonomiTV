@@ -17,6 +17,7 @@ from watchfiles import Change, awatch
 from app import logging, schemas
 from app.config import Config
 from app.constants import THUMBNAILS_DIR
+from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -25,7 +26,6 @@ from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.ProcessLimiter import ProcessLimiter
-from app.metadata.CMSectionsDetector import CMSectionsDetector
 
 
 class FileRecordingInfo(TypedDict):
@@ -523,7 +523,9 @@ class RecordedScanTask:
             db_recorded_video.secondary_audio_codec = recorded_program.recorded_video.secondary_audio_codec
             db_recorded_video.secondary_audio_channel = recorded_program.recorded_video.secondary_audio_channel
             db_recorded_video.secondary_audio_sampling_rate = recorded_program.recorded_video.secondary_audio_sampling_rate
-            db_recorded_video.cm_sections = recorded_program.recorded_video.cm_sections
+            # この時点では CM 区間情報は未解析なので、明示的に未解析を表す None を設定する (デフォルトで None だが念のため)
+            # 「解析したが CM 区間がなかった/検出に失敗した」場合、CMSectionsDetector 側で [] が設定される
+            db_recorded_video.cm_sections = None
             await db_recorded_video.save()
 
 
@@ -549,13 +551,13 @@ class RecordedScanTask:
                 async with DriveIOLimiter.getSemaphore(file_path):
                     await asyncio.gather(
                         # 録画ファイルのキーフレーム情報を解析し DB に保存
-                        KeyFrameAnalyzer(file_path).analyze(),
+                        KeyFrameAnalyzer(file_path).analyzeAndSave(),
+                        # 録画ファイルの CM 区間を検出し DB に保存
+                        CMSectionsDetector.fromRecordedVideo(recorded_program.recorded_video).detectAndSave(),
                         # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
                         ## skip_tile_if_exists=True を指定し、同一内容のファイルが複数ある場合などに
                         ## 既に生成されている時間のかかるシークバー用サムネイルを使い回し、処理時間短縮を図る
-                        ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True),
-                        # CM区間を検出し DB に保存
-                        self.__detectAndSaveCMSections(recorded_program),
+                        ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(skip_tile_if_exists=True),
                     )
             logging.info(f'{file_path}: Background analysis completed.')
 
@@ -564,28 +566,6 @@ class RecordedScanTask:
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
-
-
-    @staticmethod
-    async def __detectAndSaveCMSections(recorded_program: schemas.RecordedProgram) -> None:
-        """
-        録画ファイルの CM 区間を検出し、DB に保存する
-
-        Args:
-            recorded_program (schemas.RecordedProgram): 解析対象の録画番組情報
-        """
-        try:
-            # まず RecordedVideo レコードを取得
-            db_recorded_video = await RecordedVideo.get_or_none(file_path=recorded_program.recorded_video.file_path)
-            if db_recorded_video is None:
-                logging.warning(f'{recorded_program.recorded_video.file_path}: RecordedVideo record not found for CM section detection.')
-                return
-
-            # CMSectionsDetector を使って CM 区間を検出して DB に保存
-            await CMSectionsDetector(db_recorded_video).save_to_db()
-
-        except Exception as ex:
-            logging.error(f'{recorded_program.recorded_video.file_path}: Error detecting CM sections:', exc_info=ex)
 
 
     async def watchRecordedFolders(self) -> None:

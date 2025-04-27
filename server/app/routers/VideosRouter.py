@@ -719,7 +719,7 @@ async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報など）を再解析する。<br>
+    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報・CM 区間情報など）を再解析する。<br>
     生成に時間のかかるシークバー用サムネイルタイルは既存ファイルがあれば再利用されるが、代表サムネイルはメタデータと同時に再度生成される。
     """
 
@@ -811,7 +811,7 @@ async def VideoThumbnailRegenerateAPI(
         async with DriveIOLimiter.getSemaphore(file_path):
             # サムネイル生成を実行
             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
-            await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
+            await generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists)
 
     except Exception as ex:
         logging.error(f'[VideoThumbnailRegenerateAPI] Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)

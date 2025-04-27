@@ -259,7 +259,7 @@ class PlayerController {
             localStorage.setItem('dplayer-danmaku-opacity', '0.5');
         }
 
-        // CM区間からハイライトマーカーを作成する
+        // CM 区間からハイライトマーカーを作成する
         const highlights: Array<{text: string, time: number}> = [];
         if (this.playback_mode === 'Video' && player_store.recorded_program?.recorded_video?.cm_sections) {
             const cm_sections = player_store.recorded_program.recorded_video.cm_sections;
@@ -267,7 +267,7 @@ class PlayerController {
             const endThreshold = videoDuration - 2;
 
             for (const section of cm_sections) {
-                // CM開始位置に「CM」マーカーを追加（動画終了2秒以内は除外）
+                // CM 開始位置に「CM」マーカーを追加（動画終了2秒以内は除外）
                 if (section.start_time <= endThreshold) {
                     highlights.push({
                         text: 'CM',
@@ -275,7 +275,7 @@ class PlayerController {
                     });
                 }
 
-                // CM終了位置に「本編」マーカーを追加（動画終了2秒以内は除外）
+                // CM 終了位置に「本編」マーカーを追加（動画終了2秒以内は除外）
                 if (section.end_time <= endThreshold) {
                     highlights.push({
                         text: '本編',
