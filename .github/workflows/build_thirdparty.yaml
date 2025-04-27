@@ -37,8 +37,8 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '7.85'
-  NVENCC_VERSION: '8.03'
+  QSVENCC_VERSION: '7.88'
+  NVENCC_VERSION: '8.04'
   VCEENCC_VERSION: '8.35'
   RKMPPENC_VERSION: '0.15'
   # libmediainfo のバージョン
@@ -50,7 +50,7 @@ env:
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '3ba9a548baaa882f55b209ab0040cd1691078e66'
+  AKEBI_COMMIT_HASH: '56580ef56f9b854a828759c7b7116dc10725438a'
 
 # ジョブの定義
 jobs:
