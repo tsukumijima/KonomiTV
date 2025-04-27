@@ -58,65 +58,30 @@ jobs:
 
   # Linux 向けのインストーラーのビルド
   build-linux:
-    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false  # 一つのビルドが失敗しても他のビルドは継続する
+      matrix:
+        include:
+          # x64 アーキテクチャ向けのビルド設定
+          - arch: amd64
+            runner: ubuntu-22.04
+            artifact_suffix: ''
+          # arm64 アーキテクチャ向けのビルド設定
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+            artifact_suffix: '-ARM'
+    runs-on: ${{ matrix.runner }}
     steps:
-
-      # KonomiTV のソースコードをチェックアウト
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      # Python 3.11 環境をセットアップ
-      ## 事前に Runner 自体に入っている Python に Poetry をインストールしておく必要がある
-      - name: Install Poetry (for Runner)
-        run: |
-          python -m pip install poetry
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'poetry'
-          cache-dependency-path: '${{ github.workspace }}/installer/poetry.lock'
-
-      # インストーラーの依存関係をインストール
-      - name: Install Dependencies
-        working-directory: installer/
-        run: |
-          pip install poetry
-          poetry install --no-root
-
-      # インストーラーを PyInstaller でビルド
-      - name: Build Installer with PyInstaller
-        working-directory: installer/
-        run: poetry run task build-linux
-
-      # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
-      - name: Upload Installer Executable as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: KonomiTV-Installer.elf
-          path: installer/dist/KonomiTV-Installer.elf
-
-  # Linux (ARM) 向けのインストーラーのビルド
-  build-linux-arm:
-    runs-on: ubuntu-20.04
-    steps:
-
-      # QEMU のセットアップ
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/arm64
 
       # Docker Buildx のセットアップ
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Dockerfile の作成
+      # Dockerfile を作成
       - name: Create Dockerfile
         run: |
           cat <<EOF > Dockerfile
-          ARG IMAGE
-          FROM \${IMAGE}
+          FROM ubuntu:20.04
           ENV DEBIAN_FRONTEND=noninteractive
           RUN apt-get update && \
               apt-get install -y --no-install-recommends software-properties-common && \
@@ -124,7 +89,6 @@ jobs:
               apt-get install -y \
                 build-essential \
                 curl \
-                patchelf \
                 python3.11 \
                 python3.11-dev \
                 python3.11-distutils \
@@ -135,16 +99,14 @@ jobs:
           RUN python3.11 -m pip install poetry
           EOF
 
-      # ARM64 版 Docker イメージのビルド
+      # Ubuntu 20.04 の Docker イメージをビルド
       - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: arm64v8/ubuntu:build
-          platforms: linux/arm64
-          build-args: IMAGE=arm64v8/ubuntu:20.04
-          cache-from: type=gha,scope=arm64v8/ubuntu
-          cache-to: type=gha,scope=arm64v8/ubuntu,mode=max
+          tags: ubuntu:20.04-custom
+          cache-from: type=gha,scope=ubuntu:20.04-custom(${{ matrix.arch }})
+          cache-to: type=gha,scope=ubuntu:20.04-custom(${{ matrix.arch }}),mode=max
           load: true
 
       # Dockerfile を削除
@@ -156,16 +118,21 @@ jobs:
         uses: actions/checkout@v4
 
       # インストーラーを PyInstaller でビルド
+      # arm64 ビルドではリリースでの区別のため、ファイル名を KonomiTV-Installer-ARM.elf に変更する
       - name: Build Installer with PyInstaller
         working-directory: installer/
         run: |
-          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c \
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c \
             'poetry install --no-root && poetry run task build-linux'
-          sudo cp -a dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
+          if [ "${{ matrix.arch }}" == "arm64" ]; then
+            echo "Renaming artifact for ARM build..."
+            sudo mv dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf
+          fi
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
+      # matrix の設定に応じてファイル名とパスを動的に変更
       - name: Upload Installer Executable as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KonomiTV-Installer-ARM.elf
-          path: installer/dist/KonomiTV-Installer-ARM.elf
+          name: KonomiTV-Installer${{ matrix.artifact_suffix }}.elf
+          path: installer/dist/KonomiTV-Installer${{ matrix.artifact_suffix }}.elf
