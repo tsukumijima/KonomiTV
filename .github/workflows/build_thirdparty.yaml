@@ -282,13 +282,15 @@ jobs:
           cache: false
 
       # Akebi HTTPS Server のビルド
+      # CGO_ENABLED=0 を指定することで、glibc 非依存のバイナリを生成できる
+      # ref: https://www.elastiflow.com/blog/posts/disabling-cgo-to-remove-glibc-dependency
       - name: Build Akebi HTTPS Server
         run: |
           go env
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          GOARCH=${{ matrix.arch }} make build-https-server
+          CGO_ENABLED=0 GOARCH=${{ matrix.arch }} make build-https-server
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
