@@ -4,12 +4,16 @@
             <h1 class="program-info__title"
                 v-html="ProgramUtils.decorateProgramInfo(playerStore.recorded_program, 'title')">
             </h1>
-            <div class="program-info__broadcaster" v-if="playerStore.recorded_program.channel !== null">
-                <img class="program-info__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel.id}/logo`">
+            <div class="program-info__broadcaster">
+                <img class="program-info__broadcaster-icon"
+                    :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel?.id ?? 'NID0-SID0'}/logo`">
                 <div class="program-info__broadcaster-container">
-                    <div class="d-flex align-center">
+                    <div class="d-flex align-center" v-if="playerStore.recorded_program.channel !== null">
                         <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>
                         <div class="program-info__broadcaster-name">{{playerStore.recorded_program.channel.name}}</div>
+                    </div>
+                    <div class="d-flex align-center" v-else>
+                        <div class="program-info__broadcaster-number">チャンネル情報なし</div>
                     </div>
                     <div class="program-info__broadcaster-time">
                         {{ProgramUtils.getProgramTime(playerStore.recorded_program)}}

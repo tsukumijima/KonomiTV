@@ -317,7 +317,7 @@ class MetadataAnalyzer:
                 recording_start_time = recorded_video.recording_start_time
             ## 録画開始時刻を取得できていない場合、ファイルの更新日時 - 動画長を番組開始時刻として使用する
             ## 作成日時だとコピー/移動した際にコピーが完了した日時に変更されることがあるため、更新日時ベースの方が適切
-            ## 更新日時は通常録画終了時刻に近い値になる
+            ## 変更を加えていない録画 TS ファイルであれば、ファイルの更新日時は録画終了時刻に近い値になるはず
             else:
                 recording_start_time = datetime.fromtimestamp(
                     self.recorded_file_path.stat().st_mtime,
