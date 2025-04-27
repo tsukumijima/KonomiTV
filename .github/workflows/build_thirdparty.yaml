@@ -46,11 +46,11 @@ env:
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
   LIBMEDIAINFO_VERSION: '22.09'
   # Akebi HTTPS Server ビルド用の Golang のバージョン
-  GOLANG_VERSION: '1.21.13'
+  GOLANG_VERSION: '1.23.8'
   # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '56580ef56f9b854a828759c7b7116dc10725438a'
+  AKEBI_COMMIT_HASH: 'd106fe2885d4b3503f9689f324931b7830eb225d'
 
 # ジョブの定義
 jobs:
