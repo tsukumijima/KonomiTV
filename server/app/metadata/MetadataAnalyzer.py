@@ -312,19 +312,24 @@ class MetadataAnalyzer:
         # MPEG-TS 形式だが TS ファイルからチャンネル情報・番組情報を取得できなかった場合も同様
         ## 他の値は RecordedProgram モデルで設定されたデフォルト値が自動的に入るので、タイトルと日時だけここで設定する
         if recorded_program is None:
-            ## ファイルの作成日時を番組開始時刻として使用する
-            ## 録画開始時刻が取得できる場合は、それを番組開始時刻として使用する
-            ## ソートなど諸々の関係で日時が DB に入ってないと面倒くさいのでやむを得ず適当な値を入れている
-            start_time = datetime.fromtimestamp(self.recorded_file_path.stat().st_ctime, tz=ZoneInfo('Asia/Tokyo'))
+            ## 録画開始時刻を取得できている場合は、それを番組開始時刻として使用する
             if recorded_video.recording_start_time is not None:
-                start_time = recorded_video.recording_start_time
+                recording_start_time = recorded_video.recording_start_time
+            ## 録画開始時刻を取得できていない場合、ファイルの更新日時 - 動画長を番組開始時刻として使用する
+            ## 作成日時だとコピー/移動した際にコピーが完了した日時に変更されることがあるため、更新日時ベースの方が適切
+            ## 更新日時は通常録画終了時刻に近い値になる
+            else:
+                recording_start_time = datetime.fromtimestamp(
+                    self.recorded_file_path.stat().st_mtime,
+                    tz = ZoneInfo('Asia/Tokyo'),
+                ) - timedelta(seconds=recorded_video.duration)
             ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
             title = TSInformation.formatString(self.recorded_file_path.stem)
             recorded_program = schemas.RecordedProgram(
                 recorded_video = recorded_video,
                 title = title,
-                start_time = start_time,
-                end_time = start_time + timedelta(seconds=recorded_video.duration),
+                start_time = recording_start_time,
+                end_time = recording_start_time + timedelta(seconds=recorded_video.duration),
                 duration = recorded_video.duration,
                 # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
                 # この値は参照されず、DB の値は別途自動生成される
