@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20250106'
+  PYTHON_TAG: '20250409'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.11'
+  PYTHON_VERSION: '3.11.12'
   # Poetry のバージョン
   POETRY_VERSION: '1.8.5'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
@@ -160,7 +160,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
@@ -192,7 +192,9 @@ jobs:
           # x64 アーキテクチャ向けのビルド設定
           - arch: amd64
             runner: ubuntu-22.04
-            python_arch_name: x86_64
+            # x86_64_v2 にすると2008年以降の CPU に搭載されている SSE 命令が使える
+            # ref: https://gregoryszorc.com/docs/python-build-standalone/main/running.html
+            python_arch_name: x86_64_v2
             artifact_suffix: ''
           # arm64 アーキテクチャ向けのビルド設定
           - arch: arm64
@@ -444,7 +446,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
 
