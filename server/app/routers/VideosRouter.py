@@ -47,7 +47,9 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
     has_key_frames: bool = row['key_frames'] != '[]'
 
     # cm_sections は小さいので、通常通りパースする
-    cm_sections: list[schemas.CMSection] = json.loads(row['cm_sections'])
+    cm_sections: list[schemas.CMSection] | None = None
+    if row['cm_sections'] is not None:
+        cm_sections = json.loads(row['cm_sections'])
 
     # recorded_video のデータを構築
     recorded_video_dict = {
