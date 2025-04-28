@@ -115,6 +115,11 @@ class RecordedScanTask:
         # バックグラウンドタスクの状態管理
         self._background_tasks: dict[anyio.Path, asyncio.Task[None]] = {}
 
+        # ファイルパスごとのロックを管理する辞書
+        self._file_locks: dict[anyio.Path, asyncio.Lock] = {}
+        # _file_locks 辞書自体へのアクセスを保護するためのロック
+        self._file_locks_dict_lock = asyncio.Lock()
+
         # 初期化済みフラグをセット
         self._initialized = True
 
@@ -287,139 +292,164 @@ class RecordedScanTask:
             force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか
         """
 
-        try:
-            # 万が一この時点でファイルが存在しない場合はスキップ
-            if not await file_path.is_file():
-                logging.warning(f'{file_path}: File does not exist now! ignored.')
-                return
+        # ファイルパスに対応するロックを取得または作成
+        async with self._file_locks_dict_lock:
+            if file_path not in self._file_locks:
+                self._file_locks[file_path] = asyncio.Lock()
+            file_lock = self._file_locks[file_path]
 
-            # ファイルの状態をチェック
-            stat = await file_path.stat()
-            now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
-            file_size = stat.st_size
-            file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=ZoneInfo('Asia/Tokyo'))
-            file_modified_at = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
+        # 同一ファイルパスへの DB レコード操作を排他制御する
+        async with file_lock:
+            try:
+                # 万が一この時点でファイルが存在しない場合はスキップ
+                # ファイル変更イベント発火後に即座にファイルが削除される可能性も考慮
+                if not await file_path.is_file():
+                    logging.warning(f'{file_path}: File does not exist after acquiring lock! ignored.')
+                    # ロック管理辞書から不要になったロックを削除
+                    async with self._file_locks_dict_lock:
+                        if file_path in self._file_locks and not file_lock.locked():
+                           self._file_locks.pop(file_path, None)
+                    return
 
-            # 全く録画できていない0バイトのファイルをスキップ
-            if file_size == 0:
-                logging.warning(f'{file_path}: File size is 0. ignored.')
-                return
+                # ファイルの状態をチェック
+                stat = await file_path.stat()
+                now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
+                file_size = stat.st_size
+                file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=ZoneInfo('Asia/Tokyo'))
+                file_modified_at = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
 
-            # 同じファイルパスの既存レコードがあれば取り出す
-            if existing_db_recorded_videos is not None:
-                existing_db_recorded_video = existing_db_recorded_videos.pop(file_path, None)
-            else:
-                existing_db_recorded_video = None
+                # 全く録画できていない0バイトのファイルをスキップ
+                if file_size == 0:
+                    logging.warning(f'{file_path}: File size is 0. ignored.')
+                    return
 
-            # この時点で existing_db_recorded_video が None の場合、DB に同一ファイルパスのレコードがないか問い合わせる
-            ## ファイル変更イベントから呼ばれた場合は existing_db_recorded_videos が None になるが、
-            ## DB には同一ファイルパスのレコードが存在する可能性がある
-            if existing_db_recorded_video is None:
-                existing_db_recorded_video = await RecordedVideo.get_or_none(
+                # 同じファイルパスの既存レコードがあれば取り出す
+                if existing_db_recorded_videos is not None:
+                    existing_db_recorded_video = existing_db_recorded_videos.pop(file_path, None)
+                else:
+                    existing_db_recorded_video = None
+
+                # この時点で existing_db_recorded_video が None の場合、DB に同一ファイルパスのレコードがないか問い合わせる
+                ## ファイル変更イベントから呼ばれた場合は existing_db_recorded_videos が None になるが、
+                ## DB には同一ファイルパスのレコードが存在する可能性がある
+                if existing_db_recorded_video is None:
+                    existing_db_recorded_video = await RecordedVideo.get_or_none(
+                        file_path=str(file_path)
+                    ).select_related('recorded_program', 'recorded_program__channel')
+
+                # 同じファイルパスの既存レコードがあり、ファイルの基本情報（作成日時、更新日時、サイズ）が前回と一致した場合、
+                # ファイル内容は変更されておらず、レコード内容は更新不要と判断してスキップ
+                ## こうすることで、録画済みファイルに対しては HDD への I/O 負荷が高いハッシュ算出やメタデータ解析処理を省略できる
+                ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
+                if (force_update is False and
+                    existing_db_recorded_video is not None and
+                    existing_db_recorded_video.status == 'Recorded'):
+                    if (existing_db_recorded_video.file_created_at == file_created_at and
+                        existing_db_recorded_video.file_modified_at == file_modified_at and
+                        existing_db_recorded_video.file_size == file_size):
+                        # logging.debug_simple(f'{file_path}: File metadata unchanged, skipping...')
+                        return
+
+                # 現在録画中とマークされているファイルの処理
+                is_recording = file_path in self._recording_files
+                if is_recording:
+                    # 既に DB に登録済みで録画中の場合は再解析しない
+                    if existing_db_recorded_video is not None and existing_db_recorded_video.status == 'Recording':
+                        return
+                    # まだ DB に登録されていない＆ファイルサイズが前回から変化していない場合
+                    recording_info = self._recording_files[file_path]
+                    last_size = recording_info['file_size']
+                    mtime_continuous_start_at = recording_info['mtime_continuous_start_at']
+                    if file_size == last_size:
+                        # 最終更新日時の継続更新中でない場合はスキップ
+                        if mtime_continuous_start_at is None:
+                            logging.warning(f'{file_path}: File is not recording. ignored.')
+                            return
+                        # 最終更新日時の継続更新が1分未満の場合もスキップ
+                        continuous_duration = (now - mtime_continuous_start_at).total_seconds()
+                        if continuous_duration < self.CONTINUOUS_UPDATE_THRESHOLD_SECONDS:
+                            return
+                        # 最終更新日時の継続更新が24時間を超えた場合は何かがおかしい可能性が高いため打ち切る
+                        if continuous_duration >= self.CONTINUOUS_UPDATE_MAX_SECONDS:
+                            logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds (> {self.CONTINUOUS_UPDATE_MAX_SECONDS}s). ignored.')
+                            return
+                        # ここまで到達した時点で（ファイルサイズこそ変化していないが）最終更新日時の推移から1分以上ファイル内容の更新が続いているとみなし、
+                        # 後続の処理でメタデータを解析し、解析に成功次第 DB に録画中として登録する
+                        # 録画開始前にファイルアロケーションを行う録画予約ソフトでは、録画中も表面上ファイルサイズが変化しない問題への対処
+                        pass
+
+                # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
+                ## メタデータ解析処理は実装上同期 I/O で実装されており、また CPU-bound な処理のため、別プロセスで実行している
+                ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
+                ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
+                loop = asyncio.get_running_loop()
+                analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
+                try:
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                        recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
+                    if recorded_program is None:
+                        # メタデータ解析に失敗した場合はエラーとして扱う
+                        logging.error(f'{file_path}: Failed to analyze metadata.')
+                        return
+                except Exception as ex:
+                    logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
+                    return
+
+                # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
+                # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
+                if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
+                    logging.debug_simple(f'{file_path}: This file is too short (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
+                    return
+
+                # 前回の DB 取得からメタデータ解析までの間に他のタスクがレコードを作成/更新している可能性があるため、
+                # メタデータ解析後に再度ファイルパスに対応するレコードを取得する
+                existing_db_recorded_video_after_analyze = await RecordedVideo.get_or_none(
                     file_path=str(file_path)
                 ).select_related('recorded_program', 'recorded_program__channel')
 
-            # 同じファイルパスの既存レコードがあり、ファイルの基本情報（作成日時、更新日時、サイズ）が前回と一致した場合、
-            # ファイル内容は変更されておらず、レコード内容は更新不要と判断してスキップ
-            ## こうすることで、録画済みファイルに対しては HDD への I/O 負荷が高いハッシュ算出やメタデータ解析処理を省略できる
-            ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (force_update is False and
-                existing_db_recorded_video is not None and
-                existing_db_recorded_video.status == 'Recorded'):
-                if (existing_db_recorded_video.file_created_at == file_created_at and
-                    existing_db_recorded_video.file_modified_at == file_modified_at and
-                    existing_db_recorded_video.file_size == file_size):
-                    # logging.debug_simple(f'{file_path}: File metadata unchanged, skipping...')
+                # 同じファイルパスの既存レコードがあり、先ほど計算した最新のハッシュと変わっていない場合は、レコード内容は更新不要と判断してスキップ
+                ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
+                if (force_update is False and
+                    existing_db_recorded_video_after_analyze is not None and
+                    existing_db_recorded_video_after_analyze.status == 'Recorded' and
+                    existing_db_recorded_video_after_analyze.file_hash == recorded_program.recorded_video.file_hash):
                     return
 
-            # 現在録画中とマークされているファイルの処理
-            is_recording = file_path in self._recording_files
-            if is_recording:
-                # 既に DB に登録済みで録画中の場合は再解析しない
-                if existing_db_recorded_video is not None and existing_db_recorded_video.status == 'Recording':
-                    return
-                # まだ DB に登録されていない＆ファイルサイズが前回から変化していない場合
-                recording_info = self._recording_files[file_path]
-                last_size = recording_info['file_size']
-                mtime_continuous_start_at = recording_info['mtime_continuous_start_at']
-                if file_size == last_size:
-                    # 最終更新日時の継続更新中でない場合はスキップ
-                    if mtime_continuous_start_at is None:
-                        logging.warning(f'{file_path}: File is not recording. ignored.')
-                        return
-                    # 最終更新日時の継続更新が1分未満の場合もスキップ
-                    continuous_duration = (now - mtime_continuous_start_at).total_seconds()
-                    if continuous_duration < self.CONTINUOUS_UPDATE_THRESHOLD_SECONDS:
-                        return
-                    # 最終更新日時の継続更新が24時間を超えた場合は何かがおかしい可能性が高いため打ち切る
-                    if continuous_duration >= self.CONTINUOUS_UPDATE_MAX_SECONDS:
-                        logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds (> {self.CONTINUOUS_UPDATE_MAX_SECONDS}s). ignored.')
-                        return
-                    # ここまで到達した時点で（ファイルサイズこそ変化していないが）最終更新日時の推移から1分以上ファイル内容の更新が続いているとみなし、
-                    # 後続の処理でメタデータを解析し、解析に成功次第 DB に録画中として登録する
-                    # 録画開始前にファイルアロケーションを行う録画予約ソフトでは、録画中も表面上ファイルサイズが変化しない問題への対処
-                    pass
+                # 録画中のファイルとして処理
+                ## 他ドライブからファイルコピー中のファイルも、実際の録画処理より高速に書き込まれるだけで随時書き込まれることに変わりはないので、
+                ## 録画中として判断されることがある（その場合、ファイルコピーが完了した段階で「録画完了」扱いとなる）
+                if is_recording or (now - file_modified_at).total_seconds() < self.RECORDING_COMPLETE_SECONDS:
+                    # status を Recording に設定
+                    recorded_program.recorded_video.status = 'Recording'
+                    # 状態を更新
+                    self._recording_files[file_path] = {
+                        'last_modified': file_modified_at,
+                        'last_checked': now,
+                        'file_size': file_size,
+                        'mtime_continuous_start_at': file_modified_at,  # 初回は必ず mtime_continuous_start_at を設定
+                    }
+                    logging.debug_simple(f'{file_path}: This file is recording or copying (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s).')
+                else:
+                    # status を Recorded に設定
+                    # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
+                    recorded_program.recorded_video.status = 'Recorded'
+                    # 録画完了後のバックグラウンド解析タスクを開始
+                    if file_path not in self._background_tasks:
+                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                        self._background_tasks[file_path] = task
 
-            # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
-            ## メタデータ解析処理は実装上同期 I/O で実装されており、また CPU-bound な処理のため、別プロセスで実行している
-            ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
-            ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
-            loop = asyncio.get_running_loop()
-            analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
-            try:
-                with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                    recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
-                if recorded_program is None:
-                    # メタデータ解析に失敗した場合はエラーとして扱う
-                    logging.error(f'{file_path}: Failed to analyze metadata.')
-                    return
+                # DB に永続化
+                # メタデータ解析後の最新のデータベース情報を使う
+                await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video_after_analyze)
+                logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video_after_analyze else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
+
             except Exception as ex:
-                logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
-                return
-
-            # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
-            # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
-            if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
-                logging.debug_simple(f'{file_path}: This file is too short (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
-                return
-
-            # 同じファイルパスの既存レコードがあり、先ほど計算した最新のハッシュと変わっていない場合は、レコード内容は更新不要と判断してスキップ
-            ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
-            if (force_update is False and
-                existing_db_recorded_video is not None and
-                existing_db_recorded_video.status == 'Recorded' and
-                existing_db_recorded_video.file_hash == recorded_program.recorded_video.file_hash):
-                return
-
-            # 録画中のファイルとして処理
-            ## 他ドライブからファイルコピー中のファイルも、実際の録画処理より高速に書き込まれるだけで随時書き込まれることに変わりはないので、
-            ## 録画中として判断されることがある（その場合、ファイルコピーが完了した段階で「録画完了」扱いとなる）
-            if is_recording or (now - file_modified_at).total_seconds() < self.RECORDING_COMPLETE_SECONDS:
-                # status を Recording に設定
-                recorded_program.recorded_video.status = 'Recording'
-                # 状態を更新
-                self._recording_files[file_path] = {
-                    'last_modified': file_modified_at,
-                    'last_checked': now,
-                    'file_size': file_size,
-                    'mtime_continuous_start_at': file_modified_at,  # 初回は必ず mtime_continuous_start_at を設定
-                }
-                logging.debug_simple(f'{file_path}: This file is recording or copying (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s).')
-            else:
-                # status を Recorded に設定
-                # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
-                recorded_program.recorded_video.status = 'Recorded'
-                # 録画完了後のバックグラウンド解析タスクを開始
-                if file_path not in self._background_tasks:
-                    task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
-                    self._background_tasks[file_path] = task
-
-            # DB に永続化
-            await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video)
-            logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
-
-        except Exception as ex:
-            logging.error(f'{file_path}: Error processing file:', exc_info=ex)
+                logging.error(f'{file_path}: Error processing file inside lock:', exc_info=ex)
+            finally:
+                # 不要になったロックを管理辞書から削除 (ロックが解放された後に行う)
+                async with self._file_locks_dict_lock:
+                     if file_path in self._file_locks and not file_lock.locked():
+                        self._file_locks.pop(file_path, None)
 
 
     @staticmethod
@@ -713,20 +743,33 @@ class RecordedScanTask:
             file_path (anyio.Path): 削除されたファイルのパス
         """
 
-        try:
-            # 録画中とマークされていたファイルの場合は記録から削除
-            self._recording_files.pop(file_path, None)
+        # ファイルパスに対応するロックを取得または作成
+        async with self._file_locks_dict_lock:
+            if file_path not in self._file_locks:
+                self._file_locks[file_path] = asyncio.Lock()
+            file_lock = self._file_locks[file_path]
 
-            # DB からレコードを削除
-            db_recorded_video = await RecordedVideo.get_or_none(file_path=str(file_path))
-            if db_recorded_video is not None:
-                # RecordedVideo の親テーブルである RecordedProgram を削除すると、
-                # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
-                await db_recorded_video.recorded_program.delete()
-                logging.info(f'{file_path}: Deleted record for removed file.')
+        # 同一ファイルパスへの DB レコード操作を排他制御する
+        async with file_lock:
+            try:
+                # 録画中とマークされていたファイルの場合は記録から削除
+                self._recording_files.pop(file_path, None)
 
-        except Exception as ex:
-            logging.error(f'{file_path}: Error handling file deletion:', exc_info=ex)
+                # DB からレコードを削除
+                db_recorded_video = await RecordedVideo.get_or_none(file_path=str(file_path))
+                if db_recorded_video is not None:
+                    # RecordedVideo の親テーブルである RecordedProgram を削除すると、
+                    # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
+                    await db_recorded_video.recorded_program.delete()
+                    logging.info(f'{file_path}: Deleted record for removed file.')
+
+            except Exception as ex:
+                logging.error(f'{file_path}: Error handling file deletion inside lock:', exc_info=ex)
+            finally:
+                # 不要になったロックを管理辞書から削除 (ロックが解放された後に行う)
+                async with self._file_locks_dict_lock:
+                    if file_path in self._file_locks and not file_lock.locked():
+                        self._file_locks.pop(file_path, None)
 
 
     async def __checkRecordingCompletion(self) -> None:
