@@ -279,14 +279,6 @@ async def VideosAPI(
 
     # 生 SQL クエリを構築
     base_query = """
-        WITH target_records AS (
-            SELECT rp.id, rp.start_time
-            FROM recorded_programs rp
-            WHERE 1=1
-            {where_clause}
-            ORDER BY rp.start_time {order}, rp.id {order}
-            LIMIT ? OFFSET ?
-        )
         SELECT
             rp.id AS rp_id,
             rp.recording_start_margin,
@@ -353,11 +345,13 @@ async def VideosAPI(
             ch.is_subchannel,
             ch.is_radiochannel,
             ch.is_watchable
-        FROM target_records tr
-        JOIN recorded_programs rp ON tr.id = rp.id
+        FROM recorded_programs rp
         JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        ORDER BY tr.start_time {order}, tr.id {order}
+        WHERE 1=1
+        {where_clause}
+        ORDER BY rp.start_time {order}, rp.id {order}
+        LIMIT ? OFFSET ?
     """
 
     # ids が指定されている場合は、指定された ID の録画番組のみを返す
@@ -379,7 +373,7 @@ async def VideosAPI(
                 where_clause = f'AND rp.id IN ({placeholders})',
                 order = 'DESC'  # order は無視されるが、SQL の構文上必要
             )
-            params = [*target_ids, PAGE_SIZE, 0]  # OFFSET は 0 固定
+            params = [*target_ids, str(PAGE_SIZE), '0']  # OFFSET は 0 固定
 
             # 総数を取得
             total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
@@ -393,7 +387,7 @@ async def VideosAPI(
                 where_clause = f'AND rp.id IN ({",".join(["?" for _ in ids])})',
                 order = 'DESC' if order == 'desc' else 'ASC'
             )
-            params = [*ids, PAGE_SIZE, (page - 1) * PAGE_SIZE]
+            params = [*ids, str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
             # 総数を取得
             total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
@@ -407,7 +401,7 @@ async def VideosAPI(
             where_clause = '',
             order = 'DESC' if order == 'desc' else 'ASC'
         )
-        params = [PAGE_SIZE, (page - 1) * PAGE_SIZE]
+        params = [str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
         # 総数を取得
         total_query = 'SELECT COUNT(*) as count FROM recorded_programs'
@@ -509,14 +503,6 @@ async def VideosSearchAPI(
 
     # 生 SQL クエリを構築
     base_query = """
-        WITH target_records AS (
-            SELECT rp.id, rp.start_time
-            FROM recorded_programs rp
-            LEFT JOIN channels ch ON rp.channel_id = ch.id
-            WHERE {where_clause}
-            ORDER BY rp.start_time {order}, rp.id {order}
-            LIMIT ? OFFSET ?
-        )
         SELECT
             rp.id AS rp_id,
             rp.recording_start_margin,
@@ -583,11 +569,12 @@ async def VideosSearchAPI(
             ch.is_subchannel,
             ch.is_radiochannel,
             ch.is_watchable
-        FROM target_records tr
-        JOIN recorded_programs rp ON tr.id = rp.id
+        FROM recorded_programs rp
         JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        ORDER BY tr.start_time {order}, tr.id {order}
+        WHERE {where_clause}
+        ORDER BY rp.start_time {order}, rp.id {order}
+        LIMIT ? OFFSET ?
     """
 
     # クエリとパラメータを構築
