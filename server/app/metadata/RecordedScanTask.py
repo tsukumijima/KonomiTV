@@ -202,10 +202,52 @@ class RecordedScanTask:
         logging.info('Batch scan of recording folders has been started.')
         self._is_batch_scan_running = True
 
+        # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
+        logging.info('Checking for duplicate recorded video records...')
+        ## チャンネル情報も後で使うのでここで select_related しておく
+        all_videos = await RecordedVideo.all().select_related('recorded_program', 'recorded_program__channel')
+        videos_by_path: dict[str, list[RecordedVideo]] = {}
+        videos_to_keep: list[RecordedVideo] = []  # 保持するレコードのリスト
+        for video in all_videos:
+            if video.file_path not in videos_by_path:
+                videos_by_path[video.file_path] = []
+            videos_by_path[video.file_path].append(video)
+
+        ## 重複削除処理をトランザクション配下で実行
+        duplicates_found = False
+        total_deleted_count = 0
+        async with transactions.in_transaction():
+            for file_path, videos in videos_by_path.items():
+                if len(videos) > 1:
+                    duplicates_found = True
+                    logging.warning(f'{file_path}: Found {len(videos)} duplicate records. Keeping the latest one.')
+                    # created_at でソートして最新のレコードを特定
+                    videos.sort(key=lambda v: v.created_at, reverse=True)
+                    latest_video = videos[0]
+                    videos_to_keep.append(latest_video)  # 最新のものを保持リストに追加
+                    # 最新以外のレコードを削除
+                    for video_to_delete in videos[1:]:
+                        try:
+                            # RecordedProgram を削除 (CASCADE により RecordedVideo も削除される)
+                            await video_to_delete.recorded_program.delete()
+                            logging.info(f'{file_path}: Deleted duplicate record (ID: {video_to_delete.recorded_program.id}). Kept record (ID: {latest_video.recorded_program.id}).')
+                        except Exception as ex_del:
+                            logging.error(f'{file_path}: Failed to delete duplicate record (ID: {video_to_delete.recorded_program.id}):', exc_info=ex_del)
+                    # 削除対象のレコード数をカウント
+                    deleted_count = len(videos) - 1  # -1 は最新のレコードを除いた数
+                    total_deleted_count += deleted_count
+                else:
+                    # 重複がない場合も保持リストに追加
+                    videos_to_keep.append(videos[0])
+        if duplicates_found:
+            logging.info(f'Duplicate record cleanup finished. Total {total_deleted_count} duplicate records were deleted.')
+        else:
+            logging.info('No duplicate records found.')
+
         # 現在登録されている全ての RecordedVideo レコードをキャッシュ
+        ## 重複削除処理で保持すると判断されたレコードのみを使う
         existing_db_recorded_videos = {
-            anyio.Path(video.file_path): video for video in await RecordedVideo.all()
-                .select_related('recorded_program', 'recorded_program__channel')
+            anyio.Path(video.file_path): video for video in videos_to_keep
         }
 
         # 各録画フォルダをスキャン
