@@ -259,6 +259,33 @@ class PlayerController {
             localStorage.setItem('dplayer-danmaku-opacity', '0.5');
         }
 
+        // CM 区間からハイライトマーカーを作成する
+        const highlights: Array<{text: string, time: number}> = [];
+        if (this.playback_mode === 'Video' && player_store.recorded_program?.recorded_video?.cm_sections) {
+            const cm_sections = player_store.recorded_program.recorded_video.cm_sections;
+            const videoDuration = player_store.recorded_program.recorded_video.duration;
+            const endThreshold = videoDuration - 2;
+
+            for (const section of cm_sections) {
+                // CM 開始位置に「CM」マーカーを追加（動画終了2秒以内は除外）
+                if (section.start_time <= endThreshold) {
+                    highlights.push({
+                        text: 'CM',
+                        time: section.start_time
+                    });
+                }
+
+                // CM 終了位置に「本編」マーカーを追加（動画終了2秒以内は除外）
+                if (section.end_time <= endThreshold) {
+                    highlights.push({
+                        text: '本編',
+                        time: section.end_time
+                    });
+                }
+            }
+            console.log('\u001b[31m[PlayerController] Added CM section markers:', highlights);
+        }
+
         // DPlayer を初期化
         this.player = new DPlayer({
             // DPlayer を配置する要素
@@ -287,6 +314,8 @@ class PlayerController {
             volume: 1.0,
             // 再生速度の設定 (x1.1 を追加)
             playbackSpeed: [0.25, 0.5, 0.75, 1, 1.1, 1.25, 1.5, 1.75, 2],
+            // シークバー上のハイライトマーカー（CM区間など）
+            highlight: highlights.length > 0 ? highlights : undefined,
 
             // 動画の設定
             video: (() => {

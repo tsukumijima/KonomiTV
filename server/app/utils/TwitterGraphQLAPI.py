@@ -467,7 +467,7 @@ class TwitterGraphQLAPI:
         ## 今後対策される可能性もなくもないが実装時点ではうまく機能しているので、推定ユーザー数万人を有する OldTweetDeck の実装に合わせる
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1208-L1219
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1273-L1292
-        if endpoint_info.endpoint == 'CreateTweet' or endpoint_info.endpoint == 'CreateRetweet':
+        if endpoint_info.endpoint in ['CreateTweet', 'CreateRetweet', 'FavoriteTweet']:
             headers['authorization'] = self.cookie_session_user_handler.TWEETDECK_BEARER_TOKEN
 
         # Twitter GraphQL API に HTTP リクエストを送信する

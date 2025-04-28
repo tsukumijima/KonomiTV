@@ -35,8 +35,7 @@ class RecordedVideo(TortoiseModel):
     recording_start_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     recording_end_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     duration = fields.FloatField()
-    # 万が一将来他のコンテナ形式をサポートすることになった時のために一応定義しているが、当面の間 MPEG-TS 以外はサポートしない
-    container_format = cast(TortoiseField[Literal['MPEG-TS']], fields.CharField(255))
+    container_format = cast(TortoiseField[Literal['MPEG-TS', 'MPEG-4']], fields.CharField(255))
     video_codec = cast(TortoiseField[Literal['MPEG-2', 'H.264', 'H.265']], fields.CharField(255))
     # プロファイルは他にも多くあるが、現実的に使われそうなものだけを列挙
     video_codec_profile = cast(TortoiseField[Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']], fields.CharField(255))
@@ -52,8 +51,9 @@ class RecordedVideo(TortoiseModel):
     secondary_audio_sampling_rate = cast(TortoiseField[int | None], fields.IntField(null=True))
     key_frames = cast(TortoiseField[list[KeyFrame]],
         fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
-    cm_sections = cast(TortoiseField[list[CMSection]],
-        fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
+    cm_sections = cast(TortoiseField[list[CMSection] | None],
+        # None は未解析状態を表す ([] は解析したが CM 区間がなかった/検出に失敗したことを表す)
+        fields.JSONField(default=None, encoder=lambda x: json.dumps(x, ensure_ascii=False), null=True))  # type: ignore
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

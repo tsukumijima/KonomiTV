@@ -43,11 +43,14 @@ PAGE_SIZE = 30
 async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedProgram:
     """ データベースの行データを RecordedProgram Pydantic モデルに変換する共通処理 """
 
-    # key_frames の JSON は巨大なので、存在確認のみ行う
-    has_key_frames: bool = row['key_frames'] != '[]'
+    # key_frames の存在確認
+    # 高速化のため、SQL で計算された has_key_frames を直接参照する
+    has_key_frames: bool = bool(row['has_key_frames'])
 
     # cm_sections は小さいので、通常通りパースする
-    cm_sections: list[schemas.CMSection] = json.loads(row['cm_sections'])
+    cm_sections: list[schemas.CMSection] | None = None
+    if row['cm_sections'] is not None:
+        cm_sections = json.loads(row['cm_sections'])
 
     # recorded_video のデータを構築
     recorded_video_dict = {
@@ -271,7 +274,7 @@ async def VideosAPI(
     ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
 ):
     """
-    すべての録画番組を一度に 100 件ずつ取得する。<br>
+    すべての録画番組を一度に 30 件ずつ取得する。<br>
     order には "desc" か "asc" か "ids" を指定する。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
@@ -279,14 +282,6 @@ async def VideosAPI(
 
     # 生 SQL クエリを構築
     base_query = """
-        WITH target_records AS (
-            SELECT rp.id, rp.start_time
-            FROM recorded_programs rp
-            WHERE 1=1
-            {where_clause}
-            ORDER BY rp.start_time {order}, rp.id {order}
-            LIMIT ? OFFSET ?
-        )
         SELECT
             rp.id AS rp_id,
             rp.recording_start_margin,
@@ -338,7 +333,9 @@ async def VideosAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            rv.key_frames,
+            -- key_frames は巨大なデータなので実際のデータは取得せず
+            -- 空かどうかの判定結果だけを取得する
+            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             ch.id AS ch_id,
             ch.display_channel_id,
@@ -353,11 +350,13 @@ async def VideosAPI(
             ch.is_subchannel,
             ch.is_radiochannel,
             ch.is_watchable
-        FROM target_records tr
-        JOIN recorded_programs rp ON tr.id = rp.id
+        FROM recorded_programs rp
         JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        ORDER BY tr.start_time {order}, tr.id {order}
+        WHERE 1=1
+        {where_clause}
+        ORDER BY rp.start_time {order}, rp.id {order}
+        LIMIT ? OFFSET ?
     """
 
     # ids が指定されている場合は、指定された ID の録画番組のみを返す
@@ -379,7 +378,7 @@ async def VideosAPI(
                 where_clause = f'AND rp.id IN ({placeholders})',
                 order = 'DESC'  # order は無視されるが、SQL の構文上必要
             )
-            params = [*target_ids, PAGE_SIZE, 0]  # OFFSET は 0 固定
+            params = [*target_ids, str(PAGE_SIZE), '0']  # OFFSET は 0 固定
 
             # 総数を取得
             total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
@@ -393,7 +392,7 @@ async def VideosAPI(
                 where_clause = f'AND rp.id IN ({",".join(["?" for _ in ids])})',
                 order = 'DESC' if order == 'desc' else 'ASC'
             )
-            params = [*ids, PAGE_SIZE, (page - 1) * PAGE_SIZE]
+            params = [*ids, str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
             # 総数を取得
             total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
@@ -407,7 +406,7 @@ async def VideosAPI(
             where_clause = '',
             order = 'DESC' if order == 'desc' else 'ASC'
         )
-        params = [PAGE_SIZE, (page - 1) * PAGE_SIZE]
+        params = [str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
         # 総数を取得
         total_query = 'SELECT COUNT(*) as count FROM recorded_programs'
@@ -457,7 +456,7 @@ async def VideosSearchAPI(
     page: Annotated[int, Query(description='ページ番号。')] = 1,
 ):
     """
-    指定されたキーワードで録画番組を一度に 100 件ずつ検索する。<br>
+    指定されたキーワードで録画番組を一度に 30 件ずつ検索する。<br>
     キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
     order には "desc" か "asc" を指定する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
@@ -509,14 +508,6 @@ async def VideosSearchAPI(
 
     # 生 SQL クエリを構築
     base_query = """
-        WITH target_records AS (
-            SELECT rp.id, rp.start_time
-            FROM recorded_programs rp
-            LEFT JOIN channels ch ON rp.channel_id = ch.id
-            WHERE {where_clause}
-            ORDER BY rp.start_time {order}, rp.id {order}
-            LIMIT ? OFFSET ?
-        )
         SELECT
             rp.id AS rp_id,
             rp.recording_start_margin,
@@ -568,7 +559,9 @@ async def VideosSearchAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            rv.key_frames,
+            -- key_frames は巨大なデータなので実際のデータは取得せず
+            -- 空かどうかの判定結果だけを取得する
+            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             ch.id AS ch_id,
             ch.display_channel_id,
@@ -583,11 +576,12 @@ async def VideosSearchAPI(
             ch.is_subchannel,
             ch.is_radiochannel,
             ch.is_watchable
-        FROM target_records tr
-        JOIN recorded_programs rp ON tr.id = rp.id
+        FROM recorded_programs rp
         JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        ORDER BY tr.start_time {order}, tr.id {order}
+        WHERE {where_clause}
+        ORDER BY rp.start_time {order}, rp.id {order}
+        LIMIT ? OFFSET ?
     """
 
     # クエリとパラメータを構築
@@ -719,7 +713,7 @@ async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報など）を再解析する。<br>
+    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報・CM 区間情報など）を再解析する。<br>
     生成に時間のかかるシークバー用サムネイルタイルは既存ファイルがあれば再利用されるが、代表サムネイルはメタデータと同時に再度生成される。
     """
 
@@ -811,7 +805,7 @@ async def VideoThumbnailRegenerateAPI(
         async with DriveIOLimiter.getSemaphore(file_path):
             # サムネイル生成を実行
             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
-            await generator.generate(skip_tile_if_exists=skip_tile_if_exists)
+            await generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists)
 
     except Exception as ex:
         logging.error(f'[VideoThumbnailRegenerateAPI] Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)

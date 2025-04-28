@@ -12,7 +12,7 @@ from app.constants import DATABASE_CONFIG
 
 
 class TSInformation:
-    """ 録画 TS ファイル内に含まれるメタデータの解析に役立つユーティリティ """
+    """ 日本の放送波の MPEG-TS PSI/SI の解析時に役立つ雑多なユーティリティ """
 
     # 映像のコーデック
     # ref: https://github.com/Chinachu/Mirakurun/blob/master/src/Mirakurun/EPG.ts#L23-L27

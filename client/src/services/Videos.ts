@@ -21,7 +21,7 @@ export interface IRecordedVideo {
     recording_start_time: string | null;
     recording_end_time: string | null;
     duration: number;
-    container_format: 'MPEG-TS';
+    container_format: 'MPEG-TS' | 'MPEG-4';
     video_codec: 'MPEG-2' | 'H.264' | 'H.265';
     video_codec_profile: 'High' | 'High 10' | 'Main' | 'Main 10' | 'Baseline';
     video_scan_type: 'Interlaced' | 'Progressive';
@@ -35,7 +35,7 @@ export interface IRecordedVideo {
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
     has_key_frames: boolean;
-    cm_sections: { start_time: number; end_time: number; }[];
+    cm_sections: { start_time: number; end_time: number; }[] | null;
     created_at: string;
     updated_at: string;
 }
@@ -66,7 +66,7 @@ export const IRecordedVideoDefault: IRecordedVideo = {
     secondary_audio_channel: null,
     secondary_audio_sampling_rate: null,
     has_key_frames: false,
-    cm_sections: [],
+    cm_sections: null,
     created_at: '2000-01-01T00:00:00+09:00',
     updated_at: '2000-01-01T00:00:00+09:00',
 };

@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20250106'
+  PYTHON_TAG: '20250409'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.11'
+  PYTHON_VERSION: '3.11.12'
   # Poetry のバージョン
   POETRY_VERSION: '1.8.5'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
@@ -37,8 +37,8 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '7.85'
-  NVENCC_VERSION: '8.03'
+  QSVENCC_VERSION: '7.88'
+  NVENCC_VERSION: '8.04'
   VCEENCC_VERSION: '8.35'
   RKMPPENC_VERSION: '0.15'
   # libmediainfo のバージョン
@@ -46,11 +46,12 @@ env:
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
   LIBMEDIAINFO_VERSION: '22.09'
   # Akebi HTTPS Server ビルド用の Golang のバージョン
-  GOLANG_VERSION: '1.21.13'
-  # ビルド対象の tsreadex・psisiarc・Akebi のコミットハッシュ
+  GOLANG_VERSION: '1.23.8'
+  # ビルド対象の tsreadex・psisiarc・psisimux・Akebi のコミットハッシュ
   TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  AKEBI_COMMIT_HASH: '3ba9a548baaa882f55b209ab0040cd1691078e66'
+  PSISIMUX_COMMIT_HASH: '1a01a38886dc41bac81d547ba31fa9eef1bad46b'
+  AKEBI_COMMIT_HASH: 'be986980f7a560b4f74eefcfa2cd474f892f3bc7'
 
 # ジョブの定義
 jobs:
@@ -89,6 +90,17 @@ jobs:
           mkdir ../thirdparty/psisiarc/
           cp x64/Release/psisiarc.exe ../thirdparty/psisiarc/psisiarc.exe
           cp License.txt ../thirdparty/psisiarc/
+
+      # psisimux のビルド
+      - name: Build psisimux
+        run: |
+          git clone https://github.com/xtne6f/psisimux
+          cd psisimux/
+          git checkout ${{ env.PSISIMUX_COMMIT_HASH }}
+          msbuild psisimux.sln /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v142
+          mkdir ../thirdparty/psisimux/
+          cp x64/Release/psisimux.exe ../thirdparty/psisimux/psisimux.exe
+          cp License.txt ../thirdparty/psisimux/
 
       # Golang 環境のセットアップ
       - name: Setup Golang Environment
@@ -148,7 +160,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
@@ -173,8 +185,51 @@ jobs:
 
   # Linux 向けのサードパーティーライブラリのビルド
   build-linux:
-    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false  # 一つのビルドが失敗しても他のビルドは継続する
+      matrix:
+        include:
+          # x64 アーキテクチャ向けのビルド設定
+          - arch: amd64
+            runner: ubuntu-22.04
+            # x86_64_v2 にすると2008年以降の CPU に搭載されている SSE 命令が使える
+            # ref: https://gregoryszorc.com/docs/python-build-standalone/main/running.html
+            python_arch_name: x86_64_v2
+            artifact_suffix: ''
+          # arm64 アーキテクチャ向けのビルド設定
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+            python_arch_name: aarch64
+            artifact_suffix: '-arm'
+    runs-on: ${{ matrix.runner }}
     steps:
+
+      # Docker Buildx のセットアップ
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Dockerfile を作成
+      - name: Create Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          FROM ubuntu:20.04
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install -y build-essential pkg-config
+          EOF
+
+      # Ubuntu 20.04 の Docker イメージをビルド
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ubuntu:20.04-custom
+          cache-from: type=gha,scope=ubuntu:20.04-custom(${{ matrix.arch }})
+          cache-to: type=gha,scope=ubuntu:20.04-custom(${{ matrix.arch }}),mode=max
+          load: true
+
+      # Dockerfile を削除
+      - name: Remove Dockerfile
+        run: rm Dockerfile
 
       # サードパーティーライブラリの配置フォルダを作成
       - name: Create Thirdparty Folder
@@ -186,7 +241,7 @@ jobs:
           git clone https://github.com/xtne6f/tsreadex
           cd tsreadex/
           git checkout ${{ env.TSREADEX_COMMIT_HASH }}
-          make
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'make'
           mkdir ../thirdparty/tsreadex/
           cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
           chmod a+x ../thirdparty/tsreadex/tsreadex.elf
@@ -198,11 +253,23 @@ jobs:
           git clone https://github.com/xtne6f/psisiarc
           cd psisiarc/
           git checkout ${{ env.PSISIARC_COMMIT_HASH }}
-          make
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'make'
           mkdir ../thirdparty/psisiarc/
           cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
           chmod a+x ../thirdparty/psisiarc/psisiarc.elf
           cp License.txt ../thirdparty/psisiarc/
+
+      # psisimux のビルド
+      - name: Build psisimux
+        run: |
+          git clone https://github.com/xtne6f/psisimux
+          cd psisimux/
+          git checkout ${{ env.PSISIMUX_COMMIT_HASH }}
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'make'
+          mkdir ../thirdparty/psisimux/
+          cp psisimux ../thirdparty/psisimux/psisimux.elf
+          chmod a+x ../thirdparty/psisimux/psisimux.elf
+          cp License.txt ../thirdparty/psisimux/
 
       # デフォルトで勝手にキャッシュされてる (?) Golang を削除
       # ここで削除しておかないと意図しないバージョンの Golang が使われてしまうことがある (?)
@@ -217,13 +284,15 @@ jobs:
           cache: false
 
       # Akebi HTTPS Server のビルド
+      # CGO_ENABLED=0 を指定することで、glibc 非依存のバイナリを生成できる
+      # ref: https://www.elastiflow.com/blog/posts/disabling-cgo-to-remove-glibc-dependency
       - name: Build Akebi HTTPS Server
         run: |
           go env
           git clone https://github.com/tsukumijima/Akebi
           cd Akebi/
           git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          GOARCH=amd64 make build-https-server
+          CGO_ENABLED=0 GOARCH=${{ matrix.arch }} make build-https-server
           mkdir ../thirdparty/Akebi/
           cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
@@ -231,7 +300,8 @@ jobs:
 
       # FFmpeg・QSVEncC・NVEncC・VCEEncC のアーカイブのダウンロードと配置
       # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
-      - name: Download and Deploy Encoder Archives
+      - name: Download and Deploy Encoder Archives (for x64)
+        if: matrix.arch == 'amd64'
         run: |
 
           # p7zip-full と patchelf のインストール
@@ -264,7 +334,7 @@ jobs:
           curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_HWENCC_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
-          sudo apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g'
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
@@ -309,126 +379,10 @@ jobs:
           rm -rf lib/
           chmod a+x thirdparty/Library/libmediainfo.so*
 
-      # Python Standalone Builds のダウンロードと poetry のインストール
-      - name: Install Python Standalone Builds & pip & poetry
-        run: |
-
-          # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-unknown-linux-gnu-install_only.tar.gz
-          tar xvf python.tar.gz
-          mv python/ thirdparty/Python/
-
-          # poetry のインストール
-          thirdparty/Python/bin/python -m pip install poetry==${{ env.POETRY_VERSION }}
-
-      # サードパーティーライブラリを tar.xz で圧縮
-      # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
-      # ref: https://axelstudios.github.io/7z/#!/
-      - name: Compress Thirdparty Libraries
-        run: |
-          tar cvf thirdparty-linux.tar thirdparty
-          7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux.tar.xz thirdparty-linux.tar
-
-      # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
-      - name: Upload Thirdparty Libraries as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: thirdparty-linux.tar.xz
-          path: thirdparty-linux.tar.xz
-
-  # Linux (ARM) 向けのサードパーティーライブラリのビルド
-  build-linux-arm:
-    runs-on: ubuntu-20.04
-    steps:
-
-      # サードパーティーライブラリの配置フォルダを作成
-      - name: Create Thirdparty Folder
-        run: mkdir thirdparty/
-
-      # QEMU のセットアップ
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/arm64
-
-      # Docker Buildx のセットアップ
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Dockerfile の作成
-      - name: Create Dockerfile
-        run: |
-          cat <<EOF > Dockerfile
-          ARG IMAGE
-          FROM \${IMAGE}
-          ENV DEBIAN_FRONTEND=noninteractive
-          RUN apt-get update && apt-get install -y build-essential pkg-config
-          EOF
-
-      # ARM64 版 Docker イメージのビルド
-      - name: Build Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          tags: arm64v8/ubuntu:build
-          platforms: linux/arm64
-          build-args: IMAGE=arm64v8/ubuntu:20.04
-          cache-from: type=gha,scope=arm64v8/ubuntu
-          cache-to: type=gha,scope=arm64v8/ubuntu,mode=max
-          load: true
-
-      # tsreadex のビルド
-      - name: Build tsreadex
-        run: |
-          git clone https://github.com/xtne6f/tsreadex
-          cd tsreadex/
-          git checkout ${{ env.TSREADEX_COMMIT_HASH }}
-          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c 'make'
-          mkdir ../thirdparty/tsreadex/
-          cp tsreadex ../thirdparty/tsreadex/tsreadex.elf
-          chmod a+x ../thirdparty/tsreadex/tsreadex.elf
-          cp License.txt ../thirdparty/tsreadex/
-
-      # psisiarc のビルド
-      - name: Build psisiarc
-        run: |
-          git clone https://github.com/xtne6f/psisiarc
-          cd psisiarc/
-          git checkout ${{ env.PSISIARC_COMMIT_HASH }}
-          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c 'make'
-          mkdir ../thirdparty/psisiarc/
-          cp psisiarc ../thirdparty/psisiarc/psisiarc.elf
-          chmod a+x ../thirdparty/psisiarc/psisiarc.elf
-          cp License.txt ../thirdparty/psisiarc/
-
-      # デフォルトで勝手にキャッシュされてる (?) Golang を削除
-      # ここで削除しておかないと意図しないバージョンの Golang が使われてしまうことがある (?)
-      - name: Remove Default Golang
-        run: sudo rm -rf /opt/hostedtoolcache/go/*
-
-      # Golang 環境のセットアップ
-      - name: Setup Golang Environment
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GOLANG_VERSION }}
-          cache: false
-
-      # Akebi HTTPS Server のビルド
-      - name: Build Akebi HTTPS Server
-        run: |
-          go env
-          git clone https://github.com/tsukumijima/Akebi
-          cd Akebi/
-          git checkout ${{ env.AKEBI_COMMIT_HASH }}
-          GOARCH=arm64 make build-https-server
-          mkdir ../thirdparty/Akebi/
-          cp akebi-https-server ../thirdparty/Akebi/akebi-https-server.elf
-          chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
-          cp License.txt ../thirdparty/Akebi/
-
       # FFmpeg・rkmppenc のアーカイブのダウンロードと配置
       # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
-      - name: Download and Deploy Encoder Archives
+      - name: Download and Deploy Encoder Archives (for arm64)
+        if: matrix.arch == 'arm64'
         run: |
 
           # p7zip-full と patchelf のインストール
@@ -458,7 +412,7 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
           curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-a94f677/librockchip-mpp1_1.5.0-1_arm64.deb
           curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-5cb2d9d/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
@@ -492,25 +446,25 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-aarch64-unknown-linux-gnu-install_only.tar.gz
+          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
 
           # poetry のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work arm64v8/ubuntu:build bash -c './bin/python -m pip install poetry==${{ env.POETRY_VERSION }}'
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c './bin/python -m pip install poetry==${{ env.POETRY_VERSION }}'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
       # ref: https://axelstudios.github.io/7z/#!/
       - name: Compress Thirdparty Libraries
         run: |
-          tar cvf thirdparty-linux-arm.tar thirdparty
-          7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux-arm.tar.xz thirdparty-linux-arm.tar
+          tar cvf thirdparty-linux${{ matrix.artifact_suffix }}.tar thirdparty
+          7z a -txz -m0=LZMA2 -mx=9 -md=128m -mfb=128 -mmt=on thirdparty-linux${{ matrix.artifact_suffix }}.tar.xz thirdparty-linux${{ matrix.artifact_suffix }}.tar
 
       # 7z で圧縮したサードパーティーライブラリを Artifact としてアップロード
       - name: Upload Thirdparty Libraries as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: thirdparty-linux-arm.tar.xz
-          path: thirdparty-linux-arm.tar.xz
+          name: thirdparty-linux${{ matrix.artifact_suffix }}.tar.xz
+          path: thirdparty-linux${{ matrix.artifact_suffix }}.tar.xz

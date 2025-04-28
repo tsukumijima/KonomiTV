@@ -11,9 +11,12 @@
                     </div>
                 </div>
                 <div class="program-info__broadcaster-container">
-                    <div class="d-flex align-center">
+                    <div class="d-flex align-center" v-if="playerStore.recorded_program.channel !== null">
                         <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>
                         <div class="program-info__broadcaster-name">{{playerStore.recorded_program.channel.name}}</div>
+                    </div>
+                    <div class="d-flex align-center" v-else>
+                        <div class="program-info__broadcaster-number">チャンネル情報なし</div>
                     </div>
                     <div class="program-info__broadcaster-time">
                         {{ProgramUtils.getProgramTime(playerStore.recorded_program)}}
