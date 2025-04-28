@@ -654,9 +654,10 @@ class MetadataAnalyzer:
                         logging.warning(f'{self.recorded_file_path}: Audio codec "{track.format}" is not supported.')
                         return None
                     # チャンネル数情報が存在しない
+                    # コーデック情報が取得できるのにチャンネル数情報が取得できないことはあまり考えられないので、誤解析と判断し channel_s を 2 に固定する
                     if hasattr(track, 'channel_s') is False or track.channel_s is None:
-                        logging.warning(f'{self.recorded_file_path}: Channel count information is missing.')
-                        return None
+                        logging.warning(f'{self.recorded_file_path}: Channel count information is missing. (Is MediaInfo misinterpreting the audio?)')
+                        track.channel_s = 2
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できないが、
                     # 実際に上記以外の音声チャンネル数でエンコードされることはまずない (少なくとも放送仕様上は発生し得ない) ため、
                     # 22 とか 8 とか突拍子ない値が返ってきた場合は何らかの理由で MediaInfo が誤解析してしまっている可能性の方が高い
