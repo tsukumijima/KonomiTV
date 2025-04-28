@@ -935,6 +935,8 @@ poetry install --no-root
 poetry run task update-thirdparty
 
 # サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して Poetry 仮想環境を再構築
+## ローカル環境の Python 3.11 を使うと、組み込みの SQLite バージョンが古いことによる問題が発生する可能性がある
+## サードパーティーライブラリ内の Python には最新の SQLite が組み込まれているため、そちらを明示的に利用すべき
 # Windows:
 Remove-Item -Recurse -Force .venv/
 poetry env use /Develop/KonomiTV/server/thirdparty/Python/python.exe

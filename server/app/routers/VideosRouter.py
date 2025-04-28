@@ -43,8 +43,9 @@ PAGE_SIZE = 30
 async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedProgram:
     """ データベースの行データを RecordedProgram Pydantic モデルに変換する共通処理 """
 
-    # key_frames の JSON は巨大なので、存在確認のみ行う
-    has_key_frames: bool = row['key_frames'] != '[]'
+    # key_frames の存在確認
+    # 高速化のため、SQL で計算された has_key_frames を直接参照する
+    has_key_frames: bool = bool(row['has_key_frames'])
 
     # cm_sections は小さいので、通常通りパースする
     cm_sections: list[schemas.CMSection] | None = None
@@ -273,7 +274,7 @@ async def VideosAPI(
     ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
 ):
     """
-    すべての録画番組を一度に 100 件ずつ取得する。<br>
+    すべての録画番組を一度に 30 件ずつ取得する。<br>
     order には "desc" か "asc" か "ids" を指定する。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
@@ -332,7 +333,9 @@ async def VideosAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            rv.key_frames,
+            -- key_frames は巨大なデータなので実際のデータは取得せず
+            -- 空かどうかの判定結果だけを取得する
+            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             ch.id AS ch_id,
             ch.display_channel_id,
@@ -453,7 +456,7 @@ async def VideosSearchAPI(
     page: Annotated[int, Query(description='ページ番号。')] = 1,
 ):
     """
-    指定されたキーワードで録画番組を一度に 100 件ずつ検索する。<br>
+    指定されたキーワードで録画番組を一度に 30 件ずつ検索する。<br>
     キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
     order には "desc" か "asc" を指定する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
@@ -556,7 +559,9 @@ async def VideosSearchAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            rv.key_frames,
+            -- key_frames は巨大なデータなので実際のデータは取得せず
+            -- 空かどうかの判定結果だけを取得する
+            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             ch.id AS ch_id,
             ch.display_channel_id,
