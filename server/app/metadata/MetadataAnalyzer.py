@@ -596,7 +596,7 @@ class MetadataAnalyzer:
                     # 再生可能なコンテナではない
                     ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
                     if track.format not in ('MPEG-TS', 'MPEG-4'):
-                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: Container format "{track.format}" is not supported.')
                         return None
                     # 映像 or 音声ストリームが存在しない
                     if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
@@ -629,7 +629,7 @@ class MetadataAnalyzer:
                         return None
                     # MPEG-2, H.264, H.265 以外のコーデックは KonomiTV で再生できない
                     if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
-                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: Video codec "{track.format}" is not supported.')
                         return None
 
                 # 音声ストリーム
@@ -648,7 +648,7 @@ class MetadataAnalyzer:
                         logging.warning(f'{self.recorded_file_path}: MPEG Audio is detected. Assuming AAC-LC. (Is MediaInfo misinterpreting the audio?)')
                     # AAC-LC 以外のコーデックは KonomiTV で再生できない
                     if track.format not in ['AAC']:
-                        logging.warning(f'{self.recorded_file_path}: {track.format} is not supported.')
+                        logging.warning(f'{self.recorded_file_path}: Audio codec "{track.format}" is not supported.')
                         return None
                     # チャンネル数情報が存在しない
                     if hasattr(track, 'channel_s') is False or track.channel_s is None:
