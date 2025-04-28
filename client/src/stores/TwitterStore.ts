@@ -104,7 +104,7 @@ const useTwitterStore = defineStore('twitter', {
             // 開発維持コストの兼ね合いもあり、OldTweetDeck で使われている Challenge 解決用 iframe 用 HTML をそのまま移植して使っている
             const solver_iframe = document.createElement('iframe');
             solver_iframe.style.display = 'none';  // この iframe は Challenge の解決以外には使わないので表示する必要もない
-            solver_iframe.src = '/solver.html?version=2';
+            solver_iframe.src = '/solver.html';
             document.body.appendChild(solver_iframe);
             this.challenge_solvers[screen_name] = {
                 solver_iframe: solver_iframe,
