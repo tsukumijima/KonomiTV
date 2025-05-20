@@ -928,7 +928,7 @@ class TwitterGraphQLAPI:
                     name = raw_tweet_object['core']['user_results']['result']['legacy']['name'],
                     screen_name = raw_tweet_object['core']['user_results']['result']['legacy']['screen_name'],
                     # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-                    icon_url = raw_tweet_object['core']['user_results']['result']['legacy']['profile_image_url_https'].replace('_normal', ''),
+                    icon_url = raw_tweet_object['core']['user_results']['result']['avatar']['image_url'].replace('_normal', ''),
                 ),
                 text = expanded_text,
                 lang = raw_tweet_object['legacy']['lang'],
