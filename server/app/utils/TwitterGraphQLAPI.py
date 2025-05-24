@@ -551,9 +551,10 @@ class TwitterGraphQLAPI:
             logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON')
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
-        # API レスポンスにエラーが含まれている場合
+        # API レスポンスにエラーが含まれていて、かつ data キーが存在しない場合
         ## API レスポンスは Twitter の仕様変更で変わりうるので、ここで判定されなかったと言ってエラーでないとは限らない
-        if 'errors' in response_json:
+        ## なぜか正常にレスポンスが含まれているのにエラーも返ってくる場合があるので、その場合は（致命的な）エラーではないと判断する
+        if 'errors' in response_json and 'data' not in response_json:
 
             # Twitter API のエラーコードとエラーメッセージを取得
             ## このエラーコードは API v1.1 の頃と変わっていない
@@ -925,8 +926,8 @@ class TwitterGraphQLAPI:
                 created_at = datetime.strptime(raw_tweet_object['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y').astimezone(ZoneInfo('Asia/Tokyo')),
                 user = schemas.TweetUser(
                     id = raw_tweet_object['core']['user_results']['result']['rest_id'],
-                    name = raw_tweet_object['core']['user_results']['result']['legacy']['name'],
-                    screen_name = raw_tweet_object['core']['user_results']['result']['legacy']['screen_name'],
+                    name = raw_tweet_object['core']['user_results']['result']['core']['name'],
+                    screen_name = raw_tweet_object['core']['user_results']['result']['core']['screen_name'],
                     # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
                     icon_url = raw_tweet_object['core']['user_results']['result']['avatar']['image_url'].replace('_normal', ''),
                 ),
