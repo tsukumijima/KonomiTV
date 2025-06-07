@@ -2,14 +2,6 @@ import APIClient from '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import { IProgram } from '@/services/Programs';
 
-/**
- * 録画フォルダの設定
- */
-export interface IRecordingFolder {
-    recording_folder_path: string;
-    recording_file_name_template: string | null;
-    is_oneseg_separate_recording_folder: boolean;
-}
 
 /**
  * 録画設定
@@ -30,6 +22,15 @@ export interface IRecordSettings {
     is_oneseg_separate_output_enabled: boolean;
     is_sequential_recording_in_single_file_enabled: boolean;
     forced_tuner_id: number | null;
+}
+
+/**
+ * 録画フォルダの設定
+ */
+export interface IRecordingFolder {
+    recording_folder_path: string;
+    recording_file_name_template: string | null;
+    is_oneseg_separate_recording_folder: boolean;
 }
 
 /**
