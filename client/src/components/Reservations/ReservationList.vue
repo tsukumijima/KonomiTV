@@ -188,17 +188,14 @@ const confirmDeleteReservation = async () => {
     is_deleting.value = true;
     try {
         const result = await Reservations.deleteReservation(deleting_reservation_id.value);
-        if (result === true) {
+        if (result) {
             snackbarsStore.show('success', '予約を削除しました。');
             emit('delete', deleting_reservation_id.value);
-        } else if (typeof result === 'object' && result.detail) {
-            snackbarsStore.show('error', `予約の削除に失敗しました。${result.detail}`);
-        } else {
-            snackbarsStore.show('error', '予約の削除に失敗しました。');
         }
+        // エラー時のメッセージ表示は Reservations.deleteReservation() 内で処理済み
     } catch (error) {
         console.error('Failed to delete reservation:', error);
-        snackbarsStore.show('error', '予約の削除に失敗しました。');
+        // エラー時のメッセージ表示は Reservations.deleteReservation() 内で処理済み
     } finally {
         is_deleting.value = false;
         show_confirm_dialog.value = false;

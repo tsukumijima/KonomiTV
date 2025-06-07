@@ -1,6 +1,6 @@
-import APIClient from './APIClient';
-import { IChannel } from './Channels';
-import { IProgram } from './Programs';
+import APIClient from '@/services/APIClient';
+import { IChannel } from '@/services/Channels';
+import { IProgram } from '@/services/Programs';
 
 /**
  * 録画フォルダの設定
@@ -99,34 +99,17 @@ class Reservations {
     /**
      * 録画予約を削除する
      * @param id 削除する録画予約の ID
-     * @returns 成功した場合は true、失敗した場合はエラーメッセージを含むオブジェクトまたは false
+     * @returns 成功した場合は true、失敗した場合は false
      */
-    static async deleteReservation(id: number): Promise<boolean | {detail: string}> {
+    static async deleteReservation(id: number): Promise<boolean> {
         const response = await APIClient.delete<void>(`/recording/reservations/${id}`);
 
         if (response.type === 'error') {
-            // APIClient.showGenericError は内部で snackbar を表示するので、ここではエラー情報を返す
-            // 呼び出し元で snackbar を表示するかどうかを制御できるようにする
-            let error_detail = `録画予約 (ID: ${id}) の削除に失敗しました。`;
-            if (response.data && response.data.detail) {
-                if (typeof response.data.detail === 'string') {
-                    error_detail = response.data.detail;
-                } else if (Array.isArray(response.data.detail) && response.data.detail.length > 0) {
-                    // FastAPI のバリデーションエラーの場合、最初のメッセージを使用
-                    error_detail = response.data.detail[0].msg || error_detail;
-                }
-            }
-            // APIClient.showGenericError(response, `録画予約 (ID: ${id}) の削除に失敗しました。`);
-            return { detail: error_detail };
+            APIClient.showGenericError(response, `録画予約 (ID: ${id}) の削除に失敗しました。`);
+            return false;
         }
 
-        // HTTP ステータス 204 No Content の場合は成功
-        if (response.status === 204) {
-            return true;
-        }
-
-        // その他の予期せぬステータス
-        return { detail: `録画予約 (ID: ${id}) の削除中に予期せぬエラーが発生しました。 (Status: ${response.status})` };
+        return true;
     }
 }
 
