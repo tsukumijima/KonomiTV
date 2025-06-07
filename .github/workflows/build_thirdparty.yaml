@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20250409'
+  PYTHON_TAG: '20250604'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.12'
+  PYTHON_VERSION: '3.11.13'
   # Poetry のバージョン
   POETRY_VERSION: '1.8.5'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
