@@ -1,52 +1,8 @@
 
 import APIClient from '@/services/APIClient';
+import { IProgramSearchCondition } from '@/services/Programs';
 import { IRecordSettings } from '@/services/Reservations';
 
-
-/**
- * 番組検索条件
- */
-export interface IProgramSearchCondition {
-    is_enabled: boolean;
-    keyword: string;
-    exclude_keyword: string;
-    note: string;
-    is_title_only: boolean;
-    is_case_sensitive: boolean;
-    is_fuzzy_search_enabled: boolean;
-    is_regex_search_enabled: boolean;
-    service_ranges: IProgramSearchConditionService[] | null;
-    genre_ranges: { major: string; middle: string; }[] | null;
-    is_exclude_genre_ranges: boolean;
-    date_ranges: IProgramSearchConditionDate[] | null;
-    is_exclude_date_ranges: boolean;
-    duration_range_min: number | null;
-    duration_range_max: number | null;
-    broadcast_type: 'All' | 'FreeOnly' | 'PaidOnly';
-    duplicate_title_check_scope: 'None' | 'SameChannelOnly' | 'AllChannels';
-    duplicate_title_check_period_days: number;
-}
-
-/**
- * 番組検索条件のチャンネル
- */
-export interface IProgramSearchConditionService {
-    network_id: number;
-    transport_stream_id: number;
-    service_id: number;
-}
-
-/**
- * 番組検索条件の日付
- */
-export interface IProgramSearchConditionDate {
-    start_day_of_week: number; // 0-6 (日曜日-土曜日)
-    start_hour: number; // 0-23
-    start_minute: number; // 0-59
-    end_day_of_week: number; // 0-6 (日曜日-土曜日)
-    end_hour: number; // 0-23
-    end_minute: number; // 0-59
-}
 
 /**
  * キーワード自動予約条件
