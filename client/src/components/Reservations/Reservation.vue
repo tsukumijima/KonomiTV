@@ -23,7 +23,7 @@
             </div>
 
             <!-- 中央：番組情報 -->
-            <div class="reservation__content">
+            <div class="reservation__content" @click="handleContentClick">
                 <div class="reservation__content-header">
                     <div class="reservation__content-title"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'title')"></div>
@@ -69,6 +69,7 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 
+import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
 import { useSnackbarsStore } from '@/stores/SnackbarsStore';
 import Utils, { ProgramUtils } from '@/utils';
@@ -81,6 +82,7 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
     (e: 'deleted', reservation_id: number): void;
+    (e: 'click', reservation: IReservation): void;
 }>();
 
 const snackbarsStore = useSnackbarsStore();
@@ -154,6 +156,11 @@ const getReservationStatusColor = (reservation: IReservation): string => {
     }
 };
 
+// コンテンツクリック時の処理
+const handleContentClick = () => {
+    emit('click', props.reservation);
+};
+
 // 有効・無効の切り替え処理
 const handleToggleEnabled = async () => {
     if (is_updating.value) return;
@@ -171,7 +178,7 @@ const handleToggleEnabled = async () => {
             const message = is_enabled.value
                 ? '録画予約を有効にしました。\n番組開始時刻になると自動的に録画が開始されます。'
                 : '録画予約を無効にしました。\n番組開始時刻までに再度予約を有効にしない限り、この番組は録画されません。';
-            snackbarsStore.show('success', message);
+            Message.success(message);
         } else {
             // 失敗時は元の状態に戻す
             is_enabled.value = props.reservation.record_settings.is_enabled;
@@ -352,6 +359,15 @@ const handleToggleEnabled = async () => {
         justify-content: center;
         flex-grow: 1;
         min-width: 0;
+        cursor: pointer;
+        border-radius: 6px;
+        padding: 4px;
+        margin: -4px;
+        transition: background-color 0.15s;
+
+        &:hover {
+            background-color: rgba(var(--v-theme-primary), 0.08);
+        }
 
         &-header {
             display: flex;
