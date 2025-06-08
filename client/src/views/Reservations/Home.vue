@@ -15,11 +15,11 @@
                             <v-icon>mdi-refresh</v-icon>
                         </v-btn>
                     </div>
-                    <!-- 近日中の予約・録画中セクション -->
+                    <!-- 近日中の録画予約セクション -->
                     <ReservationList
                         class="reservations-home-container__upcoming-reservations"
                         :class="{'reservations-home-container__upcoming-reservations--loading': upcoming_or_recording_reservations.length === 0 && is_loading}"
-                        title="近日中の予約・録画中"
+                        title="近日中の録画予約"
                         :reservations="upcoming_or_recording_reservations"
                         :total="total_upcoming_or_recording_reservations"
                         :hideSort="true"
@@ -28,25 +28,7 @@
                         :isLoading="is_loading"
                         :showEmptyMessage="!is_loading"
                         :emptyIcon="'mdi-motion-play-outline'"
-                        :emptyMessage="'近日中の予約や録画中の番組はありません。'"
-                        :emptySubMessage="''"
-                        @more="$router.push('/reservations/all')"
-                        @delete="handleReservationDeleted" />
-
-                    <!-- 24時間以内に終了した予約セクション -->
-                    <ReservationList
-                        class="reservations-home-container__recently-finished-reservations"
-                        :class="{'reservations-home-container__recently-finished-reservations--loading': recently_finished_reservations.length === 0 && is_loading}"
-                        title="24時間以内に終了した予約"
-                        :reservations="recently_finished_reservations"
-                        :total="total_recently_finished_reservations"
-                        :hideSort="true"
-                        :hidePagination="true"
-                        :showMoreButton="true"
-                        :isLoading="is_loading"
-                        :showEmptyMessage="!is_loading"
-                        :emptyIcon="'mdi-history'"
-                        :emptyMessage="'24時間以内に終了した予約はありません。'"
+                        :emptyMessage="'近日中の録画予約や録画中の番組はありません。'"
                         :emptySubMessage="''"
                         @more="$router.push('/reservations/all')"
                         @delete="handleReservationDeleted" />
@@ -74,7 +56,6 @@
 </template>
 
 <script lang="ts" setup>
-import dayjs from 'dayjs';
 import { onMounted, ref, onUnmounted, computed } from 'vue';
 
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
@@ -83,6 +64,7 @@ import Navigation from '@/components/Navigation.vue';
 import ReservationList from '@/components/Reservations/ReservationList.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import Reservations, { IReservation } from '@/services/Reservations';
+import { dayjs } from '@/utils';
 
 // 定数定義
 const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 自動更新の間隔: 30秒
@@ -97,10 +79,6 @@ const autoRefreshInterval = ref<number | null>(null);
 // 近日中の予約・録画中
 const upcoming_or_recording_reservations = ref<IReservation[]>([]);
 const total_upcoming_or_recording_reservations = ref(0);
-
-// 24時間以内に終了した予約
-const recently_finished_reservations = ref<IReservation[]>([]);
-const total_recently_finished_reservations = ref(0);
 
 // すべての予約
 const all_reservations_for_display = ref<IReservation[]>([]);
@@ -126,22 +104,8 @@ const fetchAndCategorizeReservations = async () => {
         total_all_reservations.value = result.total;
         all_reservations_for_display.value = allFetchedReservations;
 
-        const finishedWithin24Hours = allFetchedReservations
-            .filter(res => {
-                const endTime = dayjs(res.program.end_time);
-                // 終了時刻が過去、かつ24時間以内 (is_recording_in_progress の状態は問わない)
-                return endTime.isBefore(now) && endTime.isAfter(now.subtract(24, 'hours'));
-            })
-            .sort((a, b) => dayjs(b.program.end_time).valueOf() - dayjs(a.program.end_time).valueOf());
-        total_recently_finished_reservations.value = finishedWithin24Hours.length;
-        recently_finished_reservations.value = finishedWithin24Hours.slice(0, RECENTLY_FINISHED_DISPLAY_LIMIT);
-        const finishedWithin24HoursIds = new Set(finishedWithin24Hours.map(r => r.id));
-
         const upcomingOrRecording = allFetchedReservations
             .filter(res => {
-                if (finishedWithin24HoursIds.has(res.id)) {
-                    return false;
-                }
                 const startTime = dayjs(res.program.start_time);
                 const isUpcoming = startTime.isAfter(now) && startTime.isBefore(now.add(24, 'hours'));
                 const isRecording = res.is_recording_in_progress;
@@ -164,8 +128,6 @@ const fetchAndCategorizeReservations = async () => {
 const resetReservations = () => {
     upcoming_or_recording_reservations.value = [];
     total_upcoming_or_recording_reservations.value = 0;
-    recently_finished_reservations.value = [];
-    total_recently_finished_reservations.value = 0;
     all_reservations_for_display.value = [];
     total_all_reservations.value = 0;
 };

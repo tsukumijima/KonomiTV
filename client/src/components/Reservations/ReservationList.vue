@@ -85,19 +85,14 @@
 </template>
 
 <script lang="ts" setup>
+
 import { ref, PropType } from 'vue';
-import dayjs from 'dayjs';
-import 'dayjs/locale/ja';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
-import relativeTime from 'dayjs/plugin/relativeTime';
 
 import { IReservation } from '@/services/Reservations';
 import Reservations from '@/services/Reservations';
 import { useSnackbarsStore } from '@/stores/SnackbarsStore';
+import { dayjs } from '@/utils';
 
-dayjs.extend(relativeTime);
-dayjs.extend(customParseFormat);
-dayjs.locale('ja');
 
 const snackbarsStore = useSnackbarsStore();
 

@@ -10,8 +10,8 @@
             <Icon icon="fluent:movies-and-tv-20-regular" width="30px" />
             <span class="mt-1">ビデオをみる</span>
         </v-btn>
-        <v-btn class="bottom-navigation-button" to="/reserves/"
-            :class="{'v-btn--active': $route.path.startsWith('/reserves')}">
+        <v-btn class="bottom-navigation-button" to="/reservations/"
+            :class="{'v-btn--active': $route.path.startsWith('/reservations')}">
             <Icon icon="fluent:timer-16-regular" width="30px" />
             <span class="mt-1">録画予約</span>
         </v-btn>
