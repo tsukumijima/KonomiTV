@@ -146,18 +146,18 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
 
     def CalculateEstimatedFileSize(duration_seconds: float, bitrate_kbps: int, recording_mode: str) -> int:
         """
-        録画予定時間とビットレートから推定ファイルサイズを計算する
+        録画予定時間とビットレートから想定ファイルサイズを計算する
 
         Args:
             duration_seconds (float): 録画予定時間 (秒)
             bitrate_kbps (int): ビットレート (kbps)
-            recording_mode (str): 録画モード (視聴モードの場合は推定サイズ 0 を返す)
+            recording_mode (str): 録画モード (視聴モードの場合は想定サイズ 0 を返す)
 
         Returns:
-            int: 推定ファイルサイズ (バイト)
+            int: 想定ファイルサイズ (バイト)
         """
 
-        # 視聴モードの場合は推定サイズ 0 を返す (録画されないため)
+        # 視聴モードの場合は想定サイズ 0 を返す (録画されないため)
         if recording_mode == 'View':
             return 0
 
@@ -309,12 +309,12 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(reserve_data['rec_setting'])
 
-    # 推定録画ファイルサイズを計算
+    # 想定録画ファイルサイズを計算
     estimated_recording_file_size: int = 0
     try:
         # EDCB から Bitrate.ini を取得してビットレートを計算
         bitrate_kbps = await GetBitrateFromEDCB(network_id, transport_stream_id, service_id)
-        # 推定ファイルサイズを計算
+        # 想定ファイルサイズを計算
         estimated_recording_file_size = CalculateEstimatedFileSize(duration, bitrate_kbps, record_settings.recording_mode)
     except Exception as ex:
         logging.warning(f'[ReservationsRouter][DecodeEDCBReserveData] Failed to calculate estimated file size [reserve_id: {reserve_id}]', exc_info=ex)

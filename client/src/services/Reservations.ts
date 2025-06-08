@@ -45,6 +45,7 @@ export interface IReservation {
     recording_availability: 'Full' | 'Partial' | 'Unavailable';
     comment: string;
     scheduled_recording_file_name: string;
+    estimated_recording_file_size: number;
     record_settings: IRecordSettings;
 }
 

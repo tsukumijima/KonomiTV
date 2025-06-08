@@ -50,7 +50,7 @@
                     <div class="reservation__content-meta-size-comment">
                         <div class="reservation__content-meta-size">
                             <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
-                            予想: {{ getDummyFileSize() }}
+                            予想: {{ Utils.formatBytes(reservation.estimated_recording_file_size) }}
                         </div>
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="mr-1" />
@@ -151,23 +151,6 @@ const getReservationStatusColor = (reservation: IReservation): string => {
             return 'error';
         default:
             return 'grey';
-    }
-};
-
-// ダミーファイルサイズを生成
-const getDummyFileSize = (): string => {
-    // 番組時間に基づいてダミーサイズを算出
-    const duration = ProgramUtils.getProgramDuration(props.reservation.program);
-    const durationMatch = duration.match(/(\d+)分/);
-    const minutes = durationMatch ? parseInt(durationMatch[1]) : 30;
-
-    // 1分あたり約60MBと仮定してサイズを計算
-    const sizeInMB = Math.round(minutes * 60 / 10) * 10; // 10MB単位で四捨五入
-
-    if (sizeInMB >= 1000) {
-        return `${(sizeInMB / 1000).toFixed(1)}GB`;
-    } else {
-        return `${sizeInMB}MB`;
     }
 };
 
