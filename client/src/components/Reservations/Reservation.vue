@@ -1,5 +1,5 @@
 <template>
-    <div class="reservation" :class="{ 'reservation--disabled': !reservation.record_settings.is_enabled }">
+    <div class="reservation" :class="{ 'reservation--disabled': !is_enabled }">
         <div class="reservation__container">
             <!-- 左側：優先度と有効・無効スイッチ -->
             <div class="reservation__controls">
@@ -7,7 +7,7 @@
                     <div class="reservation__priority-badge">{{ reservation.record_settings.priority }}</div>
                     <div class="reservation__priority-label">優先度</div>
                 </div>
-                <div class="reservation__toggle">
+                <div v-if="!reservation.is_recording_in_progress" class="reservation__toggle">
                     <v-switch
                         v-model="is_enabled"
                         color="primary"
@@ -16,6 +16,9 @@
                         @update:model-value="handleToggleEnabled"
                     ></v-switch>
                     <div class="reservation__toggle-label">{{ is_enabled ? '有効' : '無効' }}</div>
+                </div>
+                <div v-else class="reservation__recording">
+                    <div class="reservation__recording-icon"></div>
                 </div>
             </div>
 
@@ -118,18 +121,18 @@ const getReservationStatusLabel = (reservation: IReservation): string => {
 // 予約状態のアイコンを取得
 const getReservationStatusIcon = (reservation: IReservation): string => {
     if (reservation.is_recording_in_progress) {
-        return 'fluent:record-20-filled';
+        return 'fluent:record-16-filled';
     }
 
     switch (reservation.recording_availability) {
         case 'Full':
-            return 'fluent:checkmark-circle-20-regular';
+            return 'fluent:checkmark-circle-16-regular';
         case 'Partial':
-            return 'fluent:warning-20-regular';
+            return 'fluent:warning-16-filled';
         case 'Unavailable':
-            return 'fluent:dismiss-circle-20-regular';
+            return 'fluent:dismiss-circle-16-regular';
         default:
-            return 'fluent:question-circle-20-regular';
+            return 'fluent:question-circle-16-regular';
     }
 };
 
@@ -279,6 +282,53 @@ const handleToggleEnabled = async () => {
             @include smartphone-vertical {
                 font-size: 9px;
             }
+        }
+    }
+
+
+    .reservation__recording-icon {
+        margin: auto;
+        width: 21px;
+        height: 21px;
+        border: 7px solid #515151;
+        border-radius: 50%;
+        background-color: #EF5350;
+        box-shadow: 0 3px 4px 0 rgba(0, 0, 0, .14), 0 3px 3px -2px rgba(0, 0, 0, .2), 0 1px 8px 0 rgba(0, 0, 0, .12);
+        transition: 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+        position: relative;
+        display: block;
+        content: '';
+        box-sizing: border-box;
+        overflow: visible;
+        text-align: left;
+        animation: recording-background-color 2s infinite ease-in-out;
+        @include smartphone-vertical {
+            width: 19px;
+            height: 19px;
+            border: 6px solid #515151;
+        }
+
+        &:before {
+            width: 13px;
+            height: 13px;
+            background: rgba(239, 83, 80, 0.2);
+            border-radius: 50%;
+            position: absolute;
+            margin-top: -3px;
+            margin-left: -3px;
+            content: '';
+            transition: 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+            @include smartphone-vertical {
+                width: 9px;
+                height: 9px;
+            }
+        }
+
+        // 中心の赤丸が点滅するアニメーション
+        @keyframes recording-background-color {
+            0% { background-color: rgba(239, 83, 80, 0.7); }
+            50% { background-color: rgba(239, 83, 80, 1); }
+            100% { background-color: rgba(239, 83, 80, 0.7); }
         }
     }
 
@@ -494,13 +544,14 @@ const handleToggleEnabled = async () => {
         }
 
         &-description {
+            display: -webkit-box;
+            margin-top: 2px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
             line-height: 1.55;
             overflow-wrap: break-word;
             font-feature-settings: "palt" 1;
             letter-spacing: 0.07em;
-            display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
@@ -515,5 +566,28 @@ const handleToggleEnabled = async () => {
             }
         }
     }
+
+    &__recording {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        &-icon {
+            margin-bottom: 3px;
+            @include smartphone-vertical {
+                margin-bottom: 2px;
+            }
+        }
+
+        &-label {
+            font-size: 10px;
+            color: rgb(var(--v-theme-text-darken-1));
+            text-align: center;
+            @include smartphone-vertical {
+                font-size: 9px;
+            }
+        }
+    }
 }
+
 </style>
