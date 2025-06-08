@@ -48,13 +48,13 @@
                     </div>
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
                     <div class="reservation__content-meta-size-comment">
-                        <div class="reservation__content-meta-size">
-                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
-                            予想: {{ Utils.formatBytes(reservation.estimated_recording_file_size) }}
-                        </div>
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="mr-1" />
                             {{ reservation.comment }}
+                        </div>
+                        <div class="reservation__content-meta-size">
+                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
+                            {{ Utils.formatBytes(reservation.estimated_recording_file_size) }} 想定
                         </div>
                     </div>
                 </div>
@@ -168,7 +168,10 @@ const handleToggleEnabled = async () => {
 
         const result = await Reservations.updateReservation(props.reservation.id, updatedSettings);
         if (result) {
-            snackbarsStore.show('success', `予約を${is_enabled.value ? '有効' : '無効'}にしました。`);
+            const message = is_enabled.value
+                ? '録画予約を有効にしました。\n番組開始時刻になると自動的に録画が開始されます。'
+                : '録画予約を無効にしました。\n番組開始時刻までに再度予約を有効にしない限り、この番組は録画されません。';
+            snackbarsStore.show('success', message);
         } else {
             // 失敗時は元の状態に戻す
             is_enabled.value = props.reservation.record_settings.is_enabled;
@@ -232,7 +235,7 @@ const handleToggleEnabled = async () => {
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 0px 7px;  // 下のスイッチと揃えるため
+        padding: 0px 6px;  // 下のスイッチと幅を揃えるため
         margin-bottom: 6px;
         @include smartphone-vertical {
             margin-bottom: 12px;
@@ -242,8 +245,8 @@ const handleToggleEnabled = async () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
-            height: 26px;
+            width: 23px;
+            height: 23px;
             border-radius: 50%;
             background: rgb(var(--v-theme-primary));
             color: white;
@@ -354,6 +357,12 @@ const handleToggleEnabled = async () => {
             display: flex;
             align-items: center;
             margin-bottom: 2px;
+            @include desktop {
+                margin-bottom: 4px;
+            }
+            @include tablet-horizontal {
+                margin-bottom: 4px;
+            }
         }
 
         &-title {
@@ -398,9 +407,12 @@ const handleToggleEnabled = async () => {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 10px 12px;
             margin-bottom: 2px;
             font-size: 13.8px;
+            @include tablet-horizontal {
+                row-gap: 4px;
+            }
             @include tablet-vertical {
                 gap: 3px 6px;
             }
@@ -410,6 +422,7 @@ const handleToggleEnabled = async () => {
             @include smartphone-vertical {
                 row-gap: 1px;
                 font-size: 12px;
+                margin-bottom: 0px;
             }
 
             &-broadcaster {
@@ -417,7 +430,7 @@ const handleToggleEnabled = async () => {
                 align-items: center;
                 min-width: 0;
                 @include smartphone-vertical {
-                    margin-bottom: 2px;
+                    margin-bottom: 1px;
                 }
 
                 &-icon {
@@ -503,25 +516,11 @@ const handleToggleEnabled = async () => {
                 align-items: center;
                 flex-wrap: wrap;
                 gap: 10px;
-            }
-
-            &-comment {
-                border-left: 1px solid rgb(var(--v-theme-text-darken-1));
-                padding-left: 8px;
-                @include tablet-vertical {
-                    margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
-                }
-                @include smartphone-horizontal {
-                    margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
+                @include desktop {
+                    margin-left: auto;
                 }
                 @include smartphone-vertical {
-                    margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
+                    margin-top: 2px;
                 }
             }
         }
@@ -535,7 +534,7 @@ const handleToggleEnabled = async () => {
             overflow-wrap: break-word;
             font-feature-settings: "palt" 1;
             letter-spacing: 0.07em;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: 1;
             -webkit-box-orient: vertical;
             overflow: hidden;
             @include tablet-vertical {
