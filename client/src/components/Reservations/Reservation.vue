@@ -78,8 +78,8 @@
         </v-card>
     </v-dialog>
 </template>
-
 <script lang="ts" setup>
+
 import { ref } from 'vue';
 
 import Reservations, { IReservation } from '@/services/Reservations';
@@ -153,9 +153,10 @@ const deleteReservation = async () => {
         show_delete_confirmation.value = false;
     }
 };
-</script>
 
+</script>
 <style lang="scss" scoped>
+
 .reservation {
     display: flex;
     position: relative;
@@ -544,4 +545,5 @@ const deleteReservation = async () => {
     50% { opacity: 1; }
     100% { opacity: 0; }
 }
+
 </style>

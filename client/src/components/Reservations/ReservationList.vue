@@ -72,18 +72,12 @@
         </div>
     </div>
 </template>
-
 <script lang="ts" setup>
+
 import { ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 
 import Reservation from '@/components/Reservations/Reservation.vue';
-import Reservations, { IReservation } from '@/services/Reservations';
-import { useSnackbarsStore } from '@/stores/SnackbarsStore';
-import { dayjs } from '@/utils';
-
-const snackbarsStore = useSnackbarsStore();
-const router = useRouter();
+import { IReservation } from '@/services/Reservations';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -161,70 +155,14 @@ const handleReservationDeleted = (id: number) => {
     // 内部の予約リストから削除された予約を除外
     displayReservations.value = displayReservations.value.filter(reservation => reservation.id !== id);
     // 合計数を1減らす
-    displayTotal.value--;
+    displayTotal.value = Math.max(0, displayTotal.value - 1);
     // 親コンポーネントに削除イベントを発行
     emit('delete', id);
 };
 
-const formatDateTime = (dateString: string): string => {
-    return dayjs(dateString).format('YYYY年MM月DD日 HH:mm');
-};
-
-// 予約状態のラベルを取得
-const getReservationStatusLabel = (reservation: IReservation): string => {
-    if (reservation.is_recording_in_progress) {
-        return '録画中';
-    }
-    if (reservation.recording_availability !== 'Full') {
-        return '競合';
-    }
-    return dayjs(reservation.program.end_time).isBefore(dayjs()) ? '終了' : '予約済み';
-};
-
-// 予約状態の色を取得
-const getReservationStatusColor = (reservation: IReservation): string => {
-    if (reservation.is_recording_in_progress) {
-        return 'primary';
-    }
-    if (reservation.recording_availability !== 'Full') {
-        return 'error';
-    }
-    return dayjs(reservation.program.end_time).isBefore(dayjs()) ? 'grey' : 'success';
-};
-
-// 削除関連
-const show_confirm_dialog = ref(false);
-const deleting_reservation_id = ref<number | null>(null);
-const deleting_reservation_title = ref<string>('');
-const is_deleting = ref(false);
-
-const onClickDelete = (reservation: IReservation) => {
-    deleting_reservation_id.value = reservation.id;
-    deleting_reservation_title.value = reservation.program.title;
-    show_confirm_dialog.value = true;
-};
-
-const confirmDeleteReservation = async () => {
-    if (deleting_reservation_id.value === null) return;
-    is_deleting.value = true;
-    try {
-        const result = await Reservations.deleteReservation(deleting_reservation_id.value);
-        if (result) {
-            snackbarsStore.show('success', '予約を削除しました。');
-            emit('delete', deleting_reservation_id.value);
-        }
-        // エラー時のメッセージ表示は Reservations.deleteReservation() 内で処理済み
-    } catch (error) {
-        console.error('Failed to delete reservation:', error);
-        // エラー時のメッセージ表示は Reservations.deleteReservation() 内で処理済み
-    } finally {
-        is_deleting.value = false;
-        show_confirm_dialog.value = false;
-    }
-};
 </script>
-
 <style lang="scss" scoped>
+
 .reservation-list {
     display: flex;
     flex-direction: column;
@@ -449,4 +387,5 @@ const confirmDeleteReservation = async () => {
         }
     }
 }
+
 </style>

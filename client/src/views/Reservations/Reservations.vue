@@ -29,8 +29,8 @@
         </main>
     </div>
 </template>
-
 <script lang="ts" setup>
+
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -117,7 +117,7 @@ async function updatePage(new_page: number) {
             page: new_page.toString(),
         },
     });
-    updateDisplayData();
+    // updateDisplayData は watch によって自動的に呼び出されるため、ここでは呼び出さない
 }
 
 /**
@@ -134,7 +134,7 @@ async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
             page: '1',
         },
     });
-    updateDisplayData();
+    // updateDisplayData は watch によって自動的に呼び出されるため、ここでは呼び出さない
 }
 
 /**
@@ -151,11 +151,17 @@ function handleReservationDeleted(reservation_id: number) {
 watch(() => route.query, async (newQuery) => {
     // ページ番号を同期
     if (newQuery.page) {
-        page.value = parseInt(newQuery.page as string);
+        const page_number = parseInt(String(newQuery.page), 10);
+        if (Number.isFinite(page_number) && page_number > 0) {
+            page.value = page_number;
+        }
     }
     // ソート順を同期
     if (newQuery.order) {
-        sort_order.value = newQuery.order as 'desc' | 'asc';
+        const order = String(newQuery.order);
+        if (order === 'asc' || order === 'desc') {
+            sort_order.value = order;
+        }
     }
     updateDisplayData();
 }, { deep: true });
@@ -179,9 +185,10 @@ onMounted(async () => {
     await fetchAllReservations();
     updateDisplayData();
 });
-</script>
 
+</script>
 <style lang="scss" scoped>
+
 .reservations-all-container-wrapper {
     display: flex;
     flex-direction: column;
@@ -208,4 +215,5 @@ onMounted(async () => {
         padding-top: 8px !important;
     }
 }
+
 </style>
