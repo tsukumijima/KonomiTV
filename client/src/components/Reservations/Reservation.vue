@@ -44,13 +44,15 @@
                         <span class="reservation__content-meta-broadcaster-name">Ch: {{ reservation.channel.channel_number }} {{ reservation.channel.name }}</span>
                     </div>
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
-                    <div class="reservation__content-meta-size">
-                        <Icon icon="fluent:hard-drive-20-regular" width="14px" height="14px" class="mr-1" />
-                        予想 {{ getDummyFileSize() }}
-                    </div>
-                    <div v-if="reservation.comment" class="reservation__content-meta-comment">
-                        <Icon icon="fluent:bot-20-regular" width="14px" height="14px" class="mr-1" />
-                        {{ reservation.comment }}
+                    <div class="reservation__content-meta-size-comment">
+                        <div class="reservation__content-meta-size">
+                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
+                            予想: {{ getDummyFileSize() }}
+                        </div>
+                        <div v-if="reservation.comment" class="reservation__content-meta-comment">
+                            <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="mr-1" />
+                            {{ reservation.comment }}
+                        </div>
                     </div>
                 </div>
 
@@ -247,7 +249,7 @@ const handleToggleEnabled = async () => {
         padding: 0px 7px;  // 下のスイッチと揃えるため
         margin-bottom: 6px;
         @include smartphone-vertical {
-            margin-bottom: 5px;
+            margin-bottom: 12px;
         }
 
         &-badge {
@@ -364,13 +366,13 @@ const handleToggleEnabled = async () => {
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             font-size: 13.8px;
             @include tablet-vertical {
-                gap: 8px;
+                gap: 3px 6px;
             }
             @include smartphone-horizontal {
-                gap: 8px;
+                gap: 3px 6px;
             }
             @include smartphone-vertical {
                 row-gap: 1px;
@@ -463,24 +465,27 @@ const handleToggleEnabled = async () => {
                     font-size: 11px;
                 }
             }
+            &-size-comment {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
 
             &-comment {
                 border-left: 1px solid rgb(var(--v-theme-text-darken-1));
                 padding-left: 8px;
                 @include tablet-vertical {
-                    margin-top: 2px;
                     margin-left: 0px;
                     border-left: none;
                     padding-left: 0px;
                 }
                 @include smartphone-horizontal {
-                    margin-top: 2px;
                     margin-left: 0px;
                     border-left: none;
                     padding-left: 0px;
                 }
                 @include smartphone-vertical {
-                    margin-top: 1px;
                     margin-left: 0px;
                     border-left: none;
                     padding-left: 0px;
@@ -500,18 +505,13 @@ const handleToggleEnabled = async () => {
             -webkit-box-orient: vertical;
             overflow: hidden;
             @include tablet-vertical {
-                margin-top: 3.5px;
                 font-size: 11px;
             }
             @include smartphone-horizontal {
-                margin-top: 3.5px;
                 font-size: 11px;
             }
             @include smartphone-vertical {
-                margin-top: 1.5px;
-                font-size: 11px;
-                line-height: 1.45;
-                -webkit-line-clamp: 1;
+                display: none;
             }
         }
     }

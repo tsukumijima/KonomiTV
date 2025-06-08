@@ -66,7 +66,7 @@
                 active-color="primary"
                 density="comfortable"
                 :length="Math.ceil(displayTotal / 30)"
-                :total-visible="7"
+                :total-visible="Utils.isSmartphoneVertical() ? 5 : 7"
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
         </div>
@@ -78,6 +78,7 @@ import { ref, watch } from 'vue';
 
 import Reservation from '@/components/Reservations/Reservation.vue';
 import { IReservation } from '@/services/Reservations';
+import Utils from '@/utils';
 
 // Props
 const props = withDefaults(defineProps<{

@@ -437,9 +437,9 @@ const deleteVideo = async () => {
                 font-size: 14px;
             }
             @include smartphone-vertical {
-                margin-right: 24px;
+                margin-right: 12px;
                 font-size: 13px;
-                line-height: 1.45;
+                line-height: 1.4;
                 -webkit-line-clamp: 2;  // 2行までに制限
             }
         }
@@ -555,10 +555,10 @@ const deleteVideo = async () => {
                 font-size: 11px;
             }
             @include smartphone-vertical {
-                margin-top: 1.5px;
-                font-size: 11px;
+                margin-top: 2.5px;
+                margin-right: 12px;
+                font-size: 10.5px;
                 line-height: 1.45;
-                -webkit-line-clamp: 1;  // 1行までに制限
             }
         }
     }
