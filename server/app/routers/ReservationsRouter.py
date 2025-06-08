@@ -1,5 +1,7 @@
 
 import asyncio
+import configparser
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
 
@@ -30,6 +32,11 @@ router = APIRouter(
 )
 
 
+# Bitrate.ini のキャッシュ (TTL: 15分)
+_bitrate_ini_cache: dict[str, int] | None = None
+_bitrate_ini_cache_timestamp: float | None = None
+
+
 async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reservation:
     """
     EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換する
@@ -41,6 +48,124 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     Returns:
         schemas.Reservation: schemas.Reservation オブジェクト
     """
+
+    async def GetBitrateFromEDCB(network_id: int, transport_stream_id: int, service_id: int) -> int:
+        """
+        EDCB から Bitrate.ini を取得して、指定されたチャンネルのビットレートを取得する
+        ref: https://github.com/tkntrec/EDCB/blob/my-build/EpgTimer/EpgTimer/DefineClass/SearchItem.cs#L265-L290
+
+        Args:
+            network_id (int): ネットワーク ID (ONID)
+            transport_stream_id (int): トランスポートストリーム ID (TSID)
+            service_id (int): サービス ID (SID)
+
+        Returns:
+            int: ビットレート (kbps)
+        """
+
+        global _bitrate_ini_cache, _bitrate_ini_cache_timestamp
+
+        # キャッシュが存在し、かつ15分以内の場合はそれを使用
+        current_time = time.time()
+        if (_bitrate_ini_cache is not None and
+            _bitrate_ini_cache_timestamp is not None and
+            current_time - _bitrate_ini_cache_timestamp < 900):  # 900秒 = 15分
+            # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+            for i in range(4):
+                onid = 0xFFFF if i > 2 else network_id
+                tsid = 0xFFFF if i > 1 else transport_stream_id
+                sid = 0xFFFF if i > 0 else service_id
+
+                # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                    return _bitrate_ini_cache[key]
+
+            # デフォルト値を返す
+            return 19456
+
+        try:
+            # EDCB から Bitrate.ini を取得
+            files = await CtrlCmdUtil().sendFileCopy2(['Bitrate.ini'])
+            if files is None or len(files) == 0:
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB')
+                return 19456
+
+            # ファイルデータをテキストとして解析
+            bitrate_ini_data = files[0]['data']
+            if not bitrate_ini_data:
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty')
+                return 19456
+
+            # バイナリデータを文字列に変換 (UTF-16 BOM つきまたは UTF-8)
+            try:
+                # UTF-16 BOM つきの場合
+                if bitrate_ini_data.startswith(b'\xff\xfe'):
+                    ini_text = bitrate_ini_data.decode('utf-16')
+                else:
+                    # UTF-8 として試行
+                    ini_text = bitrate_ini_data.decode('utf-8')
+            except UnicodeDecodeError:
+                # システムデフォルトエンコーディングで試行
+                ini_text = bitrate_ini_data.decode('shift_jis', errors='ignore')
+
+            # ConfigParser で解析
+            config = configparser.ConfigParser()
+            config.read_string(ini_text)
+
+            # BITRATE セクションからビットレート情報を取得してキャッシュに保存
+            _bitrate_ini_cache = {}
+            _bitrate_ini_cache_timestamp = current_time
+            if 'BITRATE' in config:
+                for key, value in config['BITRATE'].items():
+                    try:
+                        _bitrate_ini_cache[key.upper()] = int(value)
+                    except ValueError:
+                        continue
+
+            # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+            for i in range(4):
+                onid = 0xFFFF if i > 2 else network_id
+                tsid = 0xFFFF if i > 1 else transport_stream_id
+                sid = 0xFFFF if i > 0 else service_id
+
+                # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                    return _bitrate_ini_cache[key]
+
+            # 見つからない場合はデフォルト値を返す
+            return 19456
+
+        except Exception as ex:
+            logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini', exc_info=ex)
+            return 19456
+
+
+    def CalculateEstimatedFileSize(duration_seconds: float, bitrate_kbps: int, recording_mode: str) -> int:
+        """
+        録画予定時間とビットレートから推定ファイルサイズを計算する
+
+        Args:
+            duration_seconds (float): 録画予定時間 (秒)
+            bitrate_kbps (int): ビットレート (kbps)
+            recording_mode (str): 録画モード (視聴モードの場合は推定サイズ 0 を返す)
+
+        Returns:
+            int: 推定ファイルサイズ (バイト)
+        """
+
+        # 視聴モードの場合は推定サイズ 0 を返す (録画されないため)
+        if recording_mode == 'View':
+            return 0
+
+        # EpgTimer のロジック: bitrate / 8 * 1000 * duration (秒)
+        # ビットレート (kbps) を バイト/秒 に変換: kbps / 8 * 1000 = bytes/sec
+        estimated_size_bytes = max(int(bitrate_kbps / 8 * 1000 * duration_seconds), 0)
+
+        return estimated_size_bytes
 
     # 録画予約 ID
     reserve_id: int = reserve_data['reserve_id']
@@ -184,6 +309,17 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(reserve_data['rec_setting'])
 
+    # 推定録画ファイルサイズを計算
+    estimated_recording_file_size: int = 0
+    try:
+        # EDCB から Bitrate.ini を取得してビットレートを計算
+        bitrate_kbps = await GetBitrateFromEDCB(network_id, transport_stream_id, service_id)
+        # 推定ファイルサイズを計算
+        estimated_recording_file_size = CalculateEstimatedFileSize(duration, bitrate_kbps, record_settings.recording_mode)
+    except Exception as ex:
+        logging.warning(f'[ReservationsRouter][DecodeEDCBReserveData] Failed to calculate estimated file size [reserve_id: {reserve_id}]', exc_info=ex)
+        estimated_recording_file_size = 0
+
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
     ## 逆に自前で変換する方法がわからない…
     return schemas.Reservation(
@@ -194,6 +330,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         recording_availability = recording_availability,
         comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
+        estimated_recording_file_size = estimated_recording_file_size,
         record_settings = record_settings,
     )
 
