@@ -31,7 +31,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
@@ -61,21 +61,20 @@ const all_reservations = ref<IReservation[]>([]);
 // 録画予約リストコンポーネントの参照
 const reservation_list = ref<InstanceType<typeof ReservationList>>();
 
+// 自動更新用の interval ID を保持
+const autoRefreshInterval = ref<number | null>(null);
+
+// 自動更新の間隔 (ミリ秒)
+const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
+
 /**
- * 録画予約一覧を取得する（初回のみ）
+ * 録画予約一覧を取得する
  */
 async function fetchAllReservations() {
-    if (all_reservations.value.length > 0) {
-        // 既にデータが取得済みの場合はスキップ
-        return;
-    }
-
-    is_loading.value = true;
     const result = await Reservations.fetchReservations();
     if (result) {
         all_reservations.value = result.reservations;
     }
-    is_loading.value = false;
 }
 
 /**
@@ -145,7 +144,39 @@ function handleReservationDeleted(reservation_id: number) {
     all_reservations.value = all_reservations.value.filter(reservation => reservation.id !== reservation_id);
     // 表示データを更新
     updateDisplayData();
+    // 削除イベントを受けたらリストを即時更新
+    console.log(`Reservation ${reservation_id} deleted, refreshing list...`);
+    updateAllSections();
 }
+
+// 全セクションの更新を実行
+const updateAllSections = async () => {
+    try {
+        await fetchAllReservations();
+        is_loading.value = false;
+    } catch (error) {
+        console.error('Failed to update reservation list:', error);
+        is_loading.value = false;
+    }
+};
+
+// 自動更新を開始
+const startAutoRefresh = () => {
+    if (autoRefreshInterval.value === null) {
+        // 初回更新
+        updateAllSections();
+        // 定期更新を開始
+        autoRefreshInterval.value = window.setInterval(updateAllSections, AUTO_REFRESH_INTERVAL);
+    }
+};
+
+// 自動更新を停止
+const stopAutoRefresh = () => {
+    if (autoRefreshInterval.value !== null) {
+        clearInterval(autoRefreshInterval.value);
+        autoRefreshInterval.value = null;
+    }
+};
 
 // クエリパラメータが変更されたら表示データを更新（再取得はしない）
 watch(() => route.query, async (newQuery) => {
@@ -181,9 +212,13 @@ onMounted(async () => {
         sort_order.value = route.query.order as 'desc' | 'asc';
     }
 
-    // 初回の録画予約一覧を取得
-    await fetchAllReservations();
-    updateDisplayData();
+    // 自動更新を開始
+    startAutoRefresh();
+});
+
+// コンポーネントのクリーンアップ
+onUnmounted(() => {
+    stopAutoRefresh();
 });
 
 </script>

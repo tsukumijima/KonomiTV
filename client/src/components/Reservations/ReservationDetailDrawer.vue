@@ -99,7 +99,7 @@
                 <div v-else-if="reservation" class="warning-banner warning-banner--normal">
                     <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
                     <span class="warning-banner__text">
-                        番組の放送開始前に削除すると、録画は行われません。
+                        録画予約を削除すると、放送開始前に再度予約を追加しない限り、録画は行われません。
                     </span>
                 </div>
             </v-card-text>
