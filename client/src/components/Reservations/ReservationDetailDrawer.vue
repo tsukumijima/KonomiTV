@@ -11,20 +11,20 @@
         <!-- ヘッダー -->
         <div class="reservation-detail-drawer__header">
             <div class="reservation-detail-drawer__tabs">
-                <div class="reservation-detail-drawer__tab"
+                <div v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'info' }"
                     @click="activeTab = 'info'">
                     <Icon icon="fluent:info-16-regular" width="20px" height="20px" />
                     <span class="reservation-detail-drawer__tab-text">番組情報</span>
                 </div>
-                <div class="reservation-detail-drawer__tab"
+                <div v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'settings' }"
                     @click="activeTab = 'settings'">
                     <Icon icon="material-symbols:settings-video-camera-outline-rounded" width="20px" height="20px" />
                     <span class="reservation-detail-drawer__tab-text">録画設定</span>
                 </div>
             </div>
-            <div class="reservation-detail-drawer__close" @click="handleClose">
+            <div v-ripple class="reservation-detail-drawer__close" @click="handleClose">
                 <Icon icon="fluent:dismiss-16-filled" width="22px" height="22px" />
             </div>
         </div>
@@ -265,6 +265,12 @@ const confirmDelete = async () => {
         &:hover {
             background: rgb(var(--v-theme-background-lighten-2));
         }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                background: rgb(var(--v-theme-background-lighten-1));
+            }
+        }
 
         &--active {
             color: rgb(var(--v-theme-text));
@@ -276,7 +282,7 @@ const confirmDelete = async () => {
                 left: 0;
                 right: 0;
                 height: 3px;
-                background: rgb(var(--v-theme-primary));
+                background: rgb(var(--v-theme-secondary));
             }
         }
     }
@@ -299,6 +305,12 @@ const confirmDelete = async () => {
 
         &:hover {
             background: rgb(var(--v-theme-background-lighten-2));
+        }
+        // タッチデバイスで hover を無効にする
+        @media (hover: none) {
+            &:hover {
+                background: rgb(var(--v-theme-background-lighten-1));
+            }
         }
     }
 

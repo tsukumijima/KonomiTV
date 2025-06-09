@@ -1,5 +1,6 @@
 <template>
-    <div class="reservation" :class="{ 'reservation--disabled': !is_enabled }">
+    <div v-ripple class="reservation" :class="{ 'reservation--disabled': !is_enabled }"
+        @click="handleContentClick">
         <div class="reservation__container">
             <!-- 左側：優先度と有効・無効スイッチ -->
             <div class="reservation__controls">
@@ -23,7 +24,7 @@
             </div>
 
             <!-- 中央：番組情報 -->
-            <div class="reservation__content" @click="handleContentClick">
+            <div class="reservation__content">
                 <div class="reservation__content-header">
                     <div class="reservation__content-title"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'title')"></div>
@@ -54,7 +55,7 @@
                         </div>
                         <div class="reservation__content-meta-size">
                             <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
-                            {{ Utils.formatBytes(reservation.estimated_recording_file_size) }} 想定
+                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, true) }}
                         </div>
                     </div>
                 </div>
@@ -112,9 +113,9 @@ const getReservationStatusLabel = (reservation: IReservation): string => {
         case 'Full':
             return '録画可能';
         case 'Partial':
-            return '一部録画';
+            return '一部のみ録画可能';
         case 'Unavailable':
-            return '録画不可';
+            return 'チューナー不足';
         default:
             return '不明';
     }
@@ -212,6 +213,16 @@ const handleToggleEnabled = async () => {
         padding: 0px 9px;
     }
 
+    &:hover {
+        background: rgb(var(--v-theme-background-lighten-2));
+    }
+    // タッチデバイスで hover を無効にする
+    @media (hover: none) {
+        &:hover {
+            background: rgb(var(--v-theme-background-lighten-1));
+        }
+    }
+
     &--disabled {
         opacity: 0.65;
     }
@@ -252,8 +263,8 @@ const handleToggleEnabled = async () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 23px;
-            height: 23px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: rgb(var(--v-theme-primary));
             color: white;
@@ -361,13 +372,7 @@ const handleToggleEnabled = async () => {
         min-width: 0;
         cursor: pointer;
         border-radius: 6px;
-        padding: 4px;
-        margin: -4px;
         transition: background-color 0.15s;
-
-        &:hover {
-            background-color: rgba(var(--v-theme-primary), 0.08);
-        }
 
         &-header {
             display: flex;
@@ -516,7 +521,6 @@ const handleToggleEnabled = async () => {
                 align-items: center;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 12.5px;
-                white-space: nowrap;
                 @include tablet-vertical {
                     font-size: 12px;
                 }
@@ -527,15 +531,23 @@ const handleToggleEnabled = async () => {
                     font-size: 11px;
                 }
             }
+            &-size {
+                white-space: nowrap;
+            }
+            &-comment {
+                display: flex;
+                align-items: center;
+            }
             &-size-comment {
                 display: flex;
                 align-items: center;
                 flex-wrap: wrap;
-                gap: 10px;
+                column-gap: 10px;
                 @include desktop {
                     margin-left: auto;
                 }
                 @include smartphone-vertical {
+                    flex-direction: row-reverse;
                     margin-top: 2px;
                 }
             }

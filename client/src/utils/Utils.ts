@@ -160,19 +160,26 @@ export default class Utils {
     /**
      * バイト単位の数値をフォーマットする
      * @param bytes バイト数
+     * @param gb_only GB 単位でのみフォーマットするかどうか
      * @returns フォーマットされた文字列 (例: 1.23KB)
      */
-    static formatBytes(bytes: number): string {
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let unitIndex = 0;
-
-        while (bytes >= 1024 && unitIndex < units.length - 1) {
-            bytes /= 1024;
-            unitIndex++;
+    static formatBytes(bytes: number, gb_only: boolean = false): string {
+        if (gb_only) {
+            const gb_bytes = bytes / (1024 * 1024 * 1024);
+            return `${gb_bytes.toFixed(2)}GB`;
         }
 
-        return `${bytes.toFixed(2)}${units[unitIndex]}`;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let unit_index = 0;
+
+        while (bytes >= 1024 && unit_index < units.length - 1) {
+            bytes /= 1024;
+            unit_index++;
+        }
+
+        return `${bytes.toFixed(2)}${units[unit_index]}`;
     }
+    // End of Selection
 
 
     /**
