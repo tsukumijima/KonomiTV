@@ -32,7 +32,7 @@
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__label">録画予約の優先度</div>
             <div class="reservation-recording-settings__description mb-0">
-                放送時間が重なりチューナーが足りないときは、より優先度が高い予約を優先して録画します。
+                放送時間が重なりチューナーが足りないときは、より優先度が高い予約から優先的に録画します。
             </div>
             <div class="reservation-recording-settings__slider">
                 <v-slider
@@ -74,7 +74,9 @@
             <div class="reservation-recording-settings__label">録画ファイル名テンプレート (マクロ)</div>
             <div class="reservation-recording-settings__description">
                 空欄にすると、デフォルトの録画ファイル名テンプレート (マクロ) が録画ファイル名の変更に利用されます。<br>
-                <a class="link d-block mt-1" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_Mod.txt#%E3%83%9E%E3%82%AF%E3%83%AD" target="_blank">利用可能なテンプレート構文の一覧</a>
+                <div class="mt-1">
+                    <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_EpgTimer.txt#L929-L1008" target="_blank">利用可能なテンプレート構文の一覧</a> / <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_Mod.txt#%E3%83%9E%E3%82%AF%E3%83%AD" target="_blank">xtne6f 版の追加差分</a>
+                </div>
             </div>
             <v-text-field
                 :disabled="reservation.is_recording_in_progress"

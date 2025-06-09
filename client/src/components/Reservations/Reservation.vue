@@ -413,6 +413,7 @@ const handleToggleEnabled = async () => {
         }
 
         &-status {
+            margin-right: -1.5px;  // 錯視対策
             flex-shrink: 0;
 
             :deep(.v-chip) {
