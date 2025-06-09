@@ -2,19 +2,20 @@
     <div class="reservation-recording-settings">
         <!-- 録画予約の有効/無効 -->
         <div class="reservation-recording-settings__section">
-            <div class="reservation-recording-settings__label">録画予約の有効/無効</div>
-            <div class="reservation-recording-settings__description">
-                予約が無効なときは、この番組の録画動作を行いません。<br>
-                キーワード自動予約条件により不必要な番組が予約されてしまっているときは、予約を無効にしてみてください。(予約削除ではすぐ再追加されてしまい意味がありません。)
-            </div>
-            <div class="reservation-recording-settings__control">
+            <div class="reservation-recording-settings__header">
+                <div class="reservation-recording-settings__label">録画予約の有効/無効</div>
                 <v-switch
+                    style="height: 0; margin-top: -40px; margin-right: 6px;"
                     v-model="settings.is_enabled"
                     color="primary"
                     density="compact"
                     hide-details
                     @update:model-value="handleChange">
                 </v-switch>
+            </div>
+            <div class="reservation-recording-settings__description mb-0">
+                予約が無効なときは、この番組の録画動作を行いません。<br>
+                キーワード自動予約条件により不必要な番組が予約されてしまっているときは、予約を無効にしてみてください。(予約削除ではすぐ再追加されてしまい意味がありません。)
             </div>
         </div>
 
@@ -52,7 +53,7 @@
                 variant="outlined"
                 density="compact"
                 hide-details
-                placeholder="E:\Records\2024年夏アニメ"
+                :placeholder="versionStore.is_linux_environment ? '/mnt/hdd/Records/2025年春アニメ' : 'E:\\Records\\2025年春アニメ'"
                 @update:model-value="handleChange">
             </v-text-field>
         </div>
@@ -82,16 +83,21 @@
             </div>
             <div class="reservation-recording-settings__margin-default">
                 <v-checkbox
+                    id="use-default-margin"
                     v-model="useDefaultMargin"
                     color="primary"
                     density="compact"
                     hide-details
                     @update:model-value="handleMarginDefaultChange">
                 </v-checkbox>
-                <div class="reservation-recording-settings__margin-default-text">デフォルト設定を使う</div>
+                <label class="reservation-recording-settings__margin-default-text" for="use-default-margin"
+                    style="user-select: none;">
+                    デフォルト設定を使う
+                </label>
             </div>
             <div class="reservation-recording-settings__margin-controls">
                 <v-text-field
+                    :disabled="useDefaultMargin"
                     v-model.number="settings.recording_start_margin"
                     color="primary"
                     variant="outlined"
@@ -104,6 +110,7 @@
                     @update:model-value="handleChange">
                 </v-text-field>
                 <v-text-field
+                    :disabled="useDefaultMargin"
                     v-model.number="settings.recording_end_margin"
                     color="primary"
                     variant="outlined"
@@ -122,7 +129,8 @@
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__label">字幕データ録画設定</div>
             <div class="reservation-recording-settings__description">
-                字幕データはほとんど録画容量を消費しません。[録画する] に設定しておくことを強くおすすめします。
+                字幕データはほとんど録画容量を消費しません。<br>
+                [録画する] に設定しておくことを強くおすすめします。
             </div>
             <v-select
                 v-model="settings.caption_recording_mode"
@@ -139,7 +147,8 @@
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__label">データ放送録画設定</div>
             <div class="reservation-recording-settings__description">
-                データ放送は30分で 500MB 以上録画容量を消費する上、KonomiTV は録画再生時のデータ放送表示に非対応です。[録画しない] に設定しておくことを強くおすすめします。
+                データ放送は30分で 500MB 以上録画容量を消費する上、KonomiTV は録画再生時のデータ放送表示に非対応です。<br>
+                [録画しない] に設定しておくことを強くおすすめします。
             </div>
             <v-select
                 v-model="settings.data_broadcasting_recording_mode"
@@ -156,7 +165,7 @@
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__label">録画後動作設定</div>
             <div class="reservation-recording-settings__description">
-                通常は [何もしない] のままで大丈夫です。録画後に録画 PC をスリープさせておきたい方のみ設定してください。(環境次第では復帰できず録画に失敗するため非推奨です。)
+                通常は [何もしない] のままで大丈夫です。録画後に録画 PC をスリープさせておきたい方のみ設定してください。環境によっては復帰できず以降の録画に失敗することがあります。
             </div>
             <v-select
                 v-model="settings.post_recording_mode"
@@ -173,7 +182,7 @@
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__label">録画後実行スクリプトのパス</div>
             <div class="reservation-recording-settings__description">
-                通常は空欄のままで大丈夫です。録画後に指定の .bat / .ps1 / .lua スクリプトを実行させたい方のみ設定してください。
+                通常は空欄のままで大丈夫です。録画後に指定の {{ versionStore.is_linux_environment ? '.sh / .lua' : '.bat / .ps1 / .lua' }} スクリプトを実行させたい方のみ設定してください。
             </div>
             <v-text-field
                 v-model="settings.post_recording_bat_file_path"
@@ -181,7 +190,7 @@
                 variant="outlined"
                 density="compact"
                 hide-details
-                placeholder="C:\DTV\EDCB\Transcode.bat"
+                :placeholder="versionStore.is_linux_environment ? '/var/local/edcb/transcode.sh' : 'C:\\DTV\\EDCB\\Transcode.bat'"
                 @update:model-value="handleChange">
             </v-text-field>
         </div>
@@ -189,9 +198,10 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 
 import { type IReservation, type IRecordSettings } from '@/services/Reservations';
+import useVersionStore from '@/stores/VersionStore';
 
 // Props
 const props = defineProps<{
@@ -204,6 +214,9 @@ const emit = defineEmits<{
     (e: 'updateSettings', settings: IRecordSettings): void;
     (e: 'changesDetected', hasChanges: boolean): void;
 }>();
+
+// ストア
+const versionStore = useVersionStore();
 
 // 設定のコピーを作成（元の設定を変更しないため）
 const settings = ref<IRecordSettings>({ ...props.reservation.record_settings });
@@ -232,21 +245,21 @@ const useDefaultMargin = ref(
 
 // 字幕録画のオプション
 const captionRecordingOptions = [
-    { title: 'デフォルト (録画する)', value: 'Default' },
+    { title: 'デフォルト設定を使う', value: 'Default' },
     { title: '録画する', value: 'Enable' },
     { title: '録画しない', value: 'Disable' },
 ];
 
 // データ放送録画のオプション
 const dataBroadcastingRecordingOptions = [
-    { title: 'デフォルト (録画しない)', value: 'Default' },
+    { title: 'デフォルト設定を使う', value: 'Default' },
     { title: '録画する', value: 'Enable' },
     { title: '録画しない', value: 'Disable' },
 ];
 
 // 録画後動作のオプション
 const postRecordingOptions = [
-    { title: 'デフォルト (何もしない)', value: 'Default' },
+    { title: 'デフォルト設定を使う', value: 'Default' },
     { title: '何もしない', value: 'Nothing' },
     { title: 'スタンバイ', value: 'Standby' },
     { title: 'スタンバイ(復帰後再起動)', value: 'StandbyAndReboot' },
@@ -308,6 +321,11 @@ watch(() => props.reservation, (newReservation) => {
         : '';
 }, { deep: true });
 
+// コンポーネントマウント時にバージョン情報を取得
+onMounted(async () => {
+    await versionStore.fetchServerVersion();
+});
+
 </script>
 <style lang="scss" scoped>
 
@@ -319,6 +337,12 @@ watch(() => props.reservation, (newReservation) => {
     &__section {
         display: flex;
         flex-direction: column;
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     &__label {
@@ -344,11 +368,6 @@ watch(() => props.reservation, (newReservation) => {
         line-height: 1.5;
         color: rgb(var(--v-theme-text-darken-1));
         margin-top: 6px;
-    }
-
-    &__control {
-        display: flex;
-        justify-content: flex-end;
     }
 
     &__slider {

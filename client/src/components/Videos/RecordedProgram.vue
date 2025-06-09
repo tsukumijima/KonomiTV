@@ -143,8 +143,14 @@
             </v-card-text>
             <v-card-actions class="pt-4 px-6 pb-6">
                 <v-spacer></v-spacer>
-                <v-btn color="text" variant="text" @click="show_delete_confirmation = false">キャンセル</v-btn>
-                <v-btn color="error" variant="flat" @click="deleteVideo">削除</v-btn>
+                <v-btn color="text" variant="text" @click="show_delete_confirmation = false">
+                    <Icon icon="fluent:dismiss-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">キャンセル</span>
+                </v-btn>
+                <v-btn class="px-3" color="error" variant="flat" @click="deleteVideo">
+                    <Icon icon="fluent:delete-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">録画ファイルを削除</span>
+                </v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>

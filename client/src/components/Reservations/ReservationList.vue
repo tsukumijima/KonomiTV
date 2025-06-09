@@ -73,7 +73,6 @@
 
         <!-- 録画予約詳細ドロワー -->
         <ReservationDetailDrawer
-            v-if="selectedReservation"
             v-model="drawerOpen"
             :reservation="selectedReservation"
             @deleted="handleReservationDeleted"
