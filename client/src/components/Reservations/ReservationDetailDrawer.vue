@@ -336,6 +336,16 @@ const confirmDelete = async () => {
             }
         }
 
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgb(var(--v-theme-background-lighten-2));
+        }
+
         &--active {
             color: rgb(var(--v-theme-text));
 

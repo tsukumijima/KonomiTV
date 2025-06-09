@@ -218,7 +218,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, toRaw } from 'vue';
 
 import { type IReservation, type IRecordSettings } from '@/services/Reservations';
 import useVersionStore from '@/stores/VersionStore';
@@ -239,24 +239,55 @@ const emit = defineEmits<{
 const versionStore = useVersionStore();
 
 // 設定のコピーを作成（元の設定を変更しないため）
-const settings = ref<IRecordSettings>({ ...props.reservation.record_settings });
+const settings = ref<IRecordSettings>(structuredClone(toRaw(props.reservation.record_settings)));
 
 // 初期設定を保存（変更検知用）
-const initialSettings = ref<IRecordSettings>({ ...props.reservation.record_settings });
+const initialSettings = ref<IRecordSettings>(structuredClone(toRaw(props.reservation.record_settings)));
 
-// 録画フォルダパス・録画ファイル名テンプレート（録画フォルダごとに指定）
+// 録画フォルダパス・録画ファイル名テンプレートの computed（settings.value を単一の情報源とする）
 // 録画フォルダは仕様上は複数指定できるが、複数指定はほとんど使われないので、KonomiTV では常に 0 番目の要素を使用する
 // 録画フォルダが空の場合はデフォルトの録画フォルダに保存される（フォーム上は空欄としておく）
-const recordingFolderPath = ref(
-    settings.value.recording_folders.length > 0
+const recordingFolderPath = computed({
+    get: () => settings.value.recording_folders.length > 0
         ? settings.value.recording_folders[0].recording_folder_path
-        : ''
-);
-const recordingFileNameTemplate = ref(
-    settings.value.recording_folders.length > 0
+        : '',
+    set: (value: string) => {
+        updateRecordingFolderSettings(value, recordingFileNameTemplate.value);
+    },
+});
+
+const recordingFileNameTemplate = computed({
+    get: () => settings.value.recording_folders.length > 0
         ? settings.value.recording_folders[0].recording_file_name_template || ''
-        : ''
-);
+        : '',
+    set: (value: string) => {
+        updateRecordingFolderSettings(recordingFolderPath.value, value);
+    },
+});
+
+// 録画フォルダ設定を更新する関数
+const updateRecordingFolderSettings = (folderPath: string, fileNameTemplate: string) => {
+    const hasFolderPath = folderPath.trim() !== '';
+    const hasFileNameTemplate = fileNameTemplate.trim() !== '';
+
+    if (!hasFolderPath && !hasFileNameTemplate) {
+        // 両方とも空の場合は空リストにしてデフォルト設定を使用
+        settings.value.recording_folders = [];
+    } else {
+        // どちらか一方でも指定されている場合は新しい要素を追加
+        if (settings.value.recording_folders.length === 0) {
+            settings.value.recording_folders.push({
+                recording_folder_path: '',
+                recording_file_name_template: null,
+                is_oneseg_separate_recording_folder: false,
+            });
+        }
+        // 録画フォルダパスとマクロを更新
+        // 録画フォルダは仕様上は複数指定できるが、複数指定はほとんど使われないので、KonomiTV では常に 0 番目の要素を使用する
+        settings.value.recording_folders[0].recording_folder_path = folderPath;
+        settings.value.recording_folders[0].recording_file_name_template = fileNameTemplate || null;
+    }
+};
 
 // デフォルトマージン使用フラグ
 const useDefaultMargin = ref(
@@ -298,32 +329,8 @@ watch(hasChangesComputed, (newValue) => {
     emit('changesDetected', newValue);
 });
 
-// 変更時の処理
+// 変更時の処理（settings.value の変更を親に通知）
 const handleChange = () => {
-    // 録画フォルダ設定を更新
-    // 録画フォルダパスとマクロの両方が空の場合は、recording_folders を空リストにする
-    // 空リストのときはデフォルトの録画フォルダに保存されるため問題ない
-    const hasFolderPath = recordingFolderPath.value.trim() !== '';
-    const hasFileNameTemplate = recordingFileNameTemplate.value.trim() !== '';
-
-    if (!hasFolderPath && !hasFileNameTemplate) {
-        // 両方とも空の場合は空リストにしてデフォルト設定を使用
-        settings.value.recording_folders = [];
-    } else {
-        // どちらか一方でも指定されている場合は新しい要素を追加
-        if (settings.value.recording_folders.length === 0) {
-            settings.value.recording_folders.push({
-                recording_folder_path: '',
-                recording_file_name_template: null,
-                is_oneseg_separate_recording_folder: false,
-            });
-        }
-        // 録画フォルダパスとマクロを更新
-        // 録画フォルダは仕様上は複数指定できるが、複数指定はほとんど使われないので、KonomiTV では常に 0 番目の要素を使用する
-        settings.value.recording_folders[0].recording_folder_path = recordingFolderPath.value;
-        settings.value.recording_folders[0].recording_file_name_template = recordingFileNameTemplate.value || null;
-    }
-
     emit('updateSettings', settings.value);
 };
 
@@ -341,16 +348,9 @@ const handleMarginDefaultChange = () => {
 
 // props の予約情報が変更された時の処理
 watch(() => props.reservation, (newReservation) => {
-    settings.value = { ...newReservation.record_settings };
-    initialSettings.value = { ...newReservation.record_settings };
-
-    // フォルダパス等も再設定
-    recordingFolderPath.value = settings.value.recording_folders.length > 0
-        ? settings.value.recording_folders[0].recording_folder_path
-        : '';
-    recordingFileNameTemplate.value = settings.value.recording_folders.length > 0
-        ? settings.value.recording_folders[0].recording_file_name_template || ''
-        : '';
+    settings.value = structuredClone(toRaw(newReservation.record_settings));
+    initialSettings.value = structuredClone(toRaw(newReservation.record_settings));
+    // フォルダパス等は computed で自動的に更新される
 }, { deep: true });
 
 // コンポーネントマウント時にバージョン情報を取得
