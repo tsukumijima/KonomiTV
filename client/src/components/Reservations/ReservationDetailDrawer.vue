@@ -12,7 +12,7 @@
                 <div v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'info' }"
                     @click="activeTab = 'info'">
-                    <Icon icon="fluent:info-16-regular" width="20px" height="20px" />
+                    <Icon icon="fluent:info-12-regular" width="20px" height="20px" />
                     <span class="reservation-detail-drawer__tab-text">番組情報</span>
                 </div>
                 <div v-ripple class="reservation-detail-drawer__tab"
@@ -70,7 +70,7 @@
     </div>
 
     <!-- 削除確認ダイアログ -->
-    <v-dialog v-model="showDeleteDialog" max-width="700">
+    <v-dialog v-model="showDeleteDialog" max-width="710">
         <v-card>
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
                 録画予約を削除しますか？
@@ -82,18 +82,25 @@
                         {{ ProgramUtils.getProgramTime(reservation.program) }}
                     </div>
                 </div>
-                <div v-if="isKeywordAutoReservation && reservation" class="text-warning font-weight-bold">
-                    ⚠️ この予約はキーワード自動予約で追加されました。<br>
-                    削除してもすぐに再追加される可能性があります。<br>
-                    不要な場合は削除ではなく「無効」にすることをおすすめします。
+                <div v-if="isKeywordAutoReservation && reservation" class="warning-banner warning-banner--keyword mb-3">
+                    <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        この予約はキーワード自動予約で追加されました。削除してもすぐに再追加される可能性があります。<br>
+                        不要な場合は削除ではなく「無効」にすることをおすすめします。
+                    </span>
                 </div>
-                <div v-else-if="reservation" class="text-error-lighten-1 font-weight-bold">
-                    <template v-if="isPastProgram">
-                        この録画予約を削除すると、録画は行われません。
-                    </template>
-                    <template v-else>
+                <div v-if="isRecordingInProgress && reservation" class="warning-banner warning-banner--recording">
+                    <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        この番組は現在録画中です。<br>
+                        予約を削除すると、現在までの録画ファイルは残りますが、残りの期間の録画は中断されます。
+                    </span>
+                </div>
+                <div v-else-if="reservation" class="warning-banner warning-banner--normal">
+                    <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
                         番組の放送開始前に削除すると、録画は行われません。
-                    </template>
+                    </span>
                 </div>
             </v-card-text>
             <v-card-actions class="pt-4 px-6 pb-6">
@@ -159,12 +166,9 @@ const isKeywordAutoReservation = computed(() => {
     return props.reservation?.comment.includes('EPG自動予約') ?? false;
 });
 
-// 過去の番組かどうか
-const isPastProgram = computed(() => {
-    if (!props.reservation) return false;
-    const now = new Date();
-    const programEnd = new Date(props.reservation.program.end_time);
-    return programEnd < now;
+// 録画中かどうか
+const isRecordingInProgress = computed(() => {
+    return props.reservation?.is_recording_in_progress ?? false;
 });
 
 // ドロワーが開かれた時の処理
@@ -410,6 +414,66 @@ const confirmDelete = async () => {
         gap: 6px;
         margin-left: auto;
         padding: 8px 16px;
+    }
+}
+
+// 警告バナー
+.warning-banner {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 6px;
+
+    &__icon {
+        width: 22px;
+        height: 22px;
+        margin-right: 8px;
+        flex-shrink: 0;
+    }
+
+    &__text {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.55;
+    }
+
+    // キーワード自動予約の警告（警告色）
+    &--keyword {
+        background-color: rgb(var(--v-theme-warning-darken-3), 0.5);
+
+        .warning-banner__icon {
+            color: rgb(var(--v-theme-warning));
+        }
+
+        .warning-banner__text {
+            color: rgb(var(--v-theme-warning-lighten-1));
+        }
+    }
+
+    // 録画中の警告（エラー色）
+    &--recording {
+        background-color: rgb(var(--v-theme-error-darken-3), 0.5);
+
+        .warning-banner__icon {
+            color: rgb(var(--v-theme-error));
+        }
+
+        .warning-banner__text {
+            color: rgb(var(--v-theme-error-lighten-1));
+        }
+    }
+
+    // 通常の警告（情報色）
+    &--normal {
+        background-color: rgb(var(--v-theme-info-darken-3), 0.5);
+
+        .warning-banner__icon {
+            color: rgb(var(--v-theme-info));
+        }
+
+        .warning-banner__text {
+            color: rgb(var(--v-theme-info-lighten-1));
+        }
     }
 }
 </style>

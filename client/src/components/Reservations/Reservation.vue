@@ -55,7 +55,7 @@
                         </div>
                         <div class="reservation__content-meta-size">
                             <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
-                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, true) }}
+                            推定 {{ Utils.formatBytes(reservation.estimated_recording_file_size, true) }}
                         </div>
                     </div>
                 </div>
