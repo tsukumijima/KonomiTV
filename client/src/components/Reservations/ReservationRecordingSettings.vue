@@ -5,6 +5,7 @@
             <div class="reservation-recording-settings__header">
                 <div class="reservation-recording-settings__label">録画予約の有効/無効</div>
                 <v-switch
+                    :disabled="reservation.is_recording_in_progress"
                     style="height: 0; margin-top: -40px; margin-right: 6px;"
                     v-model="settings.is_enabled"
                     color="primary"
