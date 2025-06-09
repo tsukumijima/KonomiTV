@@ -82,13 +82,6 @@
                         {{ ProgramUtils.getProgramTime(reservation.program) }}
                     </div>
                 </div>
-                <div v-if="isKeywordAutoReservation && reservation" class="warning-banner warning-banner--keyword mb-3">
-                    <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
-                    <span class="warning-banner__text">
-                        この予約はキーワード自動予約で追加されました。削除してもすぐに再追加される可能性があります。<br>
-                        不要な場合は削除ではなく「無効」にすることをおすすめします。
-                    </span>
-                </div>
                 <div v-if="isRecordingInProgress && reservation" class="warning-banner warning-banner--recording">
                     <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
                     <span class="warning-banner__text">
@@ -100,6 +93,13 @@
                     <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
                     <span class="warning-banner__text">
                         録画予約を削除すると、放送開始前に再度予約を追加しない限り、録画は行われません。
+                    </span>
+                </div>
+                <div v-if="isKeywordAutoReservation && reservation" class="warning-banner warning-banner--keyword mt-3">
+                    <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        この予約はキーワード自動予約で追加されました。削除してもすぐに再追加される可能性があります。<br>
+                        録画が不要な場合は削除ではなく「無効」にすることをおすすめします。
                     </span>
                 </div>
             </v-card-text>

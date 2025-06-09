@@ -75,7 +75,7 @@
             <div class="reservation-recording-settings__description">
                 空欄にすると、デフォルトの録画ファイル名テンプレート (マクロ) が録画ファイル名の変更に利用されます。<br>
                 <div class="mt-1">
-                    <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_EpgTimer.txt#L929-L1008" target="_blank">利用可能なテンプレート構文の一覧</a> / <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_Mod.txt#%E3%83%9E%E3%82%AF%E3%83%AD" target="_blank">xtne6f 版の追加差分</a>
+                    <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_EpgTimer.txt#L929-L1008" target="_blank">利用可能なテンプレート構文の一覧</a> / <a class="link" href="https://github.com/xtne6f/EDCB/blob/work-plus-s/Document/Readme_Mod.txt#%E3%83%9E%E3%82%AF%E3%83%AD" target="_blank">xtne6f 版での追加差分</a>
                 </div>
             </div>
             <v-text-field
