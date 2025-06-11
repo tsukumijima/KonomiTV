@@ -509,7 +509,7 @@ const deleteVideo = async () => {
                     }
                     @include smartphone-vertical {
                         margin-left: 4px;
-                        font-size: 12px;
+                        font-size: 11.5px;
                     }
                 }
             }
@@ -540,7 +540,7 @@ const deleteVideo = async () => {
                 @include smartphone-vertical {
                     margin-top: 1px;
                     margin-left: 0px;
-                    font-size: 11.4px;
+                    font-size: 11px;
                 }
             }
         }
@@ -569,7 +569,7 @@ const deleteVideo = async () => {
             @include smartphone-vertical {
                 margin-top: 2.5px;
                 margin-right: 12px;
-                font-size: 10.5px;
+                font-size: 10px;
                 line-height: 1.45;
             }
         }
