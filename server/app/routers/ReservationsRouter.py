@@ -1,12 +1,13 @@
 
 import asyncio
 import configparser
+import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
-from tortoise import transactions
+from tortoise import connections, transactions
 
 from app import logging, schemas
 from app.config import Config
@@ -37,13 +38,14 @@ _bitrate_ini_cache: dict[str, int] | None = None
 _bitrate_ini_cache_timestamp: float | None = None
 
 
-async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reservation:
+async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None, programs: dict[tuple[int, int, int], Program] | None = None) -> schemas.Reservation:
     """
     EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換する
 
     Args:
         reserve_data (ReserveDataRequired): EDCB の ReserveData オブジェクト
         channels (list[Channel] | None): あらかじめ全てのチャンネル情報を取得しておく場合はそのリスト、そうでない場合は None
+        programs (dict[tuple[int, int, int], Program] | None): あらかじめ取得しておいた番組情報の辞書 (network_id, service_id, event_id) -> Program
 
     Returns:
         schemas.Reservation: schemas.Reservation オブジェクト
@@ -247,7 +249,13 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     duration: float = float(reserve_data['duration_second'])
 
     # ここでネットワーク ID・サービス ID・イベント ID が一致する番組をデータベースから取得する
-    program: Program | None = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
+    program: Program | None = None
+    if programs is not None:
+        # あらかじめ取得しておいた番組情報の辞書を使用
+        program = programs.get((channel.network_id, channel.service_id, event_id))
+    else:
+        # そうでない場合はデータベースから個別に取得する
+        program = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
     ## 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせの番組情報を作成する
     ## 通常ここで番組情報が取得できないのは同じ番組を放送しているサブチャンネルやまだ KonomiTV に反映されていない番組情報など、特殊なケースだけのはず
     if program is None:
@@ -657,6 +665,91 @@ async def GetReserveDataList(
     return reserve_data_list
 
 
+async def GetRequiredProgramsForReservations(reserve_data_list: list[ReserveDataRequired]) -> dict[tuple[int, int, int], Program]:
+    """
+    録画予約に必要な番組情報を一括取得する
+
+    Args:
+        reserve_data_list (list[ReserveDataRequired]): EDCB の ReserveData オブジェクトのリスト
+
+    Returns:
+        dict[tuple[int, int, int], Program]: (network_id, service_id, event_id) をキーとした番組情報の辞書
+    """
+
+    if not reserve_data_list:
+        return {}
+
+    # 録画予約から必要な番組の (network_id, service_id, event_id) の組み合わせを抽出
+    program_keys = set()
+    for reserve_data in reserve_data_list:
+        program_keys.add((reserve_data['onid'], reserve_data['sid'], reserve_data['eid']))
+
+    if not program_keys:
+        return {}
+
+    # SQLite 用の IN 句を構築
+    conditions = []
+    params = []
+    for network_id, service_id, event_id in program_keys:
+        conditions.append('(network_id = ? AND service_id = ? AND event_id = ?)')
+        params.extend([network_id, service_id, event_id])
+
+    if not conditions:
+        return {}
+
+    # 生 SQL クエリを実行 (生 SQL クエリなのは効率化のため)
+    connection = connections.get('default')
+    sql = f'''
+        SELECT
+            id, channel_id, network_id, service_id, event_id, title, description, detail,
+            start_time, end_time, duration, is_free, genres, video_type, video_codec,
+            video_resolution, primary_audio_type, primary_audio_language, primary_audio_sampling_rate,
+            secondary_audio_type, secondary_audio_language, secondary_audio_sampling_rate
+        FROM programs
+        WHERE {' OR '.join(conditions)}
+    '''
+
+    rows = await connection.execute_query(sql, params)
+
+    # 結果を辞書形式に変換
+    programs_dict: dict[tuple[int, int, int], Program] = {}
+    for row in rows[1]:  # rows[1] contains the actual data rows
+        # 手動で Program オブジェクトを構築
+        # JSON フィールドの解析
+        detail = json.loads(row[7]) if row[7] else {}
+        genres = json.loads(row[12]) if row[12] else []
+
+        program = Program(
+            id=row[0],
+            channel_id=row[1],
+            network_id=row[2],
+            service_id=row[3],
+            event_id=row[4],
+            title=row[5],
+            description=row[6],
+            detail=detail,
+            start_time=row[8],
+            end_time=row[9],
+            duration=row[10],
+            is_free=row[11],
+            genres=genres,
+            video_type=row[13],
+            video_codec=row[14],
+            video_resolution=row[15],
+            primary_audio_type=row[16],
+            primary_audio_language=row[17],
+            primary_audio_sampling_rate=row[18],
+            secondary_audio_type=row[19],
+            secondary_audio_language=row[20],
+            secondary_audio_sampling_rate=row[21],
+        )
+
+        key = (program.network_id, program.service_id, program.event_id)
+        programs_dict[key] = program
+
+    return programs_dict
+
+
 async def GetReserveData(
     reservation_id: Annotated[int, Path(description='録画予約 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
@@ -746,8 +839,11 @@ async def ReservationsAPI(
         # 高速化のため、あらかじめ全てのチャンネル情報を取得しておく
         channels = await Channel.all()
 
+        # 高速化のため、録画予約に必要な番組情報を一括取得しておく
+        programs = await GetRequiredProgramsForReservations(reserve_data_list)
+
         # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換
-        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels) for reserve_data in reserve_data_list))
+        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels, programs) for reserve_data in reserve_data_list))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
