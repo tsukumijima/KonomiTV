@@ -48,6 +48,7 @@
                             @error="onLogoError">
                         <span class="reservation__content-meta-broadcaster-name">Ch: {{ reservation.channel.channel_number }} {{ reservation.channel.name }}</span>
                     </div>
+                    <!-- スマホ版のみ：時刻表示 -->
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
                     <div class="reservation__content-meta-size-comment">
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
@@ -59,10 +60,21 @@
                             約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
                         </div>
                     </div>
+                    <!-- PC版のみ：上段右側の時刻表示 -->
+                    <div class="reservation__content-meta-time-pc">
+                        {{ ProgramUtils.getProgramTime(reservation.program) }}
+                    </div>
                 </div>
 
-                <div class="reservation__content-description"
-                    v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'description')"></div>
+                <div class="reservation__content-description-container">
+                    <div class="reservation__content-description"
+                        v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'description')"></div>
+                    <!-- PC版のみ：容量表示（右側） -->
+                    <div class="reservation__content-description-size-pc">
+                        <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
+                        約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -130,13 +142,13 @@ const getReservationStatusIcon = (reservation: IReservation): string => {
 
     switch (reservation.recording_availability) {
         case 'Full':
-            return 'fluent:checkmark-circle-16-regular';
+            return 'fluent:checkmark-16-filled';
         case 'Partial':
             return 'fluent:warning-16-filled';
         case 'Unavailable':
-            return 'fluent:dismiss-circle-16-regular';
+            return 'fluent:dismiss-circle-16-filled';
         default:
-            return 'fluent:question-circle-16-regular';
+            return 'fluent:question-circle-16-filled';
     }
 };
 
@@ -244,12 +256,15 @@ const handleSwitchClick = (event: Event) => {
         align-items: center;
         width: 100%;
         min-height: auto;
-        padding: 12px 16px;
+        padding: 9px 3px;
+        @include tablet-horizontal {
+            padding: 8px 0px;
+        }
         @include tablet-vertical {
-            padding: 12px 0px;
+            padding: 6px 0px;
         }
         @include smartphone-horizontal {
-            padding: 12px 0px;
+            padding: 6px 0px;
         }
         @include smartphone-vertical {
             padding: 8px 0px;
@@ -447,12 +462,16 @@ const handleSwitchClick = (event: Event) => {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 10px 12px;
+            gap: 10px 0px;
             margin-bottom: 2px;
             font-size: 13.8px;
             min-width: 0;
             overflow: hidden;
+            @include desktop {
+                flex-wrap: nowrap;
+            }
             @include tablet-horizontal {
+                flex-wrap: nowrap;
                 row-gap: 4px;
             }
             @include tablet-vertical {
@@ -471,7 +490,24 @@ const handleSwitchClick = (event: Event) => {
                 display: flex;
                 align-items: center;
                 min-width: 0;
+                font-size: 13.5px;
+                @include desktop {
+                    // PC版では放送局の幅を適切に制限
+                    flex: 0 0 auto;
+                    min-width: 230px;
+                }
+                @include tablet-horizontal {
+                    flex: 0 0 auto;
+                    min-width: 200px;
+                }
+                @include tablet-vertical {
+                    flex: 1;  // 時刻表示を右側に寄せる
+                }
+                @include smartphone-horizontal {
+                    flex: 1;  // 時刻表示を右側に寄せる
+                }
                 @include smartphone-vertical {
+                    width: 100%;  // 事実上常に時刻表示が下に来るようにする
                     margin-bottom: 1px;
                 }
 
@@ -508,6 +544,7 @@ const handleSwitchClick = (event: Event) => {
                 }
             }
 
+            // スマホ版のみ：時刻表示
             &-time {
                 display: inline-block;
                 flex-shrink: 0;
@@ -518,6 +555,12 @@ const handleSwitchClick = (event: Event) => {
                 font-size: 13.5px;
                 line-height: 15.5px;
                 white-space: nowrap;
+                @include desktop {
+                    display: none;  // PC版では非表示
+                }
+                @include tablet-horizontal {
+                    display: none;  // タブレット横版でも非表示
+                }
                 @include tablet-vertical {
                     margin-left: 0px;
                     border-left: none;
@@ -535,6 +578,34 @@ const handleSwitchClick = (event: Event) => {
                     border-left: none;
                     padding-left: 0px;
                     font-size: 11.4px;
+                    width: 100%;  // コメントがない時に常にストレージ情報が下に来るようにする
+                }
+            }
+
+            // PC版のみ：上段右側の時刻表示
+            &-time-pc {
+                display: none;  // デフォルトは非表示
+                @include desktop {
+                    display: inline-block;
+                    flex-shrink: 0;
+                    margin-left: auto;
+                    color: rgb(var(--v-theme-text-darken-1));
+                    height: 16px;
+                    font-size: 13.5px;
+                    white-space: nowrap;
+                    min-width: 231px;  // 実測値
+                    text-align: left;
+                }
+                @include tablet-horizontal {
+                    display: inline-block;
+                    flex-shrink: 0;
+                    margin-left: auto;
+                    color: rgb(var(--v-theme-text-darken-1));
+                    height: 16px;
+                    font-size: 13.5px;
+                    white-space: nowrap;
+                    min-width: 231px;  // 実測値
+                    text-align: left;
                 }
             }
 
@@ -547,6 +618,22 @@ const handleSwitchClick = (event: Event) => {
                 min-width: 0;
                 overflow: hidden;
 
+                @include desktop {
+                    // PC版では容量を非表示（下段に別途表示）
+                    .reservation__content-meta-size {
+                        display: none;
+                    }
+                    // コメント部分のみ表示し、左寄せ
+                    justify-content: flex-start;
+                    margin-left: 10px;
+                }
+                @include tablet-horizontal {
+                    .reservation__content-meta-size {
+                        display: none;
+                    }
+                    justify-content: flex-start;
+                    margin-left: 10px;
+                }
                 @include tablet-vertical {
                     width: 100%;
                     justify-content: space-between;
@@ -596,7 +683,14 @@ const handleSwitchClick = (event: Event) => {
                 overflow: hidden;
 
                 @include desktop {
-                    flex: 0 0 300px;
+                    margin-right: 16px;
+                    border-left: 1px solid rgb(var(--v-theme-text-darken-1));
+                    padding-left: 10px;
+                }
+                @include tablet-horizontal {
+                    margin-right: 12px;
+                    border-left: 1px solid rgb(var(--v-theme-text-darken-1));
+                    padding-left: 10px;
                 }
 
                 &-text {
@@ -612,9 +706,32 @@ const handleSwitchClick = (event: Event) => {
             }
         }
 
+        // 概要+容量のコンテナ
+        &-description-container {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 2px;
+            min-width: 0;
+
+            @include desktop {
+                align-items: center;  // PC版では中央揃え
+            }
+            // タブレット縦画面以下は非表示
+            @include tablet-vertical {
+                display: none;
+            }
+            @include smartphone-horizontal {
+                display: none;
+            }
+            @include smartphone-vertical {
+                display: none;
+            }
+        }
+
         &-description {
             display: -webkit-box;
-            margin-top: 2px;
+            flex-grow: 1;
+            margin-right: 12px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
             line-height: 1.55;
@@ -631,7 +748,50 @@ const handleSwitchClick = (event: Event) => {
                 font-size: 11px;
             }
             @include smartphone-vertical {
-                display: none;
+                margin-right: 0px;
+                margin-bottom: 2px;
+                font-size: 10.5px;
+                line-height: 1.45;
+            }
+
+            // PC版では概要を非表示にして容量を右側に配置するスペースを確保
+            @include desktop {
+                margin-right: 0px;
+            }
+            @include tablet-horizontal {
+                margin-right: 0px;
+            }
+        }
+
+        // PC版のみ：概要行の容量表示（右側）
+        &-description-size-pc {
+            display: none;  // デフォルトは非表示
+            @include desktop {
+                display: flex;
+                align-items: center;
+                flex-shrink: 0;
+                margin-left: auto;
+                padding-left: 12px;  // 左側との余白
+                color: rgb(var(--v-theme-text-darken-1));
+                font-size: 12.5px;
+                white-space: nowrap;
+                justify-content: flex-end;
+            }
+            @include tablet-horizontal {
+                display: flex;
+                align-items: center;
+                flex-shrink: 0;
+                margin-left: auto;
+                padding-left: 12px;  // 左側との余白
+                color: rgb(var(--v-theme-text-darken-1));
+                font-size: 12.5px;
+                white-space: nowrap;
+                justify-content: flex-end;
+            }
+
+            .reservation__content-description-size-icon {
+                flex-shrink: 0;
+                margin-right: 4px;
             }
         }
     }
