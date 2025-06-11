@@ -52,7 +52,7 @@
                     <div class="reservation__content-meta-size-comment">
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-meta-comment-icon" />
-                            <span class="reservation__content-meta-comment-text">{{ reservation.comment }}(テストテストテストテストテストテストテストテストテストテストテストテストテスト)</span>
+                            <span class="reservation__content-meta-comment-text">{{ reservation.comment }}</span>
                         </div>
                         <div class="reservation__content-meta-size">
                             <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-meta-size-icon" />

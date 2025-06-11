@@ -177,6 +177,11 @@ watch(isVisible, (newValue) => {
         // 開かれた時は番組情報タブを表示
         activeTab.value = 'info';
         hasChanges.value = false;
+        // ページ全体のスクロールを無効にする
+        document.documentElement.classList.add('v-overlay-scroll-blocked');
+    } else {
+        // ページ全体のスクロールを有効に戻す
+        document.documentElement.classList.remove('v-overlay-scroll-blocked');
     }
 });
 
@@ -394,12 +399,6 @@ const confirmDelete = async () => {
         flex: 1;
         overflow-y: auto;
         background: rgb(var(--v-theme-background));
-        &::-webkit-scrollbar-thumb {
-            background: #352a27;
-            &:hover {
-                background: rgb(var(--v-theme-background-lighten-2));
-            }
-        }
     }
 
     &__info,
