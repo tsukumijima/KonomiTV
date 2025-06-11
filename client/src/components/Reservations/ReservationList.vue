@@ -114,8 +114,8 @@ const props = withDefaults(defineProps<{
     showMoreButton: false,
     showBackButton: false,
     showEmptyMessage: true,
-    emptyIcon: 'fluent:warning-20-regular',
-    emptyMessage: '録画予約が見つかりませんでした。',
+    emptyIcon: 'fluent:timer-20-regular',
+    emptyMessage: 'まだ録画予約がありません。',
     emptySubMessage: '番組表から録画予約を追加できます。',
     isLoading: false,
 });
