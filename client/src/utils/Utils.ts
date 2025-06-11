@@ -160,13 +160,14 @@ export default class Utils {
     /**
      * バイト単位の数値をフォーマットする
      * @param bytes バイト数
+     * @param decimal_places 小数点以下の桁数
      * @param gb_only GB 単位でのみフォーマットするかどうか
      * @returns フォーマットされた文字列 (例: 1.23KB)
      */
-    static formatBytes(bytes: number, gb_only: boolean = false): string {
+    static formatBytes(bytes: number, decimal_places: number = 2, gb_only: boolean = false): string {
         if (gb_only) {
             const gb_bytes = bytes / (1024 * 1024 * 1024);
-            return `${gb_bytes.toFixed(2)}GB`;
+            return `${gb_bytes.toFixed(decimal_places)}GB`;
         }
 
         const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -177,9 +178,8 @@ export default class Utils {
             unit_index++;
         }
 
-        return `${bytes.toFixed(2)}${units[unit_index]}`;
+        return `${bytes.toFixed(decimal_places)}${units[unit_index]}`;
     }
-    // End of Selection
 
 
     /**

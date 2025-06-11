@@ -8,13 +8,14 @@
                     <div class="reservation__priority-badge">{{ reservation.record_settings.priority }}</div>
                     <div class="reservation__priority-label">優先度</div>
                 </div>
-                <div v-if="!reservation.is_recording_in_progress" class="reservation__toggle">
+                <div v-if="!reservation.is_recording_in_progress" class="reservation__toggle" @click="handleSwitchClick">
                     <v-switch
                         v-model="is_enabled"
                         color="primary"
                         density="compact"
                         hide-details
                         @update:model-value="handleToggleEnabled"
+                        @click="handleSwitchClick"
                     ></v-switch>
                     <div class="reservation__toggle-label">{{ is_enabled ? '有効' : '無効' }}</div>
                 </div>
@@ -50,12 +51,12 @@
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
                     <div class="reservation__content-meta-size-comment">
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
-                            <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="mr-1" />
-                            {{ reservation.comment }}
+                            <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-meta-comment-icon" />
+                            <span class="reservation__content-meta-comment-text">{{ reservation.comment }}(テストテストテストテストテストテストテストテストテストテストテストテストテスト)</span>
                         </div>
                         <div class="reservation__content-meta-size">
-                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="mr-1" />
-                            推定 {{ Utils.formatBytes(reservation.estimated_recording_file_size, true) }}
+                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-meta-size-icon" />
+                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
                         </div>
                     </div>
                 </div>
@@ -193,6 +194,11 @@ const handleToggleEnabled = async () => {
     }
 };
 
+// スイッチ領域のクリック時の処理（ドロワー開閉を防止）
+const handleSwitchClick = (event: Event) => {
+    event.stopPropagation();
+};
+
 </script>
 
 <style lang="scss" scoped>
@@ -209,6 +215,12 @@ const handleToggleEnabled = async () => {
     user-select: none;
     box-sizing: border-box;
     content-visibility: auto;
+    @include tablet-vertical {
+        padding: 0px 12px;
+    }
+    @include smartphone-horizontal {
+        padding: 0px 12px;
+    }
     @include smartphone-vertical {
         padding: 0px 9px;
     }
@@ -233,6 +245,12 @@ const handleToggleEnabled = async () => {
         width: 100%;
         min-height: auto;
         padding: 12px 16px;
+        @include tablet-vertical {
+            padding: 12px 0px;
+        }
+        @include smartphone-horizontal {
+            padding: 12px 0px;
+        }
         @include smartphone-vertical {
             padding: 8px 0px;
         }
@@ -432,6 +450,8 @@ const handleToggleEnabled = async () => {
             gap: 10px 12px;
             margin-bottom: 2px;
             font-size: 13.8px;
+            min-width: 0;
+            overflow: hidden;
             @include tablet-horizontal {
                 row-gap: 4px;
             }
@@ -495,7 +515,9 @@ const handleToggleEnabled = async () => {
                 border-left: 1px solid rgb(var(--v-theme-text-darken-1));
                 padding-left: 10px;
                 height: 16px;
+                font-size: 13.5px;
                 line-height: 15.5px;
+                white-space: nowrap;
                 @include tablet-vertical {
                     margin-left: 0px;
                     border-left: none;
@@ -516,6 +538,29 @@ const handleToggleEnabled = async () => {
                 }
             }
 
+            &-size-comment {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-grow: 1;
+                justify-content: flex-end;
+                min-width: 0;
+                overflow: hidden;
+
+                @include tablet-vertical {
+                    width: 100%;
+                    justify-content: space-between;
+                }
+                @include smartphone-horizontal {
+                    width: 100%;
+                    justify-content: space-between;
+                }
+                @include smartphone-vertical {
+                    justify-content: space-between;
+                    margin-top: 2px;
+                }
+            }
+
             &-size,
             &-comment {
                 display: flex;
@@ -533,23 +578,36 @@ const handleToggleEnabled = async () => {
                 }
             }
             &-size {
+                display: flex;
+                align-items: center;
                 white-space: nowrap;
+                flex-shrink: 0;
+
+                &-icon {
+                    flex-shrink: 0;
+                    margin-right: 4px;
+                }
             }
             &-comment {
+                min-width: 0;
+                flex: 1 1 0;
                 display: flex;
                 align-items: center;
-            }
-            &-size-comment {
-                display: flex;
-                align-items: center;
-                flex-wrap: wrap;
-                column-gap: 10px;
+                overflow: hidden;
+
                 @include desktop {
-                    margin-left: auto;
+                    flex: 0 0 300px;
                 }
-                @include smartphone-vertical {
-                    flex-direction: row-reverse;
-                    margin-top: 2px;
+
+                &-text {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                &-icon {
+                    flex-shrink: 0;
+                    margin-right: 4px;
                 }
             }
         }

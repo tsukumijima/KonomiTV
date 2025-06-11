@@ -144,6 +144,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    min-width: 0;  // very important!!! これがないと要素がはみ出す
 }
 
 .reservations-home-container {
