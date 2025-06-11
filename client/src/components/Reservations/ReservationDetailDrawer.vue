@@ -70,14 +70,15 @@
     </div>
 
     <!-- 削除確認ダイアログ -->
-    <v-dialog v-model="showDeleteDialog" max-width="710">
+    <v-dialog v-model="showDeleteDialog" max-width="715">
         <v-card>
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
                 録画予約を削除しますか？
             </v-card-title>
             <v-card-text class="pt-2 pb-0">
                 <div v-if="reservation" class="mb-4">
-                    <div class="text-h6 mb-2">{{ reservation.program.title }}</div>
+                    <div class="text-h6 text-text mb-2"
+                        v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'title')"></div>
                     <div class="text-body-2 text-text-darken-1">
                         {{ ProgramUtils.getProgramTime(reservation.program) }}
                     </div>
@@ -92,7 +93,7 @@
                 <div v-else-if="reservation" class="warning-banner warning-banner--normal">
                     <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
                     <span class="warning-banner__text">
-                        録画予約を削除すると、放送開始前に再度予約を追加しない限り、録画は行われません。
+                        録画予約を削除すると、番組開始時刻までに再度予約を追加しない限り、この番組は録画されません。
                     </span>
                 </div>
                 <div v-if="isKeywordAutoReservation && reservation" class="warning-banner warning-banner--keyword mt-3">
