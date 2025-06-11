@@ -1,13 +1,12 @@
 
 import asyncio
 import configparser
-import json
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
-from tortoise import connections, transactions
+from tortoise import transactions
 
 from app import logging, schemas
 from app.config import Config
@@ -687,63 +686,26 @@ async def GetRequiredProgramsForReservations(reserve_data_list: list[ReserveData
     if not program_keys:
         return {}
 
-    # SQLite 用の IN 句を構築
-    conditions = []
-    params = []
+    # SQL の検索条件を生成
+    ## network_id, service_id, event_id は整数値で SQL インジェクションの心配はないので直接埋め込む
+    ## Tortoise ORM の Model.raw() がパラメーターバインディング自体に対応していないのも理由
+    safe_conditions = []
     for network_id, service_id, event_id in program_keys:
-        conditions.append('(network_id = ? AND service_id = ? AND event_id = ?)')
-        params.extend([network_id, service_id, event_id])
-
-    if not conditions:
+        safe_conditions.append(f'(network_id = {network_id} AND service_id = {service_id} AND event_id = {event_id})')
+    if not safe_conditions:
         return {}
 
-    # 生 SQL クエリを実行 (生 SQL クエリなのは効率化のため)
-    connection = connections.get('default')
+    # 高速化のため生 SQL クエリを実行
     sql = f'''
-        SELECT
-            id, channel_id, network_id, service_id, event_id, title, description, detail,
-            start_time, end_time, duration, is_free, genres, video_type, video_codec,
-            video_resolution, primary_audio_type, primary_audio_language, primary_audio_sampling_rate,
-            secondary_audio_type, secondary_audio_language, secondary_audio_sampling_rate
+        SELECT *
         FROM programs
-        WHERE {' OR '.join(conditions)}
+        WHERE {' OR '.join(safe_conditions)}
     '''
-
-    rows = await connection.execute_query(sql, params)
+    programs = cast(list[Program], await Program.raw(sql))
 
     # 結果を辞書形式に変換
     programs_dict: dict[tuple[int, int, int], Program] = {}
-    for row in rows[1]:  # rows[1] contains the actual data rows
-        # 手動で Program オブジェクトを構築
-        # JSON フィールドの解析
-        detail = json.loads(row[7]) if row[7] else {}
-        genres = json.loads(row[12]) if row[12] else []
-
-        program = Program(
-            id=row[0],
-            channel_id=row[1],
-            network_id=row[2],
-            service_id=row[3],
-            event_id=row[4],
-            title=row[5],
-            description=row[6],
-            detail=detail,
-            start_time=row[8],
-            end_time=row[9],
-            duration=row[10],
-            is_free=row[11],
-            genres=genres,
-            video_type=row[13],
-            video_codec=row[14],
-            video_resolution=row[15],
-            primary_audio_type=row[16],
-            primary_audio_language=row[17],
-            primary_audio_sampling_rate=row[18],
-            secondary_audio_type=row[19],
-            secondary_audio_language=row[20],
-            secondary_audio_sampling_rate=row[21],
-        )
-
+    for program in programs:
         key = (program.network_id, program.service_id, program.event_id)
         programs_dict[key] = program
 
