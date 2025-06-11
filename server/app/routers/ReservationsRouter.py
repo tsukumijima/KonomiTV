@@ -66,6 +66,23 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
 
         global _bitrate_ini_cache, _bitrate_ini_cache_timestamp
 
+        # 常時マルチチャンネル放送のため、例外的に決め打ちの値を使うチャンネルリスト
+        # キー: (NID, SID), 値: ビットレート (kbps)
+        hardcoded_bitrates = {
+            (32391, 23608): 12000,  # TOKYO MX1(091ch) (12Mbps)
+            (32391, 23609): 12000,  # TOKYO MX1(092ch) (12Mbps)
+            (32391, 23610): 4800,   # TOKYO MX2(093ch) (4.8Mbps)
+            (32381, 24680): 10000,  # イッツコムch10(101ch) (10Mbps)
+            (32381, 24681): 10000,  # イッツコムch10(102ch) (10Mbps)
+            (32383, 24696): 10000,  # イッツコムch10(111ch) (10Mbps)
+            (32383, 24697): 10000,  # イッツコムch10(112ch) (10Mbps)
+        }
+
+        # 決めうちの値が設定されているかチェック
+        channel_key = (network_id, service_id)
+        if channel_key in hardcoded_bitrates:
+            return hardcoded_bitrates[channel_key]
+
         # キャッシュが存在し、かつ15分以内の場合はそれを使用
         current_time = time.time()
         if (_bitrate_ini_cache is not None and
