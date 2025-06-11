@@ -248,7 +248,10 @@ const handleSwitchClick = (event: Event) => {
     }
 
     &--disabled {
-        opacity: 0.65;
+        background: rgba(var(--v-theme-background), 0.6);
+        .reservation__priority, .reservation__content {
+            opacity: 0.6;
+        }
     }
 
     &__container {
@@ -256,7 +259,7 @@ const handleSwitchClick = (event: Event) => {
         align-items: center;
         width: 100%;
         min-height: auto;
-        padding: 9px 3px;
+        padding: 8px 3px;
         @include tablet-horizontal {
             padding: 8px 0px;
         }
