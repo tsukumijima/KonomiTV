@@ -14,8 +14,21 @@
                 <v-tab style="text-transform: none !important;" value="access">アクセスログ</v-tab>
             </v-tabs>
             <div class="px-5 pb-6">
-                <div class="server-log-dialog__label">
-                    リアルタイムでログを表示しています。最新のログが下部に表示されます。
+                <div class="server-log-dialog__label-container">
+                    <div class="server-log-dialog__label">
+                        リアルタイムでログを表示しています。最新のログが下部に表示されます。
+                    </div>
+                    <div class="server-log-dialog__auto-scroll-control">
+                        <label for="auto_scroll_enabled" class="server-log-dialog__auto-scroll-label">自動スクロール</label>
+                        <v-switch
+                            id="auto_scroll_enabled"
+                            v-model="auto_scroll_enabled"
+                            class="server-log-dialog__auto-scroll-switch"
+                            color="primary"
+                            density="compact"
+                            hide-details
+                        ></v-switch>
+                    </div>
                 </div>
                 <div class="server-log-dialog__console-container">
                     <!-- サーバーログ表示エリア -->
@@ -81,6 +94,8 @@ const access_log_lines = ref<string[]>([]);
 const server_scroller = useTemplateRef('server_scroller');
 const access_scroller = useTemplateRef('access_scroller');
 const active_tab = ref<string>('server');
+// 自動スクロールの状態管理
+const auto_scroll_enabled = ref<boolean>(true);
 let server_abort_controller: AbortController | null = null;
 let access_abort_controller: AbortController | null = null;
 
@@ -146,8 +161,10 @@ function startLogStreaming(log_type: 'server' | 'access') {
             if (log_lines.value.length > MAX_LINES) {
                 log_lines.value = log_lines.value.slice(-MAX_LINES);
             }
-            // 対応するスクローラーを最下部に移動
-            scrollToBottom(log_type);
+            // 自動スクロールが有効な場合のみ対応するスクローラーを最下部に移動
+            if (auto_scroll_enabled.value) {
+                scrollToBottom(log_type);
+            }
         },
         (line: string) => {
             // ログタイプに応じたログ行配列を更新
@@ -158,8 +175,10 @@ function startLogStreaming(log_type: 'server' | 'access') {
             if (log_lines.value.length > MAX_LINES) {
                 log_lines.value = log_lines.value.slice(-MAX_LINES);
             }
-            // 対応するスクローラーを最下部に移動
-            scrollToBottom(log_type);
+            // 自動スクロールが有効な場合のみ対応するスクローラーを最下部に移動
+            if (auto_scroll_enabled.value) {
+                scrollToBottom(log_type);
+            }
         }
     );
 
@@ -248,8 +267,14 @@ onBeforeUnmount(() => {
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 
-.server-log-dialog__label {
+.server-log-dialog__label-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-top: 16px;
+}
+
+.server-log-dialog__label {
     color: rgb(var(--v-theme-text-darken-1));
     font-size: 13.5px;
     line-height: 1.6;
@@ -301,6 +326,27 @@ onBeforeUnmount(() => {
 .server-log-dialog__line {
     margin: 0;
     padding: 0;
+}
+
+.server-log-dialog__auto-scroll-control {
+    display: flex;
+    align-items: center;
+}
+
+.server-log-dialog__auto-scroll-label {
+    color: rgb(var(--v-theme-text-darken-1));
+    font-size: 13.5px;
+    line-height: 1.6;
+    @include smartphone-horizontal {
+        font-size: 11px;
+        line-height: 1.7;
+    }
+}
+
+.server-log-dialog__auto-scroll-switch {
+    flex-shrink: 0;
+    width: 35px;
+    margin-left: 12px;
 }
 
 </style>
