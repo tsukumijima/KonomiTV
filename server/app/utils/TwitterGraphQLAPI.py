@@ -465,9 +465,18 @@ class TwitterGraphQLAPI:
         ## 2024/08/08 現在では Twitter Web App 用 Bearer トークンでリクエストした際と異なり、スパム判定によるツイート失敗がほとんどないメリットがある
         ## なぜこの Bearer トークンが使えるのかはよく分からないが、実際 OldTweetDeck でも同様の実装で数ヶ月運用されている
         ## 今後対策される可能性もなくもないが実装時点ではうまく機能しているので、推定ユーザー数万人を有する OldTweetDeck の実装に合わせる
+        ## 2025/05/13 現在は FavoriteTweet / SearchTimeline も同様の対応が必要
+        ## UnfavoriteTweet はこの対応をしなくても動作するが、対になる操作のためリストに入れている
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1208-L1219
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1273-L1292
-        if endpoint_info.endpoint in ['CreateTweet', 'CreateRetweet', 'FavoriteTweet']:
+        ## ref: https://github.com/dimdenGD/OldTweetDeck/commit/7afe6fce041943f32838825660815588c0f501ed
+        if endpoint_info.endpoint in [
+            'CreateTweet',
+            'CreateRetweet',
+            'FavoriteTweet',
+            'UnfavoriteTweet',
+            'SearchTimeline',
+        ]:
             headers['authorization'] = self.cookie_session_user_handler.TWEETDECK_BEARER_TOKEN
 
         # Twitter GraphQL API に HTTP リクエストを送信する
@@ -542,9 +551,10 @@ class TwitterGraphQLAPI:
             logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON')
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
-        # API レスポンスにエラーが含まれている場合
+        # API レスポンスにエラーが含まれていて、かつ data キーが存在しない場合
         ## API レスポンスは Twitter の仕様変更で変わりうるので、ここで判定されなかったと言ってエラーでないとは限らない
-        if 'errors' in response_json:
+        ## なぜか正常にレスポンスが含まれているのにエラーも返ってくる場合があるので、その場合は（致命的な）エラーではないと判断する
+        if 'errors' in response_json and 'data' not in response_json:
 
             # Twitter API のエラーコードとエラーメッセージを取得
             ## このエラーコードは API v1.1 の頃と変わっていない
@@ -916,10 +926,10 @@ class TwitterGraphQLAPI:
                 created_at = datetime.strptime(raw_tweet_object['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y').astimezone(ZoneInfo('Asia/Tokyo')),
                 user = schemas.TweetUser(
                     id = raw_tweet_object['core']['user_results']['result']['rest_id'],
-                    name = raw_tweet_object['core']['user_results']['result']['legacy']['name'],
-                    screen_name = raw_tweet_object['core']['user_results']['result']['legacy']['screen_name'],
+                    name = raw_tweet_object['core']['user_results']['result']['core']['name'],
+                    screen_name = raw_tweet_object['core']['user_results']['result']['core']['screen_name'],
                     # (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-                    icon_url = raw_tweet_object['core']['user_results']['result']['legacy']['profile_image_url_https'].replace('_normal', ''),
+                    icon_url = raw_tweet_object['core']['user_results']['result']['avatar']['image_url'].replace('_normal', ''),
                 ),
                 text = expanded_text,
                 lang = raw_tweet_object['legacy']['lang'],

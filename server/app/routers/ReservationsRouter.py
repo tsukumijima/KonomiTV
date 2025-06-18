@@ -1,5 +1,7 @@
 
 import asyncio
+import configparser
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
 
@@ -30,17 +32,158 @@ router = APIRouter(
 )
 
 
-async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None) -> schemas.Reservation:
+# Bitrate.ini のキャッシュ (TTL: 15分)
+_bitrate_ini_cache: dict[str, int] | None = None
+_bitrate_ini_cache_timestamp: float | None = None
+
+
+async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None, programs: dict[tuple[int, int, int], Program] | None = None) -> schemas.Reservation:
     """
     EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換する
 
     Args:
         reserve_data (ReserveDataRequired): EDCB の ReserveData オブジェクト
         channels (list[Channel] | None): あらかじめ全てのチャンネル情報を取得しておく場合はそのリスト、そうでない場合は None
+        programs (dict[tuple[int, int, int], Program] | None): あらかじめ取得しておいた番組情報の辞書 (network_id, service_id, event_id) -> Program
 
     Returns:
         schemas.Reservation: schemas.Reservation オブジェクト
     """
+
+    async def GetBitrateFromEDCB(network_id: int, transport_stream_id: int, service_id: int) -> int:
+        """
+        EDCB から Bitrate.ini を取得して、指定されたチャンネルのビットレートを取得する
+        ref: https://github.com/tkntrec/EDCB/blob/my-build/EpgTimer/EpgTimer/DefineClass/SearchItem.cs#L265-L290
+
+        Args:
+            network_id (int): ネットワーク ID (ONID)
+            transport_stream_id (int): トランスポートストリーム ID (TSID)
+            service_id (int): サービス ID (SID)
+
+        Returns:
+            int: ビットレート (kbps)
+        """
+
+        global _bitrate_ini_cache, _bitrate_ini_cache_timestamp
+
+        # 常時マルチチャンネル放送のため、例外的に決め打ちの値を使うチャンネルリスト
+        # キー: (NID, SID), 値: ビットレート (kbps)
+        hardcoded_bitrates = {
+            (32391, 23608): 12000,  # TOKYO MX1(091ch) (12Mbps)
+            (32391, 23609): 12000,  # TOKYO MX1(092ch) (12Mbps)
+            (32391, 23610): 4800,   # TOKYO MX2(093ch) (4.8Mbps)
+            (32381, 24680): 10000,  # イッツコムch10(101ch) (10Mbps)
+            (32381, 24681): 10000,  # イッツコムch10(102ch) (10Mbps)
+            (32383, 24696): 10000,  # イッツコムch10(111ch) (10Mbps)
+            (32383, 24697): 10000,  # イッツコムch10(112ch) (10Mbps)
+        }
+
+        # 決めうちの値が設定されているかチェック
+        channel_key = (network_id, service_id)
+        if channel_key in hardcoded_bitrates:
+            return hardcoded_bitrates[channel_key]
+
+        # キャッシュが存在し、かつ15分以内の場合はそれを使用
+        current_time = time.time()
+        if (_bitrate_ini_cache is not None and
+            _bitrate_ini_cache_timestamp is not None and
+            current_time - _bitrate_ini_cache_timestamp < 900):  # 900秒 = 15分
+            # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+            for i in range(4):
+                onid = 0xFFFF if i > 2 else network_id
+                tsid = 0xFFFF if i > 1 else transport_stream_id
+                sid = 0xFFFF if i > 0 else service_id
+
+                # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                    return _bitrate_ini_cache[key]
+
+            # デフォルト値を返す
+            return 19456
+
+        try:
+            # EDCB から Bitrate.ini を取得
+            files = await CtrlCmdUtil().sendFileCopy2(['Bitrate.ini'])
+            if files is None or len(files) == 0:
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB')
+                return 19456
+
+            # ファイルデータをテキストとして解析
+            bitrate_ini_data = files[0]['data']
+            if not bitrate_ini_data:
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty')
+                return 19456
+
+            # バイナリデータを文字列に変換 (UTF-16 BOM つきまたは UTF-8)
+            try:
+                # UTF-16 BOM つきの場合
+                if bitrate_ini_data.startswith(b'\xff\xfe'):
+                    ini_text = bitrate_ini_data.decode('utf-16')
+                else:
+                    # UTF-8 として試行
+                    ini_text = bitrate_ini_data.decode('utf-8')
+            except UnicodeDecodeError:
+                # システムデフォルトエンコーディングで試行
+                ini_text = bitrate_ini_data.decode('shift_jis', errors='ignore')
+
+            # ConfigParser で解析
+            config = configparser.ConfigParser()
+            config.read_string(ini_text)
+
+            # BITRATE セクションからビットレート情報を取得してキャッシュに保存
+            _bitrate_ini_cache = {}
+            _bitrate_ini_cache_timestamp = current_time
+            if 'BITRATE' in config:
+                for key, value in config['BITRATE'].items():
+                    try:
+                        _bitrate_ini_cache[key.upper()] = int(value)
+                    except ValueError:
+                        continue
+
+            # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+            for i in range(4):
+                onid = 0xFFFF if i > 2 else network_id
+                tsid = 0xFFFF if i > 1 else transport_stream_id
+                sid = 0xFFFF if i > 0 else service_id
+
+                # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                    return _bitrate_ini_cache[key]
+
+            # 見つからない場合はデフォルト値を返す
+            return 19456
+
+        except Exception as ex:
+            logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini', exc_info=ex)
+            return 19456
+
+
+    def CalculateEstimatedFileSize(duration_seconds: float, bitrate_kbps: int, recording_mode: str) -> int:
+        """
+        録画予定時間とビットレートから想定ファイルサイズを計算する
+
+        Args:
+            duration_seconds (float): 録画予定時間 (秒)
+            bitrate_kbps (int): ビットレート (kbps)
+            recording_mode (str): 録画モード (視聴モードの場合は想定サイズ 0 を返す)
+
+        Returns:
+            int: 想定ファイルサイズ (バイト)
+        """
+
+        # 視聴モードの場合は想定サイズ 0 を返す (録画されないため)
+        if recording_mode == 'View':
+            return 0
+
+        # EpgTimer のロジック: bitrate / 8 * 1000 * duration (秒)
+        # ビットレート (kbps) を バイト/秒 に変換: kbps / 8 * 1000 = bytes/sec
+        estimated_size_bytes = max(int(bitrate_kbps / 8 * 1000 * duration_seconds), 0)
+
+        return estimated_size_bytes
 
     # 録画予約 ID
     reserve_id: int = reserve_data['reserve_id']
@@ -122,7 +265,13 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     duration: float = float(reserve_data['duration_second'])
 
     # ここでネットワーク ID・サービス ID・イベント ID が一致する番組をデータベースから取得する
-    program: Program | None = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
+    program: Program | None = None
+    if programs is not None:
+        # あらかじめ取得しておいた番組情報の辞書を使用
+        program = programs.get((channel.network_id, channel.service_id, event_id))
+    else:
+        # そうでない場合はデータベースから個別に取得する
+        program = await Program.filter(network_id=channel.network_id, service_id=channel.service_id, event_id=event_id).get_or_none()
     ## 取得できなかった場合のみ、上記の限定的な情報を使って間に合わせの番組情報を作成する
     ## 通常ここで番組情報が取得できないのは同じ番組を放送しているサブチャンネルやまだ KonomiTV に反映されていない番組情報など、特殊なケースだけのはず
     if program is None:
@@ -184,6 +333,17 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(reserve_data['rec_setting'])
 
+    # 想定録画ファイルサイズを計算
+    estimated_recording_file_size: int = 0
+    try:
+        # EDCB から Bitrate.ini を取得してビットレートを計算
+        bitrate_kbps = await GetBitrateFromEDCB(network_id, transport_stream_id, service_id)
+        # 想定ファイルサイズを計算
+        estimated_recording_file_size = CalculateEstimatedFileSize(duration, bitrate_kbps, record_settings.recording_mode)
+    except Exception as ex:
+        logging.warning(f'[ReservationsRouter][DecodeEDCBReserveData] Failed to calculate estimated file size [reserve_id: {reserve_id}]', exc_info=ex)
+        estimated_recording_file_size = 0
+
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
     ## 逆に自前で変換する方法がわからない…
     return schemas.Reservation(
@@ -194,6 +354,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         recording_availability = recording_availability,
         comment = comment,
         scheduled_recording_file_name = scheduled_recording_file_name,
+        estimated_recording_file_size = estimated_recording_file_size,
         record_settings = record_settings,
     )
 
@@ -520,6 +681,54 @@ async def GetReserveDataList(
     return reserve_data_list
 
 
+async def GetRequiredProgramsForReservations(reserve_data_list: list[ReserveDataRequired]) -> dict[tuple[int, int, int], Program]:
+    """
+    録画予約に必要な番組情報を一括取得する
+
+    Args:
+        reserve_data_list (list[ReserveDataRequired]): EDCB の ReserveData オブジェクトのリスト
+
+    Returns:
+        dict[tuple[int, int, int], Program]: (network_id, service_id, event_id) をキーとした番組情報の辞書
+    """
+
+    if not reserve_data_list:
+        return {}
+
+    # 録画予約から必要な番組の (network_id, service_id, event_id) の組み合わせを抽出
+    program_keys = set()
+    for reserve_data in reserve_data_list:
+        program_keys.add((reserve_data['onid'], reserve_data['sid'], reserve_data['eid']))
+
+    if not program_keys:
+        return {}
+
+    # SQL の検索条件を生成
+    ## network_id, service_id, event_id は整数値で SQL インジェクションの心配はないので直接埋め込む
+    ## Tortoise ORM の Model.raw() がパラメーターバインディング自体に対応していないのも理由
+    safe_conditions = []
+    for network_id, service_id, event_id in program_keys:
+        safe_conditions.append(f'(network_id = {network_id} AND service_id = {service_id} AND event_id = {event_id})')
+    if not safe_conditions:
+        return {}
+
+    # 高速化のため生 SQL クエリを実行
+    sql = f'''
+        SELECT *
+        FROM programs
+        WHERE {' OR '.join(safe_conditions)}
+    '''
+    programs = cast(list[Program], await Program.raw(sql))
+
+    # 結果を辞書形式に変換
+    programs_dict: dict[tuple[int, int, int], Program] = {}
+    for program in programs:
+        key = (program.network_id, program.service_id, program.event_id)
+        programs_dict[key] = program
+
+    return programs_dict
+
+
 async def GetReserveData(
     reservation_id: Annotated[int, Path(description='録画予約 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
@@ -609,8 +818,11 @@ async def ReservationsAPI(
         # 高速化のため、あらかじめ全てのチャンネル情報を取得しておく
         channels = await Channel.all()
 
+        # 高速化のため、録画予約に必要な番組情報を一括取得しておく
+        programs = await GetRequiredProgramsForReservations(reserve_data_list)
+
         # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換
-        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels) for reserve_data in reserve_data_list))
+        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels, programs) for reserve_data in reserve_data_list))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)

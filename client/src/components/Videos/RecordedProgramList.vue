@@ -73,7 +73,7 @@
                 active-color="primary"
                 density="comfortable"
                 :length="Math.ceil(displayTotal / 30)"
-                :total-visible="7"
+                :total-visible="Utils.isSmartphoneVertical() ? 5 : 7"
                 @update:model-value="$emit('update:page', $event)">
             </v-pagination>
         </div>
@@ -86,6 +86,7 @@ import { useRouter } from 'vue-router';
 
 import RecordedProgram from '@/components/Videos/RecordedProgram.vue';
 import { IRecordedProgram, MylistSortOrder, SortOrder } from '@/services/Videos';
+import Utils from '@/utils';
 
 const router = useRouter();
 

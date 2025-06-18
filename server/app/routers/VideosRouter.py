@@ -253,10 +253,16 @@ async def GetThumbnailResponse(
 
     # If-None-Match と If-Modified-Since の検証
     # FileResponse が実装していない 304 判定を行う
-    if IsContentNotModified(Headers(dict(response.headers)), Headers(scope=request.scope)):
+    if IsContentNotModified(response.headers, request.headers):
+        # 304 レスポンスでは Content-Length ヘッダーを除外する必要がある
+        # （大文字小文字を区別せずにフィルタリング）
+        headers_304 = {
+            key: value for key, value in response.headers.items()
+            if key.lower() != 'content-length'
+        }
         return Response(
             status_code = 304,
-            headers = dict(response.headers),
+            headers = headers_304,
         )
 
     return response

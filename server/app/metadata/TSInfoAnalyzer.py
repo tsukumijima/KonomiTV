@@ -154,6 +154,9 @@ class TSInfoAnalyzer:
         ## EIT[p/f] のうち、現在と次の番組情報を両方取得した上で、録画マージンを考慮してどちらの番組を録画したかを判定する
         recorded_program_present = self.__analyzeEITInformation(channel, is_following=False)
         recorded_program_following = self.__analyzeEITInformation(channel, is_following=True)
+        ## 通常まず発生し得ないが、どちらかの番組情報が取得できなかった場合は正常に判定できないため None を返す
+        if recorded_program_present is None or recorded_program_following is None:
+            return None
 
         # 録画開始時刻と次の番組の開始時刻を比較して、もし差が0〜1分以内なら次の番組情報を利用する
         ## 録画ファイルのサイズ全体の 20% の位置にシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
@@ -346,7 +349,7 @@ class TSInfoAnalyzer:
         return channel
 
 
-    def __analyzeEITInformation(self, channel: schemas.Channel, is_following: bool = False) -> schemas.RecordedProgram:
+    def __analyzeEITInformation(self, channel: schemas.Channel, is_following: bool = False) -> schemas.RecordedProgram | None:
         """
         TS 内の EIT (Event Information Table) から番組情報を取得する
         チャンネル情報（サービス ID も含まれる）が必須な理由は、CS など複数サービスを持つ TS で
@@ -357,7 +360,7 @@ class TSInfoAnalyzer:
             is_following (bool): 次の番組情報を取得するかどうか (デフォルト: 現在の番組情報)
 
         Returns:
-            schemas.RecordedProgram: 録画番組情報を表すモデル
+            schemas.RecordedProgram | None: 録画番組情報を表すモデル、または取得に失敗した場合は None
         """
 
         if is_following is True:
@@ -396,6 +399,7 @@ class TSInfoAnalyzer:
 
         # TS から EIT (Event Information Table) を抽出
         count: int = 0
+        corrupted_events: int = 0  # 破損したイベント数をカウント
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
             # section_number と service_id が一致したときだけ
@@ -405,9 +409,19 @@ class TSInfoAnalyzer:
                 # EIT から得られる各種 Descriptor 内の情報を取得
                 # ariblib.event が各種 Descriptor のラッパーになっていたのでそれを利用
                 for event_data in eit.events:
-
-                    # EIT 内のイベントを取得
-                    event: Any = ariblib.event.Event(eit, event_data)
+                    try:
+                        # EIT 内のイベントを取得
+                        event: Any = ariblib.event.Event(eit, event_data)
+                    except (IndexError, ValueError, TypeError, AttributeError) as ex:
+                        # 破損したイベントをスキップ
+                        corrupted_events += 1
+                        if corrupted_events <= 20:  # 20個までは許容
+                            logging.debug_simple(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}:', exc_info=ex)
+                            continue
+                        else:
+                            # 破損イベントが多すぎる場合は諦める
+                            logging.warning(f'{self.recorded_video.file_path}: Too many corrupted events ({corrupted_events}), abandoning this position.')
+                            return None
 
                     # デフォルトで毎回設定されている情報
                     ## イベント ID

@@ -47,6 +47,13 @@ const useVersionStore = defineStore('version', {
         is_version_mismatch(): boolean {
             if (this.server_version === null) return false;
             return this.client_version !== this.server_version;
+        },
+        server_environment(): 'Windows' | 'Linux' | 'Linux-Docker' | 'Linux-ARM' | null {
+            return this.server_version_info?.environment ?? null;
+        },
+        is_linux_environment(): boolean {
+            const env = this.server_environment;
+            return env === 'Linux' || env === 'Linux-Docker' || env === 'Linux-ARM';
         }
     },
     actions: {

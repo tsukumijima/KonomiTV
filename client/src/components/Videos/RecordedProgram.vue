@@ -146,8 +146,14 @@
             </v-card-text>
             <v-card-actions class="pt-4 px-6 pb-6">
                 <v-spacer></v-spacer>
-                <v-btn color="text" variant="text" @click="show_delete_confirmation = false">キャンセル</v-btn>
-                <v-btn color="error" variant="flat" @click="deleteVideo">削除</v-btn>
+                <v-btn color="text" variant="text" @click="show_delete_confirmation = false">
+                    <Icon icon="fluent:dismiss-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">キャンセル</span>
+                </v-btn>
+                <v-btn class="px-3" color="error" variant="flat" @click="deleteVideo">
+                    <Icon icon="fluent:delete-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">録画ファイルを削除</span>
+                </v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -435,14 +441,16 @@ const deleteVideo = async () => {
             -webkit-box-orient: vertical;
             @include tablet-vertical {
                 font-size: 15px;
+                line-height: 1.4;
+                -webkit-line-clamp: 2;  // 2行までに制限
             }
             @include smartphone-horizontal {
                 font-size: 14px;
             }
             @include smartphone-vertical {
-                margin-right: 24px;
+                margin-right: 12px;
                 font-size: 13px;
-                line-height: 1.45;
+                line-height: 1.4;
                 -webkit-line-clamp: 2;  // 2行までに制限
             }
         }
@@ -457,10 +465,12 @@ const deleteVideo = async () => {
             }
             @include smartphone-horizontal {
                 margin-top: 6px;
-                flex-wrap: wrap;
+                flex-direction: column;
+                align-items: flex-start;
             }
             @include smartphone-vertical {
-                flex-wrap: wrap;
+                flex-direction: column;
+                align-items: flex-start;
                 margin-top: 4px;
                 font-size: 12px;
             }
@@ -482,6 +492,9 @@ const deleteVideo = async () => {
                     // 読み込まれるまでのアイコンの背景
                     background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
                     object-fit: cover;
+                    @include smartphone-horizontal {
+                        margin-right: 8px;
+                    }
                     @include smartphone-vertical {
                         margin-right: 4px;
                         width: 24px;
@@ -502,7 +515,7 @@ const deleteVideo = async () => {
                     }
                     @include smartphone-vertical {
                         margin-left: 4px;
-                        font-size: 12px;
+                        font-size: 11.5px;
                     }
                 }
             }
@@ -510,32 +523,30 @@ const deleteVideo = async () => {
             &-time {
                 display: inline-block;
                 flex-shrink: 0;
-                margin-left: 10px;
+                margin-left: auto;
                 color: rgb(var(--v-theme-text-darken-1));
-                border-left: 1px solid rgb(var(--v-theme-text-darken-1));
-                padding-left: 10px;
                 height: 16px;
                 line-height: 15.5px;
+                @include desktop {
+                    min-width: 236.5px;
+                }
+                @include tablet-horizontal {
+                    min-width: 236.5px;
+                }
                 @include tablet-vertical {
                     margin-top: 2px;
                     margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
                     font-size: 12px;
                 }
                 @include smartphone-horizontal {
                     margin-top: 2px;
                     margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
                     font-size: 12px;
                 }
                 @include smartphone-vertical {
                     margin-top: 1px;
                     margin-left: 0px;
-                    border-left: none;
-                    padding-left: 0px;
-                    font-size: 11.4px;
+                    font-size: 11px;
                 }
             }
         }
@@ -555,16 +566,17 @@ const deleteVideo = async () => {
             @include tablet-vertical {
                 margin-top: 3.5px;
                 font-size: 11px;
+                -webkit-line-clamp: 1;  // 1行までに制限
             }
             @include smartphone-horizontal {
                 margin-top: 3.5px;
                 font-size: 11px;
             }
             @include smartphone-vertical {
-                margin-top: 1.5px;
-                font-size: 11px;
+                margin-top: 2.5px;
+                margin-right: 12px;
+                font-size: 10px;
                 line-height: 1.45;
-                -webkit-line-clamp: 1;  // 1行までに制限
             }
         }
     }

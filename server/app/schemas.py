@@ -307,6 +307,9 @@ class Reservation(BaseModel):
     # 録画予定のファイル名
     ## EDCB からのレスポンスでは配列になっているが、大半の場合は 1 つしか入っていないため単一の値としている
     scheduled_recording_file_name: str
+    # 想定録画ファイルサイズ (バイト)
+    ## EDCB の Bitrate.ini から取得したビットレート情報を基に算出した推定値
+    estimated_recording_file_size: int
     # 録画設定
     record_settings: RecordSettings
 
