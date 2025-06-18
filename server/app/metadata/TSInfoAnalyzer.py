@@ -416,7 +416,7 @@ class TSInfoAnalyzer:
                         # 破損したイベントをスキップ
                         corrupted_events += 1
                         if corrupted_events <= 20:  # 20個までは許容
-                            logging.debug(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}: {ex}')
+                            logging.debug_simple(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}:', exc_info=ex)
                             continue
                         else:
                             # 破損イベントが多すぎる場合は諦める
