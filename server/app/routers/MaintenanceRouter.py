@@ -319,9 +319,11 @@ def ServerRestartAPI(
 
         # シグナルの送信対象の PID
         ## --reload フラグが付与されている場合のみ、Reloader の起動元である親プロセスの PID を利用する
-        target_process: psutil.Process = psutil.Process(os.getpid())
+        target_process = psutil.Process(os.getpid())
         if '--reload' in sys.argv:
-            target_process = target_process.parent()
+            parent_process = target_process.parent()
+            if parent_process is not None:
+                target_process = parent_process
 
         # 現在の Uvicorn サーバーを終了する
         if sys.platform == 'win32':
@@ -355,9 +357,11 @@ def ServerShutdownAPI(
 
         # シグナルの送信対象の PID
         ## --reload フラグが付与されている場合のみ、Reloader の起動元である親プロセスの PID を利用する
-        target_process: psutil.Process = psutil.Process(os.getpid())
+        target_process = psutil.Process(os.getpid())
         if '--reload' in sys.argv:
-            target_process = target_process.parent()
+            parent_process = target_process.parent()
+            if parent_process is not None:
+                target_process = parent_process
 
         # 現在の Uvicorn サーバーを終了する
         if sys.platform == 'win32':
