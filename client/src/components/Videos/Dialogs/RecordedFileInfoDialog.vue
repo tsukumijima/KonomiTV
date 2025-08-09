@@ -31,7 +31,7 @@
                 <div class="video-info__item">
                     <div class="video-info__item-label">最終更新日時</div>
                     <div class="video-info__item-value">
-                        {{dayjs(program.recorded_video.file_modified_at).format('YYYY/MM/DD (dd) HH:mm:ss')}}
+                        {{Utils.apply28HourClock(dayjs(program.recorded_video.file_modified_at).format('YYYY/MM/DD (dd) HH:mm:ss'))}}
                     </div>
                 </div>
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-3">

@@ -56,6 +56,7 @@ class ClientSettings(BaseModel):
     show_player_background_image: bool = True
     use_pure_black_player_background: bool = False
     tv_channel_selection_requires_alt_key: bool = False
+    use_28hour_clock: bool = False
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効
     # tv_data_saver_mode: 同期無効

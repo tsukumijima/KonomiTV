@@ -44,6 +44,7 @@ export interface ILocalClientSettings extends IClientSettings {
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
+    use_28hour_clock: boolean;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
@@ -140,6 +141,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     use_pure_black_player_background: false,
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
+    // 時刻を 28 時間表記で表示する (Default: オフ)
+    use_28hour_clock: false,
 
     // ***** 設定 → 画質 *****
 
@@ -271,6 +274,7 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'show_player_background_image',
     'use_pure_black_player_background',
     'tv_channel_selection_requires_alt_key',
+    'use_28hour_clock',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効

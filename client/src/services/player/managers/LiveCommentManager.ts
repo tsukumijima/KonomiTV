@@ -565,7 +565,7 @@ class LiveCommentManager implements PlayerManager {
             const comment_data: ICommentData = {
                 id: comment.no,
                 text: comment.content,
-                time: dayjs(comment.date * 1000).format('HH:mm:ss'),
+                time: Utils.apply28HourClock(dayjs(comment.date * 1000).format('HH:mm:ss')),
                 playback_position: this.player.video.currentTime,
                 user_id: comment.user_id,
                 my_post: false,
@@ -715,7 +715,7 @@ class LiveCommentManager implements PlayerManager {
                         comment: {
                             id: Utils.time(),  // ID は取得できないので現在の時間をユニークな ID として利用する
                             text: options.data.text,  // コメント本文
-                            time: dayjs().format('HH:mm:ss'),  // 現在時刻
+                            time: Utils.apply28HourClock(dayjs().format('HH:mm:ss')),  // 現在時刻
                             playback_position: this.player.video.currentTime,  // 現在の再生位置
                             user_id: `${user_store.user?.niconico_user_id ?? 'Unknown'}`,  // ニコニコユーザー ID
                             my_post: true,  // 自分のコメントであることを示すフラグ

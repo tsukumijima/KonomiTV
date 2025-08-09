@@ -16,7 +16,7 @@
                         <a class="tweet__user-name" :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" @click.stop >{{ displayedTweet.user.name }}</a>
                         <span class="tweet__user-screen-name">@{{ displayedTweet.user.screen_name }}</span>
                     </div>
-                    <span class="tweet__timestamp">{{ dayjs(displayedTweet.created_at).format('MM/DD HH:mm:ss') }}</span>
+                    <span class="tweet__timestamp">{{ Utils.apply28HourClock(dayjs(displayedTweet.created_at).format('MM/DD HH:mm:ss')) }}</span>
                 </div>
                 <p class="tweet__text" v-html="formattedText"></p>
                 <div class="tweet__images" v-if="displayedTweet.image_urls && displayedTweet.image_urls.length > 0">
@@ -61,7 +61,7 @@ import { ref, computed } from 'vue';
 
 import Twitter, { ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
-import { dayjs } from '@/utils';
+import Utils, { dayjs } from '@/utils';
 
 const props = defineProps<{
     tweet: ITweet;
