@@ -25,6 +25,13 @@ export default class Utils {
         }
     })();
 
+    // パフォーマンス最適化のため、apply28HourClock() で利用する正規表現を事前コンパイル
+    private static readonly date_week_time_pattern = /(\d{4})\/(\d{2})\/(\d{2})\s+\((.)\)\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly date_time_pattern = /(\d{4})\/(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly month_day_time_pattern = /(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly standalone_time_pattern = /(^|[^0-9])([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly time_quick_pattern = /([0-2]\d):\d{2}/;
+
 
     /**
      * アクセストークンを LocalStorage から取得する
@@ -96,6 +103,11 @@ export default class Utils {
             return text;
         }
 
+        // 時刻が含まれていなければ早期リターン（軽量化）
+        if (Utils.time_quick_pattern.test(text) === false) {
+            return text;
+        }
+
         // ユーティリティ: 日付文字列 YYYY/MM/DD を 1 日戻す
         const prevDateStr = (y: number, m: number, d: number, withWeek: boolean): string => {
             const date = new Date(y, m - 1, d);
@@ -112,7 +124,7 @@ export default class Utils {
         };
 
         // 1) YYYY/MM/DD (w) HH:mm[:ss]
-        text = text.replace(/(\d{4})\/(\d{2})\/(\d{2})\s+\((.)\)\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g,
+        text = text.replace(Utils.date_week_time_pattern,
             (_m, y, m, d, _w, hh, mm, ss) => {
                 const hour = parseInt(hh, 10);
                 if (hour >= 0 && hour <= 3) {
@@ -125,7 +137,7 @@ export default class Utils {
         );
 
         // 2) YYYY/MM/DD HH:mm[:ss]
-        text = text.replace(/(\d{4})\/(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g,
+        text = text.replace(Utils.date_time_pattern,
             (_m, y, m, d, hh, mm, ss) => {
                 const hour = parseInt(hh, 10);
                 if (hour >= 0 && hour <= 3) {
@@ -139,7 +151,7 @@ export default class Utils {
 
         // 3) MM/DD HH:mm[:ss]
         const baseYear = new Date().getFullYear();
-        text = text.replace(/(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g,
+        text = text.replace(Utils.month_day_time_pattern,
             (_m, m, d, hh, mm, ss) => {
                 const hour = parseInt(hh, 10);
                 if (hour >= 0 && hour <= 3) {
@@ -156,7 +168,7 @@ export default class Utils {
         );
 
         // 4) standalone HH:mm[:ss]
-        text = text.replace(/(^|[^0-9])([0-2]\d):(\d{2})(?::(\d{2}))?/g,
+        text = text.replace(Utils.standalone_time_pattern,
             (_m, pre, hh, mm, ss) => {
                 const hour = parseInt(hh, 10);
                 if (hour >= 0 && hour <= 3) {

@@ -54,7 +54,7 @@
                 <label class="settings__item-heading" for="use_28hour_clock">時刻を 28 時間表記で表示する</label>
                 <label class="settings__item-label" for="use_28hour_clock">
                     深夜番組でよく使われる 28 時間表記 (24 時 〜 27 時) で時刻を表示します。デフォルトはオフです。<br>
-                    オンにすると、午前 0 時 〜 3 時が 24 時 〜 27 時と表示され、深夜番組の放送時間がよりわかりやすくなります。<br>
+                    オンにすると、午前 0 時 〜 3 時が前日の 24 時 〜 27 時と表示され、深夜番組の放送時間がよりわかりやすくなります。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="use_28hour_clock" hide-details
                     v-model="settingsStore.settings.use_28hour_clock">

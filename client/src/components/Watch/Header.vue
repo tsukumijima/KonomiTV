@@ -17,9 +17,10 @@
 </template>
 <script lang="ts">
 
-import { Dayjs } from 'dayjs';
 import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
+
+import type { Dayjs } from 'dayjs';
 
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
@@ -48,12 +49,12 @@ export default defineComponent({
         ...mapStores(useChannelsStore, usePlayerStore),
     },
     methods: {
-        formatTime(time_obj: Dayjs) {
+        formatTime(time_obj: Dayjs): string {
             const is_sp_h = Utils.isSmartphoneHorizontal();
             const formatted = time_obj.format(is_sp_h ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
             return Utils.apply28HourClock(formatted);
         },
-        updateTimeCore() {
+        updateTimeCore(): number {
             const time = dayjs();
             this.time = this.formatTime(time);
             const ms = time.millisecond();
