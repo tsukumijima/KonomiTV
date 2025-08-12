@@ -555,6 +555,16 @@ class VideoEncodingTask:
                 # 新しいセグメントのエンコードを開始するため、バッファをリセット
                 encoded_segment = bytearray()
 
+                # PTS/DTS の 33bit ラップアラウンドを展開して、DB に保存されている ffprobe の単調増加 DTS に合わせる
+                ## ffmpeg/ffprobe は 2^33 を超えた場合も内部的に単調増加の DTS として扱うため、
+                ## DB 側のキーフレーム DTS は“展開された”値で保存されているはず
+                ## 一方 MPEG-TS 自体の PTS/DTS は 33bit に制限されているので、ここで wrap を数えて展開する
+                first_video_timestamp_33bit: int | None = None
+                last_video_timestamp_33bit: int | None = None
+                wrap_offset_ticks: int = 0
+                # エンコードタスク開始時点のセグメント開始 DTS を保存しておく
+                first_segment_start_dts: int = self._current_segment.start_dts
+
                 while True:
                     # エンコードタスクがキャンセルされた場合、処理を中断する
                     if self._is_cancelled is True:
@@ -648,42 +658,65 @@ class VideoEncodingTask:
                     elif pid == self._video_pid:
                         self._video_parser.push(packet)
                         for video in self._video_parser:
-                            current_timestamp = cast(int, video.dts() or video.pts())
-                            next_segment_start_timestamp = self._current_segment.start_dts + int(self._current_segment.duration_seconds * ts.HZ + 0.5)
+                            # 現在の PES の 33bit タイムスタンプ (DTS 優先, 90kHz)
+                            current_timestamp_33bit = cast(int, video.dts() or video.pts())
 
-                            # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ
-                            # TODO: 現在の映像 PES がキーフレームかどうかを厳密にチェックしてから、当該 PES 以前まででセグメントを確定するようにする
-                            if self._current_segment is not None and current_timestamp >= next_segment_start_timestamp:
-                                # Future がまだ未完了の場合にのみ結果を設定する
-                                if not self._current_segment.encoded_segment_ts_future.done():
-                                    self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
-                                self._current_segment.encode_status = 'Completed'
-                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded HLS Segment.')
+                            # 最初のフレームでアンカーを確定
+                            if first_video_timestamp_33bit is None:
+                                first_video_timestamp_33bit = current_timestamp_33bit
+                                last_video_timestamp_33bit = current_timestamp_33bit
 
-                                # 次のセグメントへ移行
-                                current_sequence += 1
+                            # wrap-around 検出 (大きく逆行した場合のみ wrap とみなす)
+                            assert last_video_timestamp_33bit is not None
+                            if current_timestamp_33bit < last_video_timestamp_33bit and (last_video_timestamp_33bit - current_timestamp_33bit) > (ts.PCR_CYCLE // 2):
+                                wrap_offset_ticks += ts.PCR_CYCLE
+                            last_video_timestamp_33bit = current_timestamp_33bit
 
-                                # 最終セグメントの場合はループを抜ける
-                                if current_sequence >= len(self.video_stream.segments):
-                                    logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
-                                    break
+                            # 単調増加となるよう展開した現在の DTS (DB 上の単調増加 DTS に揃える)
+                            assert first_video_timestamp_33bit is not None
+                            current_timestamp_unwrapped = first_segment_start_dts + (current_timestamp_33bit - first_video_timestamp_33bit + wrap_offset_ticks)
 
-                                # 新しいセグメント用のデータと状態を初期化
-                                ## ここで encoded_segment は空にリセットされる
-                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
-                                self._current_segment = self.video_stream.segments[current_sequence]
-                                self._current_segment.encode_status = 'Encoding'
-                                encoded_segment = bytearray()
+                            if self._current_segment is not None:
+                                # 判定に用いる次セグメント開始時刻 (DB は既に展開済み DTS)
+                                next_segment_start_timestamp = self._current_segment.start_dts + int(round(self._current_segment.duration_seconds * ts.HZ))
+                                # logging.debug_simple(
+                                #     f'{self.video_stream.log_prefix} Current Timestamp: {current_timestamp_unwrapped} / '
+                                #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'
+                                # )
 
-                                # 新しいセグメントの先頭に PAT と PMT を追加
-                                if latest_pat is not None:
-                                    for packet in packetize_section(latest_pat, False, False, 0, 0, self._pat_cc):
-                                        encoded_segment += packet
-                                        self._pat_cc = (self._pat_cc + 1) & 0x0F
-                                if latest_pmt is not None:
-                                    for packet in packetize_section(latest_pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
-                                        encoded_segment += packet
-                                        self._pmt_cc = (self._pmt_cc + 1) & 0x0F
+                                # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ
+                                # TODO: 現在の映像 PES がキーフレームかどうかを厳密にチェックしてから、当該 PES 以前まででセグメントを確定するようにする
+                                if current_timestamp_unwrapped >= next_segment_start_timestamp:
+                                    # Future がまだ未完了の場合にのみ結果を設定する
+                                    if not self._current_segment.encoded_segment_ts_future.done():
+                                        self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
+                                    self._current_segment.encode_status = 'Completed'
+                                    logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded HLS Segment.')
+
+                                    # 次のセグメントへ移行
+                                    current_sequence += 1
+
+                                    # 最終セグメントの場合はループを抜ける
+                                    if current_sequence >= len(self.video_stream.segments):
+                                        logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
+                                        break
+
+                                    # 新しいセグメント用のデータと状態を初期化
+                                    ## ここで encoded_segment は空にリセットされる
+                                    logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
+                                    self._current_segment = self.video_stream.segments[current_sequence]
+                                    self._current_segment.encode_status = 'Encoding'
+                                    encoded_segment = bytearray()
+
+                                    # 新しいセグメントの先頭に PAT と PMT を追加
+                                    if latest_pat is not None:
+                                        for packet in packetize_section(latest_pat, False, False, 0, 0, self._pat_cc):
+                                            encoded_segment += packet
+                                            self._pat_cc = (self._pat_cc + 1) & 0x0F
+                                    if latest_pmt is not None:
+                                        for packet in packetize_section(latest_pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
+                                            encoded_segment += packet
+                                            self._pmt_cc = (self._pmt_cc + 1) & 0x0F
 
                             # PES パケットを再構築して candidate に追加
                             for packet in packetize_pes(video, False, False, cast(int, self._video_pid), 0, self._video_cc):
@@ -712,8 +745,13 @@ class VideoEncodingTask:
                     try:
                         if self._encoder_process.returncode is None:
                             self._encoder_process.kill()
-                            await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} Encoder process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
 
                 # tsreadex プロセスを終了
@@ -721,8 +759,13 @@ class VideoEncodingTask:
                     try:
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
-                            await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} tsreadex process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
 
                 # psisimux プロセスを終了
@@ -730,8 +773,13 @@ class VideoEncodingTask:
                     try:
                         if self._psisimux_process.returncode is None:
                             self._psisimux_process.kill()
-                            await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} psisimux process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
                     self._psisimux_process = None
 
