@@ -2366,9 +2366,9 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.5.0.tgz#092b49f25f808f020050051d1ff258e404c78692"
   integrity sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==
 
-"dplayer@github:tsukumijima/DPlayer#v1.32.4":
-  version "1.32.4"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/25c25c13414a9c9bba7f3b219c2d9c27fc52e5ee"
+"dplayer@github:tsukumijima/DPlayer#v1.32.5":
+  version "1.32.5"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/7c26a8abcf0431aea13ceb906d004f46f4000cdf"
   dependencies:
     aribb24.js "~1.11.5"
     axios "^1.7.2"
@@ -3823,12 +3823,11 @@ mitt@^3.0.1:
   resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.1.tgz#ea36cf0cc30403601ae074c8f77b7092cdab36d1"
   integrity sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==
 
-mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#05252cf94aed0626876facb2803af8afde2f4ac4":
+mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#726d91becfa178a68bbea154175213ab6b3dfdba":
   version "1.8.0"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/05252cf94aed0626876facb2803af8afde2f4ac4"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/726d91becfa178a68bbea154175213ab6b3dfdba"
   dependencies:
     es6-promise "^4.2.5"
-    webworkify-webpack xqq/webworkify-webpack
 
 ms@^2.1.1, ms@^2.1.3:
   version "2.1.3"
@@ -5209,10 +5208,6 @@ webidl-conversions@^4.0.2:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/webidl-conversions/-/webidl-conversions-4.0.2.tgz#a855980b1f0b6b359ba1d5d9fb39ae941faa63ad"
   integrity sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==
-
-webworkify-webpack@xqq/webworkify-webpack:
-  version "2.1.5"
-  resolved "https://codeload.github.com/xqq/webworkify-webpack/tar.gz/24d1e719b4a6cac37a518b2bb10fe124527ef4ef"
 
 whatwg-url@^7.0.0:
   version "7.1.0"
