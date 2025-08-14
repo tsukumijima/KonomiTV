@@ -1,23 +1,187 @@
 
 import hashlib
-import io
-import re
+import json
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from zoneinfo import ZoneInfo
 
 import typer
 from biim.mpeg2ts import ts
-from pymediainfo import MediaInfo
+from pydantic import BaseModel, field_validator
 from rich import print
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
-from app.constants import LIBRARY_DIR
+from app.constants import LIBRARY_PATH
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
-from app.utils import ClosestMultiple, GetPlatformEnvironment
+from app.utils import ClosestMultiple
 from app.utils.TSInformation import TSInformation
+
+
+class FFprobeFormat(BaseModel):
+    """FFprobe から返される format セクションの情報"""
+    format_name: str  # 必須 - "mpegts", "mp4" など
+    duration: str | None = None  # オプショナル - 秒数の文字列、TS ファイルでは稀に取得できない場合がある
+    size: str | None = None
+    bit_rate: str | None = None
+
+    @field_validator('format_name')
+    @classmethod
+    def validate_container_format(cls, format_name: str) -> str:
+        """サポートされているコンテナ形式かを検証"""
+        # H.264/H.265 + AAC が入った映像のみサポート
+        if format_name == 'mpegts' or 'mp4' in format_name:
+            return format_name
+        else:
+            raise ValueError(f'Unsupported container format: {format_name}')
+
+class FFprobeVideoStream(BaseModel):
+    """FFprobe から返される映像ストリームの情報"""
+    index: int
+    codec_type: Literal['video']  # 必須 - "video" 固定
+    codec_name: str  # 必須 - "mpeg2video", "h264", "hevc" など
+    duration: float | None = None  # オプショナル - 映像の長さ（秒）（部分解析時はパイプ渡しのため取得できない）
+    profile: str | None = None  # オプショナル - "High@L4.0", "Main@L3.1" など
+    width: int  # 必須 - 映像幅
+    height: int  # 必須 - 映像高さ
+    avg_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
+    r_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
+    field_order: str | None = None  # オプショナル - "progressive", "tt", "bb" など
+
+    @field_validator('codec_name')
+    @classmethod
+    def validate_video_codec(cls, codec_name: str) -> str:
+        """サポートされている映像コーデックかを検証"""
+        supported_codecs = ['mpeg2video', 'h264', 'hevc']
+        if codec_name not in supported_codecs:
+            raise ValueError(f'Unsupported video codec: {codec_name}')
+        return codec_name
+
+    @field_validator('width', 'height')
+    @classmethod
+    def validate_resolution(cls, resolution: int) -> int:
+        """解像度が有効な値かを検証"""
+        if resolution <= 0:
+            raise ValueError(f'Invalid resolution: {resolution}')
+        return resolution
+
+    @field_validator('avg_frame_rate', 'r_frame_rate')
+    @classmethod
+    def validate_frame_rate(cls, frame_rate: str) -> str:
+        """フレームレートが有効な形式かを検証"""
+        if not frame_rate or frame_rate == '0/0':
+            raise ValueError(f'Invalid frame rate: {frame_rate}')
+        return frame_rate
+
+class FFprobeAudioStream(BaseModel):
+    """FFprobe から返される音声ストリームの情報"""
+    index: int
+    codec_type: Literal['audio']  # 必須 - "audio" 固定
+    codec_name: str  # 必須 - "aac" など
+    duration: float | None = None  # オプショナル - 音声の長さ（秒）（部分解析時はパイプ渡しのため取得できない）
+    profile: str | None = None  # オプショナル - "LC", "HE-AAC" など
+    channels: int  # 必須 - 1, 2, 6 など
+    sample_rate: str  # 必須 - "48000" など文字列形式
+
+    @field_validator('codec_name')
+    @classmethod
+    def validate_audio_codec(cls, codec_name: str) -> str:
+        """サポートされている音声コーデックかを検証"""
+        supported_codecs = ['aac']
+        if codec_name not in supported_codecs:
+            raise ValueError(f'Unsupported audio codec: {codec_name}')
+        return codec_name
+
+    @field_validator('channels')
+    @classmethod
+    def validate_channels(cls, channels: int) -> int:
+        """サポートされているチャンネル数かを検証"""
+        supported_channels = [1, 2, 6]
+        if channels not in supported_channels:
+            raise ValueError(f'Unsupported channel count: {channels}')
+        return channels
+
+    @field_validator('sample_rate')
+    @classmethod
+    def validate_sample_rate(cls, sample_rate: str) -> str:
+        """サンプルレートが有効な値かを検証"""
+        try:
+            rate = int(sample_rate)
+            if rate <= 0:
+                raise ValueError(f'Invalid sample rate: {sample_rate}')
+        except ValueError:
+            raise ValueError(f'Invalid sample rate format: {sample_rate}')
+        return sample_rate
+
+class FFprobeOtherStream(BaseModel):
+    """FFprobe から返される映像・音声以外のストリームの情報"""
+    index: int
+    codec_type: str = 'unknown'  # オプショナル - "subtitle", "data", そのほか未知のもの
+    codec_name: str = 'unknown'  # オプショナル - "arib_caption", "bin_data", そのほか未知のもの
+
+class FFprobeProgram(BaseModel):
+    """FFprobe から返される program セクションの情報"""
+    program_id: int | None = None
+    program_num: int | None = None
+    nb_streams: int | None = None
+    pmt_pid: int | None = None
+    pcr_pid: int | None = None
+
+class FFprobeResult(BaseModel):
+    """FFprobe から返される JSON 全体の情報"""
+    format: FFprobeFormat
+    streams: list[FFprobeVideoStream | FFprobeAudioStream | FFprobeOtherStream] = []
+    programs: list[FFprobeProgram] = []
+
+    def getVideoStreams(self) -> list[FFprobeVideoStream]:
+        """映像ストリームのみを抽出してバリデーション"""
+        video_streams = []
+        for stream in self.streams:
+            if stream.codec_type == 'video':
+                try:
+                    video_streams.append(stream)
+                except Exception as ex:
+                    logging.warning(f'Invalid video stream data: {ex}')
+        return video_streams
+
+    def getAudioStreams(self) -> list[FFprobeAudioStream]:
+        """音声ストリームのみを抽出してバリデーション"""
+        audio_streams = []
+        for stream in self.streams:
+            if stream.codec_type == 'audio':
+                try:
+                    audio_streams.append(stream)
+                except Exception as ex:
+                    logging.warning(f'Invalid audio stream data: {ex}')
+        return audio_streams
+
+class FFprobeSampleResult(BaseModel):
+    """FFprobe のサンプル解析から返される情報（映像・音声のみ）"""
+    streams: list[FFprobeVideoStream | FFprobeAudioStream | FFprobeOtherStream] = []
+
+    def getVideoStreams(self) -> list[FFprobeVideoStream]:
+        """映像ストリームのみを抽出してバリデーション"""
+        video_streams = []
+        for stream in self.streams:
+            if stream.codec_type == 'video':
+                try:
+                    video_streams.append(stream)
+                except Exception as ex:
+                    logging.warning(f'Invalid video stream data: {ex}')
+        return video_streams
+
+    def getAudioStreams(self) -> list[FFprobeAudioStream]:
+        """音声ストリームのみを抽出してバリデーション"""
+        audio_streams = []
+        for stream in self.streams:
+            if stream.codec_type == 'audio':
+                try:
+                    audio_streams.append(stream)
+                except Exception as ex:
+                    logging.warning(f'Invalid audio stream data: {ex}')
+        return audio_streams
 
 
 class MetadataAnalyzer:
@@ -47,6 +211,31 @@ class MetadataAnalyzer:
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
+        def ParseFPS(fps_string: str | None) -> float | None:
+            """
+            FFprobe から返されるフレームレート文字列をパースして float に変換する
+
+            Args:
+                fps_string (str | None): "30000/1001", "30/1" などの分数形式の文字列
+
+            Returns:
+                float | None: パースされたフレームレート、失敗時は None
+            """
+            if fps_string is None:
+                return None
+            if '/' in fps_string:
+                try:
+                    num, den = fps_string.split('/')
+                    if float(den) == 0.0:
+                        return None
+                    return round(float(num) / float(den), 2)
+                except Exception:
+                    return None
+            try:
+                return round(float(fps_string), 2)
+            except Exception:
+                return None
+
         # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
         ## 通常ならこの関数を ProcessPoolExecutor で実行した場合もサーバー設定データはロード状態になっているはずだが、
         ## 自動リロードモード時のみなぜかグローバル変数がマルチプロセスに引き継がれないため、明示的にロードさせる必要がある
@@ -57,8 +246,6 @@ class MetadataAnalyzer:
             LoadConfig(bypass_validation=True)
 
         # 必要な情報を一旦変数として保持
-        recording_start_time: datetime | None = None
-        recording_end_time: datetime | None = None
         duration: float | None = None
         container_format: Literal['MPEG-TS', 'MPEG-4'] | None = None
         video_codec: Literal['MPEG-2', 'H.264', 'H.265'] | None = None
@@ -74,152 +261,126 @@ class MetadataAnalyzer:
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
-        # MediaInfo から録画ファイルのメディア情報を取得
+        # FFprobe から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
         result = self.analyzeMediaInfo()
         if result is None:
             return None
-        full_media_info, sample_media_info, end_ts_offset = result
-        logging.debug_simple(f'{self.recorded_file_path}: MediaInfo analysis completed.')
+        full_probe, sample_probe, end_ts_offset = result
+        logging.debug_simple(f'{self.recorded_file_path}: FFprobe analysis completed.')
 
         # メディア情報から録画ファイルのメタデータを取得
-        ## 全体解析: コンテナ情報、録画時間などを取得
-        for track in full_media_info.tracks:
-
-            # 全般（コンテナ情報）
-            if track.track_type == 'General':
-                # この時点で duration は確実に取得されているはず
-                duration = float(track.duration) / 1000  # ミリ秒を秒に変換
-                if track.format in ('MPEG-TS', 'MPEG-4'):
-                    container_format = track.format
-                else:
-                    # 上記以外のコンテナ形式は KonomiTV で再生できない
-                    continue
-                # 情報が存在する場合のみ、録画開始時刻と録画終了時刻を算出
-                # MPEG-TS 内に TOT が含まれていない場合は録画開始時刻・録画終了時刻は算出できない
-                if hasattr(track, 'start_time') and track.start_time is not None:
-                    ## 録画開始時刻は MediaInfo から "start_time" として取得できる (ただし小数点以下は省略されている)
-                    ## "start_time" は "UTC 2023-06-26 23:59:52" のフォーマットになっているが、実際には JST の時刻が返される
-                    ## ちゃんと JST のタイムゾーンが指定された datetime として扱うためには、datetime.fromisoformat() でパースする必要がある
-                    ## 一度 ISO8601 に変換してからパースする
-                    raw_time = str(track.start_time)
-                    # 正規表現で日付と時刻（例: 2024-09-13 と 01:05:00）を抽出する
-                    match = re.search(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})', raw_time)
-                    if match is not None:
-                        # 抽出した値を使用して ISO 8601 形式に整形する
-                        start_time_iso8601 = f'{match.group(1)}T{match.group(2)}+09:00'
-                    else:
-                        # マッチしなかった場合は元の方法で変換を試みる
-                        start_time_iso8601 = raw_time.replace('UTC ', '').replace(' ', 'T').replace('TUTC', '') + '+09:00'
-                    recording_start_time = datetime.fromisoformat(start_time_iso8601)
-                    ## duration は小数点以下も含めた値が取得できるので、録画開始時刻を duration のうち小数点以下の部分を2で割った値だけ削る
-                    ## これでかなり正確な録画開始時刻が算出できる
-                    duration_miliseconds = (duration * 1000) % 1000
-                    recording_start_time = recording_start_time - timedelta(milliseconds=duration_miliseconds / 2)
-                    ## 録画終了時刻は MediaInfo から "end_time" として取得できるが、値が不正確なので、録画開始時刻から録画時間を足したものを使用する
-                    recording_end_time = recording_start_time + timedelta(seconds=duration)
+        # 全般（コンテナ情報）
+        ## コンテナ形式
+        if full_probe.format.format_name == 'mpegts':
+            container_format = 'MPEG-TS'
+        elif 'mp4' in full_probe.format.format_name:
+            container_format = 'MPEG-4'
+        ## 再生時間
+        if full_probe.format.duration is not None:
+            duration = float(full_probe.format.duration)
 
         ## 部分解析: 映像・音声情報を取得
-        is_video_track_read = False
-        is_primary_audio_track_read = False
-        is_secondary_audio_track_read = False
-        for track in sample_media_info.tracks:
+        is_video_track_analyzed = False
+        is_primary_audio_track_analyzed = False
+        is_secondary_audio_track_analyzed = False
+        video_streams = sample_probe.getVideoStreams()
+        audio_streams = sample_probe.getAudioStreams()
+        if len(video_streams) == 0 and len(audio_streams) == 0:
+            logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
+            return None
 
-            # 映像
-            if track.track_type == 'Video' and is_video_track_read is False:
-                # 長さが取得できない映像トラックは基本的に不正なため無視する
-                # 録画データの一部分のみに主映像と異なる映像トラックが含まれている場合に発生する可能性がある (基本ないはずだが…)
-                if hasattr(track, 'duration') is False or track.duration is None:
-                    continue
-                if track.format == 'MPEG Video':
+        ## 映像情報
+        for video_stream in video_streams:
+            if is_video_track_analyzed is False:
+                ## コーデック
+                if video_stream.codec_name == 'mpeg2video':
                     video_codec = 'MPEG-2'
-                elif track.format == 'AVC':
+                elif video_stream.codec_name == 'h264':
                     video_codec = 'H.264'
-                elif track.format == 'HEVC':
+                elif video_stream.codec_name == 'hevc':
                     video_codec = 'H.265'
-                else:
-                    # MPEG-2, H.264, H.265 以外のコーデックは KonomiTV で再生できない
-                    continue
-                # format_profile は Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
-                video_codec_profile = cast(Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'], track.format_profile.split('@')[0])
-                # scan_type は現在一般的なプログレッシブ映像では属性自体が存在しないことが多いので、存在しない場合はプログレッシブとして扱う
-                if hasattr(track, 'scan_type') and track.scan_type == 'Interlaced':
-                    video_scan_type = 'Interlaced'
-                else:
+                ## プロファイル
+                ## Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
+                profile = video_stream.profile or ''
+                video_codec_profile = cast(
+                    Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'],
+                    profile.split('@')[0] if profile else 'Main'
+                )
+                ## スキャン形式
+                field_order = video_stream.field_order or 'progressive'
+                if field_order.lower() == 'progressive':
                     video_scan_type = 'Progressive'
-                if hasattr(track, 'frame_rate') is False or track.frame_rate is None:
-                    logging.warning(f'{self.recorded_file_path}: Frame rate information is missing.')
-                    continue
-                video_frame_rate = float(track.frame_rate)
-                if hasattr(track, 'width') is False or track.width is None:
-                    logging.warning(f'{self.recorded_file_path}: Width information is missing.')
-                    continue
-                video_resolution_width = int(track.width)
-                if hasattr(track, 'height') is False or track.height is None:
-                    logging.warning(f'{self.recorded_file_path}: Height information is missing.')
-                    continue
-                video_resolution_height = int(track.height)
-                is_video_track_read = True
-
-            # 主音声
-            elif track.track_type == 'Audio' and is_primary_audio_track_read is False:
-                # 長さが取得できない音声トラックは基本的に不正なため無視する
-                # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
-                if hasattr(track, 'duration') is False or track.duration is None:
-                    continue
-                if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
-                    primary_audio_codec = 'AAC-LC'
                 else:
-                    # AAC-LC 以外のコーデックは KonomiTV で再生できない
+                    video_scan_type = 'Interlaced'
+                ## フレームレート
+                video_frame_rate = ParseFPS(video_stream.avg_frame_rate) or ParseFPS(video_stream.r_frame_rate)
+                ## 解像度
+                video_resolution_width = video_stream.width
+                video_resolution_height = video_stream.height
+                ## 映像トラックの解析が完了したことをマーク
+                is_video_track_analyzed = True
+
+        for audio_stream in audio_streams:
+            ## 主音声情報
+            if is_primary_audio_track_analyzed is False:
+                ## コーデック
+                if audio_stream.codec_name == 'aac':
+                    prof = audio_stream.profile
+                    if prof is None or 'LC' in prof:
+                        primary_audio_codec = 'AAC-LC'
+                if primary_audio_codec is None:
+                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
-                # この時点で channel_s は必ず存在するはず
-                if int(track.channel_s) == 1:
+                ## チャンネル数
+                if audio_stream.channels == 1:
                     primary_audio_channel = 'Monaural'
-                elif int(track.channel_s) == 2:
-                    # デュアルモノも Stereo として判定される可能性がある (別途 RecordedProgram の primary_audio_type で判定すべき)
+                elif audio_stream.channels == 2:
+                    # デュアルモノも Stereo として判定される可能性がある (別途 RecordedProgram の secondary_audio_type で判定すべき)
                     primary_audio_channel = 'Stereo'
-                elif int(track.channel_s) == 6:
+                elif audio_stream.channels == 6:
                     primary_audio_channel = '5.1ch'
                 else:
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    logging.warning(f'{self.recorded_file_path}: Unsupported audio channel count: {audio_stream.channels}. ignored.')
                     continue
-                if hasattr(track, 'sampling_rate') is False or track.sampling_rate is None:
-                    logging.warning(f'{self.recorded_file_path}: Sampling rate information is missing.')
-                    continue
-                primary_audio_sampling_rate = int(track.sampling_rate)
-                is_primary_audio_track_read = True
+                ## サンプルレート
+                primary_audio_sampling_rate = int(audio_stream.sample_rate)
+                ## 音声トラックの解析が完了したことをマーク
+                is_primary_audio_track_analyzed = True
 
-            # 副音声（存在する場合）
-            elif track.track_type == 'Audio' and is_secondary_audio_track_read is False:
-                # 長さが取得できない音声トラックは基本的に不正なため無視する
-                # 録画マージンに音声多重放送が含まれているなど、録画データの一部分のみに副音声トラックが含まれている場合に発生する
-                if hasattr(track, 'duration') is False or track.duration is None:
-                    continue
-                if track.format == 'AAC' and hasattr(track, 'format_additionalfeatures') and track.format_additionalfeatures == 'LC':
-                    secondary_audio_codec = 'AAC-LC'
-                else:
+            ## 副音声情報（存在する場合）
+            elif is_secondary_audio_track_analyzed is False:
+                ## コーデック
+                if audio_stream.codec_name == 'aac':
+                    prof = audio_stream.profile
+                    if prof is None or 'LC' in prof:
+                        secondary_audio_codec = 'AAC-LC'
+                if secondary_audio_codec is None:
                     # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
-                # この時点で channel_s は必ず存在するはず
-                if int(track.channel_s) == 1:
+                ## チャンネル数
+                if audio_stream.channels == 1:
                     secondary_audio_channel = 'Monaural'
-                elif int(track.channel_s) == 2:
+                elif audio_stream.channels == 2:
                     # デュアルモノも Stereo として判定される可能性がある (別途 RecordedProgram の secondary_audio_type で判定すべき)
                     secondary_audio_channel = 'Stereo'
-                elif int(track.channel_s) == 6:
+                elif audio_stream.channels == 6:
                     secondary_audio_channel = '5.1ch'
                 else:
                     # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できない
+                    logging.warning(f'{self.recorded_file_path}: Unsupported audio channel count: {audio_stream.channels}. ignored.')
                     continue
-                if hasattr(track, 'sampling_rate') is False or track.sampling_rate is None:
-                    logging.warning(f'{self.recorded_file_path}: Sampling rate information is missing.')
-                    continue
-                secondary_audio_sampling_rate = int(track.sampling_rate)
-                is_secondary_audio_track_read = True
+                ## サンプルレート
+                secondary_audio_sampling_rate = int(audio_stream.sample_rate)
+                ## 音声トラックの解析が完了したことをマーク
+                is_secondary_audio_track_analyzed = True
 
         # 最低でも映像トラックと主音声トラックが含まれている必要がある
-        # 映像か主音声、あるいは両方のトラックが含まれていない場合は None を返す
-        if is_video_track_read is False or is_primary_audio_track_read is False:
+        # 映像 or 主音声のどちらかが含まれていない場合は None を返す
+        if video_codec is None or primary_audio_codec is None:
             logging.warning(f'{self.recorded_file_path}: Video or primary audio track is missing or invalid. ignored.')
             return None
 
@@ -263,8 +424,8 @@ class MetadataAnalyzer:
             file_size = stat_info.st_size,
             file_created_at = datetime.fromtimestamp(stat_info.st_ctime, tz=ZoneInfo('Asia/Tokyo')),
             file_modified_at = datetime.fromtimestamp(stat_info.st_mtime, tz=ZoneInfo('Asia/Tokyo')),
-            recording_start_time = recording_start_time,
-            recording_end_time = recording_end_time,
+            recording_start_time = None,
+            recording_end_time = None,
             duration = duration,
             container_format = container_format,
             video_codec = video_codec,
@@ -288,9 +449,15 @@ class MetadataAnalyzer:
         recorded_program = None
         if container_format == 'MPEG-TS':
             # TS ファイルに含まれる番組情報・チャンネル情報を解析する
-            recorded_program = TSInfoAnalyzer(recorded_video, end_ts_offset).analyze()  # 取得失敗時は None が返る
+            analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset)
+            recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+                # 取得成功時は録画開始時刻と録画終了時刻も解析する
+                recording_time = analyzer.analyzeRecordingTime()
+                if recording_time is not None:
+                    recorded_video.recording_start_time = recording_time[0]
+                    recorded_video.recording_end_time = recording_time[1]
             else:
                 # 取得失敗時、最終更新日時が現在時刻から30秒以内ならまだ録画中の可能性が高いので、None を返し DB には保存しない
                 if (now - recorded_video.file_modified_at).total_seconds() < 30:
@@ -302,7 +469,7 @@ class MetadataAnalyzer:
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug_simple(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')
-                # 録画開始時刻と録画終了時刻も解析する
+                # 取得成功時は録画開始時刻と録画終了時刻も解析する
                 recording_time = analyzer.analyzeRecordingTime()
                 if recording_time is not None:
                     recorded_video.recording_start_time = recording_time[0]
@@ -336,6 +503,26 @@ class MetadataAnalyzer:
                 created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
                 updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
             )
+
+        # この時点で番組情報を正常に取得できており、かつ録画開始時刻・録画終了時刻の両方が取得できている場合
+        elif (recorded_video.recording_start_time is not None and
+            recorded_video.recording_end_time is not None):
+
+            # 録画マージン (開始/終了) を算出
+            ## 取得できなかった場合はデフォルト値として 0 が自動設定される
+            ## 番組の途中から録画した/番組終了前に録画を中断したなどで録画マージンがマイナスになる場合も 0 が設定される
+            recorded_program.recording_start_margin = \
+                max((recorded_program.start_time - recorded_video.recording_start_time).total_seconds(), 0.0)
+            recorded_program.recording_end_margin = \
+                max((recorded_video.recording_end_time - recorded_program.end_time).total_seconds(), 0.0)
+
+            # 番組開始時刻 < 録画開始時刻 or 録画終了時刻 < 番組終了時刻 の場合、部分的に録画されていることを示すフラグを立てる
+            ## 番組全編を録画するには、録画開始時刻が番組開始時刻よりも前で、録画終了時刻が番組終了時刻よりも後である必要がある
+            if (recorded_program.start_time < recorded_video.recording_start_time or
+                recorded_video.recording_end_time < recorded_program.end_time):
+                recorded_program.is_partially_recorded = True
+            else:
+                recorded_program.is_partially_recorded = False
 
         return recorded_program
 
@@ -516,35 +703,57 @@ class MetadataAnalyzer:
             return None
 
 
-    def analyzeMediaInfo(self) -> tuple[MediaInfo, MediaInfo, int | None] | None:
+    def analyzeMediaInfo(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
         """
-        録画ファイルのメディア情報を MediaInfo を使って解析する
+        録画ファイルのメディア情報を FFprobe を使って解析する
         全体解析と部分解析の2段階で解析を行う
         全体解析では全般情報（コンテナ情報、録画時間など）を、部分解析では映像・音声情報を取得する
 
         Returns:
-            tuple[MediaInfo, MediaInfo, int | None] | None: 全体解析と部分解析の結果、有効な TS データの終了位置のタプル
+            tuple[FFprobeResult, FFprobeSampleResult, int | None] | None: 全体解析と部分解析の結果、有効な TS データの終了位置のタプル
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
-        # libmediainfo のパス (Linux のみ指定が必要、Windows では Wheel に含まれているため不要)
-        if GetPlatformEnvironment() == 'Windows':
-            libmediainfo_path = None
-        else:
-            libmediainfo_path = str(LIBRARY_DIR / 'Library/libmediainfo.so.0')
-
         # 全体解析: 録画ファイル全体のメディア情報を取得する
-        try:
-            full_media_info = cast(MediaInfo, MediaInfo.parse(str(self.recorded_file_path), library_file=libmediainfo_path))
-        except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse full media info.', exc_info=ex)
+        args_full = [
+            '-hide_banner',
+            '-loglevel', 'error',
+            '-show_format',
+            '-show_streams',
+            '-show_programs',
+            '-of', 'json',
+            str(self.recorded_file_path),
+        ]
+        full_json = self._runFFprobe(args_full)
+        if full_json is None:
             return None
 
-        # 部分解析: 録画ファイルの30%位置から30秒程度のデータを取得し、メディア情報を解析する
+        try:
+            full_probe = FFprobeResult(**full_json)
+        except Exception as ex:
+            logging.warning(f'{self.recorded_file_path}: Failed to parse full ffprobe result.', exc_info=ex)
+            return None
+
+        # FFprobe から再生時間を取得できない場合のフォールバック処理
         duration_result: tuple[float, int] | None = None
+        if full_probe.format.duration is None and full_probe.format.format_name == 'mpegts':
+            # MPEG-TS 形式の場合のみ、フォールバックとして自前で長さを算出する
+            duration_result = self.calculateTSFileDuration()
+            if duration_result is not None:
+                duration, _ = duration_result
+                # FFprobe の結果を更新
+                full_probe.format.duration = str(duration)
+                logging.debug_simple(f'{self.recorded_file_path}: Duration fallback completed: {duration} seconds.')
+            else:
+                # 再生時間を算出できなかった (ファイルが破損しているなど)
+                logging.warning(f'{self.recorded_file_path}: Duration is missing and fallback failed.')
+                return None
+
+        # 部分解析: 録画ファイルの25%位置から30秒程度のデータを取得し、メディア情報を解析する
+        sample_json: dict[str, Any] | None = None
         try:
             # MPEG-TS 形式の場合のみ実行
-            if full_media_info.general_tracks and full_media_info.general_tracks[0].format == 'MPEG-TS':
+            if 'mpegts' in (full_probe.format.format_name or '').lower():
                 # ファイルを開く
                 with open(self.recorded_file_path, 'rb') as f:
                     # 25%位置にシーク (TS パケットサイズに合わせて切り出す)
@@ -556,7 +765,7 @@ class MetadataAnalyzer:
                     sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                     sample_data = f.read(sample_size)
                     # サンプルデータが全てゼロ埋めされているかチェック
-                    if all(byte == 0 for byte in sample_data):
+                    if sample_data and all(byte == 0 for byte in sample_data):
                         # ゼロ埋め領域の境界を取得するため calculateTSFileDuration を実行
                         duration_result = self.calculateTSFileDuration()
                         if duration_result is None:
@@ -570,114 +779,70 @@ class MetadataAnalyzer:
                         # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                         sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
                         sample_data = f.read(sample_size)
-                    # BytesIO オブジェクトを作成
-                    sample_io = io.BytesIO(sample_data)
-                    # メディア情報を解析
+
+                    # サンプルを stdin で渡して解析
                     ## 重要: バッファサイズを TS パケットサイズの100倍程度に抑えないと、ファイルによっては不正確な結果が返ってくることがある
                     ## なぜバッファサイズ次第で解析結果が変わるのか不可解だが、一回の送信サイズを小さく保った方が不正確な結果を避けられそう…？
                     ## 素直にファイルに書き出してから参照させるのが最も確実だが、比較的容量の大きいファイルをこのためだけに書き込むのは気が引ける
-                    sample_media_info = cast(MediaInfo, MediaInfo.parse(sample_io, buffer_size=ts.PACKET_SIZE * 100, library_file=libmediainfo_path))
+                    args_sample = [
+                        '-hide_banner',
+                        '-loglevel', 'error',
+                        '-f', 'mpegts',
+                        '-i', 'pipe:0',
+                        '-show_entries', 'stream=index,codec_type,codec_name,duration,profile,field_order,avg_frame_rate,r_frame_rate,width,height,channels,sample_rate,channel_layout',
+                        '-of', 'json',
+                    ]
+                    sample_json = self._runFFprobe(args_sample, input_bytes=sample_data)
             else:
                 # MPEG-TS 形式でない場合は部分解析はせず、全体解析の結果をそのまま設定
-                sample_media_info = full_media_info
+                sample_json = full_json
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse sample media info.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to analyze sample via ffprobe.', exc_info=ex)
             return None
 
-        # 最低限 KonomiTV で再生可能なファイルであるかのバリデーションを行う
-        ## この処理だけでエラーが発生する (=参照しているキーが MediaInfo から提供されていない) 場合、
-        ## 基本的に KonomiTV で再生可能なファイルではないので None を返す
+        if sample_json is None:
+            return None
+
         try:
-            # TS 内に含まれる各トラックの情報を取得する
-            for track in full_media_info.tracks:
-
-                # 全般 (TS コンテナの情報)
-                if track.track_type == 'General':
-                    # 再生可能なコンテナではない
-                    ## "BDAV" も MPEG-TS だが、TS パケット長が 192 byte で ariblib でパースできないため現状非対応
-                    if track.format not in ('MPEG-TS', 'MPEG-4'):
-                        logging.warning(f'{self.recorded_file_path}: Container format "{track.format}" is not supported.')
-                        return None
-                    # 映像 or 音声ストリームが存在しない
-                    if track.count_of_video_streams == 0 and track.count_of_audio_streams == 0:
-                        logging.warning(f'{self.recorded_file_path}: Video or audio stream is missing.')
-                        return None
-                    # MediaInfo から再生時間が取得できない
-                    # 録画中などでファイルアロケーションされており、ファイル後半がゼロ埋めされているケースで発生しやすい
-                    if hasattr(track, 'duration') is False or track.duration is None:
-                        # MPEG-TS 形式の場合のみ、フォールバックとして自前で長さを算出する
-                        if track.format == 'MPEG-TS' and duration_result is None:
-                            # まだ calculateTSFileDuration() が実行されていない場合のみここで実行する
-                            duration_result = self.calculateTSFileDuration()
-                        if duration_result is not None:
-                            # 再生時間を算出できた場合は代わりに算出した値を設定する
-                            duration, _ = duration_result
-                            track.duration = duration * 1000  # ミリ秒に変換
-                        else:
-                            # 再生時間を算出できなかった (ファイルが破損しているなど)
-                            logging.warning(f'{self.recorded_file_path}: Duration is missing.')
-                            return None
-
-            # サンプルデータからも同様にバリデーションを行う
-            for track in sample_media_info.tracks:
-
-                # 映像ストリーム
-                if track.track_type == 'Video':
-                    # スクランブルが解除されていない
-                    if track.encryption == 'Encrypted':
-                        logging.warning(f'{self.recorded_file_path}: Video stream is encrypted.')
-                        return None
-                    # MPEG-2, H.264, H.265 以外のコーデックは KonomiTV で再生できない
-                    if track.format not in ['MPEG Video', 'AVC', 'HEVC']:
-                        logging.warning(f'{self.recorded_file_path}: Video codec "{track.format}" is not supported.')
-                        return None
-
-                # 音声ストリーム
-                elif track.track_type == 'Audio':
-                    # スクランブルが解除されていない
-                    if track.encryption == 'Encrypted':
-                        logging.warning(f'{self.recorded_file_path}: Audio stream is encrypted.')
-                        return None
-                    # コーデックが "MPEG Audio" (=MP3) または "0" になっている場合は誤解析の可能性が高いので、やむを得ず AAC-LC ということにする
-                    # 現実的に放送波で MP3 が流れてくることはないし、エンコード後でも MP3 になることはほとんどないはず
-                    ## 稀に発生するが条件が本当に謎… MediaInfo の中身はブラックボックスなのでかなり不可解だが MediaInfo だけでは現状どうしようもない…
-                    if track.format == 'MPEG Audio' or str(track.format) == '0':
-                        track.format = 'AAC'
-                        track.format_additionalfeatures = 'LC'
-                        track.sampling_rate = 48000  # サンプリングレートは 48000Hz に固定 (放送波は通常 48000Hz でエンコードされる)
-                        if track.format == 'MPEG Audio':
-                            logging.warning(f'{self.recorded_file_path}: MPEG Audio is detected. Assuming AAC-LC. (Is MediaInfo misinterpreting the audio?)')
-                        elif str(track.format) == '0':
-                            logging.warning(f'{self.recorded_file_path}: Unknown audio codec "0" is detected. Assuming AAC-LC. (Is MediaInfo misinterpreting the audio?)')
-                    # AAC-LC 以外のコーデックは KonomiTV で再生できない
-                    if track.format not in ['AAC']:
-                        logging.warning(f'{self.recorded_file_path}: Audio codec "{track.format}" is not supported.')
-                        return None
-                    # チャンネル数情報が存在しない
-                    # コーデック情報が取得できるのにチャンネル数情報が取得できないことはあまり考えられないので、誤解析と判断し channel_s を 2 に固定する
-                    if hasattr(track, 'channel_s') is False or track.channel_s is None:
-                        logging.warning(f'{self.recorded_file_path}: Channel count information is missing. (Is MediaInfo misinterpreting the audio?)')
-                        track.channel_s = 2
-                    # 1ch, 2ch, 5.1ch 以外の音声チャンネル数は KonomiTV で再生できないが、
-                    # 実際に上記以外の音声チャンネル数でエンコードされることはまずない (少なくとも放送仕様上は発生し得ない) ため、
-                    # 22 とか 8 とか突拍子ない値が返ってきた場合は何らかの理由で MediaInfo が誤解析してしまっている可能性の方が高い
-                    # 実際は普通のステレオ音声だと考えられるため、エラーにはせず、channel_s の値を 2 に固定する
-                    if int(track.channel_s) not in [1, 2, 6]:
-                        logging.warning(f'{self.recorded_file_path}: {track.channel_s} channels detected. (Is MediaInfo misinterpreting the audio?)')
-                        track.channel_s = 2
-
+            sample_probe = FFprobeSampleResult(**sample_json)
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to validate media info.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse sample ffprobe result.', exc_info=ex)
             return None
 
-        # 解析処理中に calculateTSFileDuration() を実行している場合は、有効な TS データの終了位置も一緒に返す
+        # 解析処理中に calculateTSFileDuration() を実行した場合は、有効な TS データの終了位置も一緒に返す
         ## calculateTSFileDuration() が実行されている時点で、当該録画ファイルの後半部分にゼロ埋めデータが存在することを示す
         ## この値は TSInfoAnalyzer で番組情報を解析する際に利用される
         if duration_result is not None:
             _, end_ts_offset = duration_result
-            return full_media_info, sample_media_info, end_ts_offset
+            return (full_probe, sample_probe, end_ts_offset)
         else:
-            return full_media_info, sample_media_info, None
+            return (full_probe, sample_probe, None)
+
+
+    def _runFFprobe(self, args: list[str], input_bytes: bytes | None = None) -> dict[str, Any] | None:
+        """
+        FFprobe を実行する
+
+        Args:
+            args (list[str]): FFprobe の引数
+            input_bytes (bytes | None): FFprobe に渡すデータ
+
+        Returns:
+            dict[str, Any] | None: FFprobe の結果
+        """
+        try:
+            cmd = [LIBRARY_PATH['FFprobe'], *args]
+            if input_bytes is None:
+                proc = subprocess.run(cmd, capture_output=True)
+            else:
+                proc = subprocess.run(cmd, input=input_bytes, capture_output=True)
+            if proc.returncode != 0:
+                logging.warning(f'{self.recorded_file_path}: ffprobe failed with return code {proc.returncode}: {proc.stderr.decode("utf-8", errors="ignore").strip()}')
+                return None
+            return cast(dict[str, Any], json.loads(proc.stdout.decode('utf-8')))
+        except Exception as ex:
+            logging.warning(f'{self.recorded_file_path}: Failed to run ffprobe.', exc_info=ex)
+            return None
 
 
 if __name__ == '__main__':
