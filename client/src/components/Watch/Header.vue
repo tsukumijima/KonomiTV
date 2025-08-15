@@ -23,6 +23,8 @@
 import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 
+import type { Dayjs } from 'dayjs';
+
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import Utils, { dayjs, ProgramUtils } from '@/utils';
@@ -50,9 +52,14 @@ export default defineComponent({
         ...mapStores(useChannelsStore, usePlayerStore),
     },
     methods: {
-        updateTimeCore() {
+        formatTime(time_obj: Dayjs): string {
+            const is_sp_h = Utils.isSmartphoneHorizontal();
+            const formatted = time_obj.format(is_sp_h ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
+            return Utils.apply28HourClock(formatted);
+        },
+        updateTimeCore(): number {
             const time = dayjs();
-            this.time = time.format(Utils.isSmartphoneHorizontal() ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
+            this.time = this.formatTime(time);
             const ms = time.millisecond();
             return ms > 800 ? 500 : 1000 - ms;
         },
@@ -63,6 +70,8 @@ export default defineComponent({
         },
     },
     created() {
+        // 初期表示の時刻を設定
+        this.time = this.formatTime(dayjs());
         setTimeout(() => {
             this.uptimeTime();
         }, 1000);

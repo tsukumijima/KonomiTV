@@ -202,9 +202,9 @@ class RecordedScanTask:
         logging.info('Batch scan of recording folders has been started.')
         self._is_batch_scan_running = True
 
-        # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
-        logging.info('Checking for duplicate recorded video records...')
+        # 現在登録されている全ての RecordedVideo レコードをキャッシュ
         ## チャンネル情報も後で使うのでここで select_related しておく
+        logging.info('Gathering all recorded video records...')
         all_videos = await RecordedVideo.all().select_related('recorded_program', 'recorded_program__channel')
         videos_by_path: dict[str, list[RecordedVideo]] = {}
         videos_to_keep: list[RecordedVideo] = []  # 保持するレコードのリスト
@@ -213,7 +213,9 @@ class RecordedScanTask:
                 videos_by_path[video.file_path] = []
             videos_by_path[video.file_path].append(video)
 
+        # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
         ## 重複削除処理をトランザクション配下で実行
+        logging.info('Checking for duplicate recorded video records...')
         duplicates_found = False
         total_deleted_count = 0
         async with transactions.in_transaction():

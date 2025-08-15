@@ -242,9 +242,9 @@ def main(
     if RESTART_REQUIRED_LOCK_PATH.exists():
         logging.warning('Server restart requested. Restarting...')
 
-        # Windows サービスとして実行されている場合は、Windows サービス側で再起動処理が行われるので、ここでは何もしない
+        # Windows サービスとして実行されている場合は、Windows サービス側で再起動処理が行われるので、確実にプロセスを終了する
         if IsRunningAsWindowsService():
-            return
+            os._exit(0)  # type: ignore
 
         # os.execv() で現在のプロセスを新規に起動したプロセスに置き換える
         ## os.execv() は戻らないので、事前にロックファイルを削除しておく

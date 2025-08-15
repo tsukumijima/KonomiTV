@@ -468,7 +468,7 @@ class PlayerController {
                                 comments: jikkyo_comments.comments.map((comment) => ({
                                     id: count++,
                                     text: comment.text,
-                                    time: dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss'),
+                                    time: Utils.apply28HourClock(dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss')),
                                     playback_position: comment.time,
                                     user_id: comment.author,
                                     my_post: false,

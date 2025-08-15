@@ -43,6 +43,7 @@ export interface IClientSettings {
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
+    use_28hour_clock: boolean;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
