@@ -1251,6 +1251,15 @@
     iconv-lite "0.6.3"
     readable-stream "^4.5.2"
 
+"@tsukumijima/aribts@github:tsukumijima/node-aribts#v1.5.2":
+  version "1.5.2"
+  resolved "https://codeload.github.com/tsukumijima/node-aribts/tar.gz/58b7621fcd00453016d883645daf3c9f6a53b204"
+  dependencies:
+    buffer "^6.0.3"
+    events "^3.3.0"
+    iconv-lite "0.6.3"
+    readable-stream "^4.5.2"
+
 "@types/estree@0.0.39":
   version "0.0.39"
   resolved "https://registry.yarnpkg.com/@types/estree/-/estree-0.0.39.tgz#e177e699ee1b8c22d23174caaa7422644389509f"
@@ -3832,6 +3841,7 @@ mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#726d91becfa178a68bbea1
   resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/726d91becfa178a68bbea154175213ab6b3dfdba"
   dependencies:
     es6-promise "^4.2.5"
+    webworkify-webpack xqq/webworkify-webpack
 
 ms@^2.1.1, ms@^2.1.3:
   version "2.1.3"
@@ -5180,11 +5190,11 @@ vuetify@~3.7.1:
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.7.19.tgz#386ab39900400e9aa811fa0569e10db650f54b84"
   integrity sha512-RrUpdBOGWGcT2oNLqXBiqYRudKTFqxTfr8lISl51Cuo80cfgRmbyDnlQQRWxE4QSNxcqXk6ZzBoJRUEXpW9C/w==
 
-"web-bml@github:tsukumijima/web-bml#6849e03550e82f1e7822574b4e84bc112b5c2069":
+"web-bml@github:tsukumijima/web-bml#872bb3409e5178177e4507a2bb2ebf2769ef8b5b":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/6849e03550e82f1e7822574b4e84bc112b5c2069"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/872bb3409e5178177e4507a2bb2ebf2769ef8b5b"
   dependencies:
-    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.1"
+    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
     arib-subtitle-timedmetadater "^4.0.10"
     aribb24.js "^1.11.0"
     buffer "^6.0.3"
