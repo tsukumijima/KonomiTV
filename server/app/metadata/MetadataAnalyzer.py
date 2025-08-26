@@ -49,6 +49,7 @@ class FFprobeVideoStream(BaseModel):
     avg_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
     r_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
     field_order: str | None = None  # オプショナル - "progressive", "tt", "bb" など
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
     @field_validator('codec_name')
     @classmethod
@@ -84,6 +85,7 @@ class FFprobeAudioStream(BaseModel):
     profile: str | None = None  # オプショナル - "LC", "HE-AAC" など
     channels: int  # 必須 - 1, 2, 6 など
     sample_rate: str  # 必須 - "48000" など文字列形式
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
     @field_validator('codec_name')
     @classmethod
@@ -120,6 +122,7 @@ class FFprobeOtherStream(BaseModel):
     index: int
     codec_type: str = 'unknown'  # オプショナル - "subtitle", "data", そのほか未知のもの
     codec_name: str = 'unknown'  # オプショナル - "arib_caption", "bin_data", そのほか未知のもの
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
 class FFprobeProgram(BaseModel):
     """FFprobe から返される program セクションの情報"""
@@ -272,6 +275,21 @@ class MetadataAnalyzer:
             return None
         full_probe, sample_probe, end_ts_offset = result
         logging.debug_simple(f'{self.recorded_file_path}: FFprobe analysis completed.')
+
+        # MPEG-TS の TS パケットサイズが 188 以外であれば弾く（BDAV 等は非対応）
+        if full_probe.format.format_name == 'mpegts':
+            try:
+                sizes: list[int] = []
+                for stream in full_probe.streams:
+                    if stream.ts_packetsize is None:
+                        continue
+                    sizes.append(int(stream.ts_packetsize))
+                if len(sizes) > 0 and any(size != 188 for size in sizes):
+                    first_bad = next(size for size in sizes if size != 188)
+                    logging.warning(f'{self.recorded_file_path}: Unsupported TS packet size detected: {first_bad} bytes.')
+                    return None
+            except Exception as ex:
+                logging.warning(f'{self.recorded_file_path}: Failed to validate ts_packetsize.', exc_info=ex)
 
         # メディア情報から録画ファイルのメタデータを取得
         # 全般（コンテナ情報）
