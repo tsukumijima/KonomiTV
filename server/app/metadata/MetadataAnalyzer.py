@@ -306,24 +306,25 @@ class MetadataAnalyzer:
         is_video_track_analyzed = False
         is_primary_audio_track_analyzed = False
         is_secondary_audio_track_analyzed = False
-        video_streams = sample_probe.getVideoStreams()
-        audio_streams = sample_probe.getAudioStreams()
+        full_probe_video_streams = full_probe.getVideoStreams()
+        sample_probe_video_streams = sample_probe.getVideoStreams()
+        sample_probe_audio_streams = sample_probe.getAudioStreams()
         # FFprobe の結果として "video" / "audio" の codec_type そのものは存在するが、
         # 詳細が取得できず FFprobeOtherStream にフォールバックしているケース（スクランブルや不正 TS）を検出する
         has_video_codec_type = any(s.codec_type == 'video' for s in sample_probe.streams)
         has_audio_codec_type = any(s.codec_type == 'audio' for s in sample_probe.streams)
-        if len(video_streams) == 0 and has_video_codec_type is True:
+        if len(sample_probe_video_streams) == 0 and has_video_codec_type is True:
             logging.warning(f'{self.recorded_file_path}: Video stream details are missing. (Is the TS scrambled or unsupported?)')
             return None
-        if len(audio_streams) == 0 and has_audio_codec_type is True:
+        if len(sample_probe_audio_streams) == 0 and has_audio_codec_type is True:
             logging.warning(f'{self.recorded_file_path}: Audio stream details are missing. (Is the TS scrambled or unsupported?)')
             return None
-        if len(video_streams) == 0 and len(audio_streams) == 0:
+        if len(sample_probe_video_streams) == 0 and len(sample_probe_audio_streams) == 0:
             logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
             return None
 
         ## 映像情報
-        for video_stream in video_streams:
+        for video_stream in sample_probe_video_streams:
             if is_video_track_analyzed is False:
                 ## コーデック
                 if video_stream.codec_name == 'mpeg2video':
@@ -340,10 +341,14 @@ class MetadataAnalyzer:
                     profile.split('@')[0] if profile else 'Main'
                 )
                 ## スキャン形式
-                field_order = video_stream.field_order or 'progressive'
+                field_order = video_stream.field_order or 'tt'  # 通常取得できるはずだが、デフォルトはインターレースとする
                 if field_order.lower() == 'progressive':
                     video_scan_type = 'Progressive'
                 else:
+                    video_scan_type = 'Interlaced'
+                ## ここで Progressive になっているが、全体解析側の field_order が progressive でない場合はインターレースとする
+                ## (部分解析のみ、稀に本来インターレースにもかかわらずプログレッシブ映像と判定される場合があるため)
+                if video_scan_type == 'Progressive' and (full_probe_video_streams[0].field_order or '').lower() != 'progressive':
                     video_scan_type = 'Interlaced'
                 ## フレームレート
                 video_frame_rate = ParseFPS(video_stream.avg_frame_rate) or ParseFPS(video_stream.r_frame_rate)
@@ -353,7 +358,7 @@ class MetadataAnalyzer:
                 ## 映像トラックの解析が完了したことをマーク
                 is_video_track_analyzed = True
 
-        for audio_stream in audio_streams:
+        for audio_stream in sample_probe_audio_streams:
             ## 主音声情報
             if is_primary_audio_track_analyzed is False:
                 ## コーデック
@@ -821,7 +826,7 @@ class MetadataAnalyzer:
                         '-loglevel', 'error',
                         '-f', 'mpegts',
                         '-i', 'pipe:0',
-                        '-show_entries', 'stream=index,codec_type,codec_name,duration,profile,field_order,avg_frame_rate,r_frame_rate,width,height,channels,sample_rate,channel_layout',
+                        '-show_streams',
                         '-of', 'json',
                     ]
                     sample_json = self._runFFprobe(args_sample, input_bytes=sample_data)
