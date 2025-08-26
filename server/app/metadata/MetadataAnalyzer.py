@@ -139,7 +139,8 @@ class FFprobeResult(BaseModel):
         """映像ストリームのみを抽出してバリデーション"""
         video_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'video':
+            # 厳密に FFprobeVideoStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeVideoStream):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
@@ -150,7 +151,8 @@ class FFprobeResult(BaseModel):
         """音声ストリームのみを抽出してバリデーション"""
         audio_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'audio':
+            # 厳密に FFprobeAudioStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeAudioStream):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
@@ -165,7 +167,8 @@ class FFprobeSampleResult(BaseModel):
         """映像ストリームのみを抽出してバリデーション"""
         video_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'video':
+            # 厳密に FFprobeVideoStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeVideoStream):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
@@ -176,7 +179,8 @@ class FFprobeSampleResult(BaseModel):
         """音声ストリームのみを抽出してバリデーション"""
         audio_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'audio':
+            # 厳密に FFprobeAudioStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeAudioStream):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
@@ -286,6 +290,16 @@ class MetadataAnalyzer:
         is_secondary_audio_track_analyzed = False
         video_streams = sample_probe.getVideoStreams()
         audio_streams = sample_probe.getAudioStreams()
+        # FFprobe の結果として "video" / "audio" の codec_type そのものは存在するが、
+        # 詳細が取得できず FFprobeOtherStream にフォールバックしているケース（スクランブルや不正 TS）を検出する
+        has_video_codec_type = any(s.codec_type == 'video' for s in sample_probe.streams)
+        has_audio_codec_type = any(s.codec_type == 'audio' for s in sample_probe.streams)
+        if len(video_streams) == 0 and has_video_codec_type is True:
+            logging.warning(f'{self.recorded_file_path}: Video stream details are missing. (Is the TS scrambled or unsupported?)')
+            return None
+        if len(audio_streams) == 0 and has_audio_codec_type is True:
+            logging.warning(f'{self.recorded_file_path}: Audio stream details are missing. (Is the TS scrambled or unsupported?)')
+            return None
         if len(video_streams) == 0 and len(audio_streams) == 0:
             logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
             return None
