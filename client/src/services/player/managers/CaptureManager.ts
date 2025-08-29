@@ -509,28 +509,89 @@ class CaptureManager implements PlayerManager {
      */
     public static generateCaptureFilename(): string {
         const channels_store = useChannelsStore();
+        const player_store = usePlayerStore();
         const settings_store = useSettingsStore();
         const filename_pattern = settings_store.settings.capture_filename_pattern;
 
         // マクロ置換用データを準備
         const now = dayjs();
-        const channel = channels_store.channel.current.id === 'NID0-SID0' ? structuredClone(ILiveChannelDefault) : channels_store.channel.current;
-        const program = channel.program_present ?? structuredClone(IProgramDefault);
-        if (channel.id === 'NID0-SID0') {
-            // 現在視聴中のチャンネルがないプレビュー時はダミーの番組情報が返るので、プレビューに適した番組情報に置き換える
-            channel.service_id = 1024;
-            channel.name = 'アフリカ中央テレビ';
-            channel.remocon_id = 9;
-            program.event_id = 65535;
-            program.title = '[二][字]今日のニュース';
-            program.start_time = '2024-04-01T12:00:00+09:00';
-            program.end_time = '2024-04-01T12:15:00+09:00';
-            program.duration = 15 * 60 * 1000;
+
+        // マクロ置換に必要なチャンネル情報の型
+        interface CaptureChannelInfo {
+            name: string;
+            service_id: number;
+            remocon_id: number;
+        }
+
+        // マクロ置換に必要な番組情報の型
+        interface CaptureProgramInfo {
+            event_id: number;
+            title: string;
+            start_time: string;
+            end_time: string;
+            duration: number;
+        }
+
+        let channel: CaptureChannelInfo;
+        let program: CaptureProgramInfo;
+
+        // 録画再生時（recorded_program.id が -1 以外）は録画番組の情報を使用
+        if (player_store.is_watching && player_store.recorded_program.id !== -1) {
+            const recorded_program = player_store.recorded_program;
+
+            // 録画番組の情報から必要な情報を抽出
+            channel = {
+                name: recorded_program.channel?.name ?? '不明なチャンネル',
+                service_id: recorded_program.channel?.service_id ?? 0,
+                remocon_id: recorded_program.channel?.remocon_id ?? 0,
+            };
+            program = {
+                event_id: recorded_program.event_id ?? -1,
+                title: recorded_program.title,
+                start_time: recorded_program.start_time,
+                end_time: recorded_program.end_time,
+                duration: recorded_program.duration,
+            };
+        } else {
+            // ライブ視聴時または録画番組でない場合の処理
+            const current_channel = channels_store.channel.current.id === 'NID0-SID0' ? structuredClone(ILiveChannelDefault) : channels_store.channel.current;
+            const current_program = current_channel.program_present ?? structuredClone(IProgramDefault);
+
+            if (current_channel.id === 'NID0-SID0') {
+                // 現在視聴中のチャンネルがないプレビュー時はダミーの番組情報が返るので、プレビューに適した番組情報に置き換える
+                // 設定ページでファイル名プレビューを実行した際にこの情報が使われる
+                channel = {
+                    name: 'アフリカ中央テレビ',
+                    service_id: 1024,
+                    remocon_id: 9,
+                };
+                program = {
+                    event_id: 65535,
+                    title: '[二][字]今日のニュース',
+                    start_time: '2024-04-01T12:00:00+09:00',
+                    end_time: '2024-04-01T12:15:00+09:00',
+                    duration: 15 * 60 * 1000,
+                };
+            } else {
+                channel = {
+                    name: current_channel.name,
+                    service_id: current_channel.service_id,
+                    remocon_id: current_channel.remocon_id,
+                };
+                program = {
+                    event_id: current_program.event_id,
+                    title: current_program.title,
+                    start_time: current_program.start_time,
+                    end_time: current_program.end_time,
+                    duration: current_program.duration,
+                };
+            }
         }
         const program_start_time = dayjs(program.start_time);
         const program_end_time = dayjs(program.end_time);
         const program_duration = dayjsOriginal.duration(program_end_time.diff(program_start_time));
 
+        // 共通のマクロ置換処理
         // TVTest でファイル名に使えるマクロのサブセットを実装している
         // KonomiTV では仕組み上実装できないマクロの実装は省略している
         const replacements = {

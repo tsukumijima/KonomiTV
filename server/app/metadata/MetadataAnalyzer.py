@@ -49,6 +49,7 @@ class FFprobeVideoStream(BaseModel):
     avg_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
     r_frame_rate: str  # 必須 - "30000/1001", "30/1" など分数形式
     field_order: str | None = None  # オプショナル - "progressive", "tt", "bb" など
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
     @field_validator('codec_name')
     @classmethod
@@ -84,6 +85,7 @@ class FFprobeAudioStream(BaseModel):
     profile: str | None = None  # オプショナル - "LC", "HE-AAC" など
     channels: int  # 必須 - 1, 2, 6 など
     sample_rate: str  # 必須 - "48000" など文字列形式
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
     @field_validator('codec_name')
     @classmethod
@@ -120,6 +122,7 @@ class FFprobeOtherStream(BaseModel):
     index: int
     codec_type: str = 'unknown'  # オプショナル - "subtitle", "data", そのほか未知のもの
     codec_name: str = 'unknown'  # オプショナル - "arib_caption", "bin_data", そのほか未知のもの
+    ts_packetsize: str | None = None  # オプショナル - TS パケットサイズ ("188" / "192" / "204")
 
 class FFprobeProgram(BaseModel):
     """FFprobe から返される program セクションの情報"""
@@ -139,7 +142,8 @@ class FFprobeResult(BaseModel):
         """映像ストリームのみを抽出してバリデーション"""
         video_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'video':
+            # 厳密に FFprobeVideoStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeVideoStream):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
@@ -150,7 +154,8 @@ class FFprobeResult(BaseModel):
         """音声ストリームのみを抽出してバリデーション"""
         audio_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'audio':
+            # 厳密に FFprobeAudioStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeAudioStream):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
@@ -165,7 +170,8 @@ class FFprobeSampleResult(BaseModel):
         """映像ストリームのみを抽出してバリデーション"""
         video_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'video':
+            # 厳密に FFprobeVideoStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeVideoStream):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
@@ -176,7 +182,8 @@ class FFprobeSampleResult(BaseModel):
         """音声ストリームのみを抽出してバリデーション"""
         audio_streams = []
         for stream in self.streams:
-            if stream.codec_type == 'audio':
+            # 厳密に FFprobeAudioStream 型のみを許可する（詳細情報を取得できない場合は FFprobeOtherStream になる）
+            if isinstance(stream, FFprobeAudioStream):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
@@ -269,6 +276,21 @@ class MetadataAnalyzer:
         full_probe, sample_probe, end_ts_offset = result
         logging.debug_simple(f'{self.recorded_file_path}: FFprobe analysis completed.')
 
+        # MPEG-TS の TS パケットサイズが 188 以外であれば弾く（BDAV 等は非対応）
+        if full_probe.format.format_name == 'mpegts':
+            try:
+                sizes: list[int] = []
+                for stream in full_probe.streams:
+                    if stream.ts_packetsize is None:
+                        continue
+                    sizes.append(int(stream.ts_packetsize))
+                if len(sizes) > 0 and any(size != 188 for size in sizes):
+                    first_bad = next(size for size in sizes if size != 188)
+                    logging.warning(f'{self.recorded_file_path}: Unsupported TS packet size detected: {first_bad} bytes.')
+                    return None
+            except Exception as ex:
+                logging.warning(f'{self.recorded_file_path}: Failed to validate ts_packetsize.', exc_info=ex)
+
         # メディア情報から録画ファイルのメタデータを取得
         # 全般（コンテナ情報）
         ## コンテナ形式
@@ -284,14 +306,25 @@ class MetadataAnalyzer:
         is_video_track_analyzed = False
         is_primary_audio_track_analyzed = False
         is_secondary_audio_track_analyzed = False
-        video_streams = sample_probe.getVideoStreams()
-        audio_streams = sample_probe.getAudioStreams()
-        if len(video_streams) == 0 and len(audio_streams) == 0:
+        full_probe_video_streams = full_probe.getVideoStreams()
+        sample_probe_video_streams = sample_probe.getVideoStreams()
+        sample_probe_audio_streams = sample_probe.getAudioStreams()
+        # FFprobe の結果として "video" / "audio" の codec_type そのものは存在するが、
+        # 詳細が取得できず FFprobeOtherStream にフォールバックしているケース（スクランブルや不正 TS）を検出する
+        has_video_codec_type = any(s.codec_type == 'video' for s in sample_probe.streams)
+        has_audio_codec_type = any(s.codec_type == 'audio' for s in sample_probe.streams)
+        if len(sample_probe_video_streams) == 0 and has_video_codec_type is True:
+            logging.warning(f'{self.recorded_file_path}: Video stream details are missing. (Is the TS scrambled or unsupported?)')
+            return None
+        if len(sample_probe_audio_streams) == 0 and has_audio_codec_type is True:
+            logging.warning(f'{self.recorded_file_path}: Audio stream details are missing. (Is the TS scrambled or unsupported?)')
+            return None
+        if len(sample_probe_video_streams) == 0 and len(sample_probe_audio_streams) == 0:
             logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
             return None
 
         ## 映像情報
-        for video_stream in video_streams:
+        for video_stream in sample_probe_video_streams:
             if is_video_track_analyzed is False:
                 ## コーデック
                 if video_stream.codec_name == 'mpeg2video':
@@ -308,10 +341,14 @@ class MetadataAnalyzer:
                     profile.split('@')[0] if profile else 'Main'
                 )
                 ## スキャン形式
-                field_order = video_stream.field_order or 'progressive'
+                field_order = video_stream.field_order or 'tt'  # 通常取得できるはずだが、デフォルトはインターレースとする
                 if field_order.lower() == 'progressive':
                     video_scan_type = 'Progressive'
                 else:
+                    video_scan_type = 'Interlaced'
+                ## ここで Progressive になっているが、全体解析側の field_order が progressive でない場合はインターレースとする
+                ## (部分解析のみ、稀に本来インターレースにもかかわらずプログレッシブ映像と判定される場合があるため)
+                if video_scan_type == 'Progressive' and (full_probe_video_streams[0].field_order or '').lower() != 'progressive':
                     video_scan_type = 'Interlaced'
                 ## フレームレート
                 video_frame_rate = ParseFPS(video_stream.avg_frame_rate) or ParseFPS(video_stream.r_frame_rate)
@@ -321,7 +358,7 @@ class MetadataAnalyzer:
                 ## 映像トラックの解析が完了したことをマーク
                 is_video_track_analyzed = True
 
-        for audio_stream in audio_streams:
+        for audio_stream in sample_probe_audio_streams:
             ## 主音声情報
             if is_primary_audio_track_analyzed is False:
                 ## コーデック
@@ -789,7 +826,7 @@ class MetadataAnalyzer:
                         '-loglevel', 'error',
                         '-f', 'mpegts',
                         '-i', 'pipe:0',
-                        '-show_entries', 'stream=index,codec_type,codec_name,duration,profile,field_order,avg_frame_rate,r_frame_rate,width,height,channels,sample_rate,channel_layout',
+                        '-show_streams',
                         '-of', 'json',
                     ]
                     sample_json = self._runFFprobe(args_sample, input_bytes=sample_data)

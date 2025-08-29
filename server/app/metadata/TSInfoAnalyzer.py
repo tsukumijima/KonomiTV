@@ -200,6 +200,8 @@ class TSInfoAnalyzer:
                 buffer = bytearray()
                 first_pcr_sec: float | None = None
                 current_pcr_sec: float | None = None
+                # PSI セクション開始時点 (PUSI) の PCR 値を保持し、そのセクションに対する経過時間算出に用いる
+                pcr_at_section_start_sec: float | None = None
 
                 # end_ts_offset 以降はゼロ埋めである可能性が高いため、読み取りを制限する
                 read_bytes = 0
@@ -224,6 +226,7 @@ class TSInfoAnalyzer:
 
                     prev, current = payload(packet)
                     if payload_unit_start_indicator(packet):
+                        # まず、直前まで構築していたセクションを prev で完結させる
                         if buffer:
                             buffer.extend(prev)
                         # セクション長に従い切り出して TimeOffsetSection として解釈
@@ -232,10 +235,9 @@ class TSInfoAnalyzer:
                                 if buffer[0] == 0x73:  # TimeOffsetSection の table_id
                                     section = TimeOffsetSection(buffer[:])
                                     if section.isfull():
-                                        if (first_pcr_sec is None) or (current_pcr_sec is None):
-                                            pass
-                                        else:
-                                            elapsed = max(float(current_pcr_sec) - float(first_pcr_sec), 0.0)
+                                        # 経過時間は「当該セクションの開始時 PCR - 最初の PCR」で算出する
+                                        if (first_pcr_sec is not None) and (pcr_at_section_start_sec is not None):
+                                            elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
                                             assert section.JST_time is not None
                                             jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
                                             recording_start_time = jst_time - timedelta(seconds=elapsed)
@@ -246,7 +248,9 @@ class TSInfoAnalyzer:
                                 buffer[:] = buffer[next_start:]
                             except Exception:
                                 break
+                        # 新しいセクション (current) を開始する。開始時点の PCR を保存する
                         buffer[:] = current
+                        pcr_at_section_start_sec = current_pcr_sec
                     elif not buffer:
                         continue
                     else:
@@ -257,10 +261,11 @@ class TSInfoAnalyzer:
                     try:
                         section = TimeOffsetSection(buffer[:])
                         if section.isfull():
-                            if (first_pcr_sec is None) or (current_pcr_sec is None):
+                            # ファイル末尾でセクションが完結した場合も、当該セクション開始時の PCR を使う
+                            if (first_pcr_sec is None) or (pcr_at_section_start_sec is None):
                                 pass
                             else:
-                                elapsed = max(float(current_pcr_sec) - float(first_pcr_sec), 0.0)
+                                elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
                                 assert section.JST_time is not None
                                 jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
                                 recording_start_time = jst_time - timedelta(seconds=elapsed)

@@ -52,7 +52,7 @@ RUN yarn build
 
 # Ubuntu 22.04 LTS (with CUDA) をベースイメージとして利用
 # CUDA 付きなのは NVEncC を動かせるようにするため
-FROM nvcr.io/nvidia/cuda:11.7.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04
 
 # タイムゾーンを東京に設定
 ENV TZ=Asia/Tokyo
