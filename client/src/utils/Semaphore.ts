@@ -27,16 +27,14 @@ export class Semaphore {
     }
 
     public release(): void {
+        // 先に 1 スロット分を解放してから待機者へ譲渡する
+        this.current = Math.max(0, this.current - 1);
         const next = this.queue.shift();
         if (next !== undefined) {
-            // 解放と同時に次の 1 件へスロットを譲渡（current は据え置き）
+            // 解放したスロットを待機者 1 件へ譲渡（acquire 側で current++ される）
             next();
-        } else {
-            // 待機者がいなければ単純に減算
-            this.current = Math.max(0, this.current - 1);
         }
     }
 }
 
 export default Semaphore;
-
