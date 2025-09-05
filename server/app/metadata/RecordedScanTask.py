@@ -267,7 +267,7 @@ class RecordedScanTask:
                         continue
                     # 録画ファイルが確実に存在することを確認する
                     ## 環境次第では、稀に glob で取得したファイルが既に存在しなくなっているケースがある
-                    if not await file_path.is_file():
+                    if not await self.isFileExists(file_path):
                         continue
 
                     # 見つかったファイルを処理
@@ -280,7 +280,7 @@ class RecordedScanTask:
         async with transactions.in_transaction():
             for file_path, existing_db_recorded_video in existing_db_recorded_videos.items():
                 # ファイルの存在確認を非同期に行う
-                if not await file_path.is_file():
+                if not await self.isFileExists(file_path):
                     # RecordedVideo の親テーブルである RecordedProgram を削除すると、
                     # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
                     await existing_db_recorded_video.recorded_program.delete()
@@ -347,7 +347,7 @@ class RecordedScanTask:
             try:
                 # 万が一この時点でファイルが存在しない場合はスキップ
                 # ファイル変更イベント発火後に即座にファイルが削除される可能性も考慮
-                if not await file_path.is_file():
+                if not await self.isFileExists(file_path):
                     logging.warning(f'{file_path}: File does not exist after acquiring lock! ignored.')
                     # ロック管理辞書から不要になったロックを削除
                     async with self._file_locks_dict_lock:
@@ -494,6 +494,30 @@ class RecordedScanTask:
                 async with self._file_locks_dict_lock:
                      if file_path in self._file_locks and not file_lock.locked():
                         self._file_locks.pop(file_path, None)
+
+
+    @staticmethod
+    async def isFileExists(file_path: anyio.Path) -> bool:
+        """
+        ファイルが存在し、通常のファイルであるかを安全にチェックする。
+        PermissionError やその他のファイルアクセスエラーが発生した場合は False を返す。
+
+        Args:
+            file_path (anyio.Path): チェックするファイルパス
+
+        Returns:
+            bool: ファイルが存在し、通常のファイルであるかどうか
+        """
+        try:
+            return await file_path.is_file()
+        except PermissionError:
+            logging.warning(f'{file_path}: Permission denied when checking file.')
+            return False
+        except FileNotFoundError:
+            return False
+        except OSError as e:
+            logging.warning(f'{file_path}: OSError during is_file() check:', exc_info=e)
+            return False
 
 
     @staticmethod
@@ -853,7 +877,7 @@ class RecordedScanTask:
                         self._recording_files.pop(file_path, None)
 
                         # ファイルが存在する場合のみ再解析
-                        if await file_path.is_file():
+                        if await self.isFileExists(file_path):
                             # この時点で、録画（またはファイルコピー）が確実に完了しているはず
                             logging.info(f'{file_path}: Recording or copying has just completed or has already completed.')
                             await self.processRecordedFile(file_path, None)
