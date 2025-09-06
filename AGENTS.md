@@ -1,15 +1,11 @@
----
-description: Apply this rule to the entire repository
-globs:
-alwaysApply: true
----
+# AGENTS.md
 
 ## プロジェクト固有の注意事項
 
 - yarn や poetry はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
 - サーバー側では poetry を使っているので、python コマンドは必ず全て poetry run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
 
-# 技術スタック
+## 技術スタック
 
 KonomiTV は、クライアント・サーバーアーキテクチャに基づく Web アプリケーション (PWA) です。
 以下の2つの主要部分で構成されています。
@@ -35,9 +31,9 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
     - SQLite (ローカル動作が必要なため MySQL や PostgreSQL は採用できなかった)
     - Aerich
 
-# ディレクトリ構成
+## ディレクトリ構成
 
-## クライアント (`client/`)
+### クライアント (`client/`)
 
 - `public/`: 直接提供される静的ファイル
 - `src/`: ソースコード
@@ -80,7 +76,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - `tsconfig.json`: TypeScript 設定
 - `.eslintrc.json`: ESLint コードスタイル設定
 
-## サーバー (`server/`)
+### サーバー (`server/`)
 
 - `app/`: FastAPI アプリケーションコード
   - `routers/`: API ルートハンドラー
@@ -146,16 +142,16 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - `KonomiTV.py`: KonomiTV サーバーのエントリーポイント
 - `KonomiTV-Service.py`: Windows サービス管理スクリプト & Windows サービスのエントリーポイント
 
-# コーディング規約
+## コーディング規約
 
-## 全般
+### 全般
 - コードをざっくり斜め読みした際の可読性を高めるため、コメントを多めに記述する
 - コードを変更する際、既存のコメントは、変更によりコメント内容がコードの記述と合わなくなった場合を除き、コメント量に関わらずそのまま保持する
 - ログメッセージに関しては文字化けを避けるため、必ず英語で記述する
 - それ以外のコーディングスタイルは、原則変更箇所周辺のコードスタイルに合わせる
 - 通常の Web サービスではないかなり特殊なソフトウェアなので、コンテキストとして分からないことがあれば別途 Readme.md を読むか、私に質問すること
 
-## Python コード
+### Python コード
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
@@ -167,7 +163,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - クラス内のメソッドとメソッドの間には2行の空白行を挿入する
 - 複数行のコレクションには末尾カンマを含める
 
-## Vue / TypeScript コード
+### Vue / TypeScript コード
 
 - 文字列にはシングルクォートを用いる
 - 新規で実装する箇所に関しては Vue 3 Composition API パターンに従う
