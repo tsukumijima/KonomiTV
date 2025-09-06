@@ -41,6 +41,7 @@ import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
 import { IRecordedProgram, MylistSortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
+import useUserStore from '@/stores/UserStore';
 
 // ルーター
 const route = useRoute();
@@ -150,6 +151,10 @@ watch(() => settingsStore.settings.mylist, async () => {
 
 // 開始時に実行
 onMounted(async () => {
+    // 事前にログイン状態を同期（トークンがあればユーザー情報を取得）
+    const userStore = useUserStore();
+    await userStore.fetchUser();
+
     // クエリパラメータから初期値を設定
     if (route.query.page) {
         current_page.value = parseInt(route.query.page as string);
