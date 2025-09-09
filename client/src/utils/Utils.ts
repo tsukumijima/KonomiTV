@@ -460,7 +460,7 @@ export default class Utils {
 
 
     /**
-     * async/await でスリープ的なもの
+     * async/await で秒単位でスリープする
      * @param seconds 待機する秒数 (ミリ秒単位ではないので注意)
      * @returns Promise を返すので、await sleep(1); のように使う
      */
