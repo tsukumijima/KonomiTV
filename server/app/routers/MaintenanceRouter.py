@@ -217,6 +217,26 @@ async def BatchScanAPI():
 
 
 @router.post(
+    '/scan-file',
+    summary = '録画ファイル手動スキャン API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def ManualScanFileAPI(
+    request: schemas.ManualScanRequest,
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
+):
+    """
+    指定されたパスの録画ファイルを手動でスキャンし、メタデータを解析して DB に永続化する。<br>
+    force_update=True で既存レコードの強制更新を行う。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    # RecordedScanTask のインスタンスを取得し、指定されたファイルをスキャン
+    scan_task = RecordedScanTask()
+    await scan_task.scanSingleFile(request.path, force_update=True)
+
+
+@router.post(
     '/run-background-analysis',
     summary = 'バックグラウンド解析タスク手動実行 API',
     status_code = status.HTTP_204_NO_CONTENT,

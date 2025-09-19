@@ -241,6 +241,11 @@ class ReservationConditionUpdateRequest(BaseModel):
     # 録画設定
     record_settings: RecordSettings
 
+# ***** メンテナンス *****
+
+class ManualScanRequest(BaseModel):
+    path: str
+
 # ***** ユーザー *****
 
 class UserCreateRequest(BaseModel):

@@ -319,6 +319,49 @@ class RecordedScanTask:
         self._is_batch_scan_running = False
 
 
+    async def scanSingleFile(self, file_path_str: str, force_update: bool = True) -> None:
+        """
+        指定されたファイルパスの録画ファイルを手動でスキャンする
+
+        Args:
+            file_path_str (str): スキャン対象のファイルの絶対パス
+            force_update (bool): 既存レコードの強制更新フラグ
+
+        Raises:
+            HTTPException: ファイルが存在しない、または対象外の拡張子の場合
+        """
+
+        file_path = anyio.Path(file_path_str)
+
+        # ファイルの存在確認
+        if not await self.isFileExists(file_path):
+            raise HTTPException(
+                status_code = status.HTTP_404_NOT_FOUND,
+                detail = f'File not found: {file_path_str}',
+            )
+
+        # 対象拡張子のチェック
+        if file_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = f'Unsupported file extension: {file_path.suffix}. Supported extensions: {", ".join(self.SCAN_TARGET_EXTENSIONS)}',
+            )
+
+        # Mac の metadata ファイルをチェック
+        if file_path.name.startswith('._'):
+            raise HTTPException(
+                status_code = status.HTTP_400_BAD_REQUEST,
+                detail = f'macOS metadata files are not supported: {file_path.name}',
+            )
+
+        logging.info(f'Manual scan started for file: {file_path_str}')
+
+        # ファイルを処理 (force_update=True で強制的に再解析)
+        await self.processRecordedFile(file_path, None, force_update)
+
+        logging.info(f'Manual scan completed for file: {file_path_str}')
+
+
     async def processRecordedFile(
         self,
         file_path: anyio.Path,
