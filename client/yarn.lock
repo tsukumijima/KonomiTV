@@ -2015,7 +2015,16 @@ aws4@^1.8.0:
   resolved "https://registry.yarnpkg.com/aws4/-/aws4-1.13.2.tgz#0aa167216965ac9474ccfa83892cfb6b3e1e52ef"
   integrity sha512-lHe62zvbTB5eEABUVi/AwVh0ZKY9rMMDhmm+eeyuuUQbQ3+J+fONVQOZyj+DdrvD4BY33uYniyRJ4UJIaSKAfw==
 
-axios@^1.7.2, axios@^1.8.2:
+axios@^1.12.0:
+  version "1.12.2"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.12.2.tgz#6c307390136cf7a2278d09cec63b136dfc6e6da7"
+  integrity sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.4"
+    proxy-from-env "^1.1.0"
+
+axios@^1.7.2:
   version "1.11.0"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.11.0.tgz#c2ec219e35e414c025b2095e8b8280278478fdb6"
   integrity sha512-1Lx3WLFQWm3ooKDYZD1eXmoGO9fxYQjrycfHFC8P0sCfQVXyROp0p9PFWBehewBOdCwHc+f/b8I0fMto5eSfwA==
@@ -2614,9 +2623,9 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.6.1.tgz#773f0e69527a8315c7285d5ee73c4459d20a8020"
   integrity sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==
 
-"dplayer@github:tsukumijima/DPlayer#v1.32.4":
-  version "1.32.4"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/25c25c13414a9c9bba7f3b219c2d9c27fc52e5ee"
+"dplayer@github:tsukumijima/DPlayer#v1.32.5":
+  version "1.32.5"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/7c26a8abcf0431aea13ceb906d004f46f4000cdf"
   dependencies:
     aribb24.js "~1.11.5"
     axios "^1.7.2"
@@ -3448,10 +3457,10 @@ hls.js@^1.4.14:
   resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.6.9.tgz#f0278bc4dd6f3b944b9e0b3ea84939865e5c073e"
   integrity sha512-q7qPrri6GRwjcNd7EkFCmhiJ6PBIxeUsdxKbquBkQZpg9jAnp6zSAeN9eEWFlOB09J8JfzAQGoXL5ZEAltjO9g==
 
-hls.js@^1.6.0-beta.3:
-  version "1.6.10"
-  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.6.10.tgz#702af83e1979734ec81f2a6d523166e3ca45eeb6"
-  integrity sha512-16XHorwFNh+hYazYxDNXBLEm5aRoU+oxMX6qVnkbGH3hJil4xLav3/M6NH92VkD1qSOGKXeSm+5unuawPXK6OQ==
+hls.js@^1.6.9:
+  version "1.6.12"
+  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.6.12.tgz#a130d2b902bd1e1a30b4d9db9676f3dba3187629"
+  integrity sha512-Pz+7IzvkbAht/zXvwLzA/stUHNqztqKvlLbfpq6ZYU68+gZ+CZMlsbQBPUviRap+3IQ41E39ke7Ia+yvhsehEQ==
 
 http-assert@^1.3.0:
   version "1.5.0"
@@ -4228,12 +4237,11 @@ mitt@^3.0.1:
   resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.1.tgz#ea36cf0cc30403601ae074c8f77b7092cdab36d1"
   integrity sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==
 
-mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#05252cf94aed0626876facb2803af8afde2f4ac4":
+mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#726d91becfa178a68bbea154175213ab6b3dfdba":
   version "1.8.0"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/05252cf94aed0626876facb2803af8afde2f4ac4"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/726d91becfa178a68bbea154175213ab6b3dfdba"
   dependencies:
     es6-promise "^4.2.5"
-    webworkify-webpack xqq/webworkify-webpack
 
 ms@^2.1.1, ms@^2.1.3:
   version "2.1.3"
@@ -5921,7 +5929,7 @@ vuetify@~3.7.1:
   version "1.0.0"
   resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/872bb3409e5178177e4507a2bb2ebf2769ef8b5b"
   dependencies:
-    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
+    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.1"
     arib-subtitle-timedmetadater "^4.0.10"
     aribb24.js "^1.11.0"
     buffer "^6.0.3"
@@ -5945,10 +5953,6 @@ webidl-conversions@^4.0.2:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/webidl-conversions/-/webidl-conversions-4.0.2.tgz#a855980b1f0b6b359ba1d5d9fb39ae941faa63ad"
   integrity sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==
-
-webworkify-webpack@xqq/webworkify-webpack:
-  version "2.1.5"
-  resolved "https://codeload.github.com/xqq/webworkify-webpack/tar.gz/24d1e719b4a6cac37a518b2bb10fe124527ef4ef"
 
 whatwg-url@^7.0.0:
   version "7.1.0"
