@@ -25,6 +25,7 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils.DriveIOLimiter import DriveIOLimiter
+from app.utils.NotificationService import NotificationManager
 from app.utils.ProcessLimiter import ProcessLimiter
 
 
@@ -119,6 +120,9 @@ class RecordedScanTask:
         self._file_locks: dict[anyio.Path, asyncio.Lock] = {}
         # _file_locks 辞書自体へのアクセスを保護するためのロック
         self._file_locks_dict_lock = asyncio.Lock()
+
+        # 初回バッチスキャン中かどうかのフラグ（通知抑制用）
+        self._is_initial_scan = True
 
         # 初期化済みフラグをセット
         self._initialized = True
@@ -317,6 +321,8 @@ class RecordedScanTask:
 
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
+        # 初回バッチスキャン完了後は通知を有効にする
+        self._is_initial_scan = False
 
 
     async def scanSingleFile(self, file_path_str: str, force_update: bool = True) -> None:
@@ -522,13 +528,22 @@ class RecordedScanTask:
                     recorded_program.recorded_video.status = 'Recorded'
                     # 録画完了後のバックグラウンド解析タスクを開始
                     if file_path not in self._background_tasks:
-                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                        # 通知が必要かどうかを判定（新規ファイルまたはRecording→Recordedの状態変化）
+                        should_notify = (
+                            len(self.config.notifications.services) > 0 and  # 通知サービスが設定されている
+                            (
+                                existing_db_recorded_video_after_analyze is None or  # 新規ファイル
+                                (existing_db_recorded_video_after_analyze.status == 'Recording')  # Recording→Recordedの状態変化
+                            )
+                        )
+                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program, should_notify))
                         self._background_tasks[file_path] = task
 
                 # DB に永続化
                 # メタデータ解析後の最新のデータベース情報を使う
                 await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video_after_analyze)
                 logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video_after_analyze else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
+
 
             except Exception as ex:
                 logging.error(f'{file_path}: Error processing file inside lock:', exc_info=ex)
@@ -670,7 +685,29 @@ class RecordedScanTask:
             await db_recorded_video.save()
 
 
-    async def __runBackgroundAnalysis(self, recorded_program: schemas.RecordedProgram) -> None:
+
+    async def _sendNewFileNotification(self, recorded_program: schemas.RecordedProgram) -> None:
+        """
+        新規録画ファイルの通知を送信する
+
+        Args:
+            recorded_program: 録画番組情報
+        """
+        try:
+            notification_manager = NotificationManager(self.config.notifications.services)
+
+            # サムネイルパスを取得
+            thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}.webp'
+
+            await notification_manager.send_new_recording(
+                recorded_program=recorded_program,
+                thumbnail_path=thumbnail_path if await thumbnail_path.exists() else None
+            )
+        except Exception as e:
+            logging.warning(f'通知送信に失敗しました: {e}')
+
+
+    async def __runBackgroundAnalysis(self, recorded_program: schemas.RecordedProgram, should_notify: bool = False) -> None:
         """
         録画完了後のバックグラウンド解析タスク
         - キーフレーム解析
@@ -680,6 +717,7 @@ class RecordedScanTask:
 
         Args:
             recorded_program (schemas.RecordedProgram): 解析対象の録画番組情報
+            should_notify (bool): 解析完了後に通知を送信するかどうか
         """
 
         # 録画ファイルのパスを anyio.Path に変換
@@ -701,6 +739,13 @@ class RecordedScanTask:
                         ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(skip_tile_if_exists=True),
                     )
             logging.info(f'{file_path}: Background analysis completed.')
+
+            # バックグラウンド解析完了後に通知を送信（サムネイル生成完了後）
+            if should_notify:
+                try:
+                    await self._sendNewFileNotification(recorded_program)
+                except Exception as notification_ex:
+                    logging.warning(f'通知送信に失敗しました: {notification_ex}')
 
         except Exception as ex:
             logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)

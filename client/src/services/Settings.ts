@@ -117,6 +117,15 @@ export interface IServerSettings {
     capture: {
         upload_folders: string[];
     };
+    notifications: {
+        services: Array<{
+            type: 'Telegram' | 'Slack';
+            enabled: boolean;
+            bot_token?: string;
+            chat_id?: string;
+            webhook_url?: string;
+        }>;
+    };
 }
 
 /* サーバー設定を表すインターフェースのデフォルト値 */
@@ -145,6 +154,9 @@ export const IServerSettingsDefault: IServerSettings = {
     },
     capture: {
         upload_folders: [],
+    },
+    notifications: {
+        services: [],
     },
 };
 

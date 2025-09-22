@@ -242,6 +242,98 @@
                     <span class="ml-1">保存先フォルダを追加</span>
                 </v-btn>
             </div>
+            <div class="settings__content-heading mt-6">
+                <Icon icon="fluent:alert-16-filled" width="22px" />
+                <span class="ml-2">通知</span>
+            </div>
+            <div class="settings__item-label">
+                新しい録画ファイルが検出された時に外部サービスへ通知を送信します。<br>
+                複数の通知サービスを同時に有効にできます。<br>
+            </div>
+            <div v-for="(service, index) in server_settings.notifications.services" :key="'notification-service-' + index">
+                <div class="settings__item mt-4" style="border: 1px solid rgb(var(--v-theme-background-lighten-2)); border-radius: 8px; padding: 24px;">
+                    <div class="d-flex align-center mb-4">
+                        <div class="settings__item-heading" style="margin: 0; flex: 1;">通知サービス #{{ index + 1 }}</div>
+                        <button v-ripple class="settings__item-delete-button"
+                            @click="server_settings.notifications.services.splice(index, 1)">
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="settings__item settings__item--switch mb-3">
+                        <label class="settings__item-heading" :for="'notification-enabled-' + index">この通知サービスを有効にする</label>
+                        <v-switch class="settings__item-switch" color="primary" hide-details
+                            :density="is_form_dense ? 'compact' : 'default'"
+                            :id="'notification-enabled-' + index"
+                            v-model="service.enabled">
+                        </v-switch>
+                    </div>
+
+                    <div class="settings__item mb-3">
+                        <div class="settings__item-heading">通知サービスの種類</div>
+                        <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                            :density="is_form_dense ? 'compact' : 'default'"
+                            :items="[
+                                {title: 'Telegram', value: 'Telegram'},
+                                {title: 'Slack（将来実装予定）', value: 'Slack', disabled: true}
+                            ]"
+                            v-model="service.type">
+                        </v-select>
+                    </div>
+
+                    <template v-if="service.type === 'Telegram'">
+                        <div class="settings__item mb-3">
+                            <div class="settings__item-heading">Bot Token</div>
+                            <div class="settings__item-label">
+                                Telegram の BotFather から取得した Bot Token を入力してください。<br>
+                            </div>
+                            <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
+                                placeholder="例: 123456789:ABCDEFghijklmnopQRSTUVwxyz"
+                                :density="is_form_dense ? 'compact' : 'default'"
+                                v-model="service.bot_token">
+                            </v-text-field>
+                        </div>
+                        <div class="settings__item">
+                            <div class="settings__item-heading">Chat ID</div>
+                            <div class="settings__item-label">
+                                通知を送信する先の Chat ID を入力してください。<br>
+                                個人チャットの場合は数字、グループチャットの場合は負の数字になります。<br>
+                            </div>
+                            <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
+                                placeholder="例: 123456789 または -987654321"
+                                :density="is_form_dense ? 'compact' : 'default'"
+                                v-model="service.chat_id">
+                            </v-text-field>
+                        </div>
+                    </template>
+
+                    <template v-if="service.type === 'Slack'">
+                        <div class="settings__item">
+                            <div class="settings__item-heading">Webhook URL</div>
+                            <div class="settings__item-label">
+                                Slack の Incoming Webhook URL を入力してください。<br>
+                            </div>
+                            <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
+                                placeholder="例: https://hooks.slack.com/services/..."
+                                :density="is_form_dense ? 'compact' : 'default'"
+                                v-model="service.webhook_url">
+                            </v-text-field>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
+                @click="addNotificationService()">
+                <Icon icon="fluent:add-12-filled" height="17px" />
+                <span class="ml-1">通知サービスを追加</span>
+            </v-btn>
+            <v-btn class="mt-3 ml-3" color="background-lighten-2" variant="flat" height="40px"
+                @click="testNotification()" :disabled="!hasEnabledNotificationServices">
+                <Icon icon="fluent:speaker-2-16-filled" height="17px" />
+                <span class="ml-1">テスト通知を送信</span>
+            </v-btn>
             <v-btn class="settings__save-button bg-secondary mt-6" variant="flat" @click="updateServerSettings()">
                 <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
             </v-btn>
@@ -362,7 +454,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import AccountManageSettings from '@/components/Settings/AccountManageSettings.vue';
 import ServerLogDialog from '@/components/Settings/ServerLogDialog.vue';
@@ -477,6 +569,36 @@ async function shutdownServer() {
     const result = await Maintenance.shutdownServer();
     if (result === true) {
         Message.success('KonomiTV サーバーをシャットダウンしました。');
+    }
+}
+
+// 通知サービスを追加する関数
+function addNotificationService() {
+    server_settings.value.notifications.services.push({
+        type: 'Telegram',
+        enabled: false,
+        bot_token: '',
+        chat_id: '',
+        webhook_url: ''
+    });
+}
+
+// 有効な通知サービスが存在するかを計算
+const hasEnabledNotificationServices = computed(() => {
+    return server_settings.value.notifications.services.some(service => service.enabled);
+});
+
+// テスト通知を送信する関数
+async function testNotification() {
+    if (!hasEnabledNotificationServices.value) {
+        Message.error('有効な通知サービスが設定されていません。');
+        return;
+    }
+
+    Message.show('テスト通知を送信しています...');
+    const result = await Maintenance.testNotification();
+    if (result === true) {
+        Message.success('テスト通知を送信しました。');
     }
 }
 

@@ -391,3 +391,59 @@ def ServerShutdownAPI(
 
     # バックグラウンドでサーバー終了を開始
     threading.Thread(target=Shutdown).start()
+
+
+@router.post(
+    '/test-notification',
+    summary = '通知設定テスト API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def TestNotificationAPI():
+    """
+    最新の録画ファイル1件でテスト通知を送信する。<br>
+    通知設定が正しく機能しているか確認するために使用。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    from app.utils.NotificationService import NotificationManager
+
+    # 最新の録画を取得
+    db_recorded_program = await RecordedProgram.all() \
+        .select_related('recorded_video') \
+        .select_related('channel') \
+        .order_by('-id').first()
+
+    if db_recorded_program is None:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = 'No recorded programs found for testing',
+        )
+
+    # 通知サービスが設定されているかチェック
+    config = Config()
+    if len(config.notifications.services) == 0:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = 'No notification services are configured',
+        )
+
+    # 有効な通知サービスがあるかチェック
+    enabled_services = [svc for svc in config.notifications.services if svc.enabled]
+    if len(enabled_services) == 0:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = 'No notification services are enabled',
+        )
+
+    # RecordedProgram モデルを schemas.RecordedProgram に変換
+    recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
+
+    # テスト通知を送信
+    notification_manager = NotificationManager(config.notifications.services)
+    try:
+        await notification_manager.send_test(recorded_program)
+    except Exception as ex:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to send test notification: {str(ex)}',
+        )

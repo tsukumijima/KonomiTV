@@ -309,12 +309,27 @@ class _ServerSettingsVideo(BaseModel):
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
 
+
+class _ServerSettingsNotificationService(BaseModel):
+    type: Literal['Telegram', 'Slack'] = 'Telegram'
+    enabled: bool = False
+    # Telegram設定
+    bot_token: str | None = None
+    chat_id: str | None = None
+    # Slack設定（将来用）
+    webhook_url: str | None = None
+
+
+class _ServerSettingsNotifications(BaseModel):
+    services: list[_ServerSettingsNotificationService] = []
+
 class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral = _ServerSettingsGeneral()
     server: _ServerSettingsServer = _ServerSettingsServer()
     tv: _ServerSettingsTV = _ServerSettingsTV()
     video: _ServerSettingsVideo = _ServerSettingsVideo()
     capture: _ServerSettingsCapture = _ServerSettingsCapture()
+    notifications: _ServerSettingsNotifications = _ServerSettingsNotifications()
 
 
 # サーバー設定データと読み込み・保存用の関数

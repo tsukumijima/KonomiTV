@@ -187,6 +187,36 @@ class Maintenance {
 
         return true;
     }
+
+    /**
+     * テスト通知を送信する
+     */
+    static async testNotification(): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post('/maintenance/test-notification');
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                case 'No recorded programs found for testing':
+                    Message.error('テスト通知を送信するための録画番組が見つかりませんでした。');
+                    break;
+                case 'No notification services are configured':
+                    Message.error('通知サービスが設定されていません。');
+                    break;
+                case 'No notification services are enabled':
+                    Message.error('有効な通知サービスがありません。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, 'テスト通知を送信できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
 }
 
 export default Maintenance;
