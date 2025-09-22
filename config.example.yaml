@@ -104,14 +104,18 @@ capture:
 # =============================== 通知設定 ===============================
 notifications:
     # 通知サービスのリスト（複数設定可能）
-    services:
-        # Telegram 通知
-        - type: 'Telegram'
-          enabled: false
-          bot_token: ''  # BotFatherから取得したトークン
-          chat_id: ''    # 通知先のチャットID
-
-        # Slack 通知（将来実装予定）
-        # - type: 'Slack'
-        #   enabled: false
-        #   webhook_url: ''  # Slack Webhook URL
+    services: [
+        # Telegram 通知の例
+        # {
+        #     'type': 'Telegram',
+        #     'enabled': false,
+        #     'bot_token': '',  # BotFatherから取得したトークン
+        #     'chat_id': '',    # 通知先のチャットID
+        # },
+        # Slack 通知の例（将来実装予定）
+        # {
+        #     'type': 'Slack',
+        #     'enabled': false,
+        #     'webhook_url': '',  # Slack Webhook URL
+        # },
+    ]

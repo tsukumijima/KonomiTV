@@ -324,16 +324,18 @@
                     </template>
                 </div>
             </div>
-            <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
-                @click="addNotificationService()">
-                <Icon icon="fluent:add-12-filled" height="17px" />
-                <span class="ml-1">通知サービスを追加</span>
-            </v-btn>
-            <v-btn class="mt-3 ml-3" color="background-lighten-2" variant="flat" height="40px"
-                @click="testNotification()" :disabled="!hasEnabledNotificationServices">
-                <Icon icon="fluent:speaker-2-16-filled" height="17px" />
-                <span class="ml-1">テスト通知を送信</span>
-            </v-btn>
+            <div class="d-flex align-center mt-3">
+                <v-btn color="background-lighten-2" variant="flat" height="40px"
+                    @click="addNotificationService()">
+                    <Icon icon="fluent:add-12-filled" height="17px" />
+                    <span class="ml-1">通知サービスを追加</span>
+                </v-btn>
+                <v-btn class="ml-3" color="background-lighten-2" variant="flat" height="40px"
+                    @click="testNotification()" :disabled="!hasEnabledNotificationServices">
+                    <Icon icon="fluent:speaker-2-16-filled" height="17px" />
+                    <span class="ml-1">テスト通知を送信</span>
+                </v-btn>
+            </div>
             <v-btn class="settings__save-button bg-secondary mt-6" variant="flat" @click="updateServerSettings()">
                 <Icon icon="fluent:save-16-filled" class="mr-2" height="23px" />サーバー設定を更新
             </v-btn>

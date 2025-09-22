@@ -468,12 +468,19 @@ def SaveConfig(config: ServerSettings) -> None:
     # コメントやフォーマットを保持して保存するために更新方法を工夫している
     for key in config_dict:
         for sub_key in config_dict[key]:
-            # 文字列のリストを更新する場合は clear() と extend() を使う
+            # リストを更新する場合は clear() と extend() を使う
             if type(config_dict[key][sub_key]) is list:
                 if type(config_raw[key][sub_key]) is ruamel.yaml.CommentedSeq:
                     config_raw[key][sub_key].clear()
                     for item in config_dict[key][sub_key]:
-                        config_raw[key][sub_key].append(ruamel.yaml.scalarstring.SingleQuotedScalarString(item))
+                        # 文字列の場合は SingleQuotedScalarString に変換
+                        if type(item) is str:
+                            config_raw[key][sub_key].append(ruamel.yaml.scalarstring.SingleQuotedScalarString(item))
+                        # 辞書（オブジェクト）の場合はそのまま追加
+                        elif type(item) is dict:
+                            config_raw[key][sub_key].append(item)
+                        else:
+                            config_raw[key][sub_key].append(item)
                 else:
                     config_raw[key][sub_key] = ruamel.yaml.CommentedSeq(config_dict[key][sub_key])
             # 文字列は明示的に SingleQuotedScalarString に変換する
