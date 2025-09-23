@@ -100,17 +100,37 @@ export default defineComponent({
 
             // Swiper のインスタンス
             swiper_instance: null as SwiperClass | null,
+
+            // 各タブのスクロール位置を保存するオブジェクト
+            tab_scroll_positions: {} as Record<number, number>,
         };
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore),
     },
     watch: {
-        active_tab_index() {
+        active_tab_index(newIndex: number, oldIndex: number) {
+            // 前のタブのスクロール位置を保存
+            if (oldIndex !== undefined) {
+                const container = document.querySelector<HTMLDivElement>('.channels-list-container');
+                if (container) {
+                    this.tab_scroll_positions[oldIndex] = container.scrollTop;
+                }
+            }
+
             // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
             this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             this.swiper_instance?.slideTo(this.active_tab_index);
+
+            // 新しいタブのスクロール位置を復元
+            this.$nextTick(() => {
+                const container = document.querySelector<HTMLDivElement>('.channels-list-container');
+                if (container) {
+                    const savedPosition = this.tab_scroll_positions[newIndex] || 0;
+                    container.scrollTop = savedPosition;
+                }
+            });
         },
         async 'playerStore.tv_panel_active_tab'() {
             // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
@@ -130,8 +150,11 @@ export default defineComponent({
         this.swiper_instance?.updateAutoHeight();
 
         // .channels-list-container がスクロールされたときに Swiper の autoHeight を再計算する
-        document.querySelector<HTMLDivElement>('.channels-list-container')?.addEventListener('scroll', () => {
+        const container = document.querySelector<HTMLDivElement>('.channels-list-container');
+        container?.addEventListener('scroll', () => {
             this.swiper_instance?.updateAutoHeight();
+            // 現在のタブのスクロール位置を常に保存しておく
+            this.tab_scroll_positions[this.active_tab_index] = container.scrollTop;
         }, { passive: true });
 
         // 既定のパネルのアクティブなタブがチャンネルタブ (つまりもうこのタブが表示されている) 場合は、さらに 0.1 秒間隔で 2 秒間繰り返す

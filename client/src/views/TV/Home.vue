@@ -164,6 +164,9 @@ export default defineComponent({
             // スクロールイベントを解除するための AbortController
             scroll_abort_controller: new AbortController(),
 
+            // 各タブのスクロール位置を保存するオブジェクト
+            tab_scroll_positions: {} as Record<number, number>,
+
             // ローディング中かどうか
             is_loading: true,
 
@@ -177,12 +180,23 @@ export default defineComponent({
         ...mapStores(useChannelsStore, useSettingsStore),
     },
     watch: {
-        active_tab_index() {
+        active_tab_index(newIndex: number, oldIndex: number) {
+            // 前のタブのスクロール位置を保存
+            if (oldIndex !== undefined) {
+                this.tab_scroll_positions[oldIndex] = window.scrollY;
+            }
+
             // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
             this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
             this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
+
+            // 新しいタブのスクロール位置を復元
+            this.$nextTick(() => {
+                const savedPosition = this.tab_scroll_positions[newIndex] || 0;
+                window.scrollTo(0, savedPosition);
+            });
         }
     },
     // 開始時に実行
@@ -225,6 +239,8 @@ export default defineComponent({
         // 画面がスクロールされたときに Swiper の autoHeight を再計算する
         window.addEventListener('scroll', () => {
             this.swiper_instance?.updateAutoHeight();
+            // 現在のタブのスクロール位置を常に保存しておく
+            this.tab_scroll_positions[this.active_tab_index] = window.scrollY;
         }, { passive: true, signal: this.scroll_abort_controller.signal });
 
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
