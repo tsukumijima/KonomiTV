@@ -373,6 +373,7 @@ class RecordedScanTask:
         file_path: anyio.Path,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideo] | None,
         force_update: bool = False,
+        selected_service_id: int | None = None,
     ) -> None:
         """
         指定された録画ファイルのメタデータを解析し、DB に永続化する
@@ -476,7 +477,7 @@ class RecordedScanTask:
                 ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
                 ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
                 loop = asyncio.get_running_loop()
-                analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
+                analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)), selected_service_id)  # anyio.Path -> pathlib.Path に変換
                 try:
                     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
                         recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
@@ -511,7 +512,8 @@ class RecordedScanTask:
                 # 録画中のファイルとして処理
                 ## 他ドライブからファイルコピー中のファイルも、実際の録画処理より高速に書き込まれるだけで随時書き込まれることに変わりはないので、
                 ## 録画中として判断されることがある（その場合、ファイルコピーが完了した段階で「録画完了」扱いとなる）
-                if is_recording or (now - file_modified_at).total_seconds() < self.RECORDING_COMPLETE_SECONDS:
+                ## force_update (手動スキャン) の場合は _recording_files の状態を無視し、ファイルの更新時刻のみで判定
+                if (not force_update and is_recording) or (not force_update and (now - file_modified_at).total_seconds() < self.RECORDING_COMPLETE_SECONDS):
                     # status を Recording に設定
                     recorded_program.recorded_video.status = 'Recording'
                     # 状態を更新
@@ -526,6 +528,9 @@ class RecordedScanTask:
                     # status を Recorded に設定
                     # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
                     recorded_program.recorded_video.status = 'Recorded'
+                    # 手動スキャンの場合、_recording_files から削除して録画完了状態をクリアする
+                    if force_update:
+                        self._recording_files.pop(file_path, None)
                     # 録画完了後のバックグラウンド解析タスクを開始
                     if file_path not in self._background_tasks:
                         # 通知が必要かどうかを判定（新規ファイルまたはRecording→Recordedの状態変化）
@@ -696,11 +701,24 @@ class RecordedScanTask:
         try:
             notification_manager = NotificationManager(self.config.notifications.services)
 
+            # データベースから保存済みのRecordedProgramを取得（正しいIDを持つ）
+            db_recorded_video = await RecordedVideo.get_or_none(
+                file_path=recorded_program.recorded_video.file_path
+            ).select_related('recorded_program', 'recorded_program__channel')
+
+            if db_recorded_video and db_recorded_video.recorded_program:
+                # 元のrecorded_programオブジェクトをコピーしてIDを更新
+                notification_recorded_program = recorded_program.model_copy()
+                notification_recorded_program.id = db_recorded_video.recorded_program.id
+            else:
+                # データベースから取得できない場合は元のオブジェクトを使用
+                notification_recorded_program = recorded_program
+
             # サムネイルパスを取得
             thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}.webp'
 
             await notification_manager.send_new_recording(
-                recorded_program=recorded_program,
+                recorded_program=notification_recorded_program,
                 thumbnail_path=thumbnail_path if await thumbnail_path.exists() else None
             )
         except Exception as e:

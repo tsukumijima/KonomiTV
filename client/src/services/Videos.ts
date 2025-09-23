@@ -270,14 +270,36 @@ class Videos {
 
 
     /**
+     * 録画番組で利用可能なチャンネル一覧を取得する
+     * @param video_id 録画番組の ID
+     * @returns 利用可能なチャンネル一覧 or 取得に失敗した場合は null
+     */
+    static async fetchVideoAvailableChannels(video_id: number): Promise<Array<{service_id: number, channel_name: string}> | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<Array<{service_id: number, channel_name: string}>>(`/videos/${video_id}/available-channels`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '利用可能なチャンネル一覧を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * 録画番組のメタデータを再解析する
      * @param video_id 録画番組の ID
+     * @param selected_service_id 選択されたサービス ID (オプション)
      * @returns メタデータ再解析に成功した場合は true
      */
-    static async reanalyzeVideo(video_id: number): Promise<boolean> {
+    static async reanalyzeVideo(video_id: number, selected_service_id?: number): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.post(`/videos/${video_id}/reanalyze`, undefined, {
+            params: selected_service_id ? { selected_service_id } : undefined,
             // 数分以上かかるのでタイムアウトを 10 分に設定
             timeout: 10 * 60 * 1000,
         });

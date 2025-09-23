@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from abc import ABC, abstractmethod
 
 import anyio
@@ -68,10 +69,10 @@ class TelegramNotificationService(NotificationService):
         try:
             if thumbnail_path and await thumbnail_path.exists():
                 # サムネイル付きで送信
-                await self._send_photo_with_caption(message, thumbnail_path)
+                await self._send_photo_with_caption(message, thumbnail_path, recorded_program)
             else:
                 # テキストのみ送信
-                await self._send_text_message(message)
+                await self._send_text_message(message, recorded_program)
         except Exception as ex:
             logging.warning(f'Telegram通知の送信に失敗しました: {ex}')
             raise
@@ -82,7 +83,7 @@ class TelegramNotificationService(NotificationService):
         message = "🔔 **通知設定テスト**\n\n" + self._build_recording_message(recorded_program)
 
         try:
-            await self._send_text_message(message)
+            await self._send_text_message(message, recorded_program)
         except Exception as ex:
             logging.warning(f'Telegram テスト通知の送信に失敗しました: {ex}')
             raise
@@ -122,7 +123,7 @@ class TelegramNotificationService(NotificationService):
 
         return message
 
-    async def _send_text_message(self, text: str) -> None:
+    async def _send_text_message(self, text: str, recorded_program: schemas.RecordedProgram = None) -> None:
         """テキストメッセージを送信"""
 
         url = f'{self.base_url}/sendMessage'
@@ -132,11 +133,27 @@ class TelegramNotificationService(NotificationService):
             'parse_mode': 'Markdown'
         }
 
+        # 録画番組情報がある場合、内联键盘を追加
+        if recorded_program and self.config.watch_urls:
+            program_id = recorded_program.id
+            inline_keyboard_buttons = []
+            for watch_url_config in self.config.watch_urls:
+                button = {
+                    'text': watch_url_config.text,
+                    'url': f'{watch_url_config.base_url}/videos/watch/{program_id}'
+                }
+                inline_keyboard_buttons.append(button)
+
+            inline_keyboard = {
+                'inline_keyboard': [inline_keyboard_buttons]
+            }
+            data['reply_markup'] = json.dumps(inline_keyboard)
+
         async with httpx.AsyncClient() as client:
             response = await client.post(url, data=data, timeout=30)
             response.raise_for_status()
 
-    async def _send_photo_with_caption(self, caption: str, photo_path: anyio.Path) -> None:
+    async def _send_photo_with_caption(self, caption: str, photo_path: anyio.Path, recorded_program: schemas.RecordedProgram = None) -> None:
         """サムネイル画像付きでメッセージを送信"""
 
         url = f'{self.base_url}/sendPhoto'
@@ -146,7 +163,7 @@ class TelegramNotificationService(NotificationService):
         if file_size.st_size > 10 * 1024 * 1024:  # 10MB
             logging.warning(f'サムネイルファイルが大きすぎます ({file_size.st_size} bytes): {photo_path}')
             # サイズが大きい場合はテキストのみ送信
-            await self._send_text_message(caption)
+            await self._send_text_message(caption, recorded_program)
             return
 
         # マルチパートフォームデータを構築
@@ -158,6 +175,22 @@ class TelegramNotificationService(NotificationService):
             'caption': caption,
             'parse_mode': 'Markdown'
         }
+
+        # 録画番組情報がある場合、内联键盘を追加
+        if recorded_program and self.config.watch_urls:
+            program_id = recorded_program.id
+            inline_keyboard_buttons = []
+            for watch_url_config in self.config.watch_urls:
+                button = {
+                    'text': watch_url_config.text,
+                    'url': f'{watch_url_config.base_url}/videos/watch/{program_id}'
+                }
+                inline_keyboard_buttons.append(button)
+
+            inline_keyboard = {
+                'inline_keyboard': [inline_keyboard_buttons]
+            }
+            data['reply_markup'] = json.dumps(inline_keyboard)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(url, data=data, files=files, timeout=30)

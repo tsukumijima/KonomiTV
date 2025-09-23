@@ -307,6 +307,49 @@
                                 v-model="service.chat_id">
                             </v-text-field>
                         </div>
+                        <div class="settings__item">
+                            <div class="settings__item-heading">視聴ボタンの設定</div>
+                            <div class="settings__item-label">
+                                通知メッセージに表示される視聴ボタンを設定できます。<br>
+                                複数のボタンを設定可能です。未設定の場合、視聴ボタンは表示されません。<br>
+                            </div>
+                            <div v-if="!service.watch_urls">
+                                <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
+                                    @click="service.watch_urls = []">
+                                    <Icon icon="fluent:add-12-filled" height="17px" />
+                                    <span class="ml-1">視聴ボタンを追加</span>
+                                </v-btn>
+                            </div>
+                            <div v-else>
+                                <div v-for="(watch_url, watch_url_index) in service.watch_urls" :key="'watch-url-' + watch_url_index">
+                                    <div class="d-flex align-center mt-3" style="gap: 12px;">
+                                        <v-text-field class="flex-grow-1" color="primary" variant="outlined" hide-details
+                                            label="ボタンテキスト"
+                                            placeholder="例: 🏠 ローカルで視聴"
+                                            :density="is_form_dense ? 'compact' : 'default'"
+                                            v-model="watch_url.text">
+                                        </v-text-field>
+                                        <v-text-field class="flex-grow-1" color="primary" variant="outlined" hide-details
+                                            label="ベースURL"
+                                            placeholder="例: https://internal.example.com"
+                                            :density="is_form_dense ? 'compact' : 'default'"
+                                            v-model="watch_url.base_url">
+                                        </v-text-field>
+                                        <button v-ripple class="settings__item-delete-button"
+                                            @click="service.watch_urls.splice(watch_url_index, 1)">
+                                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
+                                    @click="service.watch_urls.push({text: '', base_url: '', type: 'watch_url'})">
+                                    <Icon icon="fluent:add-12-filled" height="17px" />
+                                    <span class="ml-1">視聴ボタンを追加</span>
+                                </v-btn>
+                            </div>
+                        </div>
                     </template>
 
                     <template v-if="service.type === 'Slack'">
@@ -581,7 +624,8 @@ function addNotificationService() {
         enabled: false,
         bot_token: '',
         chat_id: '',
-        webhook_url: ''
+        webhook_url: '',
+        watch_urls: []
     });
 }
 

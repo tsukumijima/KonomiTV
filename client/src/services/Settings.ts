@@ -124,6 +124,11 @@ export interface IServerSettings {
             bot_token?: string;
             chat_id?: string;
             webhook_url?: string;
+            watch_urls?: Array<{
+                text: string;
+                base_url: string;
+                type: 'watch_url';
+            }>;
         }>;
     };
 }

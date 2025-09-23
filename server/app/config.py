@@ -305,9 +305,18 @@ class _ServerSettingsTV(BaseModel):
 
 class _ServerSettingsVideo(BaseModel):
     recorded_folders: list[DirectoryPath] = []
+    # チャンネル選択設定
+    channel_selection_mode: Literal['auto', 'prefer_main', 'first_found', 'filename_based'] = 'auto'
+    enable_filename_based_channel_selection: bool = True
 
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
+
+
+class WatchUrlConfig(BaseModel):
+    text: str
+    base_url: str
+    type: Literal['watch_url'] = 'watch_url'
 
 
 class _ServerSettingsNotificationService(BaseModel):
@@ -318,6 +327,8 @@ class _ServerSettingsNotificationService(BaseModel):
     chat_id: str | None = None
     # Slack設定（将来用）
     webhook_url: str | None = None
+    # 視聴URL設定
+    watch_urls: list[WatchUrlConfig] = []
 
 
 class _ServerSettingsNotifications(BaseModel):
@@ -455,8 +466,8 @@ def SaveConfig(config: ServerSettings) -> None:
     yaml = ruamel.yaml.YAML()
     yaml.default_flow_style = None  # None を使うと、スカラー以外のものはブロックスタイルになる
     yaml.preserve_quotes = True
-    yaml.width = 20
-    yaml.indent(mapping=4, sequence=4, offset=4)
+    yaml.width = 4096  # 幅を大きくしてスカラー値の改行を防ぐ
+    yaml.indent(mapping=4, sequence=4, offset=2)
     try:
         with open(_CONFIG_YAML_PATH, encoding='utf-8') as file:
             config_raw = yaml.load(file)
@@ -476,9 +487,33 @@ def SaveConfig(config: ServerSettings) -> None:
                         # 文字列の場合は SingleQuotedScalarString に変換
                         if type(item) is str:
                             config_raw[key][sub_key].append(ruamel.yaml.scalarstring.SingleQuotedScalarString(item))
-                        # 辞書（オブジェクト）の場合はそのまま追加
+                        # 辞書（オブジェクト）の場合は再帰的に処理
                         elif type(item) is dict:
-                            config_raw[key][sub_key].append(item)
+                            processed_dict = ruamel.yaml.CommentedMap()
+                            for dict_key, dict_value in item.items():
+                                # ネストした辞書内の文字列も SingleQuotedScalarString に変換
+                                if type(dict_value) is str:
+                                    processed_dict[dict_key] = ruamel.yaml.scalarstring.SingleQuotedScalarString(dict_value)
+                                # ネストした辞書内のリストも処理
+                                elif type(dict_value) is list:
+                                    nested_list = ruamel.yaml.CommentedSeq()
+                                    for nested_item in dict_value:
+                                        if type(nested_item) is str:
+                                            nested_list.append(ruamel.yaml.scalarstring.SingleQuotedScalarString(nested_item))
+                                        elif type(nested_item) is dict:
+                                            nested_dict = ruamel.yaml.CommentedMap()
+                                            for nested_dict_key, nested_dict_value in nested_item.items():
+                                                if type(nested_dict_value) is str:
+                                                    nested_dict[nested_dict_key] = ruamel.yaml.scalarstring.SingleQuotedScalarString(nested_dict_value)
+                                                else:
+                                                    nested_dict[nested_dict_key] = nested_dict_value
+                                            nested_list.append(nested_dict)
+                                        else:
+                                            nested_list.append(nested_item)
+                                    processed_dict[dict_key] = nested_list
+                                else:
+                                    processed_dict[dict_key] = dict_value
+                            config_raw[key][sub_key].append(processed_dict)
                         else:
                             config_raw[key][sub_key].append(item)
                 else:

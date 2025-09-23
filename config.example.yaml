@@ -111,6 +111,18 @@ notifications:
         #     'enabled': false,
         #     'bot_token': '',  # BotFatherから取得したトークン
         #     'chat_id': '',    # 通知先のチャットID
+        #     'watch_urls': [   # 視聴ボタンの設定（オプション）
+        #         {
+        #             'text': '🏠 ローカルで視聴',
+        #             'base_url': 'https://internal.example.com',
+        #             'type': 'watch_url'
+        #         },
+        #         {
+        #             'text': '🌐 外部から視聴',
+        #             'base_url': 'https://external.example.com',
+        #             'type': 'watch_url'
+        #         }
+        #     ]
         # },
         # Slack 通知の例（将来実装予定）
         # {
