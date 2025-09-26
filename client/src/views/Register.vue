@@ -16,7 +16,8 @@
                             placeholder="ユーザー名" autofocus
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="username"
-                            :rules="[username_validation]">
+                            :rules="[username_validation]"
+                            @keyup.enter="register()">
                         </v-text-field>
                         <v-text-field style="margin-top: 10px;" color="primary" variant="outlined"
                             placeholder="パスワード"
@@ -25,7 +26,8 @@
                             :type="password_showing ? 'text' : 'password'"
                             :rules="[password_validation]"
                             :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
-                            @click:appendInner="password_showing = !password_showing">
+                            @click:appendInner="password_showing = !password_showing"
+                            @keyup.enter="register()">
                         </v-text-field>
                         <v-btn class="register-button mt-5" color="secondary" variant="flat" width="100%" height="56"
                             @click="register()">
