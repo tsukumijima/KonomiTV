@@ -22,6 +22,7 @@
                     :observer="true" :observe-parents="true"
                     @swiper="swiper_instance = $event"
                     @slide-change="active_tab_index = $event.activeIndex"
+                    @slide-change-transition-end="onSlideChangeTransitionEnd"
                     v-show="Array.from(channelsStore.channels_list_with_pinned).length > 0">
                     <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned)" :key="channels_type">
                         <div class="channels" :class="`channels--tab-${channels_type} channels--length-${channels.length}`">
@@ -29,7 +30,7 @@
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <div class="channel__broadcaster">
-                                    <div class="channel__broadcaster-icon">
+                                     <div class="channel__broadcaster-icon">
                                         <div class="ch-sprite" :chid="channel.id">
                                             <img loading="lazy" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
                                         </div>
@@ -167,6 +168,9 @@ export default defineComponent({
             // 各タブのスクロール位置を保存するオブジェクト
             tab_scroll_positions: {} as Record<number, number>,
 
+            // Swiper のアニメーション中かどうか
+            is_swiper_transitioning: false,
+
             // ローディング中かどうか
             is_loading: true,
 
@@ -181,6 +185,9 @@ export default defineComponent({
     },
     watch: {
         active_tab_index(newIndex: number, oldIndex: number) {
+            // Swiper アニメーション開始
+            this.is_swiper_transitioning = true;
+
             // 前のタブのスクロール位置を保存
             if (oldIndex !== undefined) {
                 this.tab_scroll_positions[oldIndex] = window.scrollY;
@@ -191,12 +198,6 @@ export default defineComponent({
             // 現在なアクティブなタブを Swiper 側に随時反映する
             // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
             this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
-
-            // 新しいタブのスクロール位置を復元
-            this.$nextTick(() => {
-                const savedPosition = this.tab_scroll_positions[newIndex] || 0;
-                window.scrollTo(0, savedPosition);
-            });
         }
     },
     // 開始時に実行
@@ -240,7 +241,10 @@ export default defineComponent({
         window.addEventListener('scroll', () => {
             this.swiper_instance?.updateAutoHeight();
             // 現在のタブのスクロール位置を常に保存しておく
-            this.tab_scroll_positions[this.active_tab_index] = window.scrollY;
+            // ただし、Swiper のアニメーション中は更新しない（意図しない位置更新を防ぐため）
+            if (!this.is_swiper_transitioning) {
+                this.tab_scroll_positions[this.active_tab_index] = window.scrollY;
+            }
         }, { passive: true, signal: this.scroll_abort_controller.signal });
 
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
@@ -261,6 +265,12 @@ export default defineComponent({
         this.scroll_abort_controller = new AbortController();
     },
     methods: {
+
+        // Swiper のスライド切り替えアニメーション完了後に新しいタブのスクロール位置を復元
+        onSlideChangeTransitionEnd() {
+            window.scrollTo(0, this.tab_scroll_positions[this.active_tab_index] || 0);
+            this.is_swiper_transitioning = false;
+        },
 
         // チャンネルをピン留めする
         addPinnedChannel(channel: ILiveChannel) {

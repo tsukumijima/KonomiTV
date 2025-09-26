@@ -17,7 +17,8 @@
             <Swiper class="channels-list" :space-between="32" :auto-height="true" :touch-start-prevent-default="false"
                 :observer="true" :observe-parents="true"
                 @swiper="swiper_instance = $event"
-                @slide-change="active_tab_index = $event.activeIndex">
+                @slide-change="active_tab_index = $event.activeIndex"
+                @slide-change-transition-end="onSlideChangeTransitionEnd">
                 <SwiperSlide v-for="[channels_type, channels] in Array.from(channelsStore.channels_list_with_pinned_for_watch)" :key="channels_type">
                     <div class="channels">
                         <router-link v-ripple class="channel" draggable="false"
@@ -103,6 +104,9 @@ export default defineComponent({
 
             // 各タブのスクロール位置を保存するオブジェクト
             tab_scroll_positions: {} as Record<number, number>,
+
+            // Swiper のアニメーション中かどうか
+            is_swiper_transitioning: false,
         };
     },
     computed: {
@@ -110,6 +114,9 @@ export default defineComponent({
     },
     watch: {
         active_tab_index(newIndex: number, oldIndex: number) {
+            // Swiper アニメーション開始
+            this.is_swiper_transitioning = true;
+
             // 前のタブのスクロール位置を保存
             if (oldIndex !== undefined) {
                 const container = document.querySelector<HTMLDivElement>('.channels-list-container');
@@ -122,15 +129,6 @@ export default defineComponent({
             this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             this.swiper_instance?.slideTo(this.active_tab_index);
-
-            // 新しいタブのスクロール位置を復元
-            this.$nextTick(() => {
-                const container = document.querySelector<HTMLDivElement>('.channels-list-container');
-                if (container) {
-                    const savedPosition = this.tab_scroll_positions[newIndex] || 0;
-                    container.scrollTop = savedPosition;
-                }
-            });
         },
         async 'playerStore.tv_panel_active_tab'() {
             // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
@@ -154,7 +152,10 @@ export default defineComponent({
         container?.addEventListener('scroll', () => {
             this.swiper_instance?.updateAutoHeight();
             // 現在のタブのスクロール位置を常に保存しておく
-            this.tab_scroll_positions[this.active_tab_index] = container.scrollTop;
+            // ただし、Swiper のアニメーション中は更新しない（意図しない位置更新を防ぐため）
+            if (!this.is_swiper_transitioning) {
+                this.tab_scroll_positions[this.active_tab_index] = container.scrollTop;
+            }
         }, { passive: true });
 
         // 既定のパネルのアクティブなタブがチャンネルタブ (つまりもうこのタブが表示されている) 場合は、さらに 0.1 秒間隔で 2 秒間繰り返す
@@ -165,6 +166,16 @@ export default defineComponent({
                 this.swiper_instance?.updateAutoHeight();
             }
         }
+    },
+    methods: {
+        // Swiper のスライド切り替えアニメーション完了後に新しいタブのスクロール位置を復元
+        onSlideChangeTransitionEnd() {
+            const container = document.querySelector<HTMLDivElement>('.channels-list-container');
+            if (container) {
+                container.scrollTop = this.tab_scroll_positions[this.active_tab_index] || 0;
+            }
+            this.is_swiper_transitioning = false;
+        },
     },
 });
 
