@@ -327,6 +327,25 @@ export class ProgramUtils {
 
 
     /**
+     * ARIB 外字記号を除去するための正規表現パターンを取得する
+     * @returns 記号除去用の正規表現パターンの配列
+     */
+    static getEnclosedCharactersRemovalPatterns(): RegExp[] {
+        // 本来 ARIB 外字である記号の一覧
+        // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
+        // ref: https://github.com/xtne6f/EDCB/blob/work-plus-s/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1319
+        const mark = '新|終|再|交|映|手|声|多|副|字|文|CC|OP|二|S|B|SS|無|無料|' +
+            'C|S1|S2|S3|MV|双|デ|D|N|W|P|H|HV|SD|天|解|料|前|後|初|生|販|吹|PPV|' +
+            '演|移|他|収|・|英|韓|中|字/日|字/日英|3D|2ndScr|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|Hi-Res|Lossless|SHV|UHD|VOD|配|初';
+
+        // 正規表現を作成
+        const pattern1 = new RegExp('\\((二|字|再)\\)', 'g');  // 通常の括弧で囲まれている記号
+        const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
+
+        return [pattern1, pattern2];
+    }
+
+    /**
      * 番組情報中の[字]や[解]などの記号をいい感じに装飾する
      * @param program 番組情報のオブジェクト
      * @param key 番組情報のオブジェクトから取り出すプロパティのキー
@@ -340,20 +359,12 @@ export class ProgramUtils {
             // 番組情報に含まれる HTML の特殊文字で表示がバグらないように、事前に HTML エスケープしておく
             const text = Utils.escapeHTML(program[key]);
 
-            // 本来 ARIB 外字である記号の一覧
-            // ref: https://ja.wikipedia.org/wiki/%E7%95%AA%E7%B5%84%E8%A1%A8
-            // ref: https://github.com/xtne6f/EDCB/blob/work-plus-s/EpgDataCap3/EpgDataCap3/ARIB8CharDecode.cpp#L1319
-            const mark = '新|終|再|交|映|手|声|多|副|字|文|CC|OP|二|S|B|SS|無|無料|' +
-                'C|S1|S2|S3|MV|双|デ|D|N|W|P|H|HV|SD|天|解|料|前|後初|生|販|吹|PPV|' +
-                '演|移|他|収|・|英|韓|中|字/日|字/日英|3D|2ndScr|2K|4K|8K|5.1|7.1|22.2|60P|120P|d|HC|HDR|Hi-Res|Lossless|SHV|UHD|VOD|配|初';
-
-            // 正規表現を作成
-            const pattern1 = new RegExp('\\((二|字|再)\\)', 'g');  // 通常の括弧で囲まれている記号
-            const pattern2 = new RegExp(`\\[(${mark})\\]`, 'g');
+            // 正規表現パターンを取得
+            const patterns = ProgramUtils.getEnclosedCharactersRemovalPatterns();
 
             // 正規表現で置換した結果を返す
-            return text.replace(pattern1, '<span class="decorate-symbol">$1</span>')
-                .replace(pattern2, '<span class="decorate-symbol">$1</span>');
+            return text.replace(patterns[0], '<span class="decorate-symbol">$1</span>')
+                .replace(patterns[1], '<span class="decorate-symbol">$1</span>');
 
         // 番組情報がない時間帯
         } else {
