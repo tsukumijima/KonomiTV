@@ -69,6 +69,7 @@ export interface ITwitterChallengeData extends ITwitterAPIResult {
     endpoint_infos: { [key: string]: ITwitterGraphQLAPIEndpointInfo };
     verification_code: string;
     challenge_js_code: string;
+    vendor_js_code: string;
     challenge_animation_svg_codes: string[];
 }
 
