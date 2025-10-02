@@ -393,6 +393,16 @@ class TwitterGraphQLAPI:
             )
         challenge_code = challenge_code_match.group(1)
 
+        # HTML から vendor コードを取得
+        vendor_code_match = re.search(r'vendor\.(\w+)\.js["\']', twitter_web_app_html_text)
+        if not vendor_code_match:
+            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor code from Twitter Web App HTML')
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から vendor コードを取得できませんでした。',
+            )
+        vendor_code = vendor_code_match.group(1)
+
         # HTML からアニメーション SVG の outerHTML を取得
         challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
 
@@ -413,6 +423,22 @@ class TwitterGraphQLAPI:
             )
         challenge_js_code = challenge_js_code_response.text
 
+        # Challenge 解決時に必要になる vendor コードを取得
+        vendor_js_code_response = await self.httpx_client.get(
+            url = f'https://abs.twimg.com/responsive-web/client-web/vendor.{vendor_code}.js',
+            headers = self.js_headers_dict,
+        )
+        if vendor_js_code_response.status_code != 200:
+            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor script from Twitter Web App HTML')
+            return schemas.TwitterAPIResult(
+                is_success = False,
+                detail = (
+                    'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から vendor コードを取得できませんでした。'
+                    f'(HTTP Error {vendor_js_code_response.status_code})'
+                ),
+            )
+        vendor_js_code = vendor_js_code_response.text
+
         # この時点でリクエスト自体は成功しているはずなので、httpx のセッションが持つ Cookie を DB に反映する
         ## HTML リクエスト時に Cookie が更新される可能性があるため、ここで変更された可能性がある Cookie を永続化する
         await self.persistCookies()
@@ -423,6 +449,7 @@ class TwitterGraphQLAPI:
             endpoint_infos = self.ENDPOINT_INFOS,
             verification_code = verification_code,
             challenge_js_code = challenge_js_code,
+            vendor_js_code = vendor_js_code,
             challenge_animation_svg_codes = challenge_animation_svg_codes,
         )
 
