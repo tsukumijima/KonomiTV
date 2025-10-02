@@ -106,6 +106,9 @@ class VideoStream:
             # cancel_destroy_timer() を呼び出すことでタイマーをキャンセルできる
             instance._cancel_destroy_timer = SetTimeout(lambda: asyncio.create_task(instance.destroy()), cls.SESSION_TIMEOUT)
 
+            # 現在処理中のセグメントリクエスト数
+            instance._active_segment_requests = 0
+
             # 生成したインスタンスを登録する
             cls.__instances[session_id] = instance
 
@@ -145,6 +148,7 @@ class VideoStream:
         self._segments: list[VideoStreamSegment]
         self._encoding_task: VideoEncodingTask
         self._cancel_destroy_timer: Callable[[], None]
+        self._active_segment_requests: int
 
 
     @property
@@ -338,36 +342,53 @@ class VideoStream:
         if segment_sequence < 0 or segment_sequence >= len(self._segments):
             return None
 
-        # シーケンス番号に対応する HLS セグメントを取得する
-        segment = self._segments[segment_sequence]
+        # 同時リクエスト数をチェック（最大2つまで）
+        if self._active_segment_requests >= 2:
+            logging.warning(f'{self.log_prefix}[Segment {segment_sequence}] Too many concurrent requests (current: {self._active_segment_requests}), rejecting.')
+            raise HTTPException(
+                status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+                detail = 'Too many concurrent segment requests for this session',
+            )
 
-        # 当該セグメントのエンコードがまだ完了していない場合は、エンコードタスクを非同期で開始する
-        if segment.encode_status == 'Pending':
-            # 既存のエンコードタスクをキャンセル
-            await self._encoding_task.cancel()
-            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
+        # 並行リクエスト数をインクリメント
+        self._active_segment_requests += 1
+        logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Active requests: {self._active_segment_requests}')
 
-            # 新しいエンコードタスクのインスタンスを初期化
-            ## エンコードタスクは基本使い回せないので、再度新しく初期化する
-            self._encoding_task = VideoEncodingTask(self)
+        try:
+            # シーケンス番号に対応する HLS セグメントを取得する
+            segment = self._segments[segment_sequence]
 
-            # 新しいエンコードタスクを開始
-            asyncio.create_task(self._encoding_task.run(segment_sequence))
-            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
+            # 当該セグメントのエンコードがまだ完了していない場合は、エンコードタスクを非同期で開始する
+            if segment.encode_status == 'Pending':
+                # 既存のエンコードタスクをキャンセル
+                await self._encoding_task.cancel()
+                logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
 
-        # セグメントデータの Future が完了したらそのデータを返す
-        encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
-        segment.is_encoded_segment_ts_future_readed = True
+                # 新しいエンコードタスクのインスタンスを初期化
+                ## エンコードタスクは基本使い回せないので、再度新しく初期化する
+                self._encoding_task = VideoEncodingTask(self)
 
-        # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
-        readed_segments = [s for s in self._segments if s.is_encoded_segment_ts_future_readed]
-        if len(readed_segments) >= self.MAX_READED_SEGMENTS:
-            # 一番古いセグメントを取得し、状態をリセットする
-            oldest_segment = readed_segments[0]
-            await oldest_segment.resetState()
-            logging.info(f'{self.log_prefix}[Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
+                # 新しいエンコードタスクを開始
+                asyncio.create_task(self._encoding_task.run(segment_sequence))
+                logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
 
-        return encoded_segment_ts
+            # セグメントデータの Future が完了したらそのデータを返す
+            encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
+            segment.is_encoded_segment_ts_future_readed = True
+
+            # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
+            readed_segments = [s for s in self._segments if s.is_encoded_segment_ts_future_readed]
+            if len(readed_segments) >= self.MAX_READED_SEGMENTS:
+                # 一番古いセグメントを取得し、状態をリセットする
+                oldest_segment = readed_segments[0]
+                await oldest_segment.resetState()
+                logging.info(f'{self.log_prefix}[Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
+
+            return encoded_segment_ts
+        finally:
+            # 並行リクエスト数をデクリメント
+            self._active_segment_requests -= 1
+            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Request completed. Active requests: {self._active_segment_requests}')
 
 
     async def destroy(self) -> None:

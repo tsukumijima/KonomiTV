@@ -30,6 +30,11 @@
                         <Icon icon="fluent:history-20-regular" width="26px" />
                         <span class="ml-4">視聴履歴</span>
                     </v-btn>
+                    <v-btn variant="flat" class="settings-navigation__button" to="/offline-videos/">
+                        <Icon icon="fluent:cloud-arrow-down-20-regular" width="26px" />
+                        <span class="ml-4">オフライン視聴</span>
+                        <v-chip color="warning" size="x-small" class="ml-2">BETA</v-chip>
+                    </v-btn>
                     <v-btn variant="flat" class="settings-navigation__button mt-3" href="/cdn-cgi/access/logout" v-if="settingsStore.settings.is_cloudflare_zerotrust">
                         <Icon icon="fluent:sign-out-20-regular" width="26px" />
                         <span class="ml-4">CFからログアウト</span>

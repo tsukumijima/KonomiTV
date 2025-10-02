@@ -4,11 +4,16 @@
             <component :is="Component" />
         </router-view>
         <Snackbars />
+        <DownloadProgressFAB />
     </v-app>
 </template>
 <script lang="ts" setup>
 
+import { onMounted, onBeforeUnmount } from 'vue';
+
+import DownloadProgressFAB from '@/components/DownloadProgressFAB.vue';
 import Snackbars from '@/components/Snackbars.vue';
+import DownloadManager from '@/services/DownloadManager';
 import useCFZTStore from '@/stores/CloudflareZerotrustStone';
 
 // Confirm CFZT
@@ -25,6 +30,98 @@ if(document.referrer.endsWith('.cloudflareaccess.com/')) {
         history.pushState('', '', u.href);
     }
 }
+
+// ページを閉じる/リロードする前の確認
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    // ダウンロードロックを解放（非同期だが可能な限り実行）
+    DownloadManager.releaseAllLocks().catch(error => {
+        console.error('[App] Failed to release locks on beforeunload:', error);
+    });
+
+    // ダウンロード中のタスクがある場合のみ警告を表示
+    if (DownloadManager.hasActiveDownloads()) {
+        // 標準的な確認ダイアログを表示
+        event.preventDefault();
+        // Chrome では returnValue を設定する必要がある
+        event.returnValue = '';
+        return '';
+    }
+};
+
+// Service Worker からのメッセージを処理
+const handleServiceWorkerMessage = (event: MessageEvent) => {
+    if (!event.data || !event.data.type) return;
+
+    const { type, videoId, quality } = event.data;
+
+    switch (type) {
+        case 'TRIGGER_DYNAMIC_CACHE': {
+            console.log(`[App] Received dynamic cache trigger for video ${videoId} (${quality})`);
+
+            // DownloadManager を使ってダウンロードを開始
+            // 既にダウンロード中の場合は何もしない
+            const existingTask = DownloadManager.getTask(videoId, quality);
+            if (!existingTask || existingTask.status !== 'downloading') {
+                console.log(`[App] Starting dynamic cache download for video ${videoId} (${quality})`);
+                // とりあえず既存のタスクがあればそれを再開、なければスキップ
+                if (existingTask && existingTask.status === 'paused') {
+                    DownloadManager.resumeDownload(videoId, quality);
+                }
+            } else {
+                console.log(`[App] Video ${videoId} (${quality}) is already downloading, skipping`);
+            }
+            break;
+        }
+
+        case 'PAUSE_DOWNLOAD': {
+            console.log(`[App] Pausing download for video ${videoId} (${quality}) due to playback`);
+            const existingTask = DownloadManager.getTask(videoId, quality);
+            if (existingTask && existingTask.status === 'downloading') {
+                DownloadManager.pauseDownload(videoId, quality);
+            }
+            break;
+        }
+
+        case 'RESUME_DOWNLOAD': {
+            console.log(`[App] Resuming download for video ${videoId} (${quality}) after playback`);
+            const existingTask = DownloadManager.getTask(videoId, quality);
+            if (existingTask && existingTask.status === 'paused') {
+                DownloadManager.resumeDownload(videoId, quality);
+            }
+            break;
+        }
+    }
+};
+
+// ページの可視性が変わったとき（バックグラウンドになったとき）にロックを解放
+const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+        DownloadManager.releaseAllLocks().catch(error => {
+            console.error('[App] Failed to release locks on visibility change:', error);
+        });
+    }
+};
+
+// アプリ起動時に Cache Storage からダウンロードタスクを復元
+onMounted(() => {
+    DownloadManager.restoreFromCacheStorage();
+
+    // beforeunload イベントリスナーを追加
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // visibilitychange イベントリスナーを追加（より確実にロックを解放）
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Service Worker メッセージリスナーを追加
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+});
+
+// コンポーネントが破棄される前にイベントリスナーを削除
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+});
 </script>
 <style lang="scss">
 

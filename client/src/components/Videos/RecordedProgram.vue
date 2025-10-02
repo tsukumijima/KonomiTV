@@ -10,6 +10,11 @@
                 <img class="recorded-program__thumbnail-image" loading="lazy" decoding="async"
                     :src="`${Utils.api_base_url}/videos/${program.id}/thumbnail`">
                 <div class="recorded-program__thumbnail-duration">{{ProgramUtils.getProgramDuration(program)}}</div>
+                <!-- オフラインキャッシュ済みのバッジ -->
+                <div v-if="is_offline_cached" class="recorded-program__thumbnail-badge recorded-program__thumbnail-badge--cached"
+                    v-ftooltip="'オフライン視聴用にキャッシュ済み'">
+                    <Icon icon="fluent:cloud-checkmark-24-filled" width="18px" height="18px" />
+                </div>
                 <div v-if="program.recorded_video.status === 'Recording'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--recording">
                     <div class="recorded-program__thumbnail-status-dot"></div>
                     録画中
@@ -100,6 +105,24 @@
                                 <Icon icon="fluent:arrow-download-24-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="downloadForOffline" :disabled="program.recorded_video.status === 'Recording' || is_downloading || is_offline_cached">
+                            <template v-slot:prepend>
+                                <Icon v-if="is_offline_cached" icon="fluent:cloud-checkmark-24-regular" width="20px" height="20px" />
+                                <Icon v-else-if="is_downloading" icon="fluent:arrow-download-24-regular" width="20px" height="20px" />
+                                <Icon v-else icon="fluent:arrow-circle-down-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                <span v-if="is_offline_cached">オフライン視聴用にキャッシュ済み</span>
+                                <span v-else-if="is_downloading">オフライン視聴用にダウンロード中 ({{ download_progress }}%)</span>
+                                <span v-else>オフライン視聴用にダウンロード (1080p) [BETA]</span>
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item v-if="is_offline_cached" @click="deleteOfflineCache" class="recorded-program__menu-list-item--danger">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:cloud-dismiss-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">オフラインキャッシュを削除</v-list-item-title>
                         </v-list-item>
                         <v-list-item @click="showReanalyzeModal" v-ftooltip="'再生時に必要な録画ファイル情報や番組情報などを解析し直します'">
                             <template v-slot:prepend>
@@ -210,14 +233,16 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, onBeforeUnmount } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
 
 import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
+import DownloadManager from '@/services/DownloadManager';
+import OfflineDownload from '@/services/OfflineDownload';
 import Videos, { IRecordedProgram } from '@/services/Videos';
-import useSettingsStore from '@/stores/SettingsStore';
+import useSettingsStore, { setLocalStorageSettings } from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -248,6 +273,79 @@ const selected_service_id = ref<number | null>(null);
 const loading_channels = ref(false);
 // チャンネル取得処理をキャンセルするためのフラグ
 let cancelChannelFetch = false;
+
+// オフライン視聴用の固定画質 (H.264 1080p)
+const OFFLINE_QUALITY = '1080p';
+
+// オフライン視聴用のダウンロード状態（DownloadManager から取得）
+const is_downloading = computed(() => {
+    const task = DownloadManager.tasks.value.get(`${props.program.id}-${OFFLINE_QUALITY}`);
+    return task?.status === 'downloading';
+});
+const download_progress = computed(() => {
+    const task = DownloadManager.tasks.value.get(`${props.program.id}-${OFFLINE_QUALITY}`);
+    return task?.progress || 0;
+});
+const is_offline_cached = ref(false);
+
+// マウント時にオフラインキャッシュの状態をチェック
+onMounted(async () => {
+    is_offline_cached.value = await OfflineDownload.isVideoCached(props.program.id, OFFLINE_QUALITY);
+});
+
+// オフライン視聴用にダウンロード
+const downloadForOffline = async () => {
+    // ストレージ配額をチェック
+    const quota = await OfflineDownload.getStorageQuota();
+    if (quota) {
+        console.log(`[OfflineDownload] ストレージ使用状況: ${Utils.formatBytes(quota.usage)} / ${Utils.formatBytes(quota.quota)}`);
+
+        // 推奨最小容量: 10GB
+        const RECOMMENDED_MINIMUM = 10 * 1024 * 1024 * 1024;
+
+        // 総容量が 10GB 未満の場合は警告
+        if (quota.quota < RECOMMENDED_MINIMUM) {
+            Message.warning(`ストレージの総容量が推奨値 (10GB) より少ないです。現在: ${Utils.formatBytes(quota.quota)}`);
+        }
+
+        // 空き容量が 5GB 未満の場合は警告
+        const MINIMUM_FREE_SPACE = 5 * 1024 * 1024 * 1024;
+        if (quota.available < MINIMUM_FREE_SPACE) {
+            Message.warning(`ストレージの空き容量が不足しています: ${Utils.formatBytes(quota.available)} 残り (推奨: 5GB 以上)`);
+            // 続行するか確認
+            if (!confirm('空き容量が不足していますが、ダウンロードを続行しますか？')) {
+                return;
+            }
+        }
+    }
+
+    // DownloadManager を使ってダウンロードを開始（バックグラウンドで実行）
+    Message.info('オフライン視聴用のダウンロードを開始しました。進捗は画面右下の円形アイコンで確認できます。');
+
+    // HEVC サポートを検出
+    const use_hevc = PlayerUtils.isHEVCVideoSupported();
+    console.log(`[RecordedProgram] Starting download with HEVC: ${use_hevc}`);
+
+    // 非同期でダウンロードを開始（await しない）
+    DownloadManager.startDownload(
+        props.program.id,
+        OFFLINE_QUALITY,
+        props.program.title,
+        use_hevc,
+    ).then((success) => {
+        if (success) {
+            is_offline_cached.value = true;
+        }
+    });
+};
+
+// オフラインキャッシュを削除
+const deleteOfflineCache = async () => {
+    const success = await DownloadManager.deleteDownload(props.program.id, OFFLINE_QUALITY);
+    if (success) {
+        is_offline_cached.value = false;
+    }
+};
 
 // 録画ファイルのダウンロード (location.href を変更し、ダウンロード自体はブラウザに任せる)
 const downloadVideo = () => {
@@ -471,6 +569,35 @@ onBeforeUnmount(() => {
             line-height: 1;
             @include smartphone-vertical {
                 font-size: 10.5px;
+            }
+        }
+
+        &-badge {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            color: #fff;
+            z-index: 1;
+            @include smartphone-vertical {
+                width: 24px;
+                height: 24px;
+                svg {
+                    width: 16px !important;
+                    height: 16px !important;
+                }
+            }
+
+            &--cached {
+                background: rgba(76, 175, 80, 0.9);
+                color: #fff;
             }
         }
 

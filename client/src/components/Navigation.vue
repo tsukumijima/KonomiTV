@@ -38,6 +38,11 @@
                         <Icon class="navigation__link-icon" icon="fluent:history-20-regular" width="26px" />
                         <span class="navigation__link-text">視聴履歴</span>
                     </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/offline-videos/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/offline-videos')}">
+                        <Icon class="navigation__link-icon" icon="fluent:cloud-arrow-down-20-regular" width="26px" />
+                        <span class="navigation__link-text">オフライン視聴</span>
+                    </router-link>
                     <v-spacer></v-spacer>
                     <a v-ripple class="navigation__link" active-class="navigation__link--active" href="/cdn-cgi/access/logout" v-if="settingsStore.settings.is_cloudflare_zerotrust">
                         <Icon class="navigation__link-icon" icon="fluent:sign-out-20-regular" width="26px" />

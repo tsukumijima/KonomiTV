@@ -60,6 +60,11 @@ const router = createRouter({
             component: () => import('@/views/WatchedHistory.vue'),
         },
         {
+            path: '/offline-videos/',
+            name: 'Offline Videos',
+            component: () => import('@/views/OfflineVideos.vue'),
+        },
+        {
             path: '/mypage/',
             name: 'MyPage',
             component: () => import('@/views/MyPage.vue'),

@@ -7,6 +7,7 @@ import mpegts from 'mpegts.js';
 import { watch } from 'vue';
 
 import APIClient from '@/services/APIClient';
+import OfflineDownload from '@/services/OfflineDownload';
 import CustomBufferController from '@/services/player/CustomBufferController';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
@@ -226,6 +227,47 @@ class PlayerController {
             is_hevc_playback = true;
         }
 
+        // オフラインキャッシュの確認 (ビデオ視聴のみ)
+        // オフラインキャッシュが存在する場合、カスタム Loader がキャッシュから優先的に読み込む
+        let is_offline_cached = false;
+        let is_offline_hevc = false;
+        let offline_thumbnail_url: string | null = null;
+        if (this.playback_mode === 'Video') {
+            const OfflineDownload = (await import('@/services/OfflineDownload')).default;
+            is_offline_cached = await OfflineDownload.isVideoCached(player_store.recorded_program.id, '1080p');
+
+            if (is_offline_cached) {
+                console.log('[PlayerController] Offline cache detected for 1080p, will use OfflineCacheLoader');
+
+                // playlist を確認して HEVC かどうかを判定
+                const hevc_playlist_url = `/api/streams/video/${player_store.recorded_program.id}/1080p-hevc/playlist`;
+                const h264_playlist_url = `/api/streams/video/${player_store.recorded_program.id}/1080p/playlist`;
+                const hevc_playlist = await OfflineDownload.getCachedResponse(player_store.recorded_program.id, '1080p', hevc_playlist_url);
+                const h264_playlist = await OfflineDownload.getCachedResponse(player_store.recorded_program.id, '1080p', h264_playlist_url);
+
+                if (hevc_playlist) {
+                    is_offline_hevc = true;
+                    console.log('[PlayerController] Offline cache is HEVC');
+                } else if (h264_playlist) {
+                    is_offline_hevc = false;
+                    console.log('[PlayerController] Offline cache is H.264');
+                }
+
+                // タイル状サムネイルも Blob URL を生成
+                const thumbnail_cache_url = `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`;
+                const cached_thumbnail = await OfflineDownload.getCachedResponse(
+                    player_store.recorded_program.id,
+                    '1080p',
+                    thumbnail_cache_url
+                );
+                if (cached_thumbnail) {
+                    const blob = await cached_thumbnail.blob();
+                    offline_thumbnail_url = URL.createObjectURL(blob);
+                    console.log('[PlayerController] Using offline cached thumbnail');
+                }
+            }
+        }
+
         // ブラウザが MSE in Worker での H.265 / HEVC 再生に対応しているかどうか
         const is_hevc_video_supported_in_worker = await mpegts.supportWorkerForMSEH265Playback();
 
@@ -369,31 +411,57 @@ class PlayerController {
                 } else {
                     // ビデオストリーミング API のベース URL
                     const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
-                    // 画質リストを作成
-                    for (const quality_name of VIDEO_STREAMING_QUALITIES) {
-                        // 画質ごとに異なるセッション ID を生成 (セッション ID は UUID の - で区切って一番左側のみを使う)
+
+                    // オフラインキャッシュがある場合、1080p のみを画質リストに追加し、画質切り替えを無効化
+                    if (is_offline_cached) {
                         const session_id = crypto.randomUUID().split('-')[0];
-                        // 画質設定を追加
+                        // HEVC の場合は 1080p-hevc、H.264 の場合は 1080p
+                        const quality_path = is_offline_hevc ? '1080p-hevc' : '1080p';
+                        const playlist_url = `${streaming_api_base_url}/${quality_path}/playlist?session_id=${session_id}`;
+                        const display_name = is_offline_hevc ? '1080p (HEVC)' : '1080p';
                         qualities.push({
-                            // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
-                            name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
+                            name: display_name,
                             type: 'hls',
-                            url: `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist?session_id=${session_id}`,
+                            url: playlist_url,
                         });
+                        console.log(`[PlayerController] Offline mode: Quality fixed to ${display_name}`);
+                    } else {
+                        // 画質リストを作成
+                        for (const quality_name of VIDEO_STREAMING_QUALITIES) {
+                            // 画質ごとに異なるセッション ID を生成 (セッション ID は UUID の - で区切って一番左側のみを使う)
+                            const session_id = crypto.randomUUID().split('-')[0];
+
+                            // playlist URL を構築
+                            const playlist_url = `${streaming_api_base_url}/${quality_name}${hevc_prefix}/playlist?session_id=${session_id}`;
+
+                            // 画質設定を追加
+                            qualities.push({
+                                // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
+                                name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
+                                type: 'hls',
+                                url: playlist_url,
+                            });
+                        }
                     }
+
                     // デフォルトの画質
                     // ビデオ視聴時はラジオは考慮しない
-                    let default_quality: string = this.quality_profile.video_streaming_quality;
-                    if (options.default_quality !== null) {
+                    let default_quality: string;
+                    if (is_offline_cached) {
+                        // オフラインキャッシュがある場合は、HEVC なら "1080p (HEVC)"、H.264 なら "1080p"
+                        default_quality = is_offline_hevc ? '1080p (HEVC)' : '1080p';
+                    } else if (options.default_quality !== null) {
                         // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
                         // 画質プロファイルに記載の画質ではなく、指定された（前回再生時の）画質を使ってレジュームする
                         default_quality = options.default_quality;
+                    } else {
+                        default_quality = this.quality_profile.video_streaming_quality;
                     }
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
                         thumbnails: {
-                            url: `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`,
+                            url: offline_thumbnail_url || `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`,
                             interval: (() => {
                                 // 以下のロジックは server/app/metadata/ThumbnailGenerator.py のものと同一
                                 // 録画番組の長さ (分単位で切り捨て)
@@ -554,6 +622,9 @@ class PlayerController {
                     // カスタムバッファコントローラーを設定
                     // @ts-ignore
                     bufferController: CustomBufferController,
+                    // 通常の loader を使用
+                    // オフラインキャッシュは service worker の fetch イベントで処理
+                    loader: Hls.DefaultConfig.loader,
                     // プレイリスト / セグメントのリクエスト時のタイムアウトを回避する
                     manifestLoadPolicy: {
                         default: {
