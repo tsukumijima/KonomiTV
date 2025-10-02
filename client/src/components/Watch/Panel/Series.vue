@@ -2,14 +2,14 @@
     <div class="series-container">
         <!-- フィルターコントロール -->
         <div class="series-controls">
-            <v-btn-toggle v-model="filter_mode" mandatory density="compact" color="primary" class="series-controls__toggle">
+            <v-btn-toggle v-model="filter_mode" mandatory density="compact" color="primary" variant="outlined" class="series-controls__toggle">
                 <v-btn value="strict" size="small">
-                    <Icon icon="fluent:target-20-regular" width="16px" class="mr-1" />
-                    厳格
+                    <Icon icon="fluent:collections-20-regular" width="16px" class="mr-1" />
+                    同シリーズ
                 </v-btn>
                 <v-btn value="relaxed" size="small">
-                    <Icon icon="fluent:grid-dots-20-regular" width="16px" class="mr-1" />
-                    緩和
+                    <Icon icon="fluent:apps-20-regular" width="16px" class="mr-1" />
+                    関連番組
                 </v-btn>
             </v-btn-toggle>
 
@@ -28,9 +28,16 @@
             <span class="series-info__count">
                 {{ filtered_series.length }}件のシリーズ番組
             </span>
-            <span class="series-info__threshold text-text-darken-1">
-                ({{ score_threshold }}点以上)
-            </span>
+            <v-btn
+                v-if="needs_refresh"
+                @click="forceRefresh"
+                size="x-small"
+                variant="text"
+                color="primary"
+                icon
+                class="series-info__refresh">
+                <Icon icon="fluent:arrow-clockwise-20-regular" width="16px" />
+            </v-btn>
         </div>
 
         <!-- ローディング -->
@@ -48,7 +55,6 @@
                 class="series-item"
                 :class="{
                     'series-item--current': match.program.id === playerStore.recorded_program?.id,
-                    'series-item--high-score': match.score >= 90,
                 }">
 
                 <!-- サムネイル -->
@@ -76,9 +82,6 @@
                 <div class="series-item__info">
                     <div class="series-item__title" v-html="ProgramUtils.decorateProgramInfo(match.program, 'title')"></div>
                     <div class="series-item__meta">
-                        <div class="series-item__meta-date">
-                            {{ formatDate(match.program.start_time) }}
-                        </div>
                         <div class="series-item__meta-channel" v-if="match.program.channel">
                             <div class="series-item__meta-channel-icon">
                                 <div class="ch-sprite" :chid="match.program.channel.id">
@@ -86,6 +89,9 @@
                                 </div>
                             </div>
                             <span class="series-item__meta-channel-name">{{ match.program.channel.name }}</span>
+                        </div>
+                        <div class="series-item__meta-date">
+                            {{ formatDate(match.program.start_time) }}
                         </div>
                     </div>
                 </div>
@@ -97,7 +103,7 @@
             <Icon icon="fluent:tv-20-regular" width="48px" class="series-empty__icon" />
             <p class="series-empty__text">シリーズ番組が見つかりません</p>
             <small v-if="filter_mode === 'strict'" class="series-empty__hint">
-                「緩和」モードで再度お試しください
+                「関連番組」で再度お試しください
             </small>
         </div>
 
@@ -170,6 +176,12 @@ export default defineComponent({
             // 追加読み込み中
             is_loading_more: false,
 
+            // 現在検索中の番組ID（重複検索を防ぐ）
+            current_searching_program_id: null as number | null,
+
+            // 手動リフレッシュが必要かどうか
+            needs_refresh: false,
+
             // デバッグ用スコア表示
             show_debug_scores: false,
         };
@@ -229,7 +241,29 @@ export default defineComponent({
                 current_program = fetched_program;
             }
 
+            // 同じ番組で既に検索中の場合はスキップ
+            if (this.is_loading && this.current_searching_program_id === current_program.id) {
+                console.log('[Series] 既に検索中のためスキップ');
+                return;
+            }
+
+            // 同じ番組で既に検索済みの場合はスキップ
+            if (this.current_searching_program_id === current_program.id && this.series_matches.length > 0) {
+                console.log('[Series] 既に検索済みのためスキップ');
+                return;
+            }
+
+            // 新しい番組が既存のリストに含まれている場合は再検索をスキップ
+            if (this.series_matches.some(match => match.program.id === current_program.id)) {
+                console.log('[Series] 新しい番組が既存リストに含まれているため再検索をスキップ');
+                this.current_searching_program_id = current_program.id;
+                this.needs_refresh = true; // 手動リフレッシュを有効化
+                return;
+            }
+
+            this.current_searching_program_id = current_program.id;
             this.is_loading = true;
+            this.needs_refresh = false; // リフレッシュフラグをリセット
             this.series_matches = []; // 前回の結果をクリア
             this.all_programs = [];
             this.fetched_api_pages = 0;
@@ -253,8 +287,16 @@ export default defineComponent({
                 console.log(`[Series] 現在の番組: ${current_program.title}`);
                 console.log(`[Series] 取得した番組数: ${this.all_programs.length}件`);
 
-                // 各番組をスコアリング
+                // 各番組をスコアリング（重複を除外）
+                const program_ids = new Set<number>();
                 this.series_matches = this.all_programs
+                    .filter(program => {
+                        if (program_ids.has(program.id)) {
+                            return false; // 重複をスキップ
+                        }
+                        program_ids.add(program.id);
+                        return true;
+                    })
                     .map(program => this.calculateSeriesMatch(current_program, program))
                     .filter(match => match.score > 0); // スコア0は除外
 
@@ -292,21 +334,33 @@ export default defineComponent({
                 const pages_to_load = 5;
                 let loaded_count = 0;
 
+                // 既存の番組IDを記録
+                const existing_program_ids = new Set(this.all_programs.map(p => p.id));
+
                 for (let i = 0; i < pages_to_load; i++) {
                     const page = start_page + i;
                     const result = await Videos.fetchVideos('desc', page);
 
                     if (result && result.recorded_programs.length > 0) {
-                        this.all_programs.push(...result.recorded_programs);
+                        // 重複しない番組のみ追加
+                        const new_programs = result.recorded_programs.filter(p => !existing_program_ids.has(p.id));
+
+                        if (new_programs.length > 0) {
+                            this.all_programs.push(...new_programs);
+                            loaded_count += new_programs.length;
+
+                            // 新しい番組IDを記録
+                            new_programs.forEach(p => existing_program_ids.add(p.id));
+
+                            // 新しい番組をスコアリングして追加
+                            const new_matches = new_programs
+                                .map(program => this.calculateSeriesMatch(current_program, program))
+                                .filter(match => match.score > 0);
+
+                            this.series_matches.push(...new_matches);
+                        }
+
                         this.fetched_api_pages = page;
-                        loaded_count += result.recorded_programs.length;
-
-                        // 新しい番組をスコアリングして追加
-                        const new_matches = result.recorded_programs
-                            .map(program => this.calculateSeriesMatch(current_program, program))
-                            .filter(match => match.score > 0);
-
-                        this.series_matches.push(...new_matches);
                     } else {
                         // データがなくなったら終了
                         this.has_more_api_data = false;
@@ -594,6 +648,15 @@ export default defineComponent({
             return 'other';
         },
 
+        // 手動リフレッシュ
+        forceRefresh() {
+            console.log('[Series] 手動リフレッシュを実行');
+            // 検索済みフラグをクリアして再検索
+            this.current_searching_program_id = null;
+            this.needs_refresh = false;
+            this.searchSeriesPrograms();
+        },
+
         // 日付をフォーマット
         formatDate(date_string: string): string {
             const date = dayjs(date_string);
@@ -649,8 +712,6 @@ export default defineComponent({
     gap: 12px;
     margin-bottom: 16px;
     @include smartphone-vertical {
-        flex-direction: column;
-        align-items: stretch;
         gap: 8px;
     }
 
@@ -661,9 +722,6 @@ export default defineComponent({
     &__checkbox {
         margin-left: auto;
         flex-shrink: 0;
-        @include smartphone-vertical {
-            margin-left: 0;
-        }
     }
 }
 
@@ -682,6 +740,16 @@ export default defineComponent({
 
     &__threshold {
         font-size: 12px;
+    }
+
+    &__refresh {
+        margin-left: -4px;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+
+        &:hover {
+            opacity: 1;
+        }
     }
 }
 
@@ -721,6 +789,10 @@ export default defineComponent({
     color: rgb(var(--v-theme-text));
     cursor: pointer;
     user-select: none;
+    min-height: 105px;
+    @include smartphone-vertical {
+        min-height: 80px;
+    }
 
     &:hover {
         background: rgb(var(--v-theme-background-lighten-2));
@@ -737,14 +809,10 @@ export default defineComponent({
         }
     }
 
-    &--high-score {
-        border-left: 3px solid rgb(var(--v-theme-primary));
-        padding-left: 7px;
-    }
-
     &__thumbnail {
         position: relative;
         width: 120px;
+        height: auto;
         aspect-ratio: 16 / 9;
         flex-shrink: 0;
         border-radius: 4px;
@@ -755,9 +823,12 @@ export default defineComponent({
         }
 
         &-image {
+            display: block;
             width: 100%;
             height: 100%;
+            aspect-ratio: 16 / 9;
             object-fit: cover;
+            object-position: center;
         }
 
         &-duration {
@@ -816,7 +887,7 @@ export default defineComponent({
     &__info {
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: space-between;
         gap: 6px;
         flex: 1;
         min-width: 0;
@@ -825,32 +896,36 @@ export default defineComponent({
     &__title {
         font-size: 13.5px;
         font-weight: 600;
-        line-height: 1.4;
+        line-height: 1.5;
         overflow: hidden;
+        text-overflow: ellipsis;
         display: -webkit-box;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        word-break: break-word;
         @include smartphone-vertical {
             font-size: 13px;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
         }
     }
 
     &__meta {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
         font-size: 11.5px;
         color: rgb(var(--v-theme-text-darken-1));
-
-        &-date {
-            font-weight: 500;
-        }
 
         &-channel {
             display: flex;
             align-items: center;
             gap: 6px;
+            min-width: 0;
+            flex: 1;
 
             &-icon {
                 display: inline-block;
@@ -881,6 +956,12 @@ export default defineComponent({
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+        }
+
+        &-date {
+            font-weight: 500;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
     }
 }
