@@ -120,6 +120,7 @@ const useTwitterStore = defineStore('twitter', {
             solver_iframe.contentWindow!.postMessage({
                 action: 'init',
                 challenge: challenge_data.challenge_js_code,
+                vendor: challenge_data.vendor_js_code,
                 anims: challenge_data.challenge_animation_svg_codes,
                 verificationCode: challenge_data.verification_code,
             }, '*');
