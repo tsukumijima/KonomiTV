@@ -562,7 +562,7 @@ class TwitterGraphQLAPI:
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
             logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP Error {response.status_code})')
-            logging.error(f'[TwitterGraphQLAPI] Response: {response.text}')
+            logging.error(f'[TwitterGraphQLAPI] Response [{response.status_code}]: {response.text}')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
@@ -681,6 +681,7 @@ class TwitterGraphQLAPI:
             except Exception as ex:
                 # API レスポンスが変わっているなどでツイート ID を取得できなかった
                 logging.error('[TwitterGraphQLAPI] Failed to get tweet ID:', exc_info=ex)
+                logging.error(f'[TwitterGraphQLAPI] Response: {response}')
                 return schemas.PostTweetResult(
                     is_success = False,
                     detail = 'ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
