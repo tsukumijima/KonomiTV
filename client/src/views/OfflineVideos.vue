@@ -61,25 +61,24 @@
                     <!-- Beta 版の説明 -->
                     <v-alert type="info" variant="tonal" class="mb-4" style="flex: none;">
                         <div class="text-body-2">
-                            この機能は現在ベータ版です。完全なオフライン視聴には対応していませんが、一度キャッシュした動画はネットワークが不安定な環境でも再生できます。
-                        </div>
-                        <div class="text-body-2 mt-2">
+                            この機能は現在ベータ版です。
+                            <br>
+                            完全なオフライン視聴には対応していませんが、ネットワークが不安定な環境が再生できます。
+                            <br>
                             <strong>⚠️ ダウンロード中はこのページを開いたままにしてください。</strong>ページを閉じたり、デバイスをスリープすると、ダウンロードが一時停止されます。
-                        </div>
-                        <div class="text-body-2 mt-2">
+                            <br>
                             また、ダウンロードが中断された場合、音声と映像の同期がずれる可能性があります。ご了承ください。
                         </div>
                     </v-alert>
 
                     <!-- ストレージ情報と一括操作ボタン -->
-                    <v-card class="mb-4" v-if="storage_info">
+                    <v-card class="mb-4" :style="{ visibility: storage_info ? 'visible' : 'hidden', minHeight: '160px' }">
                         <v-card-text>
                             <div class="d-flex align-center justify-space-between mb-3">
                                 <div>
                                     <div class="text-subtitle-1 mb-1">ストレージ使用量</div>
                                     <div class="text-body-2 text-text-darken-1">
-                                        {{ Utils.formatBytes(storage_info.usage) }} / {{ Utils.formatBytes(storage_info.quota) }}
-                                        (残り: {{ Utils.formatBytes(storage_info.available) }})
+                                        {{ storage_info ? `${Utils.formatBytes(storage_info.usage)} / ${Utils.formatBytes(storage_info.quota)} (残り: ${Utils.formatBytes(storage_info.available)})` : '' }}
                                     </div>
                                 </div>
                                 <v-btn
@@ -94,33 +93,46 @@
                                 </v-btn>
                             </div>
                             <v-progress-linear
-                                :model-value="(storage_info.usage / storage_info.quota) * 100"
+                                :model-value="storage_info ? (storage_info.usage / storage_info.quota) * 100 : 0"
                                 color="primary"
                                 height="8"
                                 rounded
                             ></v-progress-linear>
 
                             <!-- 一括操作ボタン -->
-                            <div class="d-flex gap-2 mt-3">
+                            <div class="d-flex align-center justify-space-between mt-3">
+                                <div class="d-flex">
+                                    <v-btn
+                                        variant="outlined"
+                                        color="success"
+                                        size="small"
+                                        @click="resumeAllDownloads"
+                                        :disabled="!hasPausedTasks"
+                                    >
+                                        <Icon icon="fluent:play-24-regular" width="18px" class="mr-1" />
+                                        全て再開
+                                    </v-btn>
+                                    <v-btn
+                                        variant="outlined"
+                                        color="warning"
+                                        size="small"
+                                        class="mx-2"
+                                        @click="pauseAllDownloads"
+                                        :disabled="!hasActiveTasks"
+                                    >
+                                        <Icon icon="fluent:pause-24-regular" width="18px" class="mr-1" />
+                                        全て一時停止
+                                    </v-btn>
+                                </div>
                                 <v-btn
                                     variant="outlined"
-                                    color="success"
+                                    color="primary"
                                     size="small"
-                                    @click="resumeAllDownloads"
-                                    :disabled="!hasPausedTasks"
+                                    @click="openPiPWindow"
+                                    :disabled="!hasActiveTasks || pipWindow !== null || pipVideo !== null"
                                 >
-                                    <Icon icon="fluent:play-24-regular" width="18px" class="mr-1" />
-                                    全て再開
-                                </v-btn>
-                                <v-btn
-                                    variant="outlined"
-                                    color="warning"
-                                    size="small"
-                                    @click="pauseAllDownloads"
-                                    :disabled="!hasActiveTasks"
-                                >
-                                    <Icon icon="fluent:pause-24-regular" width="18px" class="mr-1" />
-                                    全て一時停止
+                                    <Icon icon="fluent:picture-in-picture-20-regular" width="18px" class="mr-1" />
+                                    バックグラウンドでダウンロード
                                 </v-btn>
                             </div>
                         </v-card-text>
@@ -301,6 +313,14 @@ export default defineComponent({
             search_query: '',
             // ソート順
             sort_order: 'desc' as 'desc' | 'asc',
+            // Wake Lock（画面スリープ防止）
+            wakeLock: null as WakeLockSentinel | null,
+            // PiP ウィンドウ
+            pipWindow: null as Window | null,
+            // 従来の video PiP 用の要素（降級用）
+            pipVideo: null as HTMLVideoElement | null,
+            pipCanvas: null as HTMLCanvasElement | null,
+            pipUpdateInterval: null as number | null,
             // Utils を template で使えるようにする
             Utils: Utils,
             // ProgramUtils を template で使えるようにする
@@ -313,7 +333,8 @@ export default defineComponent({
         ...mapStores(useSettingsStore),
         // オフライン視聴用ビデオ一覧（DownloadManager から取得）
         offline_videos(): IDownloadTask[] {
-            return DownloadManager.getAllTasks();
+            // tasks.value を参照することで Vue のリアクティブシステムが変更を検知できる
+            return Array.from(DownloadManager.tasks.value.values());
         },
         // フィルタリング・ソートされたビデオリスト
         filtered_videos(): IDownloadTask[] {
@@ -364,9 +385,32 @@ export default defineComponent({
         // 完了済みタスクのサイズ情報を更新
         await this.updateCompletedTasksSizes();
     },
+    mounted() {
+        // ページ可視性変化の監視（バックグラウンドから戻った時に Wake Lock を再取得）
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    },
     beforeUnmount() {
         // コンポーネント破棄時にコールバックをクリア
         DownloadManager.onStorageUpdate = null;
+
+        // Wake Lock を解放
+        this.releaseWakeLock();
+
+        // PiP ウィンドウを閉じる
+        this.closePiPWindow();
+
+        // ページ可視性変化の監視を解除
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    },
+    watch: {
+        // ダウンロード中のタスクがある場合は Wake Lock を取得
+        hasActiveTasks(newValue: boolean) {
+            if (newValue) {
+                this.requestWakeLock();
+            } else {
+                this.releaseWakeLock();
+            }
+        },
     },
     methods: {
         // ストレージ情報を更新
@@ -487,6 +531,375 @@ export default defineComponent({
                 hour: '2-digit',
                 minute: '2-digit',
             });
+        },
+
+        // Wake Lock を取得（画面スリープ防止）
+        async requestWakeLock() {
+            // Wake Lock API がサポートされているかチェック
+            if (!('wakeLock' in navigator)) {
+                console.warn('[OfflineVideos] Wake Lock API is not supported');
+                return;
+            }
+
+            try {
+                // 既に取得済みの場合はスキップ
+                if (this.wakeLock !== null && !this.wakeLock.released) {
+                    return;
+                }
+
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                console.log('[OfflineVideos] Wake Lock acquired');
+
+                // Wake Lock が解放された時のハンドラ
+                this.wakeLock.addEventListener('release', () => {
+                    console.log('[OfflineVideos] Wake Lock released');
+                });
+            } catch (error) {
+                console.error('[OfflineVideos] Failed to acquire Wake Lock:', error);
+            }
+        },
+
+        // Wake Lock を解放
+        async releaseWakeLock() {
+            if (this.wakeLock !== null && !this.wakeLock.released) {
+                try {
+                    await this.wakeLock.release();
+                    this.wakeLock = null;
+                    console.log('[OfflineVideos] Wake Lock manually released');
+                } catch (error) {
+                    console.error('[OfflineVideos] Failed to release Wake Lock:', error);
+                }
+            }
+        },
+
+        // ページ可視性変化のハンドラ
+        async handleVisibilityChange() {
+            // ページが再び表示された場合、ダウンロード中なら Wake Lock を再取得
+            if (document.visibilityState === 'visible' && this.hasActiveTasks) {
+                await this.requestWakeLock();
+            }
+        },
+
+        // PiP ウィンドウを開く
+        async openPiPWindow() {
+            // documentPictureInPicture API のサポートチェック
+            const supportsDocumentPiP = 'documentPictureInPicture' in window && !Utils.isMobileDevice();
+
+            if (supportsDocumentPiP) {
+                // 新しい Document PiP を使用
+                await this.openDocumentPiPWindow();
+            } else {
+                // 降級到従来の video PiP
+                await this.openVideoPiPWindow();
+            }
+        },
+
+        // Document PiP ウィンドウを開く（新しい API）
+        async openDocumentPiPWindow() {
+            try {
+                // 主題色を取得
+                const primaryColor = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--v-theme-primary').trim();
+
+                // PiP ウィンドウを開く
+                this.pipWindow = await (window as any).documentPictureInPicture.requestWindow({
+                    width: 400,
+                    height: 200,
+                });
+
+                // PiP ウィンドウのスタイルを設定
+                const pipDocument = this.pipWindow!.document;
+                pipDocument.head.innerHTML = `
+                    <style>
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        body {
+                            font-family: 'Roboto', sans-serif;
+                            background: rgb(${primaryColor});
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            height: 100vh;
+                            color: white;
+                            padding: 20px;
+                        }
+                        .container {
+                            text-align: center;
+                            width: 100%;
+                        }
+                        .title {
+                            font-size: 18px;
+                            font-weight: 500;
+                            margin-bottom: 16px;
+                        }
+                        .progress-bar {
+                            width: 100%;
+                            height: 8px;
+                            background: rgba(255, 255, 255, 0.3);
+                            border-radius: 4px;
+                            overflow: hidden;
+                            margin-bottom: 12px;
+                        }
+                        .progress-fill {
+                            height: 100%;
+                            background: white;
+                            border-radius: 4px;
+                            transition: width 0.3s ease;
+                        }
+                        .stats {
+                            font-size: 14px;
+                            opacity: 0.9;
+                        }
+                        .task-list {
+                            margin-top: 16px;
+                            font-size: 13px;
+                            opacity: 0.85;
+                            max-height: 60px;
+                            overflow-y: auto;
+                        }
+                        .task-item {
+                            padding: 4px 0;
+                            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+                        }
+                        .task-item:last-child {
+                            border-bottom: none;
+                        }
+                    </style>
+                `;
+
+                pipDocument.body.innerHTML = `
+                    <div class="container">
+                        <div class="title">📥 ダウンロード中</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress"></div>
+                        </div>
+                        <div class="stats" id="stats">準備中...</div>
+                        <div class="task-list" id="tasks"></div>
+                    </div>
+                `;
+
+                // 進捗を定期的に更新
+                const updateProgress = () => {
+                    if (!this.pipWindow || this.pipWindow.closed) {
+                        return;
+                    }
+
+                    const activeDownloads = this.offline_videos.filter(v => v.status === 'downloading');
+                    if (activeDownloads.length === 0) {
+                        // ダウンロードが全て完了したら PiP を閉じる
+                        this.closePiPWindow();
+                        return;
+                    }
+
+                    const totalProgress = DownloadManager.getTotalProgress();
+                    const progressFill = this.pipWindow.document.getElementById('progress');
+                    const statsEl = this.pipWindow.document.getElementById('stats');
+                    const tasksEl = this.pipWindow.document.getElementById('tasks');
+
+                    if (progressFill) {
+                        progressFill.style.width = `${totalProgress}%`;
+                    }
+
+                    if (statsEl) {
+                        statsEl.textContent = `全体進捗: ${totalProgress}% (${activeDownloads.length} 件のタスク)`;
+                    }
+
+                    if (tasksEl) {
+                        tasksEl.innerHTML = activeDownloads.map(task => `
+                            <div class="task-item">
+                                ${task.title.substring(0, 30)}${task.title.length > 30 ? '...' : ''} - ${task.progress}%
+                            </div>
+                        `).join('');
+                    }
+                };
+
+                // 初回更新
+                updateProgress();
+
+                // 1秒ごとに更新
+                const intervalId = setInterval(updateProgress, 1000);
+
+                // PiP ウィンドウが閉じられた時の処理
+                this.pipWindow!.addEventListener('pagehide', () => {
+                    clearInterval(intervalId);
+                    this.pipWindow = null;
+                });
+
+                Message.success('PiP ウィンドウを開きました。このページを閉じても、ダウンロードが継続されます。');
+            } catch (error) {
+                console.error('[OfflineVideos] Failed to open PiP window:', error);
+                Message.error('PiP ウィンドウを開けませんでした');
+            }
+        },
+
+        // PiP ウィンドウを閉じる
+        closePiPWindow() {
+            if (this.pipWindow && !this.pipWindow.closed) {
+                this.pipWindow.close();
+                this.pipWindow = null;
+            }
+            this.closeVideoPiPWindow();
+        },
+
+        // 従来の video PiP を開く（降級方案）
+        async openVideoPiPWindow() {
+            try {
+                // Canvas と video 要素を作成
+                this.pipCanvas = document.createElement('canvas');
+                this.pipCanvas.width = 640;
+                this.pipCanvas.height = 360;
+
+                this.pipVideo = document.createElement('video');
+                this.pipVideo.muted = true;
+                this.pipVideo.playsInline = true;
+                this.pipVideo.style.position = 'fixed';
+                this.pipVideo.style.bottom = '-9999px';
+                document.body.appendChild(this.pipVideo);
+
+                // Canvas から MediaStream を取得
+                const stream = this.pipCanvas.captureStream(30); // 30fps
+                this.pipVideo.srcObject = stream;
+
+                // 初回描画
+                this.drawPiPCanvas();
+
+                // video を再生
+                await this.pipVideo.play();
+
+                // PiP モードに入る
+                await this.pipVideo.requestPictureInPicture();
+
+                // 定期的に Canvas を更新（前5秒は1秒ごと、その後5秒ごと）
+                let updateCount = 0;
+                const updateCanvas = () => {
+                    this.drawPiPCanvas();
+                    updateCount++;
+
+                    // 5回更新したら（5秒経過）、省電モードに切り替え
+                    if (updateCount === 5) {
+                        if (this.pipUpdateInterval !== null) {
+                            clearInterval(this.pipUpdateInterval);
+                        }
+                        // 省電モード：5秒ごとに更新
+                        this.pipUpdateInterval = window.setInterval(() => {
+                            this.drawPiPCanvas();
+                        }, 5000);
+                    }
+                };
+
+                // 初期：1秒ごとに更新
+                this.pipUpdateInterval = window.setInterval(updateCanvas, 1000);
+
+                // PiP 終了時のハンドラ
+                this.pipVideo.addEventListener('leavepictureinpicture', () => {
+                    this.closeVideoPiPWindow();
+                });
+
+                Message.success('PiP モードを開きました（video モード）');
+            } catch (error) {
+                console.error('[OfflineVideos] Failed to open video PiP:', error);
+                Message.error('PiP を開けませんでした');
+                this.closeVideoPiPWindow();
+            }
+        },
+
+        // Canvas に下載進捗を描画
+        drawPiPCanvas() {
+            if (!this.pipCanvas) return;
+
+            const ctx = this.pipCanvas.getContext('2d');
+            if (!ctx) return;
+
+            const width = this.pipCanvas.width;
+            const height = this.pipCanvas.height;
+
+            // 主題色を取得
+            const primaryColorRGB = getComputedStyle(document.documentElement)
+                .getPropertyValue('--v-theme-primary').trim();
+
+            // 背景を描画
+            ctx.fillStyle = `rgb(${primaryColorRGB})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // テキストスタイル
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // タイトル
+            ctx.font = 'bold 32px sans-serif';
+            ctx.fillText('📥 ダウンロード中', width / 2, 60);
+
+            // 進捗情報を取得
+            const activeDownloads = this.offline_videos.filter(v => v.status === 'downloading');
+
+            if (activeDownloads.length === 0) {
+                // ダウンロード完了
+                ctx.font = '24px sans-serif';
+                ctx.fillText('ダウンロード完了！', width / 2, height / 2);
+                this.closeVideoPiPWindow();
+                return;
+            }
+
+            const totalProgress = DownloadManager.getTotalProgress();
+
+            // 進捗バー
+            const barWidth = width - 80;
+            const barHeight = 20;
+            const barX = 40;
+            const barY = 120;
+
+            // 進捗バー背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // 進捗バー前景
+            ctx.fillStyle = 'white';
+            ctx.fillRect(barX, barY, (barWidth * totalProgress) / 100, barHeight);
+
+            // 進捗テキスト
+            ctx.font = '24px sans-serif';
+            ctx.fillText(`全体進捗: ${totalProgress}% (${activeDownloads.length} 件)`, width / 2, 180);
+
+            // タスクリスト
+            ctx.font = '18px sans-serif';
+            ctx.textAlign = 'left';
+            let yOffset = 230;
+            const maxTasks = 4;
+            activeDownloads.slice(0, maxTasks).forEach(task => {
+                const title = task.title.length > 40 ? task.title.substring(0, 40) + '...' : task.title;
+                ctx.fillText(`${title} - ${task.progress}%`, 40, yOffset);
+                yOffset += 30;
+            });
+
+            if (activeDownloads.length > maxTasks) {
+                ctx.fillText(`... 他 ${activeDownloads.length - maxTasks} 件`, 40, yOffset);
+            }
+        },
+
+        // video PiP を閉じる
+        closeVideoPiPWindow() {
+            if (this.pipUpdateInterval !== null) {
+                clearInterval(this.pipUpdateInterval);
+                this.pipUpdateInterval = null;
+            }
+
+            if (this.pipVideo) {
+                if (document.pictureInPictureElement === this.pipVideo) {
+                    document.exitPictureInPicture().catch(() => {});
+                }
+                if (this.pipVideo.parentNode) {
+                    this.pipVideo.parentNode.removeChild(this.pipVideo);
+                }
+                this.pipVideo = null;
+            }
+
+            if (this.pipCanvas) {
+                this.pipCanvas = null;
+            }
         },
     },
 });
