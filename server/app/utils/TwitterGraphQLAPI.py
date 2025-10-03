@@ -574,8 +574,8 @@ class TwitterGraphQLAPI:
         # レスポンスを JSON としてパース
         try:
             response_json = response.json()
-        except Exception:
-            logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON')
+        except Exception as ex:
+            logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON:', exc_info=ex)
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         # API レスポンスにエラーが含まれていて、かつ data キーが存在しない場合
@@ -678,9 +678,14 @@ class TwitterGraphQLAPI:
             tweet_id: str
             try:
                 tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
-            except Exception:
+            except Exception as ex:
                 # API レスポンスが変わっているなどでツイート ID を取得できなかった
-                tweet_id = '__error__'
+                logging.error('[TwitterGraphQLAPI] Failed to get tweet ID:', exc_info=ex)
+                return schemas.PostTweetResult(
+                    is_success = False,
+                    detail = 'ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
+                    tweet_url = 'https://twitter.com/i/status/__error__',
+                )
 
             return schemas.PostTweetResult(
                 is_success = True,
