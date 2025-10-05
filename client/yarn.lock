@@ -1242,15 +1242,6 @@
     magic-string "^0.25.0"
     string.prototype.matchall "^4.0.6"
 
-"@tsukumijima/aribts@github:tsukumijima/node-aribts#v1.5.1":
-  version "1.5.1"
-  resolved "https://codeload.github.com/tsukumijima/node-aribts/tar.gz/6055b7a536d691fee129e44e5a9fb5e0297f2956"
-  dependencies:
-    buffer "^6.0.3"
-    events "^3.3.0"
-    iconv-lite "0.6.3"
-    readable-stream "^4.5.2"
-
 "@tsukumijima/aribts@github:tsukumijima/node-aribts#v1.5.2":
   version "1.5.2"
   resolved "https://codeload.github.com/tsukumijima/node-aribts/tar.gz/58b7621fcd00453016d883645daf3c9f6a53b204"
@@ -5190,9 +5181,9 @@ vuetify@~3.7.1:
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.7.19.tgz#386ab39900400e9aa811fa0569e10db650f54b84"
   integrity sha512-RrUpdBOGWGcT2oNLqXBiqYRudKTFqxTfr8lISl51Cuo80cfgRmbyDnlQQRWxE4QSNxcqXk6ZzBoJRUEXpW9C/w==
 
-"web-bml@github:tsukumijima/web-bml#872bb3409e5178177e4507a2bb2ebf2769ef8b5b":
+"web-bml@github:tsukumijima/web-bml#34af8bc86577a84cb328f66639b28887dd0cef24":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/872bb3409e5178177e4507a2bb2ebf2769ef8b5b"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/34af8bc86577a84cb328f66639b28887dd0cef24"
   dependencies:
     "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
     arib-subtitle-timedmetadater "^4.0.10"
@@ -5221,7 +5212,6 @@ webidl-conversions@^4.0.2:
 
 webworkify-webpack@xqq/webworkify-webpack:
   version "2.1.5"
-  uid "24d1e719b4a6cac37a518b2bb10fe124527ef4ef"
   resolved "https://codeload.github.com/xqq/webworkify-webpack/tar.gz/24d1e719b4a6cac37a518b2bb10fe124527ef4ef"
 
 whatwg-url@^7.0.0:
