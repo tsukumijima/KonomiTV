@@ -2375,9 +2375,9 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.6.1.tgz#773f0e69527a8315c7285d5ee73c4459d20a8020"
   integrity sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==
 
-"dplayer@github:tsukumijima/DPlayer#v1.32.5":
-  version "1.32.5"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/7c26a8abcf0431aea13ceb906d004f46f4000cdf"
+"dplayer@github:tsukumijima/DPlayer#v1.32.6":
+  version "1.32.6"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/a215747a370493808ff75772baa5a36fdf262dc1"
   dependencies:
     aribb24.js "~1.11.5"
     axios "^1.7.2"
@@ -5185,7 +5185,7 @@ vuetify@~3.7.1:
   version "1.0.0"
   resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/34af8bc86577a84cb328f66639b28887dd0cef24"
   dependencies:
-    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
+    "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.1"
     arib-subtitle-timedmetadater "^4.0.10"
     aribb24.js "^1.11.0"
     buffer "^6.0.3"
