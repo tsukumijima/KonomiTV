@@ -15,7 +15,8 @@
                         <v-text-field class="mt-12" color="primary" variant="outlined"
                             placeholder="ユーザー名" hide-details autofocus
                             :density="is_form_dense ? 'compact' : 'default'"
-                            v-model="username">
+                            v-model="username"
+                            @keyup.enter="login()">
                         </v-text-field>
                         <v-text-field class="mt-8" color="primary" variant="outlined"
                             placeholder="パスワード" hide-details
@@ -23,7 +24,8 @@
                             v-model="password"
                             :type="password_showing ? 'text' : 'password'"
                             :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
-                            @click:appendInner="password_showing = !password_showing">
+                            @click:appendInner="password_showing = !password_showing"
+                            @keyup.enter="login()">
                         </v-text-field>
                         <v-btn class="login-button mt-5" color="secondary" variant="flat" width="100%" height="56"
                             @click="login()">
