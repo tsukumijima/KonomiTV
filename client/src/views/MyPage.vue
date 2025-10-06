@@ -58,9 +58,9 @@ import { onMounted } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import useVersionStore from '@/stores/VersionStore';
-import useSettingsStore from '@/stores/SettingsStore';
 
 const userStore = useUserStore();
 const versionStore = useVersionStore();

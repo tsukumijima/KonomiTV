@@ -1,6 +1,5 @@
 
 import APIClient from '@/services/APIClient';
-import Utils from '@/utils';
 
 interface CloudflareZerotrustIdentity {
     id: string;
@@ -52,7 +51,7 @@ class CloudflareZerotrust {
         });
 
         // not cf
-        if (typeof response.data === 'string' && response.data?.includes("<!DOCTYPE html>")) {
+        if (typeof response.data === 'string' && response.data?.includes('<!DOCTYPE html>')) {
             return null;
         // not login
         // "err": "no app token set"

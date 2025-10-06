@@ -1,7 +1,6 @@
 
 import { defineStore } from 'pinia';
 
-import Utils from '@/utils';
 import CloudflareZerotrust, { ICloudflareZerotrustIdentity } from '@/services/CloudflareZerotrust';
 import useSettingsStore from '@/stores/SettingsStore';
 
@@ -21,11 +20,11 @@ const useCFZTStore = defineStore('CFZT', {
         // null
         is_CFZT(): boolean {
             const settings_store = useSettingsStore();
-            return !!settings_store.settings.is_cloudflare_zerotrust
+            return !!settings_store.settings.is_cloudflare_zerotrust;
         },
         // null false
         is_login(): boolean {
-            return !!this.identity_info
+            return !!this.identity_info;
         }
     },
     actions: {
