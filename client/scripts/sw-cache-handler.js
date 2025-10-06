@@ -83,23 +83,23 @@ self.addEventListener('fetch', (event) => {
 
                 // Playlist の処理
                 if (playlistMatch) {
-                    // 下載器請求（帶 cache_key）→ Network First + 寫入緩存
+                    // ダウンローダーのリクエスト（cache_key 付き）→ Network First + キャッシュに書き込み
                     if (cacheKey) {
                         const networkResponse = await fetch(event.request);
                         if (networkResponse.ok) {
                             const cache = await caches.open(cacheName);
-                            // 寫入緩存，供播放器複用 session_id
+                            // キャッシュに書き込み、プレイヤーが session_id を再利用できるように
                             await cache.put(normalizedUrl, networkResponse.clone());
                             console.log(`[SW] Playlist cached for download session: ${normalizedUrl}`);
                         }
                         return networkResponse;
                     }
 
-                    // 播放器請求（不帶 cache_key）
+                    // プレイヤーのリクエスト（cache_key なし）
                     const trackerKey = `${videoId}-${quality}`;
                     const tracker = cacheMissTracker.get(trackerKey);
 
-                    // 有下載任務 → 使用緩存的 playlist（複用下載器的 session_id）
+                    // ダウンロードタスクあり → キャッシュ優先、なければネットワークから取得してキャッシュ
                     if (tracker) {
                         const cache = await caches.open(cacheName);
                         const cachedResponse = await cache.match(normalizedUrl);
@@ -107,14 +107,28 @@ self.addEventListener('fetch', (event) => {
                             console.log(`[SW] ✓ Cache hit (playlist, download active): ${normalizedUrl}`);
                             return cachedResponse;
                         }
+
+                        // キャッシュミス、ネットワークから取得してキャッシュ（ダウンローダーが新しい session を使用できるように）
+                        try {
+                            console.log(`[SW] Cache miss, fetching playlist and caching for download: ${event.request.url}`);
+                            const networkResponse = await fetch(event.request);
+                            if (networkResponse.ok) {
+                                await cache.put(normalizedUrl, networkResponse.clone());
+                                console.log(`[SW] Playlist cached for active download: ${normalizedUrl}`);
+                            }
+                            return networkResponse;
+                        } catch (error) {
+                            console.log(`[SW] Network failed for playlist (download active): ${error}`);
+                            throw error;
+                        }
                     }
 
-                    // 無下載任務 → 從網路獲取新 session（但斷網時使用緩存）
+                    // ダウンロードタスクなし → ネットワークから新しい session を取得（オフライン時はキャッシュを使用）
                     try {
                         console.log(`[SW] No active download, fetching playlist from network: ${event.request.url}`);
                         return await fetch(event.request);
                     } catch (error) {
-                        // 斷網時嘗試使用緩存
+                        // オフライン時はキャッシュを試行
                         console.log(`[SW] Network failed for playlist, trying cache: ${error}`);
                         const cache = await caches.open(cacheName);
                         const cachedResponse = await cache.match(normalizedUrl);
@@ -134,7 +148,7 @@ self.addEventListener('fetch', (event) => {
                     if (cachedResponse) {
                         console.log(`[SW] ✓ Cache hit (segment): ${normalizedUrl}`);
 
-                        // 播放器のリクエスト時：連続ヒット数を追跡
+                        // プレイヤーのリクエスト時：連続ヒット数を追跡
                         if (!cacheKey) {
                             const trackerKey = `${videoId}-${quality}`;
                             let tracker = cacheMissTracker.get(trackerKey);
@@ -165,11 +179,11 @@ self.addEventListener('fetch', (event) => {
                         return cachedResponse;
                     }
 
-                    // Cache miss → 從網路獲取
+                    // Cache miss → ネットワークから取得
                     console.log(`[SW] Segment cache miss, fetching from network: ${event.request.url}`);
                     const networkResponse = await fetch(event.request);
 
-                    // 如果有下載任務，自動保存到緩存（實現邊看邊存）
+                    // ダウンロードタスクがある場合、自動的にキャッシュに保存（視聴しながら保存）
                     const trackerKey = `${videoId}-${quality}`;
                     const tracker = cacheMissTracker.get(trackerKey);
                     if (tracker && networkResponse.ok) {

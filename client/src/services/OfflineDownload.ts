@@ -554,6 +554,7 @@ class OfflineDownload {
             try {
                 const thumbnailResponse = await APIClient.get<Blob>(`/videos/${video_id}/thumbnail`, {
                     responseType: 'blob',
+                    signal: abortSignal,
                 });
                 if (thumbnailResponse.type === 'success') {
                     // Blob レスポンスを Response オブジェクトに変換
@@ -579,6 +580,7 @@ class OfflineDownload {
             try {
                 const tiledThumbnailResponse = await APIClient.get<Blob>(`/videos/${video_id}/thumbnail/tiled`, {
                     responseType: 'blob',
+                    signal: abortSignal,
                 });
                 if (tiledThumbnailResponse.type === 'success') {
                     // Blob レスポンスを Response オブジェクトに変換
@@ -647,11 +649,19 @@ class OfflineDownload {
             const initialCachedCount = await this.getCachedSegmentsCount(video_id, quality, segmentUrls);
             console.log(`[OfflineDownload] ${initialCachedCount}/${segmentUrls.length} segments already cached`);
 
+            // 9.1. total_segments を即座に更新（UI で 0/0 が表示されるのを防ぐ）
+            await this.updateDownloadStatus(video_id, quality, {
+                total_segments: segmentUrls.length,
+                downloaded_segments: initialCachedCount > 0
+                    ? [...Array(segmentUrls.length).keys()].filter(i => i < initialCachedCount)
+                    : [],
+            });
+
             // 10. 全セグメントを並発ダウンロード
             const downloadedCounts = { value: initialCachedCount };  // オブジェクトで包んで参照渡し
 
             // 初期進捗を報告
-            if (onProgress && downloadedCounts.value > 0) {
+            if (onProgress) {
                 onProgress(downloadedCounts.value, segmentUrls.length);
             }
 
@@ -706,6 +716,50 @@ class OfflineDownload {
                     throw new Error('Download aborted by user');
                 }
 
+                // Playlist をリフレッシュする内部関数
+                const refreshPlaylist = async (): Promise<boolean> => {
+                    try {
+                        console.log('[OfflineDownload] Refreshing session and playlist...');
+                        // キャッシュから古い playlist を削除（SW が Cache First を使うため）
+                        const cacheName = `konomitv-offline-video-${video_id}-${quality}`;
+                        const cache = await caches.open(cacheName);
+                        const oldPlaylistUrl = this.buildPlaylistUrl(video_id, quality, use_hevc);
+                        await cache.delete(oldPlaylistUrl);
+
+                        // 新しい session_id と cache_key を生成
+                        const new_session_id = crypto.randomUUID().split('-')[0];
+                        const new_cache_key = crypto.randomUUID().split('-')[0];
+                        const newPlaylistUrl = this.buildPlaylistUrl(video_id, quality, use_hevc, new_session_id, new_cache_key);
+
+                        // 新しい playlist を取得
+                        const newPlaylistResponse = await APIClient.get<string>(
+                            newPlaylistUrl.replace(Utils.api_base_url, ''),
+                            {
+                                responseType: 'text',
+                                signal: abortSignal,
+                            }
+                        );
+
+                        if (newPlaylistResponse.type === 'success') {
+                            // Service Worker が自動的に新しい playlist をキャッシュする
+                            const newSegmentUrls = this.parseHLSPlaylistFromText(newPlaylistResponse.data, newPlaylistUrl);
+                            if (newSegmentUrls[index]) {
+                                currentSegmentUrl = newSegmentUrls[index];
+                                console.log(`[OfflineDownload] Updated segment ${index + 1} URL with new session`);
+                                return true;
+                            } else {
+                                console.warn(`[OfflineDownload] New playlist does not contain segment ${index + 1}`);
+                            }
+                        } else {
+                            console.warn(`[OfflineDownload] Failed to refresh playlist: ${newPlaylistResponse.status}`);
+                        }
+                        return false;
+                    } catch (error) {
+                        console.warn('[OfflineDownload] Error refreshing session:', error);
+                        return false;
+                    }
+                };
+
                 // セグメントをダウンロード
                 // 最大9回リトライ、失敗時は5秒待機
                 // 第3回と第6回のリトライ後に新しい session を取得
@@ -713,7 +767,6 @@ class OfflineDownload {
                 let segmentBlob: Blob | null = null;
                 let lastError: Error | null = null;
 
-                let needsSessionRefresh = false;
                 for (let retry = 0; retry < 9; retry++) {
                     // 中止シグナルをチェック
                     if (abortSignal?.aborted) {
@@ -732,52 +785,17 @@ class OfflineDownload {
                             }
                         }
 
-                        // 404エラー発生時、または第3回/第6回のリトライ後に新しい playlist (session) を取得
-                        if (needsSessionRefresh || retry === 3 || retry === 6) {
-                            console.log(`[OfflineDownload] Attempt ${retry + 1}: Refreshing session and playlist...`);
-                            try {
-                                // キャッシュから古い playlist を削除（SW が Cache First を使うため）
-                                const cacheName = `konomitv-offline-video-${video_id}-${quality}`;
-                                const cache = await caches.open(cacheName);
-                                const oldPlaylistUrl = this.buildPlaylistUrl(video_id, quality, use_hevc);
-                                const deleted = await cache.delete(oldPlaylistUrl);
-                                if (deleted) {
-                                    console.log('[OfflineDownload] Deleted old playlist from cache to force refresh');
-                                }
-
-                                // 新しい session_id と cache_key を生成
-                                const new_session_id = crypto.randomUUID().split('-')[0];
-                                const new_cache_key = crypto.randomUUID().split('-')[0];
-                                const newPlaylistUrl = this.buildPlaylistUrl(video_id, quality, use_hevc, new_session_id, new_cache_key);
-
-                                // 新しい playlist を取得
-                                const newPlaylistResponse = await APIClient.get<string>(
-                                    newPlaylistUrl.replace(Utils.api_base_url, ''),
-                                    { responseType: 'text' }
-                                );
-
-                                if (newPlaylistResponse.type === 'success') {
-                                    const newPlaylistText = newPlaylistResponse.data;
-                                    const newSegmentUrls = this.parseHLSPlaylistFromText(newPlaylistText, newPlaylistUrl);
-
-                                    // 対応する index の segment URL を取得
-                                    if (newSegmentUrls[index]) {
-                                        currentSegmentUrl = newSegmentUrls[index];
-                                        console.log(`[OfflineDownload] Updated segment ${index + 1} URL with new session`);
-                                        needsSessionRefresh = false; // リフレッシュ成功
-                                    } else {
-                                        console.warn(`[OfflineDownload] New playlist does not contain segment ${index + 1}, using old URL`);
-                                    }
-                                } else {
-                                    console.warn(`[OfflineDownload] Failed to refresh playlist: ${newPlaylistResponse.status}`);
-                                }
-                            } catch (error) {
-                                console.warn('[OfflineDownload] Error refreshing session:', error);
-                            }
+                        // 第3回と第6回のリトライ時に定期的に playlist をリフレッシュ
+                        if (retry === 3 || retry === 6) {
+                            console.log(`[OfflineDownload] Attempt ${retry + 1}: Periodic playlist refresh`);
+                            await refreshPlaylist();
                         }
 
+                        // Segment をダウンロード（タイムアウト 20 秒）
                         const segmentResponse = await APIClient.get<Blob>(currentSegmentUrl, {
                             responseType: 'blob',
+                            timeout: 20 * 1000, // 20秒タイムアウト（セグメントサイズ 10-15MB を考慮）
+                            signal: abortSignal,
                         });
 
                         if (segmentResponse.type === 'success') {
@@ -798,10 +816,31 @@ class OfflineDownload {
                             lastError = new Error(`HTTP ${segmentResponse.status}`);
                             console.warn(`[OfflineDownload] Segment ${index + 1} download failed with status ${segmentResponse.status}`);
 
-                            // 404エラーの場合は次回のリトライで session をリフレッシュ
+                            // 404エラーの場合は即座に playlist をリフレッシュして再試行
                             if (segmentResponse.status === 404) {
-                                console.log('[OfflineDownload] 404 detected, will refresh session on next retry');
-                                needsSessionRefresh = true;
+                                console.log('[OfflineDownload] 404 detected (session revoked), refreshing playlist immediately');
+                                const refreshed = await refreshPlaylist();
+                                if (refreshed) {
+                                    // リフレッシュ成功、新しい URL で即座に再試行
+                                    console.log('[OfflineDownload] Retrying immediately with new session');
+                                    try {
+                                        const retryResponse = await APIClient.get<Blob>(currentSegmentUrl, {
+                                            responseType: 'blob',
+                                            timeout: 20 * 1000,
+                                            signal: abortSignal,
+                                        });
+                                        if (retryResponse.type === 'success' && retryResponse.data && retryResponse.data.size > 0) {
+                                            segmentBlob = retryResponse.data;
+                                            console.log(`[OfflineDownload] Immediate retry after 404 successful, size: ${segmentBlob.size} bytes`);
+                                            break; // 成功、ループを抜ける
+                                        } else {
+                                            console.warn('[OfflineDownload] Immediate retry failed, continuing normal retry flow');
+                                        }
+                                    } catch (error) {
+                                        console.warn('[OfflineDownload] Immediate retry after 404 failed:', error);
+                                    }
+                                }
+                                // リフレッシュ失敗または即座の再試行が失敗した場合、通常のリトライフローを続行
                             }
                         }
                     } catch (error) {

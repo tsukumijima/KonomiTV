@@ -240,7 +240,7 @@ import Message from '@/message';
 import DownloadManager from '@/services/DownloadManager';
 import OfflineDownload from '@/services/OfflineDownload';
 import Videos, { IRecordedProgram } from '@/services/Videos';
-import useSettingsStore, { setLocalStorageSettings } from '@/stores/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 

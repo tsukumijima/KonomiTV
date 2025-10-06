@@ -166,9 +166,13 @@
                                 class="offline-video"
                             >
                                 <div class="offline-video__container">
-                                    <div class="offline-video__content">
+                                    <router-link v-ripple class="offline-video__content"
+                                        :to="video.status === 'completed' ? `/videos/watch/${video.video_id}` : { path: '' }"
+                                        :class="{
+                                            'offline-video__content--disabled': video.status !== 'completed',
+                                        }">
                                         <!-- サムネイル -->
-                                        <div class="offline-video__thumbnail" @click="playVideo(video.video_id)">
+                                        <div class="offline-video__thumbnail">
                                             <img
                                                 v-if="video.thumbnail_url"
                                                 :src="video.thumbnail_url"
@@ -186,7 +190,7 @@
 
                                         <!-- 動画情報 -->
                                         <div class="offline-video__info">
-                                            <div class="offline-video__title" @click="playVideo(video.video_id)" v-html="ProgramUtils.decorateProgramInfo({ title: video.title } as any, 'title')">
+                                            <div class="offline-video__title" v-html="ProgramUtils.decorateProgramInfo({ title: video.title } as any, 'title')">
                                             </div>
                                             <div class="offline-video__metadata">
                                                 <v-chip size="small" color="primary" class="mr-2">
@@ -200,21 +204,8 @@
                                                 </v-chip>
                                             </div>
 
-                                            <!-- ダウンロード進行状況 -->
-                                            <div v-if="video.status === 'downloading' || video.status === 'paused'" class="offline-video__progress">
-                                                <v-progress-linear
-                                                    :model-value="video.progress"
-                                                    :color="video.status === 'paused' ? 'warning' : 'primary'"
-                                                    height="6"
-                                                    rounded
-                                                ></v-progress-linear>
-                                                <div class="offline-video__progress-text">
-                                                    {{ video.progress }}% ({{ video.downloaded_segments }}/{{ video.total_segments }} セグメント)
-                                                </div>
-                                            </div>
-
                                             <!-- 完了時の情報 -->
-                                            <div v-else-if="video.status === 'completed'" class="offline-video__details">
+                                            <div v-if="video.status === 'completed'" class="offline-video__details">
                                                 <span v-if="video.total_segments > 0">
                                                     {{ video.downloaded_segments }}/{{ video.total_segments }} セグメント
                                                     <span class="mx-2">•</span>
@@ -226,7 +217,7 @@
                                                 {{ formatDate(video.created_at) }}
                                             </div>
                                             <!-- 失敗時のエラーメッセージ -->
-                                            <div v-else-if="video.status === 'failed' && video.error_message" class="offline-video__error">
+                                            <div v-if="video.status === 'failed' && video.error_message" class="offline-video__error">
                                                 エラー: {{ video.error_message }}
                                             </div>
                                         </div>
@@ -239,7 +230,8 @@
                                                 icon
                                                 variant="text"
                                                 size="small"
-                                                @click="pauseDownload(video.video_id, video.quality)"
+                                                @click.prevent.stop="pauseDownload(video.video_id, video.quality)"
+                                                @mousedown.prevent.stop=""
                                             >
                                                 <Icon icon="fluent:pause-24-regular" width="22px" />
                                                 <v-tooltip activator="parent" location="top">一時停止</v-tooltip>
@@ -252,7 +244,8 @@
                                                 variant="text"
                                                 size="small"
                                                 color="success"
-                                                @click="resumeDownload(video.video_id, video.quality)"
+                                                @click.prevent.stop="resumeDownload(video.video_id, video.quality)"
+                                                @mousedown.prevent.stop=""
                                             >
                                                 <Icon icon="fluent:play-24-regular" width="22px" />
                                                 <v-tooltip activator="parent" location="top">再開</v-tooltip>
@@ -264,11 +257,25 @@
                                                 variant="text"
                                                 size="small"
                                                 color="error"
-                                                @click="deleteVideo(video.video_id, video.quality)"
+                                                @click.prevent.stop="deleteVideo(video.video_id, video.quality)"
+                                                @mousedown.prevent.stop=""
                                             >
                                                 <Icon icon="fluent:delete-24-regular" width="22px" />
                                                 <v-tooltip activator="parent" location="top">削除</v-tooltip>
                                             </v-btn>
+                                        </div>
+                                    </router-link>
+
+                                    <!-- ダウンロード進行状況（全幅で表示） -->
+                                    <div v-if="video.status === 'downloading' || video.status === 'paused'" class="offline-video__progress-full">
+                                        <v-progress-linear
+                                            :model-value="video.progress"
+                                            :color="video.status === 'paused' ? 'warning' : 'primary'"
+                                            height="6"
+                                            rounded
+                                        ></v-progress-linear>
+                                        <div class="offline-video__progress-text">
+                                            {{ video.progress }}% ({{ video.downloaded_segments }}/{{ video.total_segments }} セグメント)
                                         </div>
                                     </div>
                                 </div>
@@ -436,11 +443,6 @@ export default defineComponent({
                     task.downloaded_size = cachedSize;
                 }
             }
-        },
-
-        // 動画を再生
-        playVideo(video_id: number) {
-            this.$router.push(`/videos/watch/${video_id}`);
         },
 
         // 動画を削除
@@ -1129,8 +1131,23 @@ export default defineComponent({
         display: flex;
         align-items: flex-start;
         gap: 16px;
+        color: inherit;
+        text-decoration: none;
         @include smartphone-vertical {
             gap: 12px;
+        }
+
+        &--disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+
+            .offline-video__thumbnail {
+                cursor: not-allowed;
+            }
+
+            .offline-video__title {
+                cursor: not-allowed;
+            }
         }
     }
 
@@ -1216,15 +1233,25 @@ export default defineComponent({
         gap: 8px;
     }
 
-    &__progress {
+    &__progress-full {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
+        margin-top: 12px;
+        padding: 0 16px 4px;
+        @include smartphone-vertical {
+            margin-top: 8px;
+            padding: 0 12px 4px;
+        }
     }
 
     &__progress-text {
         font-size: 12px;
         color: rgb(var(--v-theme-text-darken-1));
+        text-align: center;
+        @include smartphone-vertical {
+            font-size: 11px;
+        }
     }
 
     &__details {

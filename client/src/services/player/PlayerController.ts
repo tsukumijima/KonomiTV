@@ -7,7 +7,6 @@ import mpegts from 'mpegts.js';
 import { watch } from 'vue';
 
 import APIClient from '@/services/APIClient';
-import OfflineDownload from '@/services/OfflineDownload';
 import CustomBufferController from '@/services/player/CustomBufferController';
 import CaptureManager from '@/services/player/managers/CaptureManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
@@ -93,6 +92,14 @@ class PlayerController {
 
     // L字画面のクロップ設定で使うウォッチャーを保持する配列
     private lshaped_screen_crop_watchers: (() => void)[] = [];
+
+    // オフラインキャッシュが存在するかどうか
+    // オフラインキャッシュがある場合、画質切り替えやモバイル回線プロファイルの変更が無効化される
+    private is_offline_cached = false;
+
+    // オフラインキャッシュが HEVC 形式かどうか
+    // オフラインキャッシュが HEVC の場合、モバイル回線向け画質スイッチを ON 状態で表示する
+    private is_offline_hevc = false;
 
     // 破棄中かどうか
     // 破棄中は destroy() が呼ばれても何もしない
@@ -219,24 +226,14 @@ class PlayerController {
         (window as any).mpegts = mpegts;
         (window as any).Hls = Hls;
 
-        // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき、H.265 / HEVC で再生する
-        let is_hevc_playback = false;
-        if (PlayerUtils.isHEVCVideoSupported() &&
-            ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
-             (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
-            is_hevc_playback = true;
-        }
-
         // オフラインキャッシュの確認 (ビデオ視聴のみ)
         // オフラインキャッシュが存在する場合、カスタム Loader がキャッシュから優先的に読み込む
-        let is_offline_cached = false;
-        let is_offline_hevc = false;
         let offline_thumbnail_url: string | null = null;
         if (this.playback_mode === 'Video') {
             const OfflineDownload = (await import('@/services/OfflineDownload')).default;
-            is_offline_cached = await OfflineDownload.isVideoCached(player_store.recorded_program.id, '1080p');
+            this.is_offline_cached = await OfflineDownload.isVideoCached(player_store.recorded_program.id, '1080p');
 
-            if (is_offline_cached) {
+            if (this.is_offline_cached) {
                 console.log('[PlayerController] Offline cache detected for 1080p, will use OfflineCacheLoader');
 
                 // playlist を確認して HEVC かどうかを判定
@@ -246,10 +243,10 @@ class PlayerController {
                 const h264_playlist = await OfflineDownload.getCachedResponse(player_store.recorded_program.id, '1080p', h264_playlist_url);
 
                 if (hevc_playlist) {
-                    is_offline_hevc = true;
+                    this.is_offline_hevc = true;
                     console.log('[PlayerController] Offline cache is HEVC');
                 } else if (h264_playlist) {
-                    is_offline_hevc = false;
+                    this.is_offline_hevc = false;
                     console.log('[PlayerController] Offline cache is H.264');
                 }
 
@@ -266,6 +263,20 @@ class PlayerController {
                     console.log('[PlayerController] Using offline cached thumbnail');
                 }
             }
+        }
+
+        // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき、H.265 / HEVC で再生する
+        // オフラインキャッシュがある場合は、キャッシュの編码形式を優先し、通信節約モード設定を無視する
+        let is_hevc_playback = false;
+        if (this.is_offline_cached) {
+            // オフラインキャッシュがある場合、キャッシュの編码形式に従う
+            is_hevc_playback = this.is_offline_hevc;
+            console.log(`[PlayerController] Using offline cache codec: ${is_hevc_playback ? 'HEVC' : 'H.264'}`);
+        } else if (PlayerUtils.isHEVCVideoSupported() &&
+            ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
+             (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
+            // オンライン再生の場合、通信節約モード設定に従う
+            is_hevc_playback = true;
         }
 
         // ブラウザが MSE in Worker での H.265 / HEVC 再生に対応しているかどうか
@@ -413,18 +424,17 @@ class PlayerController {
                     const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
 
                     // オフラインキャッシュがある場合、1080p のみを画質リストに追加し、画質切り替えを無効化
-                    if (is_offline_cached) {
+                    if (this.is_offline_cached) {
                         const session_id = crypto.randomUUID().split('-')[0];
                         // HEVC の場合は 1080p-hevc、H.264 の場合は 1080p
-                        const quality_path = is_offline_hevc ? '1080p-hevc' : '1080p';
+                        const quality_path = this.is_offline_hevc ? '1080p-hevc' : '1080p';
                         const playlist_url = `${streaming_api_base_url}/${quality_path}/playlist?session_id=${session_id}`;
-                        const display_name = is_offline_hevc ? '1080p (HEVC)' : '1080p';
                         qualities.push({
-                            name: display_name,
+                            name: '1080p',
                             type: 'hls',
                             url: playlist_url,
                         });
-                        console.log(`[PlayerController] Offline mode: Quality fixed to ${display_name}`);
+                        console.log(`[PlayerController] Offline mode: Quality fixed to ${quality_path}`);
                     } else {
                         // 画質リストを作成
                         for (const quality_name of VIDEO_STREAMING_QUALITIES) {
@@ -447,9 +457,9 @@ class PlayerController {
                     // デフォルトの画質
                     // ビデオ視聴時はラジオは考慮しない
                     let default_quality: string;
-                    if (is_offline_cached) {
+                    if (this.is_offline_cached) {
                         // オフラインキャッシュがある場合は、HEVC なら "1080p (HEVC)"、H.264 なら "1080p"
-                        default_quality = is_offline_hevc ? '1080p (HEVC)' : '1080p';
+                        default_quality = this.is_offline_hevc ? '1080p (HEVC)' : '1080p';
                     } else if (options.default_quality !== null) {
                         // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
                         // 画質プロファイルに記載の画質ではなく、指定された（前回再生時の）画質を使ってレジュームする
@@ -1071,7 +1081,8 @@ class PlayerController {
         // HLS プレイリストやセグメントのリクエストが行われたタイミングでも Keep-Alive が行われるが、
         // それだけではタイミング次第では十分ではないため、定期的に Keep-Alive を行う
         // Keep-Alive が行われなくなったタイミングで、サーバー側で自動的にビデオストリームの終了処理 (エンコードタスクの停止) が行われる
-        if (this.playback_mode === 'Video') {
+        // ただし、オフラインキャッシュから再生する場合は Keep-Alive は不要（サーバー側のストリームセッションが存在しないため）
+        if (this.playback_mode === 'Video' && !this.is_offline_cached) {
             this.video_keep_alive_interval_timer_cancel = Utils.setIntervalInWorker(async () => {
                 // 画質切り替えでベース URL が変わることも想定し、あえて毎回 API URL を取得している
                 if (this.player === null) return;
@@ -1595,33 +1606,44 @@ class PlayerController {
 
         // デフォルトのチェック状態を画質プロファイルタイプに合わせる
         const toggle_mobile_profile_input = this.player.container.querySelector<HTMLInputElement>('.dplayer-mobile-profile-setting-input')!;
-        toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
+        const toggle_mobile_profile_button = this.player.container.querySelector<HTMLDivElement>('.dplayer-setting-mobile-profile')!;
 
-        // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
-        const toggle_mobile_profile_button = this.player.container.querySelector('.dplayer-setting-mobile-profile')!;
-        toggle_mobile_profile_button.addEventListener('click', () => {
-            // チェックボックスの状態を切り替える
-            toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
-            // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
-            if (toggle_mobile_profile_input.checked) {
-                this.quality_profile_type = 'Cellular';
-                player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'モバイル回線向けの画質プロファイルに切り替えました。',
-                    // 他の通知と被らないように、メッセージを遅らせて表示する
-                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
-                    is_error_message: false,
-                });
-            // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
-            } else {
-                this.quality_profile_type = 'Wi-Fi';
-                player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
-                    // 他の通知と被らないように、メッセージを遅らせて表示する
-                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
-                    is_error_message: false,
-                });
-            }
-        });
+        // オフラインキャッシュがある場合、キャッシュの編码形式に応じて表示を設定し、切り替えを無効化
+        if (this.is_offline_cached) {
+            // HEVC キャッシュの場合は ON、H.264 キャッシュの場合は OFF で表示
+            toggle_mobile_profile_input.checked = this.is_offline_hevc;
+            // ボタンとチェックボックスを無効化
+            toggle_mobile_profile_input.disabled = true;
+            toggle_mobile_profile_button.style.pointerEvents = 'none';
+            toggle_mobile_profile_button.style.opacity = '0.5';
+        } else {
+            // オンライン再生の場合、画質プロファイルタイプに合わせる
+            toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
+            // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
+            toggle_mobile_profile_button.addEventListener('click', () => {
+                // チェックボックスの状態を切り替える
+                toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
+                // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
+                if (toggle_mobile_profile_input.checked) {
+                    this.quality_profile_type = 'Cellular';
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: 'モバイル回線向けの画質プロファイルに切り替えました。',
+                        // 他の通知と被らないように、メッセージを遅らせて表示する
+                        message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                        is_error_message: false,
+                    });
+                // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
+                } else {
+                    this.quality_profile_type = 'Wi-Fi';
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
+                        // 他の通知と被らないように、メッセージを遅らせて表示する
+                        message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                        is_error_message: false,
+                    });
+                }
+            });
+        }
 
         // 設定パネルにL字画面のクロップ設定を表示するボタンを動的に追加する
         this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
