@@ -260,6 +260,8 @@ class PlayerController {
         }
 
         // CM 区間からハイライトマーカーを作成する
+        // TODO: DPlayer のマーカー機能はまともに実装されていないため、将来的にはレコーダーのように CM 区間のシークバーを
+        // 暗くした上で CM 区間を自動スキップできるようにしたい
         const highlights: Array<{text: string, time: number}> = [];
         if (this.playback_mode === 'Video' && player_store.recorded_program?.recorded_video?.cm_sections) {
             const cm_sections = player_store.recorded_program.recorded_video.cm_sections;
@@ -611,6 +613,9 @@ class PlayerController {
                     // 描画フォント
                     normalFont: (() => {
                         let font = settings_store.settings.caption_font;
+                        if (font === 'sans-serif') {
+                            return 'sans-serif';
+                        }
                         if (font === 'Yu Gothic') {
                             // 游ゴシックのみ、Windows と Mac で名前が異なる
                             font = 'Yu Gothic Medium","Yu Gothic","YuGothic';
@@ -1618,7 +1623,7 @@ class PlayerController {
         });
 
         // 現在の設定状態を DOM に反映する関数
-        // 基本 TVRemotePlus のときの実装をそのまま移植した
+        // 以前 TVRemotePlus で実装した際のコードをほぼそのまま移植した
         // ref: https://github.com/tsukumijima/TVRemotePlus/blob/master/htdocs/files/index.js#L410-L536
         const crop = () => {
 

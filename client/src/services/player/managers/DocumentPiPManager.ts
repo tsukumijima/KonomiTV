@@ -82,6 +82,8 @@ class DocumentPiPManager implements PlayerManager {
             // ref: https://document-picture-in-picture-api.glitch.me/script.js
             // ref: https://developer.chrome.com/docs/web-platform/document-picture-in-picture
             // ref: https://medium.com/@abhishek_guy/guide-to-use-the-document-picture-in-picture-api-51ecfac058f7
+            // Chrome 134 以降では、条件を満たす場合、KonomiTV からタブを切り替えた際に自動的に Document Picture-in-Picture が開始される
+            // ref: https://developer.chrome.com/blog/automatic-picture-in-picture-media-playback?hl=ja
 
             // Document Picture-in-Picture ウインドウが表示された時のイベントを登録
             // すでに登録されている場合は上書きされる
