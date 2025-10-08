@@ -4,8 +4,9 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import pathlib
+from dataclasses import dataclass
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
 import anyio
@@ -39,6 +40,24 @@ class FileRecordingInfo(TypedDict):
     last_checked: datetime
     file_size: int
     mtime_continuous_start_at: datetime | None
+
+
+@dataclass(slots=True)
+class RecordedVideoSummary:
+    """
+    RecordedScanTask.runBatchScan() 内でのメモリ使用量を抑えるため、RecordedVideo のうち必要最低限の情報のみを保持する軽量データ構造
+    slots=True を指定し、メモリ使用量を抑える
+    """
+
+    id: int
+    file_path: str
+    created_at: datetime
+    recorded_program_id: int
+    status: Literal['Recording', 'Recorded']
+    file_created_at: datetime
+    file_modified_at: datetime
+    file_size: int
+    file_hash: str
 
 
 class RecordedScanTask:
@@ -202,16 +221,38 @@ class RecordedScanTask:
         logging.info('Batch scan of recording folders has been started.')
         self._is_batch_scan_running = True
 
-        # 現在登録されている全ての RecordedVideo レコードをキャッシュ
-        ## チャンネル情報も後で使うのでここで select_related しておく
+        # 現在登録されている全ての RecordedVideo レコードの情報をキャッシュ
+        ## すべての情報をキャッシュすると key_frames フィールドのデータ量が大きすぎてメモリとディスク I/O を大量に食うため、
+        ## 必要最低限の情報のみをキャッシュする
         logging.info('Gathering all recorded video records...')
-        all_videos = await RecordedVideo.all().select_related('recorded_program', 'recorded_program__channel')
-        videos_by_path: dict[str, list[RecordedVideo]] = {}
-        videos_to_keep: list[RecordedVideo] = []  # 保持するレコードのリスト
-        for index, video in enumerate(all_videos, start=1):
-            if video.file_path not in videos_by_path:
-                videos_by_path[video.file_path] = []
-            videos_by_path[video.file_path].append(video)
+        all_video_rows = await RecordedVideo.all().values(
+            'id',
+            'file_path',
+            'created_at',
+            'recorded_program_id',
+            'status',
+            'file_created_at',
+            'file_modified_at',
+            'file_size',
+            'file_hash',
+        )
+        videos_by_path: dict[str, list[RecordedVideoSummary]] = {}
+        videos_to_keep: list[RecordedVideoSummary] = []  # 保持するレコードのリスト
+        for index, row in enumerate(all_video_rows, start=1):
+            recorded_video_summary = RecordedVideoSummary(
+                id = row['id'],
+                file_path = row['file_path'],
+                created_at = row['created_at'],
+                recorded_program_id = row['recorded_program_id'],
+                status = row['status'],
+                file_created_at = row['file_created_at'],
+                file_modified_at = row['file_modified_at'],
+                file_size = row['file_size'],
+                file_hash = row['file_hash'],
+            )
+            if recorded_video_summary.file_path not in videos_by_path:
+                videos_by_path[recorded_video_summary.file_path] = []
+            videos_by_path[recorded_video_summary.file_path].append(recorded_video_summary)
             if index % 100 == 0:
                 # 起動時にイベントループが他のタスクを処理できるよう定期的に制御を返す
                 await asyncio.sleep(0)
@@ -234,10 +275,16 @@ class RecordedScanTask:
                     for video_to_delete in videos[1:]:
                         try:
                             # RecordedProgram を削除 (CASCADE により RecordedVideo も削除される)
-                            await video_to_delete.recorded_program.delete()
-                            logging.info(f'{file_path}: Deleted duplicate record (ID: {video_to_delete.recorded_program.id}). Kept record (ID: {latest_video.recorded_program.id}).')
+                            await RecordedProgram.filter(id=video_to_delete.recorded_program_id).delete()
+                            logging.info(
+                                f'{file_path}: Deleted duplicate record (RecordedProgram ID: {video_to_delete.recorded_program_id}). '
+                                f'Kept record (RecordedProgram ID: {latest_video.recorded_program_id}).'
+                            )
                         except Exception as ex_del:
-                            logging.error(f'{file_path}: Failed to delete duplicate record (ID: {video_to_delete.recorded_program.id}):', exc_info=ex_del)
+                            logging.error(
+                                f'{file_path}: Failed to delete duplicate record (RecordedProgram ID: {video_to_delete.recorded_program_id}):',
+                                exc_info=ex_del,
+                            )
                     # 削除対象のレコード数をカウント
                     deleted_count = len(videos) - 1  # -1 は最新のレコードを除いた数
                     total_deleted_count += deleted_count
@@ -259,6 +306,7 @@ class RecordedScanTask:
         }
 
         # 各録画フォルダをスキャン
+        logging.info('Scanning recorded folders...')
         for folder in self.recorded_folders:
             async for file_path in folder.rglob('*'):
                 try:
@@ -285,23 +333,25 @@ class RecordedScanTask:
         ## トランザクション配下に入れることでパフォーマンスが向上する
         logging.info('Deleting records for non-existent files...')
         async with transactions.in_transaction():
-            for index, (file_path, existing_db_recorded_video) in enumerate(existing_db_recorded_videos.items(), start=1):
+            for index, (file_path, existing_recorded_video_summary) in enumerate(existing_db_recorded_videos.items(), start=1):
                 # ファイルの存在確認を非同期に行う
                 if not await self.isFileExists(file_path):
                     # RecordedVideo の親テーブルである RecordedProgram を削除すると、
                     # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
-                    await existing_db_recorded_video.recorded_program.delete()
+                    await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
                 if index % 50 == 0:
                     # 既存レコードの走査が長時間化しないよう適宜制御を返す
                     await asyncio.sleep(0)
-        logging.info('Deletion of records for non-existent files has been completed.')
 
-        # 不要なサムネイルファイルを削除
+        # DB に存在する全ての RecordedVideo レコードのハッシュを取得
+        logging.info('Gathering all recorded video hashes...')
+        db_recorded_video_hashes = set(
+            cast(list[str], await RecordedVideo.all().values_list('file_hash', flat=True))
+        )
+
+        # サムネイルフォルダ内の全ファイルをスキャンし、不要なサムネイルファイルを削除
         logging.info('Deleting orphaned thumbnail files...')
-        ## DB に存在する全ての RecordedVideo レコードのハッシュを取得
-        db_recorded_video_hashes = {video.file_hash for video in await RecordedVideo.all()}
-        ## サムネイルフォルダ内の全ファイルをスキャン
         thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
         if await thumbnails_dir.is_dir():
             async for thumbnail_path in thumbnails_dir.glob('*'):
@@ -326,7 +376,6 @@ class RecordedScanTask:
                 except Exception as ex:
                     logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
 
-        logging.info('Deletion of orphaned thumbnail files has been completed.')
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
 
@@ -334,7 +383,7 @@ class RecordedScanTask:
     async def processRecordedFile(
         self,
         file_path: anyio.Path,
-        existing_db_recorded_videos: dict[anyio.Path, RecordedVideo] | None,
+        existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] | None,
         force_update: bool = False,
     ) -> None:
         """
@@ -343,7 +392,7 @@ class RecordedScanTask:
 
         Args:
             file_path (anyio.Path): 処理対象のファイルパス
-            existing_db_recorded_videos (dict[anyio.Path, RecordedVideo] | None): 既に DB に永続化されている録画ファイルパスと RecordedVideo レコードのマッピング
+            existing_db_recorded_videos (dict[anyio.Path, RecordedVideoSummary] | None): 既に DB に永続化されている録画ファイルパスと RecordedVideo のサマリーデータのマッピング
                 (ファイル変更イベントから呼ばれた場合、watchfiles 初期化時に取得した全レコードと今で状態が一致しているとは限らないため、None が入る)
             force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか
         """
@@ -379,30 +428,53 @@ class RecordedScanTask:
                     logging.warning(f'{file_path}: File size is 0. ignored.')
                     return
 
-                # 同じファイルパスの既存レコードがあれば取り出す
+                # 同じファイルパスの既存レコードのサマリーがあれば取り出す
                 if existing_db_recorded_videos is not None:
-                    existing_db_recorded_video = existing_db_recorded_videos.pop(file_path, None)
+                    existing_recorded_video_summary = existing_db_recorded_videos.pop(file_path, None)
                 else:
-                    existing_db_recorded_video = None
+                    existing_recorded_video_summary = None
 
-                # この時点で existing_db_recorded_video が None の場合、DB に同一ファイルパスのレコードがないか問い合わせる
-                ## ファイル変更イベントから呼ばれた場合は existing_db_recorded_videos が None になるが、
+                # この時点でサマリーがない場合、DB に同一ファイルパスのレコードがないか最小限のカラムで取得する
+                ## ファイル変更イベントから呼ばれた場合は existing_db_recorded_videos は None となるが、
                 ## DB には同一ファイルパスのレコードが存在する可能性がある
-                if existing_db_recorded_video is None:
-                    existing_db_recorded_video = await RecordedVideo.get_or_none(
+                if existing_recorded_video_summary is None:
+                    summary_rows = await RecordedVideo.filter(
                         file_path=str(file_path)
-                    ).select_related('recorded_program', 'recorded_program__channel')
+                    ).values(
+                        'id',
+                        'file_path',
+                        'created_at',
+                        'recorded_program_id',
+                        'status',
+                        'file_created_at',
+                        'file_modified_at',
+                        'file_size',
+                        'file_hash',
+                    )
+                    if len(summary_rows) > 0:
+                        row = summary_rows[0]
+                        existing_recorded_video_summary = RecordedVideoSummary(
+                            id = row['id'],
+                            file_path = row['file_path'],
+                            created_at = row['created_at'],
+                            recorded_program_id = row['recorded_program_id'],
+                            status = row['status'],
+                            file_created_at = row['file_created_at'],
+                            file_modified_at = row['file_modified_at'],
+                            file_size = row['file_size'],
+                            file_hash = row['file_hash'],
+                        )
 
                 # 同じファイルパスの既存レコードがあり、ファイルの基本情報（作成日時、更新日時、サイズ）が前回と一致した場合、
                 # ファイル内容は変更されておらず、レコード内容は更新不要と判断してスキップ
                 ## こうすることで、録画済みファイルに対しては HDD への I/O 負荷が高いハッシュ算出やメタデータ解析処理を省略できる
                 ## 万が一前回実行時からファイルサイズや最終更新日時の変更を伴わずに録画が完了した場合に状態を適切に反映できるよう、録画中はスキップしない
                 if (force_update is False and
-                    existing_db_recorded_video is not None and
-                    existing_db_recorded_video.status == 'Recorded'):
-                    if (existing_db_recorded_video.file_created_at == file_created_at and
-                        existing_db_recorded_video.file_modified_at == file_modified_at and
-                        existing_db_recorded_video.file_size == file_size):
+                    existing_recorded_video_summary is not None and
+                    existing_recorded_video_summary.status == 'Recorded'):
+                    if (existing_recorded_video_summary.file_created_at == file_created_at and
+                        existing_recorded_video_summary.file_modified_at == file_modified_at and
+                        existing_recorded_video_summary.file_size == file_size):
                         # logging.debug_simple(f'{file_path}: File metadata unchanged, skipping...')
                         return
 
@@ -410,7 +482,8 @@ class RecordedScanTask:
                 is_recording = file_path in self._recording_files
                 if is_recording:
                     # 既に DB に登録済みで録画中の場合は再解析しない
-                    if existing_db_recorded_video is not None and existing_db_recorded_video.status == 'Recording':
+                    if (existing_recorded_video_summary is not None and
+                        existing_recorded_video_summary.status == 'Recording'):
                         return
                     # まだ DB に登録されていない＆ファイルサイズが前回から変化していない場合
                     recording_info = self._recording_files[file_path]

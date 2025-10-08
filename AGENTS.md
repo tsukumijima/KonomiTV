@@ -152,6 +152,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - 通常の Web サービスではないかなり特殊なソフトウェアなので、コンテキストとして分からないことがあれば別途 Readme.md を読むか、私に質問すること
 
 ### Python コード
+- コードの編集後は `poetry run task lint` を実行し、Ruff によるコードリンターと Pyright による型チェッカーを実行すること
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
