@@ -147,12 +147,16 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
             self.server_process = subprocess.Popen(
                 [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
                 cwd = BASE_DIR,  # カレントディレクトリを指定
-                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0,  # CTRL_C_EVENT がサービス側へ伝播しないようにする
             )
 
             # プロセスが終了するまで待つ
             ## Windows サービスではメインループが終了してしまうとサービスも終了扱いになってしまう
-            self.server_process.wait()
+            while True:
+                try:
+                    self.server_process.wait()
+                    break
+                except KeyboardInterrupt:
+                    continue  # 子プロセスの再起動/停止で CTRL_C_EVENT が飛んできたケースに備える
             self.server_process = None
 
             # プロセス終了後、もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
@@ -191,6 +195,8 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
                 servicemanager.LogWarningMsg(
                     f'[KonomiTV-Service][SvcStop] Shutdown API returned status {response.status_code}',
                 )
+        except KeyboardInterrupt:
+            shutdown_requested = True  # CTRL_C_EVENT が飛んできた場合は子プロセス側でシャットダウン処理が進行している
         except Exception as ex:
             servicemanager.LogWarningMsg(f'[KonomiTV-Service][SvcStop] Shutdown API request failed: {ex!r}')
 
