@@ -39,7 +39,7 @@ pymediainfo = "^6.1.0"
 pyright = "^1.1.403"
 python-jose = {version = "^3.4.0", extras = ["cryptography"]}
 python-multipart = "^0.0.20"
-pywin32 = {version = "^308", platform = "win32"}
+pywin32 = {version = "^311", platform = "win32"}
 requests = "^2.32.4"
 rich = "^13.9.4"
 "ruamel.yaml" = "^0.18.10"
