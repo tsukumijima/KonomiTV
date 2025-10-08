@@ -8,10 +8,11 @@
 ユーザーのさまざまな好みがつまった、温かみのある居心地の良い場を作りたいという願いを込めて、KonomiTV と名付けました。  
 手元の PC・タブレット・スマホをテレビにすることを考えたときに、まったく新しく、使いやすくて快適な視聴体験を創出したい一心で開発を進めています。
 
-計画はかなり壮大ですが、2025年2月時点ではおもに以下の機能のみ実装されています。
+計画はかなり壮大ですが、2025年10月時点ではおもに以下の機能のみ実装されています。
 
 - **「テレビをみる」**: 高画質/低遅延なリアルタイム視聴に対応し、ニコニコ実況や Twitter のコメントとともに番組を楽しめる、デバイスを選ばない快適な視聴体験
 - **「ビデオをみる」**: 動画配信サービスのような洗練された UI と、当時の盛り上がりを追体験できるコメント再生機能を備えた、録画番組をゆったりと楽しめる視聴体験 **[🎉NEW!]**
+- **「録画予約」**: 予約した番組の番組情報や放送時間を一目で把握でき、リアタイ視聴をサポート **[🎉NEW!]**
 - **「マイリスト」**: 気になる録画番組をさっと登録して、ゆっくり観たいときに思い出せる、あなたのための視聴リスト **[🎉NEW!]**
 - **「視聴履歴」**: 録画番組の視聴状況を自動で追跡し、途中で中断した場合も前回の続きから再開して、あなたの番組鑑賞をサポート **[🎉NEW!]**
 - **「KonomiTV アカウント」**:  外出先のスマホでも自宅の PC でも、いつでもどこでも同じ設定で使える
@@ -31,11 +32,14 @@
   - [EDCB の事前設定](#edcb-の事前設定)
   - [QSVEncC・NVEncC・VCEEncC・rkmppenc に対応した GPU ドライバーのインストール](#qsvenccnvenccvceenccrkmppenc-に対応した-gpu-ドライバーのインストール)
     - [Windows](#windows)
-    - [Linux](#linux)
+    - [Linux - QSVEncC](#linux---qsvencc)
+    - [Linux - NVEncC](#linux---nvencc)
+    - [Linux - VCEEncC](#linux---vceencc)
+    - [Linux - rkmppenc](#linux---rkmppenc)
   - [Tailscale の導入](#tailscale-の導入)
 - [サーバーのインストール/アップデート](#サーバーのインストールアップデート)
   - [Windows](#windows-1)
-  - [Linux](#linux-1)
+  - [Linux](#linux)
   - [KonomiTV にアクセスする](#konomitv-にアクセスする)
   - [デスクトップアプリ・スマホアプリとして使う](#デスクトップアプリスマホアプリとして使う)
   - [フィードバックのお願い](#フィードバックのお願い)
@@ -162,14 +166,14 @@
 - **まだ開発中の β 版です。当初よりかなり安定してきましたが、まだ完璧に保証ができる状態ではありません。**
   - **KonomiTV 0.12.0 以降では、構想から4年の歳月を経て録画番組の再生機能が実装されました！🎉🎊**  
     - **ライブ視聴・録画再生の両方で TVRemotePlus の完全上位互換となっています。** TVRemotePlus はすでに開発を終了しているため、移行をお勧めします。
-  - L字画面のクロップなどの細かな設定も含めて、TVRemotePlus よりも大幅に改善されているはずです。
+  - L字画面のクロップなどの細かな設定も含め、TVRemotePlus よりも大幅に改善されているはずです。
 - **スマートフォンでは、最低限 iPhone SE2 (4.7インチ) 以上の画面サイズが必要です。**
   - 快適に利用するには、画面サイズが 6.1 インチ以上の端末をおすすめします。
   - iPhone 5s (4インチ) サイズの端末には原則対応しておらず、画面が大幅に崩れます。
 - **Fire タブレット (Fire HD 10 (2021) / Fire HD 8 (2022)) でも動作します。**
   - Fire HD 10 (2021) では Google Play を導入した上で、Google Play 経由で Chrome をインストールしてください。
   - Fire HD 8 (2022) では現状 Google Play が導入できないため、適宜 Chrome の APK を入手してインストールしてください。Chrome は、(Google アカウントとの同期機能以外は) GMS がインストールされていなくても動作します。
-  - **Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。** その場合は 720p 以下の画質を選択することをおすすめします。
+  - **Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。** その場合は 720p 以下の画質での視聴をおすすめします。
 - **今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。**
 - **ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。**
   - 技術スタックはサーバー側が Python 3.11 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 3.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 3.x の SPA です。
@@ -247,8 +251,11 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 > SrvPipe とは、EpgDataCap_Bon で受信した放送波を EpgTimerSrv (EpgTimer Service) に渡すための、EDCB 固有の特殊な名前付きパイプのことです。  
 > KonomiTV は SrvPipe を経由して EDCB から放送波を受信しているため、この設定を忘れると、テレビのライブストリーミングができません。
 
-> [!NOTE]  
-> 必須ではありませんが、この機会に [設定] → [動作設定] → [全サービスを処理対象とする] のチェックを外しておくことを推奨します。
+> [!WARNING]
+> **[設定] → [動作設定] → [スクランブル解除処理を行う\*] にも必ずチェックを入れておいてください！**  
+> [スクランブル解除処理を行う*]  がオフの場合、KonomiTV に EpgDataCap_Bon.exe → EpgTimerSrv.exe 経由でスクランブル未解除の TS が送り込まれ、結果としてエンコーダーの初期化に失敗します。
+> 
+> また必須ではありませんが、この機会に [設定] → [動作設定] → [全サービスを処理対象とする*] のチェックを外しておくことを推奨します。
 
 このほか、**リモート PC の KonomiTV から EDCB にアクセスする場合は、EpgTimerSrv.exe にファイアウォールが掛かっていると接続に失敗します。**  
 適宜ファイアウォールの設定を変更し、EDCB に接続できるようにしておいてください。
@@ -258,8 +265,12 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
 KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC](https://github.com/rigaya/NVEnc) (NVIDIA NVENC)・[VCEEncC](https://github.com/rigaya/VCEEnc) (AMD VCE)・[rkmppenc](https://github.com/rigaya/rkmppenc) (Rockchip ARM SoC) の4つのハードウェアエンコーダーに標準で対応しています。
 
 > [!IMPORTANT]  
-> FFmpeg (ソフトウェアエンコーダー) は遅い上に CPU 負荷がかなり高くなるため、ハードウェアエンコーダーの利用を強くおすすめします。  
+> **FFmpeg (ソフトウェアエンコーダー) は遅い上に CPU 負荷がかなり高くなるため、ハードウェアエンコーダーの利用を強くおすすめします。**  
 > FFmpeg での積極的な動作確認は行っていません。
+
+> [!WARNING]
+> **RDNA 世代以前 (Vega 世代) の AMD GPU / APU では、ハードウェアエンコーダーやドライバの作りが悪く極めて不安定で、VCEEncC がクラッシュしやすいことが報告されています。**  
+> 一般的に QSVEncC / NVEncC の方が明確に安定しており画質も良いため、**外付け GPU の有無に関わらず、可能な限り QSVEncC / NVEncC の利用を推奨します。**
 
 #### Windows
 
@@ -271,9 +282,10 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 基本的にすでにインストールされていると思います。
 
 > [!NOTE]  
-> 古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。
+> 古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。  
+> ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。
 
-#### Linux
+#### Linux - QSVEncC
 
 **QSVEncC では、別途 Intel Media Driver のインストールが必要です。**
 
@@ -310,7 +322,7 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 > HuC ファームウェアのロードを有効にするには、`/etc/modprobe.d/i915.conf` にカーネルパラメーターとして `options i915 enable_guc=2` を追記し、システムを再起動してください。  
 > 詳細は [QSVEncC のドキュメント](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md) をご確認ください。
 
------
+#### Linux - NVEncC
 
 **NVEncC では、[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) のインストールが必要です。**  
 基本的にはすでにインストールされていると思います。個人的には `ubuntu-drivers` コマンドを使って apt でインストールするのがおすすめです。  
@@ -319,7 +331,7 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 **Docker で KonomiTV をインストールする際は、さらに NVIDIA Container Toolkit のインストールが必要です。**  
 インストール手順は [NVIDIA の公式ドキュメント](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) をご確認ください。
 
------
+#### Linux - VCEEncC
 
 **VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。**  
 古いドライバーがインストールされていると、VCEEncC を利用できないことがあります。最新のドライバーをインストールしてください。
@@ -345,9 +357,9 @@ sudo reboot
 
 以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。
 
------
+#### Linux - rkmppenc
 
-**rkmppenc のサポートは試験的です。Rockchip 製 ARM SoC (RK3588/RK3588S など) でのみ利用できます。**
+**rkmppenc のサポートは実験的です。Rockchip 製 ARM SoC (RK3588/RK3588S など) 搭載デバイスでのみ利用できます。**
 
 ```bash
 # Mali GPU Driver のインストール (RK3588/RK3588S 向け)
@@ -380,8 +392,8 @@ sudo reboot
 > KonomiTV を家の中だけで使う分には必須ではありませんが、セットアップがとっても簡単で時間もそこまでかからないので、この機会にインストールしておくことをおすすめします。
 
 > [!NOTE]  
-> 厳密にはほかの方法 (OpenVPN・SoftEther・リバースプロキシなど) でもリモート視聴は可能ですが、技術的に難易度がかなり高くネットワークエンジニア以外には難しいこと、Tailscale を使った方法が一番手軽でセキュアなことから、**<ins>KonomiTV では Tailscale を使ったリモート視聴方法のみ公式にサポートしています。</ins>**  
-> **特にリバースプロキシや BASIC 認証経由でのアクセスでは<ins>一部機能が正常に動作しなくなる</ins>ほか、セキュリティ上の問題もあるため、非推奨です。**
+> 厳密にはほかの方法 (OpenVPN・SoftEther・リバースプロキシなど) でもリモート視聴は可能ですが、技術的に難易度がかなり高くネットワークエンジニア以外には難しいこと、Tailscale を使った方法が一番手軽でセキュアなことから、**KonomiTV では Tailscale を使ったリモート視聴方法のみ公式にサポートしています。**  
+> **特にリバースプロキシや BASIC 認証経由でのアクセスでは一部機能が正常に動作しなくなるほか、セキュリティ上の問題もあるため、公式にはサポートしていません。**
 
 Tailscale は、デバイスが接続されているネットワークや物理的距離に関係なく、**同じアカウントにログインしている Tailscale クライアント (デバイス) 同士で直接通信できる、次世代型のメッシュ VPN です。**
 
@@ -395,7 +407,7 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 この記事のとおりにセットアップすれば、あとは各デバイスで Tailscale での VPN 接続をオンにしておくだけです。
 
 **KonomiTV での利用以外にも、EDCB Material WebUI や EPGStation などの、プライベートネットワーク上の Web サーバーに家の外からアクセスするときにとても便利なサービスです。**  
-100台までは無料ですし (逸般の誤家庭でなければ十分すぎる)、この機会に導入しておくことをおすすめします。
+100台までは無料ですし (逸般の誤家庭でなければ十分すぎる)、この機会にぜひ導入をおすすめします。
 
 <img width="100%" src="https://github.com/user-attachments/assets/8e91d6db-1988-4da1-bd10-3c11870fa3c8"><br>
 
@@ -423,10 +435,7 @@ KonomiTV を共有したい家族や親戚に Tailscale アカウントを作成
 
 > [!WARNING]  
 > KonomiTV は鋭意開発中のため、現在破壊的な構成変更が頻繁に行われています。   
-> 破壊的変更が続く中アップデーターの機能を維持することは難しいため、**安定版リリースまでの当面の間、アップデーターは最低限のメンテナンスのみ行っています。**  
-> お手数をおかけしますが、**0.7.1 以下から 0.8.0 以降へのアップデートは、適宜データベース (`server/data/database.sqlite`) や設定ファイル (`config.yaml`) などをバックアップの上で一旦アンインストールし、新規でインストールし直すことを強くおすすめします。**  
-> 0.8.0 から 0.9.0 以降へのアップデートは動作する可能性がありますが、0.7.1 以下からのアップデートでは大幅な構成変更が入っているため、確実に動作しません。  
-> **なお、0.7.1 のアンインストールには 0.7.1 のインストーラーが必要です。0.8.0 以降のインストーラーではアンインストールに失敗するため注意してください。**  
+> 破壊的変更が続く中アップデーターの機能を維持することは難しいため、**安定版リリースまでの当面の間、アップデーターは最低限のメンテナンスのみ行っています。**
 
 > [!NOTE]  
 > **インストーラーを実行する前に、当該バージョンの [リリースノート](https://github.com/tsukumijima/KonomiTV/releases) を一読しておくことを強く推奨します。**  
@@ -491,11 +500,11 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 > できるだけ Ubuntu の利用を推奨しますが、もし Ubuntu 以外の OS にインストールする際は、Docker でのインストールをおすすめします。
 
 > [!WARNING]  
-> **NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で ([詳細1](https://twitter.com/TVRemotePlus/status/1683860609555898369) / [詳細2](https://twitter.com/TVRemotePlus/status/1689227380664209409)) 、0.7.1 以下では Docker を使ったインストール方法が利用できなくなりました。**  
-> 0.8.0 以降のバージョンでは CUDA Docker イメージの pull 先を [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda/tags) に変更しています。0.8.0 以降へのアップデートをお願いします。
+> **NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で 、0.12.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
+> 0.13.0 以降のバージョンでは CUDA Docker イメージを `nvidia/cuda:12.2.2-runtime-ubuntu22.04` に変更しています。0.13.0 以降へのアップデートをお願いします。
 
 > [!WARNING]  
-> **AMD が Docker イメージ内で利用している AMDGPU-PRO ドライバーの旧バージョンの APT リポジトリをサイレントに削除した影響で (https://github.com/tsukumijima/KonomiTV/issues/118 / https://github.com/tsukumijima/KonomiTV/issues/130) 、0.11.0 以下では Docker を使ったインストール方法が利用できなくなりました。**  
+> **AMD が Docker イメージ内で利用している AMDGPU-PRO ドライバーの旧バージョンの APT リポジトリをサイレントに削除した影響で ([#118](https://github.com/tsukumijima/KonomiTV/issues/118) / [#130](https://github.com/tsukumijima/KonomiTV/issues/130) を参照) 、0.11.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
 > 0.12.0 以降のバージョンでは AMDGPU-PRO ドライバーの APT リポジトリの URL を更新しています。0.12.0 以降へのアップデートをお願いします。
 
 **Linux 向けの KonomiTV には、通常のインストール方法と、Docker を使ったインストール方法の 2 通りがあります。**  
@@ -642,6 +651,9 @@ aa-bb-cc-dd の部分には、ローカル IP アドレスのうち、. (ドッ�
 > [!NOTE]
 > `https://(IPアドレス(.を-にしたもの)).local.konomi.tv:7000/` はすべてのプライベート IP アドレスに対応していますが、セキュリティ上の兼ね合いでグローバル IP アドレスには対応していません。  
 > なお、Tailscale の [100.x.y.z アドレス](https://tailscale.com/kb/1015/100.x-addresses/) には対応しています。
+
+> [!NOTE]
+> Akebi HTTPS Server の起動時に DNS & Keyless サーバーとの通信が必要な関係で、KonomiTV サーバーはインターネットから隔離されている環境では正常に動作しません。
 
 > [!TIP]
 > どうしてもほかの URL でアクセスしたい方向けに、一応サーバー設定 (config.yaml) にカスタム HTTPS 証明書を指定する機能を用意しています。  
@@ -791,7 +803,7 @@ KonomiTV には、放送波から取得できるものよりも遥かに高画�
 - EDCB:
   - EDCB のロゴデータ保存機能で収集された局ロゴの取得を試みます。
     - ロゴデータ保存機能は [2020年10月に追加された](https://github.com/xtne6f/EDCB/commit/0457241ccdd83ae9847ab15a16157d04927b72ce) もので、KonomiTV が動作する 220122 以降のバージョンの EDCB なら問題なく利用できます。
-  - EpgDataCap_Bon の設定 → [EPG取得設定] → [ロゴデータを保存する] にチェックが入っていて、なおかつ `EDCB/Settings/LogoData/` にロゴデータ (PNG) が保存されていることが条件です。
+  - EpgDataCap_Bon → [設定] → [EPG取得設定] → [ロゴデータを保存する] にチェックが入っていて、なおかつ `EDCB/Settings/LogoData/` にロゴデータ (PNG) がすでに保存されていることが条件です。
 
 > [!NOTE]  
 > 同梱されているロゴは `server/static/logos/` に `NID(ネットワークID)-SID(サービスID).png` (解像度: 256×256) のフォーマットで保存されています。  
@@ -825,9 +837,9 @@ URL が少し長いので、適宜ブックマークやホーム画面に追加�
 
 ### Web UI にアクセスすると、DNS エラーが表示される
 
-お使いのルーターで DNS Rebinding Protection が有効になっている可能性があります。
+**お使いのルーターで DNS Rebinding Protection が有効になっている可能性があります。**  
+KonomiTV は Akebi (前述) に依存しているため、DNS Rebinding Protection を無効にしなければアクセスできません。
 
-KonomiTV を利用するには、DNS Rebinding Protection を無効にする必要があります。  
 適宜ルーターの設定を変更するか、お使いのデバイスの DNS を 1.1.1.1 や 8.8.8.8 などの公開 DNS サーバーに変更してください。
 
 > [!TIP]  
@@ -1015,7 +1027,7 @@ API ドキュメントは FastAPI によって自動生成されたものです�
 > 動作不良時は、一度 `poetry run task serve` で起動できるかや、`server/logs/KonomiTV-Server.log` 内のログを確認してみてください。
 
 > [!NOTE]  
-> KonomiTV-Service.py は、KonomiTV の Windows サービスの管理を行うユーティリティスクリプトです。
+> KonomiTV-Service.py は、KonomiTV の Windows サービスの管理を行うユーティリティスクリプトです。  
 > `poetry run python KonomiTV-Service.py --help` と実行すると、利用できるコマンドの一覧が表示されます。
 
 ```powershell
@@ -1101,9 +1113,9 @@ yarn build
 
 ## 寄付・支援について
 
-とてもありがたいことに私に寄付したいという方が複数いらっしゃったので、**今のところ [アマギフ (Amazon ギフト券)](https://www.amazon.co.jp/b?node=3131877051&tag=tsukumijima-22)・PayPay のみ受けつけています。**  
+とてもありがたいことに寄付したいという方が複数いらっしゃったので、**今のところ [アマギフ (Amazon ギフト券)](https://www.amazon.co.jp/b?node=3131877051&tag=tsukumijima-22)・PayPay のみ受けつけています。**  
 
-特典などは今のところありませんが、それでも寄付していただけるのであれば、アマギフの URL か PayPay の QR コードを [Twitter の DM (クリックすると DM が開きます)](https://twitter.com/messages/compose?recipient_id=1194724304585248769) か `tvremoteplusあっとgmail.com` まで送っていただけますと、大変開発の励みになります…🙏🙏🙏
+特典などは今のところありませんが、それでも寄付していただけるのであれば、アマギフの URL か PayPay の QR コードを [Twitter の DM (クリックすると DM が開きます)](https://twitter.com/messages/compose?recipient_id=1194724304585248769) か `tvremoteplus[at]gmail.com` まで送っていただけますと、大変開発の励みになります…🙏🙏
 
 **一応 [Amazon のほしい物リスト](https://www.amazon.co.jp/hz/wishlist/ls/3AZ4RI13SW2PV) もあります。** どのようなものでも贈っていただけると泣いて喜びます…🙇
 
