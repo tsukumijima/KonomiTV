@@ -147,6 +147,7 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
             self.server_process = subprocess.Popen(
                 [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
                 cwd = BASE_DIR,  # カレントディレクトリを指定
+                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0,  # CTRL_C_EVENT がサービス側へ伝播しないようにする
             )
 
             # プロセスが終了するまで待つ
