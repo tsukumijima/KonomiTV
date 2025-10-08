@@ -208,10 +208,13 @@ class RecordedScanTask:
         all_videos = await RecordedVideo.all().select_related('recorded_program', 'recorded_program__channel')
         videos_by_path: dict[str, list[RecordedVideo]] = {}
         videos_to_keep: list[RecordedVideo] = []  # 保持するレコードのリスト
-        for video in all_videos:
+        for index, video in enumerate(all_videos, start=1):
             if video.file_path not in videos_by_path:
                 videos_by_path[video.file_path] = []
             videos_by_path[video.file_path].append(video)
+            if index % 100 == 0:
+                # 起動時にイベントループが他のタスクを処理できるよう定期的に制御を返す
+                await asyncio.sleep(0)
 
         # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
         ## 重複削除処理をトランザクション配下で実行
@@ -219,7 +222,7 @@ class RecordedScanTask:
         duplicates_found = False
         total_deleted_count = 0
         async with transactions.in_transaction():
-            for file_path, videos in videos_by_path.items():
+            for index, (file_path, videos) in enumerate(videos_by_path.items(), start=1):
                 if len(videos) > 1:
                     duplicates_found = True
                     logging.warning(f'{file_path}: Found {len(videos)} duplicate records. Keeping the latest one.')
@@ -241,6 +244,9 @@ class RecordedScanTask:
                 else:
                     # 重複がない場合も保持リストに追加
                     videos_to_keep.append(videos[0])
+                if index % 50 == 0:
+                    # 重複チェックがループを占有し続けないよう適宜制御を返す
+                    await asyncio.sleep(0)
         if duplicates_found:
             logging.info(f'Duplicate record cleanup finished. Total {total_deleted_count} duplicate records were deleted.')
         else:
@@ -277,19 +283,24 @@ class RecordedScanTask:
 
         # 存在しない録画ファイルに対応するレコードを一括削除
         ## トランザクション配下に入れることでパフォーマンスが向上する
+        logging.info('Deleting records for non-existent files...')
         async with transactions.in_transaction():
-            for file_path, existing_db_recorded_video in existing_db_recorded_videos.items():
+            for index, (file_path, existing_db_recorded_video) in enumerate(existing_db_recorded_videos.items(), start=1):
                 # ファイルの存在確認を非同期に行う
                 if not await self.isFileExists(file_path):
                     # RecordedVideo の親テーブルである RecordedProgram を削除すると、
                     # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
                     await existing_db_recorded_video.recorded_program.delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
+                if index % 50 == 0:
+                    # 既存レコードの走査が長時間化しないよう適宜制御を返す
+                    await asyncio.sleep(0)
+        logging.info('Deletion of records for non-existent files has been completed.')
 
         # 不要なサムネイルファイルを削除
+        logging.info('Deleting orphaned thumbnail files...')
         ## DB に存在する全ての RecordedVideo レコードのハッシュを取得
         db_recorded_video_hashes = {video.file_hash for video in await RecordedVideo.all()}
-
         ## サムネイルフォルダ内の全ファイルをスキャン
         thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
         if await thumbnails_dir.is_dir():
@@ -315,6 +326,7 @@ class RecordedScanTask:
                 except Exception as ex:
                     logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
 
+        logging.info('Deletion of orphaned thumbnail files has been completed.')
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
 
