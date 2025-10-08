@@ -42,7 +42,6 @@ from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 router = APIRouter(
     tags = ['Maintenance'],
     prefix = '/api/maintenance',
-    dependencies = [Depends(GetCurrentAdminUser)],  # 管理者ユーザーのみアクセス可能
 )
 
 # 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
@@ -169,7 +168,7 @@ async def UpdateDatabaseAPI():
     """
     データベースに保存されている、チャンネル情報・番組情報・Twitter アカウント情報などの外部 API に依存するデータをすべて更新する。<br>
     即座に外部 API からのデータ更新を反映させたい場合に利用する。<br>
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    このメンテナンス機能は管理者ユーザーでなくてもアクセスできる。
     """
 
     await Channel.update()
@@ -188,6 +187,7 @@ async def BatchScanAPI():
     録画フォルダ内の全 TS ファイルをスキャンし、メタデータを解析して DB に永続化する。<br>
     追加・変更があったファイルのみメタデータを解析し、DB に永続化する。<br>
     存在しない録画ファイルに対応するレコードを一括削除する。<br>
+    このメンテナンス機能は管理者ユーザーでなくてもアクセスできる。
     """
 
     global batch_scan_task
@@ -225,6 +225,7 @@ async def BackgroundAnalysisAPI():
     """
     キーフレーム情報が未解析の録画ファイルに対してキーフレーム情報を解析し、<br>
     サムネイルが未生成の録画ファイルに対してサムネイルを生成する。<br>
+    このメンテナンス機能は管理者ユーザーでなくてもアクセスできる。
     """
 
     global background_analysis_task
