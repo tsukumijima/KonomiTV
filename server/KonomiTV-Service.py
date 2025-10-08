@@ -17,6 +17,7 @@ from typing import Any, cast
 
 import httpx
 import psutil
+import pywintypes
 import servicemanager
 import typer
 import win32api
@@ -139,17 +140,19 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # 稼働中フラグが降ろされるか、プロセスが終了し再起動が不要になるまでループ
         from app.constants import RESTART_REQUIRED_LOCK_PATH
         self.is_running = True
+        self.server_process: subprocess.Popen[bytes] | None = None
         while self.is_running is True:
 
             # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
-            process = subprocess.Popen(
+            self.server_process = subprocess.Popen(
                 [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
                 cwd = BASE_DIR,  # カレントディレクトリを指定
             )
 
             # プロセスが終了するまで待つ
             ## Windows サービスではメインループが終了してしまうとサービスも終了扱いになってしまう
-            process.wait()
+            self.server_process.wait()
+            self.server_process = None
 
             # プロセス終了後、もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
             if RESTART_REQUIRED_LOCK_PATH.exists():
@@ -165,15 +168,46 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
 
         # Windows サービスのステータスを停止待機中に設定
         self.is_running = False
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+        try:
+            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+        except pywintypes.error as ex:
+            servicemanager.LogErrorMsg(f'[KonomiTV-Service][SvcStop] SetServiceStatus failed: {ex!r}')
+        except Exception as ex:
+            servicemanager.LogErrorMsg(f'[KonomiTV-Service][SvcStop] Unexpected error while reporting stop: {ex!r}')
 
         # KonomiTV サーバーのシャットダウン API にリクエストしてサーバーを終了させる
         ## 通常管理者ユーザーでログインしていないと実行できないが、特別に 127.0.0.77:7010 に直接アクセスすると無認証で実行できる
+        shutdown_requested = False
         try:
             from app.config import GetServerPort
-            httpx.post(f'http://127.0.0.77:{GetServerPort() + 10}/api/maintenance/shutdown')
-        except Exception:
-            pass
+            response = httpx.post(
+                f'http://127.0.0.77:{GetServerPort() + 10}/api/maintenance/shutdown',
+                timeout = 5.0,
+            )
+            if 200 <= response.status_code <= 299:
+                shutdown_requested = True
+            else:
+                servicemanager.LogWarningMsg(
+                    f'[KonomiTV-Service][SvcStop] Shutdown API returned status {response.status_code}',
+                )
+        except Exception as ex:
+            servicemanager.LogWarningMsg(f'[KonomiTV-Service][SvcStop] Shutdown API request failed: {ex!r}')
+
+        # サーバーシャットダウン API へのリクエストが成功した場合は、サービスを終了する
+        if shutdown_requested is True:
+            return
+
+        # サーバーシャットダウン API へのリクエストが失敗したが、サーバープロセスが既に終了している場合は、サービスを終了する
+        if self.server_process is None or self.server_process.poll() is not None:
+            return
+
+        # サーバーシャットダウン API へのリクエストが失敗したため、サーバープロセスを終了する
+        try:
+            psutil.Process(self.server_process.pid).terminate()
+        except psutil.NoSuchProcess:
+            return
+        except Exception as ex:
+            servicemanager.LogErrorMsg(f'[KonomiTV-Service][SvcStop] Failed to terminate server process: {ex!r}')
 
 
 app = typer.Typer(help='KonomiTV Windows Service Launcher.')
