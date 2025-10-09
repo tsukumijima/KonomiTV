@@ -21,6 +21,7 @@ import pywintypes
 import servicemanager
 import typer
 import win32api
+import win32con
 import win32security
 import win32service
 import win32serviceutil
@@ -44,6 +45,20 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
     ## ref: https://stackoverflow.com/a/72134400/17124142
     _exe_name_ = f'{BASE_DIR / ".venv/Scripts/python.exe"}'  # 実行ファイルのパス (venv の仮想環境下の python.exe への絶対パス)
     _exe_args_ = f'-u -E "{BASE_DIR / "KonomiTV-Service.py"}"'  # サービス起動時の引数 (この KonomiTV-Service.py への絶対パス)
+
+
+    def __init__(self, args: Any) -> None:
+        super().__init__(args)
+        self.is_running = False
+        self.server_process: subprocess.Popen[bytes] | None = None
+        self.ctrl_c_handler_installed = False  # CTRL+C を無視するハンドラが登録されているか
+
+
+    @staticmethod
+    def _IgnoreCtrlCHandler(ctrl_type: int) -> bool:
+        """CTRL+C シグナルだけを捕捉して無視する"""
+
+        return ctrl_type == win32con.CTRL_C_EVENT
 
 
     @staticmethod
@@ -140,32 +155,47 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
         # 稼働中フラグが降ろされるか、プロセスが終了し再起動が不要になるまでループ
         from app.constants import RESTART_REQUIRED_LOCK_PATH
         self.is_running = True
-        self.server_process: subprocess.Popen[bytes] | None = None
-        while self.is_running is True:
+        self.server_process = None
+        try:
+            # サービスプロセス側では CTRL+C を一時的に無視し、子プロセスのみがシグナルを受け取れるようにする
+            try:
+                win32api.SetConsoleCtrlHandler(self._IgnoreCtrlCHandler, True)
+                self.ctrl_c_handler_installed = True
+            except Exception as ex:
+                servicemanager.LogWarningMsg(f'[KonomiTV-Service][SvcDoRun] Failed to ignore CTRL_C_EVENT: {ex!r}')
 
-            # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
-            self.server_process = subprocess.Popen(
-                [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
-                cwd = BASE_DIR,  # カレントディレクトリを指定
-            )
+            while self.is_running is True:
 
-            # プロセスが終了するまで待つ
-            ## Windows サービスではメインループが終了してしまうとサービスも終了扱いになってしまう
-            while True:
+                # 仮想環境上の Python から KonomiTV のサーバープロセス (Uvicorn) を起動
+                self.server_process = subprocess.Popen(
+                    [self._exe_name_, '-X', 'utf8', str(BASE_DIR / 'KonomiTV.py')],
+                    cwd = BASE_DIR,  # カレントディレクトリを指定
+                )
+
+                # プロセスが終了するまで待つ
+                ## Windows サービスではメインループが終了してしまうとサービスも終了扱いになってしまう
+                while True:
+                    try:
+                        self.server_process.wait()
+                        break
+                    except KeyboardInterrupt:
+                        continue  # 子プロセスの再起動/停止で CTRL_C_EVENT が飛んできたケースに備える
+                self.server_process = None
+
+                # プロセス終了後、もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
+                if RESTART_REQUIRED_LOCK_PATH.exists():
+                    RESTART_REQUIRED_LOCK_PATH.unlink()
+                    continue
+
+                # それ以外の場合は、そのまま Windows サービスを終了する
+                break
+        finally:
+            if self.ctrl_c_handler_installed is True:
                 try:
-                    self.server_process.wait()
-                    break
-                except KeyboardInterrupt:
-                    continue  # 子プロセスの再起動/停止で CTRL_C_EVENT が飛んできたケースに備える
-            self.server_process = None
-
-            # プロセス終了後、もしこの時点で再起動が必要であることを示すロックファイルが存在する場合、KonomiTV サーバーを再起動する
-            if RESTART_REQUIRED_LOCK_PATH.exists():
-                RESTART_REQUIRED_LOCK_PATH.unlink()
-                continue
-
-            # それ以外の場合は、そのまま Windows サービスを終了する
-            break
+                    win32api.SetConsoleCtrlHandler(self._IgnoreCtrlCHandler, False)
+                except Exception:
+                    pass
+                self.ctrl_c_handler_installed = False  # 無視設定を戻して次のループに備える
 
 
     def SvcStop(self):
