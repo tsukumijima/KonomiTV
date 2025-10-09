@@ -66,7 +66,7 @@ async def GetCurrentAdminUserOrLocal(
 
     # それ以外である場合、管理者ユーザーでログインしているかを確認する
     if token is None:
-        logging.error('[MaintenanceRouter][GetCurrentAdminUserOrLocal] Not authenticated')
+        logging.error('[MaintenanceRouter][GetCurrentAdminUserOrLocal] Not authenticated.')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Not authenticated',
@@ -210,6 +210,7 @@ async def BatchScanAPI():
         # タスクの実行が完了するまで待機
         await batch_scan_task
     else:
+        logging.warning('[MaintenanceRouter][BatchScanAPI] Batch scan of recording folders is already running.')
         raise HTTPException(
             status_code = status.HTTP_429_TOO_MANY_REQUESTS,
             detail = 'Batch scan of recording folders is already running',
@@ -297,6 +298,7 @@ async def BackgroundAnalysisAPI():
         # タスクの実行が完了するまで待機
         await background_analysis_task
     else:
+        logging.warning('[MaintenanceRouter][BackgroundAnalysisAPI] Background analysis task is already running.')
         raise HTTPException(
             status_code = status.HTTP_429_TOO_MANY_REQUESTS,
             detail = 'Background analysis task is already running',

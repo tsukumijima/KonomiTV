@@ -148,7 +148,7 @@ async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画�
         .select_related('channel') \
         .get_or_none(id=video_id)
     if recorded_program is None:
-        logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',

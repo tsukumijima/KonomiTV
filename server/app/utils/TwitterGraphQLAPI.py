@@ -378,7 +378,7 @@ class TwitterGraphQLAPI:
         # HTML の meta タグに含まれる検証コードを取得
         meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
         if meta_tag is None:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML.')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から検証コードを取得できませんでした。',
@@ -388,7 +388,7 @@ class TwitterGraphQLAPI:
         # HTML からチャレンジコードを取得
         challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
         if not challenge_code_match:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML.')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
@@ -398,7 +398,7 @@ class TwitterGraphQLAPI:
         # HTML から vendor コードを取得
         vendor_code_match = re.search(r'vendor\.(\w+)\.js["\']', twitter_web_app_html_text)
         if not vendor_code_match:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor code from Twitter Web App HTML.')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から vendor コードを取得できませんでした。',
@@ -415,7 +415,7 @@ class TwitterGraphQLAPI:
             headers = self.js_headers_dict,
         )
         if challenge_js_code_response.status_code != 200:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML.')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
@@ -431,7 +431,7 @@ class TwitterGraphQLAPI:
             headers = self.js_headers_dict,
         )
         if vendor_js_code_response.status_code != 200:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor script from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor script from Twitter Web App HTML.')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
@@ -553,7 +553,7 @@ class TwitterGraphQLAPI:
 
         # 接続エラー（サーバーメンテナンスやタイムアウトなど）
         except (TimeoutError, curl_requests.RequestsError):
-            logging.error('[TwitterGraphQLAPI] Failed to connect to Twitter GraphQL API')
+            logging.error('[TwitterGraphQLAPI] Failed to connect to Twitter GraphQL API.')
             # return 'Failed to connect to Twitter GraphQL API'
             return error_message_prefix + 'Twitter API に接続できませんでした。'
 
@@ -563,14 +563,14 @@ class TwitterGraphQLAPI:
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
-            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP Error {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API. (HTTP Error {response.status_code})')
             logging.error(f'[TwitterGraphQLAPI] Response: {response.text}')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
         ## charset=utf-8 が付いている場合もあるので完全一致ではなく部分一致で判定
         if 'application/json' not in response.headers['Content-Type']:
-            logging.error('[TwitterGraphQLAPI] Response is not JSON')
+            logging.error('[TwitterGraphQLAPI] Response is not JSON.')
             return error_message_prefix + 'Twitter API から不正なレスポンスが返されました。'
 
         # レスポンスを JSON としてパース
@@ -601,7 +601,7 @@ class TwitterGraphQLAPI:
         ## 実装時点の GraphQL API は必ず成功時は 'data' キーの下にレスポンスが格納されるはず
         ## もし 'data' キーが存在しない場合は、API 仕様が変更されている可能性がある
         elif 'data' not in response_json:
-            logging.error('[TwitterGraphQLAPI] Response does not have "data" key')
+            logging.error('[TwitterGraphQLAPI] Response does not have "data" key.')
             return error_message_prefix + 'Twitter API のレスポンスに "data" キーが存在しません。開発者に修正を依頼してください。'
 
         # ここまで来たら (中身のデータ構造はともかく) API レスポンスの取得には成功しているはず

@@ -27,7 +27,7 @@ async def ValidateChannelID(display_channel_id: Annotated[str, Path(description=
 
     # チャンネル ID が存在するか確認
     if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
-        logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found [display_channel_id: {display_channel_id}]')
+        logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found. [display_channel_id: {display_channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',
@@ -41,7 +41,7 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
 
     # 指定された品質が存在するか確認
     if quality not in QUALITY:
-        logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
+        logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found. [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
@@ -232,9 +232,9 @@ async def LivePSIArchivedDataAPI(
 
     # 10秒待っても起動しなかった場合はエラー
     if live_stream.psi_data_archiver is None:
-        logging.error('[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
+        logging.error('[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'PSI/SI Data Archiver is not running',
         )
 
@@ -304,7 +304,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected')
+                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
                 live_stream.disconnect(live_stream_client)
                 break
 
@@ -321,7 +321,7 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished')
+                    logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished.')
                     live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                     break
 
@@ -329,7 +329,7 @@ async def LiveMPEGTSStreamAPI(
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline')
+                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline.')
                 live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                 break
 

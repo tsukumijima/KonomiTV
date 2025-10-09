@@ -123,7 +123,7 @@ async def SeriesAPI(
         .select_related('broadcast_periods__recorded_programs__channel') \
         .get_or_none(id=series_id)
     if series is None:
-        logging.error(f'[SeriesRouter][SeriesAPI] Specified series_id was not found [series_id: {series_id}]')
+        logging.warning(f'[SeriesRouter][SeriesAPI] Specified series_id was not found. [series_id: {series_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified series_id was not found',

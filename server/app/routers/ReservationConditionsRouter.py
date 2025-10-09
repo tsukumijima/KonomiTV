@@ -417,7 +417,7 @@ async def GetAutoAddDataList(
     auto_add_data_list: list[AutoAddDataRequired] | None = await edcb.sendEnumAutoAdd()
     if auto_add_data_list is None:
         # None が返ってきた場合はエラーを返す
-        logging.error('[ReservationConditionsRouter][GetAutoAddDataList] Failed to get the list of reserve conditions')
+        logging.error('[ReservationConditionsRouter][GetAutoAddDataList] Failed to get the list of reserve conditions.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of reserve conditions',
@@ -438,7 +438,7 @@ async def GetAutoAddData(
             return auto_add_data
 
     # 指定されたキーワード自動予約条件が見つからなかった場合はエラーを返す
-    logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reservation_condition_id was not found '
+    logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reservation_condition_id was not found. '
                     f'[reservation_condition_id: {reservation_condition_id}]')
     raise HTTPException(
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -495,7 +495,7 @@ async def RegisterReservationConditionAPI(
     result = await edcb.sendAddAutoAdd([auto_add_data])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationConditionsRouter][RegisterReservationConditionAPI] Failed to register the reserve condition')
+        logging.error('[ReservationConditionsRouter][RegisterReservationConditionAPI] Failed to register the reserve condition.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to register the reserve condition',
@@ -544,7 +544,7 @@ async def UpdateReservationConditionAPI(
     result = await edcb.sendChgAutoAdd([cast(AutoAddData, auto_add_data)])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationConditionsRouter][UpdateReservationConditionAPI] Failed to update the specified reserve condition '
+        logging.error('[ReservationConditionsRouter][UpdateReservationConditionAPI] Failed to update the specified reserve condition. '
                       f'[reservation_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -574,7 +574,7 @@ async def DeleteReservationConditionAPI(
     result = await edcb.sendDelAutoAdd([auto_add_data['data_id']])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationConditionsRouter][DeleteReservationConditionAPI] Failed to delete the specified reserve condition '
+        logging.error('[ReservationConditionsRouter][DeleteReservationConditionAPI] Failed to delete the specified reserve condition. '
                       f'[reservation_condition_id: {auto_add_data["data_id"]}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,

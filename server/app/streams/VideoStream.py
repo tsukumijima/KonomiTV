@@ -117,6 +117,7 @@ class VideoStream:
 
             # 録画番組 ID と画質が一致するか確認
             if instance.recorded_program.id != recorded_program.id or instance.quality != quality:
+                logging.error(f'{instance.log_prefix} Session exists but program_id or quality mismatch. [program_id: {recorded_program.id}, quality: {quality}]')
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail = 'Session exists but program_id or quality mismatch',
@@ -218,18 +219,20 @@ class VideoStream:
 
         # まだ HLS セグメントリストが空なら、キーフレーム情報から VideoStreamSegment を作成する
         if len(self._segments) == 0:
-            # キーフレーム情報が存在しない場合は422エラー
+            # キーフレーム情報が存在しない場合は500エラー
             if not self.recorded_program.recorded_video.has_key_frames:
+                logging.error(f'{self.log_prefix} Keyframe information is not available.')
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail = 'Keyframe information is not available',
                 )
 
             # キーフレーム情報を取得
             key_frames = self.recorded_program.recorded_video.key_frames
             if len(key_frames) < 2:  # 最低2つのキーフレームが必要
+                logging.error(f'{self.log_prefix} Not enough keyframes.')
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail = 'Not enough keyframes',
                 )
 

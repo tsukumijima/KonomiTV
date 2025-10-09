@@ -28,7 +28,7 @@ async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番�
         .select_related('recorded_video') \
         .select_related('channel')
     if recorded_program is None:
-        logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',
@@ -42,7 +42,7 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
 
     # 指定された品質が存在するか確認
     if quality not in QUALITY:
-        logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found [quality: {quality}]')
+        logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found. [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
@@ -117,8 +117,9 @@ async def VideoHLSSegmentAPI(
     # セグメントを取得（キャッシュキーはブラウザキャッシュ避けのための ID なので特に使わない）
     segment_data = await video_stream.getSegment(sequence)
     if segment_data is None:
+        logging.error(f'[VideoHLSSegmentAPI] Specified sequence segment was not found. [video_id: {recorded_program.id}, quality: {quality}, sequence: {sequence}]')
         raise HTTPException(
-            status_code = status.HTTP_404_NOT_FOUND,
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified sequence segment was not found',
         )
 
@@ -186,6 +187,7 @@ async def VideoHLSBufferAPI(
 
             # 以前の結果と異なっている場合のみレスポンスを返す
             if previous_buffer_range != buffer_range:
+                logging.info(f'[VideoHLSBufferAPI] Buffer range updated. [begin: {buffer_range[0]}, end: {buffer_range[1]}]')
                 yield {
                     'event': 'buffer_range_update',  # buffer_range_update イベントを設定
                     'data': json.dumps({

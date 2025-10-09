@@ -858,14 +858,14 @@ class ThumbnailGenerator:
                     best_idx, _, _, best_img = max(face_frames, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame selected (face found / row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug_simple(f'Best frame selected. (face found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
                 else:
                     # 顔検出無し or 一つも顔が見つからなかった場合
                     best_idx, _, _, best_img = max(frames_info, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame selected (face not found / row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug_simple(f'Best frame selected. (face not found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
 
             # スコアリングで適切な候補が見つからなかった場合は、候補区間内からランダムに1枚を選択
@@ -1341,7 +1341,7 @@ class ThumbnailGenerator:
             else:
                 # BGRの平均値から色を推定
                 mean_colors = [float(np.mean(valid_region[:,:,i])) for i in range(3)]
-                logging.debug_simple(f'Solid color frame detected (BGR: {mean_colors}). Ignored. (row:{row}, col:{col})')
+                logging.debug_simple(f'Solid color frame detected. (BGR: {mean_colors}). Ignored. (row:{row}, col:{col})')
 
             # すべての単色に対して同じ強いペナルティを与える
             solid_color_penalty = self.SOLID_COLOR_PENALTY
@@ -1393,7 +1393,7 @@ class ThumbnailGenerator:
                             reduction_factor = 1.0 - (excess_ratio * self.ANIME_FACE_RATIO_FALLOFF)
                             reduction_factor = max(0.5, reduction_factor)  # 最低でも50%は維持
                             face_area_ratio = self.ANIME_FACE_OPTIMAL_RATIO + (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) * reduction_factor
-                            logging.debug_simple(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}')
+                            logging.debug_simple(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}.')
 
                         # アニメ顔のスコアを計算（アニメ用の重み付けを適用）
                         face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * self.ANIME_FACE_SIZE_WEIGHT

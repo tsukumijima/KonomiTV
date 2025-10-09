@@ -42,7 +42,7 @@ async def GetChannel(channel_id: Annotated[str, Path(description='チャンネ�
     else:
         channel = await Channel.filter(display_channel_id=channel_id).get_or_none()
     if channel is None:
-        logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found [display_channel_id: {channel_id}]')
+        logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found. [display_channel_id: {channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified display_channel_id was not found',

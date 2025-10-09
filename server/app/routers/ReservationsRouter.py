@@ -107,13 +107,13 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
             # EDCB から Bitrate.ini を取得
             files = await CtrlCmdUtil().sendFileCopy2(['Bitrate.ini'])
             if files is None or len(files) == 0:
-                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB')
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB.')
                 return 19456
 
             # ファイルデータをテキストとして解析
             bitrate_ini_data = files[0]['data']
             if not bitrate_ini_data:
-                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty')
+                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty.')
                 return 19456
 
             # バイナリデータを文字列に変換 (UTF-16 BOM つきまたは UTF-8)
@@ -158,7 +158,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
             return 19456
 
         except Exception as ex:
-            logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini', exc_info=ex)
+            logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini:', exc_info=ex)
             return 19456
 
 
@@ -341,7 +341,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         # 想定ファイルサイズを計算
         estimated_recording_file_size = CalculateEstimatedFileSize(duration, bitrate_kbps, record_settings.recording_mode)
     except Exception as ex:
-        logging.warning(f'[ReservationsRouter][DecodeEDCBReserveData] Failed to calculate estimated file size [reserve_id: {reserve_id}]', exc_info=ex)
+        logging.warning(f'[ReservationsRouter][DecodeEDCBReserveData] Failed to calculate estimated file size. [reserve_id: {reserve_id}]', exc_info=ex)
         estimated_recording_file_size = 0
 
     # Tortoise ORM モデルは本来 Pydantic モデルと型が非互換だが、FastAPI がよしなに変換してくれるので雑に Any にキャストしている
@@ -656,7 +656,7 @@ def GetCtrlCmdUtil() -> CtrlCmdUtil:
     if Config().general.backend == 'EDCB':
         return CtrlCmdUtil()
     else:
-        logging.error('[ReservationsRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB')
+        logging.warning('[ReservationsRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'This API is only available when the backend is EDCB',
@@ -672,7 +672,7 @@ async def GetReserveDataList(
     reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
     if reserve_data_list is None:
         # None が返ってきた場合はエラーを返す
-        logging.error('[ReservationsRouter][GetReserveDataList] Failed to get the list of recording reservations')
+        logging.error('[ReservationsRouter][GetReserveDataList] Failed to get the list of recording reservations.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the list of recording reservations',
@@ -741,7 +741,7 @@ async def GetReserveData(
             return reserve_data
 
     # 指定された録画予約が見つからなかった場合はエラーを返す
-    logging.error(f'[ReservesRouter][GetReserveData] Specified reservation_id was not found [reservation_id: {reservation_id}]')
+    logging.error(f'[ReservesRouter][GetReserveData] Specified reservation_id was not found. [reservation_id: {reservation_id}]')
     raise HTTPException(
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail = 'Specified reservation_id was not found',
@@ -773,7 +773,7 @@ async def GetServiceEventInfo(
 
     # 番組情報が取得できなかった場合はエラーを返す
     if service_event_info_list is None or len(service_event_info_list) == 0:
-        logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
+        logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information. [channel_id: {channel.id} / program_id: {program.id}]')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get the program information',
@@ -786,7 +786,7 @@ async def GetServiceEventInfo(
             return service_event_info
 
     # イベント ID が一致する番組情報が見つからなかった場合はエラーを返す
-    logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information [channel_id: {channel.id} / program_id: {program.id}]')
+    logging.error(f'[ReservesRouter][GetServiceEventInfo] Failed to get the program information. [channel_id: {channel.id} / program_id: {program.id}]')
     raise HTTPException(
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail = 'Failed to get the program information',
@@ -846,7 +846,7 @@ async def AddReservationAPI(
     # 指定された番組 ID の番組があるかを確認
     program = await Program.filter(id=reserve_add_request.program_id).get_or_none()
     if program is None:
-        logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found [program_id: {reserve_add_request.program_id}]')
+        logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found. [program_id: {reserve_add_request.program_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified program was not found',
@@ -855,7 +855,7 @@ async def AddReservationAPI(
     # 指定された番組 ID に関連付けられたチャンネルがあるかを確認
     channel = await Channel.filter(id=program.channel_id).get_or_none()
     if channel is None:
-        logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found [channel_id: {program.channel_id}]')
+        logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program.channel_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified channel was not found',
@@ -870,7 +870,7 @@ async def AddReservationAPI(
             reserve_data['tsid'] == channel.transport_stream_id and
             reserve_data['sid'] == channel.service_id and
             reserve_data['eid'] == program.event_id):
-            logging.error(f'[ReservesRouter][AddReserveAPI] The same program_id is already reserved [program_id: {reserve_add_request.program_id}]')
+            logging.error(f'[ReservesRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'The same program_id is already reserved',
@@ -920,7 +920,7 @@ async def AddReservationAPI(
     result = await edcb.sendAddReserve([add_reserve_data])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationsRouter][AddReserveAPI] Failed to add a recording reservation')
+        logging.error('[ReservationsRouter][AddReserveAPI] Failed to add a recording reservation.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to add a recording reservation',
@@ -969,7 +969,7 @@ async def UpdateReservationAPI(
     result = await edcb.sendChgReserve([cast(ReserveData, reserve_data)])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationsRouter][UpdateReserveAPI] Failed to update the specified recording reservation')
+        logging.error('[ReservationsRouter][UpdateReserveAPI] Failed to update the specified recording reservation.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to update the specified recording reservation',
@@ -996,7 +996,7 @@ async def DeleteReservationAPI(
     result = await edcb.sendDelReserve([reserve_data['reserve_id']])
     if result is False:
         # False が返ってきた場合はエラーを返す
-        logging.error('[ReservationsRouter][DeleteReserveAPI] Failed to delete the specified recording reservation')
+        logging.error('[ReservationsRouter][DeleteReserveAPI] Failed to delete the specified recording reservation.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified recording reservation',

@@ -277,12 +277,12 @@ class RecordedScanTask:
                             # RecordedProgram を削除 (CASCADE により RecordedVideo も削除される)
                             await RecordedProgram.filter(id=video_to_delete.recorded_program_id).delete()
                             logging.info(
-                                f'{file_path}: Deleted duplicate record (RecordedProgram ID: {video_to_delete.recorded_program_id}). '
-                                f'Kept record (RecordedProgram ID: {latest_video.recorded_program_id}).'
+                                f'{file_path}: Deleted duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}] '
+                                f'[kept recorded_program_id: {latest_video.recorded_program_id}]'
                             )
                         except Exception as ex_del:
                             logging.error(
-                                f'{file_path}: Failed to delete duplicate record (RecordedProgram ID: {video_to_delete.recorded_program_id}):',
+                                f'{file_path}: Failed to delete duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}]',
                                 exc_info=ex_del,
                             )
                     # 削除対象のレコード数をカウント
@@ -500,7 +500,7 @@ class RecordedScanTask:
                             return
                         # 最終更新日時の継続更新が24時間を超えた場合は何かがおかしい可能性が高いため打ち切る
                         if continuous_duration >= self.CONTINUOUS_UPDATE_MAX_SECONDS:
-                            logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds (> {self.CONTINUOUS_UPDATE_MAX_SECONDS}s). ignored.')
+                            logging.warning(f'{file_path}: Continuous mtime updates for {continuous_duration:.1f} seconds. (> {self.CONTINUOUS_UPDATE_MAX_SECONDS}s) ignored.')
                             return
                         # ここまで到達した時点で（ファイルサイズこそ変化していないが）最終更新日時の推移から1分以上ファイル内容の更新が続いているとみなし、
                         # 後続の処理でメタデータを解析し、解析に成功次第 DB に録画中として登録する
@@ -527,7 +527,7 @@ class RecordedScanTask:
                 # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
                 # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
                 if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
-                    logging.debug_simple(f'{file_path}: This file is too short (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s). Skipped.')
+                    logging.debug_simple(f'{file_path}: This file is too short. (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s) Skipped.')
                     return
 
                 # 前回の DB 取得からメタデータ解析までの間に他のタスクがレコードを作成/更新している可能性があるため、
@@ -557,7 +557,7 @@ class RecordedScanTask:
                         'file_size': file_size,
                         'mtime_continuous_start_at': file_modified_at,  # 初回は必ず mtime_continuous_start_at を設定
                     }
-                    logging.debug_simple(f'{file_path}: This file is recording or copying (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s).')
+                    logging.debug_simple(f'{file_path}: This file is recording or copying. (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s)')
                 else:
                     # status を Recorded に設定
                     # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
@@ -851,7 +851,7 @@ class RecordedScanTask:
                         continuous_duration = (now - mtime_continuous_start_at).total_seconds()
                         if continuous_duration >= self.CONTINUOUS_UPDATE_THRESHOLD_SECONDS:
                             if not throttle_event:
-                                logging.debug_simple(f'{file_path}: Still recording (continuous mtime updates for {continuous_duration:.1f} seconds).')
+                                logging.debug_simple(f'{file_path}: Still recording. (continuous mtime updates for {continuous_duration:.1f} seconds)')
 
                 # 状態を更新
                 self._recording_files[file_path] = {

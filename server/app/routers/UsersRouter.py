@@ -90,7 +90,7 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
 
         # typ が AccessToken でない (JWT トークンが不正)
         if jwt_payload.get('typ') != 'AccessToken':
-            logging.error('[GetCurrentUser] Access token type is invalid')
+            logging.warning('[GetCurrentUser] Access token type is invalid.')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'Access token type is invalid',
@@ -99,7 +99,7 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
 
         # Subject が JWT ペイロードに含まれていない (JWT トークンが不正)
         if jwt_payload.get('sub') is None:
-            logging.error('[GetCurrentUser] Access token data is invalid')
+            logging.warning('[GetCurrentUser] Access token data is invalid.')
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
                 detail = 'Access token data is invalid',
@@ -108,7 +108,7 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
 
     # JWT トークンが不正
     except JWTError as ex:
-        logging.error('[GetCurrentUser] Access token is invalid', exc_info=ex)
+        logging.warning('[GetCurrentUser] Access token is invalid:', exc_info=ex)
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Access token is invalid',
@@ -123,7 +123,7 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
 
     # そのユーザー ID のユーザーが存在しない
     if not current_user:
-        logging.error(f'[GetCurrentUser] User associated with access token does not exist [user_id: {user_id}]')
+        logging.warning(f'[GetCurrentUser] User associated with access token does not exist. [user_id: {user_id}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'User associated with access token does not exist',
@@ -138,7 +138,7 @@ async def GetCurrentAdminUser(current_user: Annotated[User, Depends(GetCurrentUs
 
     # 取得したユーザーが管理者ではない
     if current_user.is_admin is False:
-        logging.error(f'[GetCurrentAdminUser] Don\'t have permission to access this resource [user_id: {current_user.id}]')
+        logging.warning(f'[GetCurrentAdminUser] Don\'t have permission to access this resource. [user_id: {current_user.id}]')
         raise HTTPException(
             status_code = status.HTTP_403_FORBIDDEN,
             detail = 'Don\'t have permission to access this resource',
@@ -159,7 +159,7 @@ async def GetSpecifiedUser(
 
     # 指定されたユーザー名のユーザーが存在しない
     if not user:
-        logging.error(f'[GetSpecifiedUser] Specified user was not found [username: {username}]')
+        logging.error(f'[GetSpecifiedUser] Specified user was not found. [username: {username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified user was not found',
@@ -220,7 +220,7 @@ async def UserCreateAPI(
     # 同じユーザー名のアカウントがあったら 422 を返す
     ## ユーザー名がそのままログイン ID になるので、同じユーザー名のアカウントがあると重複する
     if await User.filter(name=user_create_request.username).get_or_none() is not None:
-        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is duplicated [username: {user_create_request.username}]')
+        logging.warning(f'[UsersRouter][UserCreateAPI] Specified username is duplicated. [username: {user_create_request.username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified username is duplicated',
@@ -231,7 +231,7 @@ async def UserCreateAPI(
     ## そんな名前で登録する人はいないとは思うけど、念のため…
     PERMITTED_USERNAMES = ['me', 'token']
     if user_create_request.username.lower() in PERMITTED_USERNAMES:
-        logging.error(f'[UsersRouter][UserCreateAPI] Specified username is not permitted [username: {user_create_request.username}]')
+        logging.warning(f'[UsersRouter][UserCreateAPI] Specified username is not permitted. [username: {user_create_request.username}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified username is not permitted',
@@ -272,7 +272,7 @@ async def UserAccessTokenAPI(
 
     # 指定されたユーザーが存在しない
     if not current_user:
-        logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect username [username: {form_data.username}]')
+        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect username. [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Incorrect username',
@@ -281,7 +281,7 @@ async def UserAccessTokenAPI(
 
     # 指定されたパスワードのハッシュが DB にあるものと一致しない
     if not PASSWORD_CONTEXT.verify(form_data.password, current_user.password):
-        logging.error(f'[UsersRouter][UserAccessTokenAPI] Incorrect password [username: {form_data.username}]')
+        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
             detail = 'Incorrect password',
@@ -358,7 +358,7 @@ async def UserUpdateAPI(
         # 重複しないように、同じユーザー名のアカウントがあったら 422 を返す
         ## 新しいユーザー名が現在のユーザー名と同じなら問題ないので除外
         if user_update_request.username != current_user.name and await User.filter(name=user_update_request.username).get_or_none():
-            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated [username: {user_update_request.username}]')
+            logging.warning(f'[UsersRouter][UserUpdateAPI] Specified username is duplicated. [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is duplicated',
@@ -369,7 +369,7 @@ async def UserUpdateAPI(
         ## そんな名前で登録する人はいないとは思うけど、念のため…
         PERMITTED_USERNAMES = ['me', 'token']
         if user_update_request.username.lower() in PERMITTED_USERNAMES:
-            logging.error(f'[UsersRouter][UserUpdateAPI] Specified username is not permitted [username: {user_update_request.username}]')
+            logging.warning(f'[UsersRouter][UserUpdateAPI] Specified username is not permitted. [username: {user_update_request.username}]')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Specified username is not permitted',
@@ -436,7 +436,7 @@ async def UserUpdateIconAPI(
 
     # MIME タイプが image/jpeg or image/png 以外
     if image.content_type != 'image/jpeg' and image.content_type != 'image/png':
-        logging.error(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image [content_type: {image.content_type}]')
+        logging.warning(f'[UsersRouter][UserUpdateIconAPI] Please upload JPEG or PNG image. [content_type: {image.content_type}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Please upload JPEG or PNG image',
@@ -520,7 +520,7 @@ async def SpecifiedUserUpdateAPI(
     if user_update_request.is_admin is False:
         remaining_admins = await User.filter(is_admin=True).exclude(id=user.id).count()
         if remaining_admins == 0:
-            logging.error('[UsersRouter][SpecifiedUserUpdateAPI] Cannot revoke admin permission because there are no more admins')
+            logging.warning('[UsersRouter][SpecifiedUserUpdateAPI] Cannot revoke admin permission because there are no more admins.')
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Cannot revoke admin permission because there are no more admins',
