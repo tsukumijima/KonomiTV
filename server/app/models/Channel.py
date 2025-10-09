@@ -328,17 +328,6 @@ class Channel(TortoiseModel):
                 if channel_type == 'OTHER':
                     continue
 
-                # EPG 取得対象でないチャンネルを弾く
-                ## EDCB のデフォルトの EPG 取得対象チャンネルはデジタルTVサービスのみ
-                ## EDCB で EPG 取得対象でないチャンネルは番組情報が取得できないし、当然予約録画もできず登録しておく意味がない
-                ## (BS では極々稀に野球中継の延長時などに臨時サービスが運用されうるが、年に数度あるかないか程度なので当面考慮しない)
-                ## この処理により、EDCB 上で有効とされているチャンネル数と KonomiTV 上のチャンネル数が概ね一致するようになる
-                ## (上記処理で除外しているワンセグなどのチャンネルが EPG 取得対象になっている場合は一致しないが、基本ないと思うので考慮しない)
-                ## これにより、番組検索時のサービス絞り込みリストに EPG 取得対象でないチャンネルが紛れ込むのを回避できる
-                ## デジタル音声サービス (service_type: 0x02 / 現在は Ch:531 放送大学ラジオのみ) のみ、デフォルトでは EPG 取得対象に含まれないため通す
-                if service['epg_cap_flag'] is False and service['service_type'] != 0x02:
-                    continue
-
                 # チャンネル ID
                 channel_id = f'NID{service["onid"]}-SID{service["sid"]:03d}'
 
