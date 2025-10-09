@@ -1104,8 +1104,9 @@ class TwitterGraphQLAPI:
         variables['count'] = count
         if cursor_id is not None:
             variables['cursor'] = cursor_id
-        variables['querySource'] = ''  # Twitter Web App 自体が空文字を送っているので合わせる
+        variables['querySource'] = 'typed_query'  # Twitter Web App で検索すると typed_query になることが多いのでそれに合わせる
         variables['product'] = search_type  # 検索タイプに Top か Latest を指定する
+        variables['withGrokTranslatedBio'] = False  # Twitter Web App の挙動に合わせて設定
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
