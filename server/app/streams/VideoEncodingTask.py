@@ -102,10 +102,10 @@ class VideoEncodingTask:
         options: list[str] = []
 
         # 入力ストリームの解析時間
-        analyzeduration = round(500000 + (self._retry_count * 250000))  # リトライ回数に応じて少し増やす
+        analyzeduration = round(500000 + (self._retry_count * 500000))  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
-            # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            analyzeduration += 500000
+            # MPEG-2 以外のコーデックでは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            analyzeduration += 1000000
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
@@ -119,8 +119,8 @@ class VideoEncodingTask:
         ## 主に FFmpeg の起動を高速化するための設定
         ## max_interleave_delta: mux 時に影響するオプションで、ライブ再生では増やしすぎると CM で詰まりがちになる
         ## 録画再生では逆に大きめでないと映像/音声のずれが大きくなりセグメント分割時に問題が生じるため、
-        ## 5000K (5秒) に設定し、リトライ回数に応じて 500K (0.5秒) ずつ増やす
-        max_interleave_delta = round(5000 + (self._retry_count * 500))
+        ## 5000K (5秒) に設定し、リトライ回数に応じて 1000K (1秒) ずつ増やす
+        max_interleave_delta = round(5000 + (self._retry_count * 1000))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 0 -tune zerolatency -max_interleave_delta {max_interleave_delta}K -threads auto')
 
         # 映像
@@ -204,12 +204,12 @@ class VideoEncodingTask:
         options: list[str] = []
 
         # 入力ストリームの解析時間
-        input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
-        input_analyze = round(0.7 + (self._retry_count * 0.5), 1)  # リトライ回数に応じて少し増やす
+        input_probesize = round(1000 + (self._retry_count * 1000))  # リトライ回数に応じて少し増やす
+        input_analyze = round(0.7 + (self._retry_count * 1), 1)  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
-            # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            input_probesize += 1000
-            input_analyze += 4.3
+            # MPEG-2 以外のコーデックでは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            input_probesize += 2000
+            input_analyze += 6.3
 
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
@@ -231,8 +231,8 @@ class VideoEncodingTask:
         ## 主に HWEncC の起動を高速化するための設定
         ## max_interleave_delta: mux 時に影響するオプションで、ライブ再生では増やしすぎると CM で詰まりがちになる
         ## 録画再生では逆に大きめでないと映像/音声のずれが大きくなりセグメント分割時に問題が生じるため、
-        ## 5000K (5秒) に設定し、リトライ回数に応じて 500K (0.5秒) ずつ増やす
-        max_interleave_delta = round(5000 + (self._retry_count * 500))
+        ## 5000K (5秒) に設定し、リトライ回数に応じて 1000K (1秒) ずつ増やす
+        max_interleave_delta = round(5000 + (self._retry_count * 1000))
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:0')
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K')
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
