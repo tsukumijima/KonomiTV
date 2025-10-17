@@ -53,7 +53,7 @@ class RecordedVideoSummary:
     file_path: str
     created_at: datetime
     recorded_program_id: int
-    status: Literal['Recording', 'Recorded']
+    status: Literal['Recording', 'Recorded', 'AnalysisFailed']
     file_created_at: datetime
     file_modified_at: datetime
     file_size: int
@@ -517,8 +517,12 @@ class RecordedScanTask:
                     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
                         recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
                     if recorded_program is None:
-                        # メタデータ解析に失敗した場合はエラーとして扱う
                         logging.error(f'{file_path}: Failed to analyze metadata.')
+                        # メタデータ解析に失敗したがこの時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
+                        if existing_recorded_video_summary is not None:
+                            await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
+                            existing_recorded_video_summary.status = 'AnalysisFailed'
+                        self._recording_files.pop(file_path, None)
                         return
                 except Exception as ex:
                     logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)

@@ -4,7 +4,7 @@ import json
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
 import typer
@@ -196,6 +196,10 @@ class MetadataAnalyzer:
     録画ファイルのメタデータを解析するクラス
     app.metadata モジュール内の各クラスを統括し、録画ファイルから取り出せるだけのメタデータを取り出す
     """
+
+    # FFprobe が VPS/SPS/PPS を確実に読み込めるよう解析対象の尺とサイズを拡張する
+    FFPROBE_ANALYZE_DURATION_US: ClassVar[str] = str(30 * 1_000_000)
+    FFPROBE_PROBESIZE: ClassVar[str] = '80M'
 
     def __init__(self, recorded_file_path: Path) -> None:
         """
@@ -755,6 +759,8 @@ class MetadataAnalyzer:
         args_full = [
             '-hide_banner',
             '-loglevel', 'error',
+            '-analyzeduration', self.FFPROBE_ANALYZE_DURATION_US,
+            '-probesize', self.FFPROBE_PROBESIZE,
             '-show_format',
             '-show_streams',
             '-show_programs',
@@ -824,6 +830,8 @@ class MetadataAnalyzer:
                     args_sample = [
                         '-hide_banner',
                         '-loglevel', 'error',
+                        '-analyzeduration', self.FFPROBE_ANALYZE_DURATION_US,
+                        '-probesize', self.FFPROBE_PROBESIZE,
                         '-f', 'mpegts',
                         '-i', 'pipe:0',
                         '-show_streams',

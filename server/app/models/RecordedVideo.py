@@ -26,7 +26,7 @@ class RecordedVideo(TortoiseModel):
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
-    status = cast(TortoiseField[Literal['Recording', 'Recorded']], fields.CharField(255))
+    status = cast(TortoiseField[Literal['Recording', 'Recorded', 'AnalysisFailed']], fields.CharField(255))
     file_path = fields.TextField()  # ファイルパスは可変長だが、TextField には unique 制約が付けられない
     file_hash = fields.TextField()
     file_size = fields.IntField()
