@@ -519,13 +519,20 @@ class RecordedScanTask:
                     if recorded_program is None:
                         logging.error(f'{file_path}: Failed to analyze metadata.')
                         # メタデータ解析に失敗したがこの時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
+                        ## 本来メタデータ解析に失敗した録画ファイルは DB には登録されないが、「録画中は問題なく解析できていたが、録画完了後に解析できなくなった」
+                        ## といったシチュエーションも稀に考えられなくもないため、そうした場合の保険として実装した
                         if existing_recorded_video_summary is not None:
                             await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
                             existing_recorded_video_summary.status = 'AnalysisFailed'
-                        self._recording_files.pop(file_path, None)
+                        self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
                         return
                 except Exception as ex:
                     logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
+                    # メタデータ解析中に例外が発生した場合も、この時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
+                    if existing_recorded_video_summary is not None:
+                        await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
+                        existing_recorded_video_summary.status = 'AnalysisFailed'
+                    self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
                     return
 
                 # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ

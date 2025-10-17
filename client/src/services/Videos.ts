@@ -12,7 +12,7 @@ export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'record
 /** 録画ファイル情報を表すインターフェース */
 export interface IRecordedVideo {
     id: number;
-    status: 'Recording' | 'Recorded';
+    status: 'Recording' | 'Recorded' | 'AnalysisFailed';
     file_path: string;
     file_hash: string;
     file_size: number;
