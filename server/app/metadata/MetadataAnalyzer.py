@@ -302,9 +302,6 @@ class MetadataAnalyzer:
             container_format = 'MPEG-TS'
         elif 'mp4' in full_probe.format.format_name:
             container_format = 'MPEG-4'
-        ## 再生時間
-        if full_probe.format.duration is not None:
-            duration = float(full_probe.format.duration)
 
         ## 部分解析: 映像・音声情報を取得
         is_video_track_analyzed = False
@@ -326,6 +323,12 @@ class MetadataAnalyzer:
         if len(sample_probe_video_streams) == 0 and len(sample_probe_audio_streams) == 0:
             logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
             return None
+            
+        ## 再生時間
+        if full_probe_video_streams[0].duration is not None:
+            duration = full_probe_video_streams[0].duration
+        elif full_probe.format.duration is not None:
+            duration = float(full_probe.format.duration)
 
         ## 映像情報
         for video_stream in sample_probe_video_streams:
