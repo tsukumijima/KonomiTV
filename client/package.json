@@ -68,7 +68,7 @@
         "run-script-os": "^1.1.6",
         "sass": "1.77.6",
         "typescript": "~5.5.4",
-        "vite": "^5.4.19",
+        "vite": "^5.4.21",
         "vite-plugin-comlink": "^5.0.1",
         "vite-plugin-pwa": "^0.20.1",
         "vite-plugin-vuetify": "^2.0.4",
