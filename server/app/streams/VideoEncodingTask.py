@@ -54,6 +54,7 @@ class VideoEncodingTask:
         self._psisimux_process: asyncio.subprocess.Process | None = None
         self._tsreadex_process: asyncio.subprocess.Process | None = None
         self._encoder_process: asyncio.subprocess.Process | None = None
+        self._tsreadex_feed_task: asyncio.Task[None] | None = None
 
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
@@ -423,6 +424,8 @@ class VideoEncodingTask:
                 # 録画ファイルが MPEG-4 形式の場合、psisimux で MPEG-TS に変換し、
                 # TS ファイル入力の代わりに psisimux からの出力を tsreadex への入力として渡す
                 psisimux_read_pipe = None
+                # MPEG-TS のすべてのセグメントで PAT/PMT を確実に取得するための前処理用
+                initial_pat_pmt_data: bytes | None = None
                 if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-4':
                     assert file is None
 
@@ -437,7 +440,7 @@ class VideoEncodingTask:
                             f'{self.video_stream.recorded_program.channel.network_id}/' \
                             f'{self.video_stream.recorded_program.channel.transport_stream_id}/' \
                             f'{self.video_stream.recorded_program.channel.service_id}',
-                        # 文字コードが UTF-8 の字幕を ARIB8 単位符号に変換する
+                        # 文字コードが UTF-8 の字幕を ARIB 規格の8単位符号に変換する
                         '-8',
                         # 字幕ファイルの拡張子
                         '-x', '.vtt',
@@ -461,8 +464,104 @@ class VideoEncodingTask:
                     # psisimux の書き込み用パイプを閉じる
                     os.close(psisimux_write_pipe)
                 else:
-                    # ファイルポインタを移動
                     assert file is not None
+
+                    # セグメント開始位置から遡る範囲を計算（最大 5000 パケット、ただしファイル先頭は超えない）
+                    max_lookback_bytes = 188 * 5000  # 5000 パケット分
+                    search_start_pos = max(0, self._current_segment.start_file_position - max_lookback_bytes)
+                    search_end_pos = self._current_segment.start_file_position
+
+                    # 探索範囲のデータを読み込む
+                    file.seek(search_start_pos)
+                    search_data = file.read(search_end_pos - search_start_pos)
+
+                    # PAT/PMT を抽出（セグメント開始位置に最も近いものを保持）
+                    temp_pat_parser = SectionParser(PATSection)
+                    temp_pmt_parser = SectionParser(PMTSection)
+                    temp_pmt_pid: int | None = None
+
+                    # 最もセグメント開始位置に近い PAT/PMT を保持
+                    closest_pat_packet: bytes | None = None
+                    closest_pmt_packet: bytes | None = None
+                    closest_pat_distance = float('inf')
+                    closest_pmt_distance = float('inf')
+
+                    # TS パケットを1つずつ処理
+                    offset = 0
+                    while offset + 188 <= len(search_data):
+                        # 同期バイトを探す
+                        if search_data[offset] != ts.SYNC_BYTE[0]:
+                            offset += 1
+                            continue
+
+                        packet = search_data[offset:offset + 188]
+                        pid = ts.pid(packet)
+
+                        # 現在のパケットの実際のファイル位置
+                        current_file_pos = search_start_pos + offset
+                        distance = abs(current_file_pos - self._current_segment.start_file_position)
+
+                        # PAT (PID 0x00)
+                        if pid == 0x00:
+                            temp_pat_parser.push(packet)
+                            for pat in temp_pat_parser:
+                                if pat.CRC32() == 0:
+                                    # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
+                                    if current_file_pos <= self._current_segment.start_file_position:
+                                        # 開始位置以前の PAT を優先（より近いものに更新）
+                                        if distance < closest_pat_distance or closest_pat_distance == float('inf'):
+                                            closest_pat_packet = packet
+                                            closest_pat_distance = distance
+                                            # PMT の PID を取得
+                                            for program_number, program_map_pid in pat:
+                                                if program_number != 0:
+                                                    temp_pmt_pid = program_map_pid
+                                                    break
+                                    elif closest_pat_packet is None:
+                                        # 開始位置以前に PAT が見つからなかった場合のフォールバック
+                                        closest_pat_packet = packet
+                                        closest_pat_distance = distance
+                                        for program_number, program_map_pid in pat:
+                                            if program_number != 0:
+                                                temp_pmt_pid = program_map_pid
+                                                break
+                                    break
+
+                        # PMT
+                        elif temp_pmt_pid is not None and pid == temp_pmt_pid:
+                            temp_pmt_parser.push(packet)
+                            for pmt in temp_pmt_parser:
+                                if pmt.CRC32() == 0:
+                                    # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
+                                    if current_file_pos <= self._current_segment.start_file_position:
+                                        # 開始位置以前の PMT を優先（より近いものに更新）
+                                        if distance < closest_pmt_distance or closest_pmt_distance == float('inf'):
+                                            closest_pmt_packet = packet
+                                            closest_pmt_distance = distance
+                                    elif closest_pmt_packet is None:
+                                        # 開始位置以前に PMT が見つからなかった場合のフォールバック
+                                        closest_pmt_packet = packet
+                                        closest_pmt_distance = distance
+                                    break
+
+                        offset += 188
+
+                    # PAT/PMT が両方見つかった場合のみ使用
+                    if closest_pat_packet is not None and closest_pmt_packet is not None:
+                        initial_pat_pmt_data = closest_pat_packet + closest_pmt_packet
+                        logging.info(
+                            f'{self.video_stream.log_prefix}[Segment {current_sequence}] '
+                            f'Extracted PAT/PMT (PAT at -{closest_pat_distance} bytes, PMT at -{closest_pmt_distance} bytes)'
+                        )
+                    else:
+                        logging.warning(
+                            f'{self.video_stream.log_prefix}[Segment {current_sequence}] '
+                            f'Failed to extract complete PAT/PMT '
+                            f'(PAT: {"found" if closest_pat_packet else "not found"}, '
+                            f'PMT: {"found" if closest_pmt_packet else "not found"})'
+                        )
+
+                    # 実際のセグメント開始位置にシーク
                     file.seek(self._current_segment.start_file_position)
 
                 # tsreadex のオプション
@@ -506,13 +605,61 @@ class VideoEncodingTask:
                 # tsreadex の読み込み用パイプと書き込み用パイプを作成
                 tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
 
-                # tsreadex のプロセスを作成・実行
-                self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
-                    LIBRARY_PATH['tsreadex'], *tsreadex_options,
-                    stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
-                    stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-                    stderr = asyncio.subprocess.DEVNULL,  # 利用しない
-                )
+                # MPEG-TS を処理する場合で、直前に PAT/PMT を抽出できた場合
+                # PAT/PMT を先頭に加えて tsreadex に入力する
+                if initial_pat_pmt_data is not None:
+                    # PAT/PMT を先頭に加えた TS データ用の読み込み用パイプと書き込み用パイプを作成
+                    tsreadex_stdin_read, tsreadex_stdin_write = os.pipe()
+                    pat_pmt_data: bytes = initial_pat_pmt_data
+
+                    async def feed_data_with_pat_pmt():
+                        """PAT/PMT を先頭に付加したデータを作成する"""
+
+                        try:
+                            # まず PAT/PMT を書き込む
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, os.write, tsreadex_stdin_write, pat_pmt_data,
+                            )
+
+                            # 次にファイルから読み込んだデータを書き込む
+                            # initial_pat_pmt_data が作られているのは MPEG-TS のときだから
+                            # psisimux からの入力を想定する必要はない
+                            assert file is not None
+                            chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
+                            while True:
+                                chunk = await asyncio.get_event_loop().run_in_executor(
+                                    None, file.read, chunk_size,
+                                )
+                                if not chunk:
+                                    break
+                                await asyncio.get_event_loop().run_in_executor(
+                                    None, os.write, tsreadex_stdin_write, chunk,
+                                )
+                        except Exception as ex:
+                            logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                        finally:
+                            try:
+                                os.close(tsreadex_stdin_write)
+                            except Exception:
+                                pass
+
+                    # tsreadex のプロセスを作成・実行
+                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                        stdin = tsreadex_stdin_read,  # PAT/PMT が付加されたデータ
+                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                        stderr = asyncio.subprocess.DEVNULL,
+                    )
+
+                    self._tsreadex_feed_task = asyncio.create_task(feed_data_with_pat_pmt())
+                else:
+                    # tsreadex のプロセスを作成・実行
+                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                        stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
+                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                        stderr = asyncio.subprocess.DEVNULL,
+                    )
 
                 # tsreadex の書き込み用パイプを閉じる
                 os.close(tsreadex_write_pipe)
@@ -847,6 +994,15 @@ class VideoEncodingTask:
                                     pass
                         self._encoder_process = None
                         self._tsreadex_process = None
+                        # tsreadex への入力タスクをキャンセル
+                        if self._tsreadex_feed_task is not None:
+                            if self._tsreadex_feed_task.done() is False:
+                                self._tsreadex_feed_task.cancel()
+                                try:
+                                    await self._tsreadex_feed_task
+                                except Exception:
+                                    pass
+                            self._tsreadex_feed_task = None
                         continue
                     else:
                         logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
@@ -882,6 +1038,15 @@ class VideoEncodingTask:
                         pass
             self._encoder_process = None
             self._tsreadex_process = None
+            # tsreadex への入力タスクをキャンセル
+            if self._tsreadex_feed_task is not None:
+                if self._tsreadex_feed_task.done() is False:
+                    self._tsreadex_feed_task.cancel()
+                    try:
+                        await self._tsreadex_feed_task
+                    except Exception:
+                        pass
+                self._tsreadex_feed_task = None
 
             # このエンコードタスクがキャンセルされている場合は何もしない
             if self._is_cancelled is True:
@@ -943,3 +1108,12 @@ class VideoEncodingTask:
             await asyncio.sleep(0.1)
             self._tsreadex_process = None
             self._encoder_process = None
+            # tsreadex への入力タスクをキャンセル
+            if self._tsreadex_feed_task is not None:
+                if self._tsreadex_feed_task.done() is False:
+                    self._tsreadex_feed_task.cancel()
+                    try:
+                        await self._tsreadex_feed_task
+                    except Exception:
+                        pass
+                self._tsreadex_feed_task = None
