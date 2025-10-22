@@ -308,10 +308,24 @@ class MetadataAnalyzer:
         is_primary_audio_track_analyzed = False
         is_secondary_audio_track_analyzed = False
         full_probe_video_streams = full_probe.getVideoStreams()
+        full_probe_audio_streams = full_probe.getAudioStreams()
         sample_probe_video_streams = sample_probe.getVideoStreams()
         sample_probe_audio_streams = sample_probe.getAudioStreams()
-        # FFprobe の結果として "video" / "audio" の codec_type そのものは存在するが、
-        # 詳細が取得できず FFprobeOtherStream にフォールバックしているケース（スクランブルや不正 TS）を検出する
+        if len(full_probe_video_streams) == 0:
+            logging.warning(f'{self.recorded_file_path}: No valid video streams found. (from full probe)')
+            return None
+        if len(full_probe_audio_streams) == 0:
+            logging.warning(f'{self.recorded_file_path}: No valid audio streams found. (from full probe)')
+            return None
+        if len(sample_probe_video_streams) == 0:
+            logging.warning(f'{self.recorded_file_path}: No valid video streams found. (from sample probe)')
+            return None
+        if len(sample_probe_audio_streams) == 0:
+            logging.warning(f'{self.recorded_file_path}: No valid audio streams found. (from sample probe)')
+            return None
+
+        ## FFprobe の結果として "video" / "audio" の codec_type そのものは存在するが、
+        ## 詳細が取得できず FFprobeOtherStream にフォールバックしているケース（スクランブルや不正 TS）を検出する
         has_video_codec_type = any(s.codec_type == 'video' for s in sample_probe.streams)
         has_audio_codec_type = any(s.codec_type == 'audio' for s in sample_probe.streams)
         if len(sample_probe_video_streams) == 0 and has_video_codec_type is True:
@@ -323,12 +337,25 @@ class MetadataAnalyzer:
         if len(sample_probe_video_streams) == 0 and len(sample_probe_audio_streams) == 0:
             logging.warning(f'{self.recorded_file_path}: No valid video or audio streams found.')
             return None
-            
+
         ## 再生時間
-        if full_probe_video_streams[0].duration is not None:
+        if full_probe.format.duration is not None:
+            ## コンテナ自体の再生時間が取得できている場合（通常のケース）
+            if (full_probe_video_streams[0].duration is not None and
+                full_probe_video_streams[0].duration < float(full_probe.format.duration)):
+                ## コンテナ自体の再生時間は特に tsreplace した TS データなどでは映像や音声よりも長くなる場合があるため、
+                ## 映像ストリームの再生時間が取得できていて、かつコンテナ自体の再生時間より短い場合はそれを優先的に使う
+                duration = full_probe_video_streams[0].duration
+            else:
+                ## 万が一映像ストリームの再生時間が取得できていない場合、コンテナ自体の再生時間を使う
+                duration = float(full_probe.format.duration)
+        elif full_probe_video_streams[0].duration is not None:
+            ## 万が一コンテナ自体の再生時間が取得できていない場合、映像ストリームの再生時間が取得できていればそれを使う
             duration = full_probe_video_streams[0].duration
-        elif full_probe.format.duration is not None:
-            duration = float(full_probe.format.duration)
+        else:
+            ## どちらの再生時間も取得できていない場合は録画ファイルが破損していると判断し、None を返す
+            logging.warning(f'{self.recorded_file_path}: Duration is missing or invalid. ignored.')
+            return None
 
         ## 映像情報
         for video_stream in sample_probe_video_streams:
@@ -826,10 +853,7 @@ class MetadataAnalyzer:
                         sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
                         sample_data = f.read(sample_size)
 
-                    # サンプルを stdin で渡して解析
-                    ## 重要: バッファサイズを TS パケットサイズの100倍程度に抑えないと、ファイルによっては不正確な結果が返ってくることがある
-                    ## なぜバッファサイズ次第で解析結果が変わるのか不可解だが、一回の送信サイズを小さく保った方が不正確な結果を避けられそう…？
-                    ## 素直にファイルに書き出してから参照させるのが最も確実だが、比較的容量の大きいファイルをこのためだけに書き込むのは気が引ける
+                    # 録画ファイルから切り出したサンプルを標準入力から FFprobe に渡して解析
                     args_sample = [
                         '-hide_banner',
                         '-loglevel', 'error',
@@ -859,7 +883,7 @@ class MetadataAnalyzer:
 
         # 解析処理中に calculateTSFileDuration() を実行した場合は、有効な TS データの終了位置も一緒に返す
         ## calculateTSFileDuration() が実行されている時点で、当該録画ファイルの後半部分にゼロ埋めデータが存在することを示す
-        ## この値は TSInfoAnalyzer で番組情報を解析する際に利用される
+        ## この値は TSInfoAnalyzer で番組情報を解析する際に参照される
         if duration_result is not None:
             _, end_ts_offset = duration_result
             return (full_probe, sample_probe, end_ts_offset)
@@ -878,6 +902,7 @@ class MetadataAnalyzer:
         Returns:
             dict[str, Any] | None: FFprobe の結果
         """
+
         try:
             cmd = [LIBRARY_PATH['FFprobe'], *args]
             if input_bytes is None:
