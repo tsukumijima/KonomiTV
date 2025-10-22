@@ -494,6 +494,18 @@ class VideoEncodingTask:
                             offset += 1
                             continue
 
+                        # 188 バイト先 (必要であればさらに 188 バイト先) の同期バイトを確認し、TS パケット境界であるか検証する
+                        is_aligned = True
+                        next_offset = offset + 188
+                        if next_offset < len(search_data) and search_data[next_offset] != ts.SYNC_BYTE[0]:
+                            is_aligned = False
+                        second_offset = offset + 376
+                        if is_aligned is True and second_offset < len(search_data) and search_data[second_offset] != ts.SYNC_BYTE[0]:
+                            is_aligned = False
+                        if is_aligned is False:
+                            offset += 1
+                            continue
+
                         packet = search_data[offset:offset + 188]
                         pid = ts.pid(packet)
 
@@ -509,7 +521,7 @@ class VideoEncodingTask:
                                     # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
                                     if current_file_pos <= self._current_segment.start_file_position:
                                         # 開始位置以前の PAT を優先（より近いものに更新）
-                                        if distance < closest_pat_distance or closest_pat_distance == float('inf'):
+                                        if closest_pat_packet is None or distance < closest_pat_distance:
                                             closest_pat_packet = packet
                                             closest_pat_distance = distance
                                             # PMT の PID を取得
@@ -535,7 +547,7 @@ class VideoEncodingTask:
                                     # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
                                     if current_file_pos <= self._current_segment.start_file_position:
                                         # 開始位置以前の PMT を優先（より近いものに更新）
-                                        if distance < closest_pmt_distance or closest_pmt_distance == float('inf'):
+                                        if closest_pmt_packet is None or distance < closest_pmt_distance:
                                             closest_pmt_packet = packet
                                             closest_pmt_distance = distance
                                     elif closest_pmt_packet is None:
@@ -615,11 +627,22 @@ class VideoEncodingTask:
                     async def feed_data_with_pat_pmt():
                         """PAT/PMT を先頭に付加したデータを作成する"""
 
+                        async def write_all(fd: int, data: bytes) -> None:
+                            """パイプに対して全バイトを書き込む"""
+
+                            offset_local = 0
+                            loop = asyncio.get_event_loop()
+                            while offset_local < len(data):
+                                written_bytes = await loop.run_in_executor(
+                                    None, os.write, fd, data[offset_local:],
+                                )
+                                if written_bytes == 0:
+                                    raise RuntimeError('Failed to write data to tsreadex pipe.')
+                                offset_local += written_bytes
+
                         try:
                             # まず PAT/PMT を書き込む
-                            await asyncio.get_event_loop().run_in_executor(
-                                None, os.write, tsreadex_stdin_write, pat_pmt_data,
-                            )
+                            await write_all(tsreadex_stdin_write, pat_pmt_data)
 
                             # 次にファイルから読み込んだデータを書き込む
                             # initial_pat_pmt_data が作られているのは MPEG-TS のときだから
@@ -632,9 +655,7 @@ class VideoEncodingTask:
                                 )
                                 if not chunk:
                                     break
-                                await asyncio.get_event_loop().run_in_executor(
-                                    None, os.write, tsreadex_stdin_write, chunk,
-                                )
+                                await write_all(tsreadex_stdin_write, chunk)
                         except Exception as ex:
                             logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
                         finally:
@@ -994,15 +1015,7 @@ class VideoEncodingTask:
                                     pass
                         self._encoder_process = None
                         self._tsreadex_process = None
-                        # tsreadex への入力タスクをキャンセル
-                        if self._tsreadex_feed_task is not None:
-                            if self._tsreadex_feed_task.done() is False:
-                                self._tsreadex_feed_task.cancel()
-                                try:
-                                    await self._tsreadex_feed_task
-                                except Exception:
-                                    pass
-                            self._tsreadex_feed_task = None
+                        self._tsreadex_feed_task = None
                         continue
                     else:
                         logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
@@ -1038,15 +1051,7 @@ class VideoEncodingTask:
                         pass
             self._encoder_process = None
             self._tsreadex_process = None
-            # tsreadex への入力タスクをキャンセル
-            if self._tsreadex_feed_task is not None:
-                if self._tsreadex_feed_task.done() is False:
-                    self._tsreadex_feed_task.cancel()
-                    try:
-                        await self._tsreadex_feed_task
-                    except Exception:
-                        pass
-                self._tsreadex_feed_task = None
+            self._tsreadex_feed_task = None
 
             # このエンコードタスクがキャンセルされている場合は何もしない
             if self._is_cancelled is True:
@@ -1107,13 +1112,5 @@ class VideoEncodingTask:
             # 少し待ってから完全に破棄
             await asyncio.sleep(0.1)
             self._tsreadex_process = None
+            self._tsreadex_feed_task = None
             self._encoder_process = None
-            # tsreadex への入力タスクをキャンセル
-            if self._tsreadex_feed_task is not None:
-                if self._tsreadex_feed_task.done() is False:
-                    self._tsreadex_feed_task.cancel()
-                    try:
-                        await self._tsreadex_feed_task
-                    except Exception:
-                        pass
-                self._tsreadex_feed_task = None
