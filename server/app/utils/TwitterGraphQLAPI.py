@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 from curl_cffi import requests as curl_requests
+from tweepy_authlib import XPFFHeaderGenerator
 from typing_extensions import TypedDict
 
 from app import logging, schemas
@@ -212,11 +213,18 @@ class TwitterGraphQLAPI:
         self.twitter_account = twitter_account
 
         # Chrome への偽装用 HTTP リクエストヘッダーを取得
-        ## User-Agent ヘッダーも Chrome に偽装されている
+        # User-Agent などのヘッダーも実装時点での最新版 Chrome ブラウザに偽装されている
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
-        self.graphql_headers_dict = cast(dict[str, str], self.cookie_session_user_handler.get_graphql_api_headers())  # GraphQL API 用ヘッダー
-        self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
-        self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)  # JavaScript 用ヘッダー
+        ## GraphQL API 用ヘッダー
+        self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers(cross_origin=True)
+        ## HTML 用ヘッダー
+        self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()
+        ## JavaScript 用ヘッダー
+        self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)
+
+        # X-XP-Forwarded-For ヘッダーを生成するために使う XPFFHeaderGenerator インスタンス
+        # User-Agent は CookieSessionUserHandler が使うものと同じ文字列を設定する
+        self.xpff_header_generator = XPFFHeaderGenerator(self.cookie_session_user_handler.USER_AGENT)
 
         # 指定されたアカウントへの認証情報が含まれる Cookie を取得し、curl_cffi.requests.Cookies に変換
         ## ここで生成した Cookie を HTTP クライアントに渡す
@@ -488,6 +496,11 @@ class TwitterGraphQLAPI:
         if x_client_transaction_id is not None:
             headers['x-client-transaction-id'] = x_client_transaction_id
             logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
+            # X-Client-Transaction-ID を付与する時は、別途 X-XP-Forwarded-For ヘッダーも生成して付与する
+            guest_id = self.curl_session.cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
+            xpff_header = self.xpff_header_generator.generate(guest_id)
+            headers['x-xp-forwarded-for'] = xpff_header
+            logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-XP-Forwarded-For: {xpff_header}')
 
         # CreateTweet / CreateRetweet エンドポイントのみ、Bearer トークンを旧 TweetDeck / 現 X Pro 用のものに差し替える
         ## 旧 TweetDeck 用 Bearer トークン自体は現在も X Pro 用として使われているからか (ただし URL は https://pro.x.com/i/graphql/ 配下) 、
