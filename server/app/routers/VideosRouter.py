@@ -757,8 +757,7 @@ async def VideoReanalyzeAPI(
         async with DriveIOLimiter.getSemaphore(file_path):
             # メタデータ再解析を実行
             await RecordedScanTask().processRecordedFile(
-                file_path,
-                existing_db_recorded_videos = None,
+                file_path = file_path,
                 force_update = True,
             )
 
