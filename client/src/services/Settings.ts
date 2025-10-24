@@ -113,6 +113,7 @@ export interface IServerSettings {
     };
     video: {
         recorded_folders: string[];
+        clip_videos_folder: string | null;
     };
     capture: {
         upload_folders: string[];
@@ -142,6 +143,7 @@ export const IServerSettingsDefault: IServerSettings = {
     },
     video: {
         recorded_folders: [],
+        clip_videos_folder: null,
     },
     capture: {
         upload_folders: [],

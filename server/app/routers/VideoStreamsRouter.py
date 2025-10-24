@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
 from app import logging
+from app.config import Config
 from app.constants import DATA_DIR, LIBRARY_PATH, QUALITY, QUALITY_TYPES
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.ClipVideo import ClipVideo
@@ -593,7 +594,12 @@ async def VideoClipSaveAPI(
 
         # クリップファイルを永続的な保存先に移動
         temp_file_path = PathLib(task.output_file_path)
-        clip_videos_dir = DATA_DIR / 'clip_videos'
+        server_settings = Config()
+        configured_clip_dir = server_settings.video.clip_videos_folder
+        if configured_clip_dir is not None:
+            clip_videos_dir = PathLib(configured_clip_dir)
+        else:
+            clip_videos_dir = DATA_DIR / 'clip_videos'
         clip_videos_dir.mkdir(parents=True, exist_ok=True)
         
         # 新しいファイル名を生成（ファイル名はそのまま使用）

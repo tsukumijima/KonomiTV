@@ -208,6 +208,18 @@
                     <span class="ml-1">保存先フォルダを追加</span>
                 </v-btn>
             </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">クリップ動画の保存先フォルダの絶対パス</div>
+                <div class="settings__item-label" style="padding-bottom: 2px;">
+                    未設定の場合は KonomiTV サーバーの data/clip_videos フォルダが利用されます。<br>
+                    Docker でインストールした場合も、ホストマシン側のフォルダの絶対パスを指定してください。<br>
+                </div>
+                <v-text-field class="settings__item-form mt-3" color="primary" variant="outlined" hide-details
+                    placeholder="例: E:\\TV-Clip"
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    v-model="server_settings.video.clip_videos_folder">
+                </v-text-field>
+            </div>
             <div class="settings__content-heading mt-6">
                 <Icon icon="fluent:image-multiple-16-filled" width="22px" />
                 <span class="ml-2">キャプチャ</span>
@@ -403,6 +415,10 @@ async function updateServerSettings() {
     }
     if (server_settings.value.server.custom_https_private_key === '') {
         server_settings.value.server.custom_https_private_key = null;
+    }
+    if (server_settings.value.video.clip_videos_folder !== null &&
+        server_settings.value.video.clip_videos_folder.trim() === '') {
+        server_settings.value.video.clip_videos_folder = null;
     }
 
     // サーバー設定を更新
