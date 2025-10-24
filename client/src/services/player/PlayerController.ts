@@ -12,7 +12,7 @@ import CaptureManager from '@/services/player/managers/CaptureManager';
 import ClipExportManager from '@/services/player/managers/ClipExportManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
 import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
-import LiveCommentManager from '@/services/player/managers/LiveCommentManager';
+import LiveCommentManager, { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroadcastingManager';
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
@@ -118,6 +118,14 @@ class PlayerController {
     private clip_segment_cumulative_durations: number[] = [];
     private clip_total_duration = 0;
     private clip_current_segment_index = 0;
+
+    // シークバーサムネイルの設定 (タイルサムネイルの座標計算に利用)
+    private thumbnails_config: {
+        interval: number;
+        width: number;
+        height: number;
+        columnCount: number;
+    } | null = null;
 
 
     /**
@@ -226,6 +234,7 @@ class PlayerController {
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
     this.clip_end_reached = false;
+    this.thumbnails_config = null;
 
         // PlayerStore にプレイヤーを初期化したことを通知する
         // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerController.init() を実行したことが通知されることが重要
@@ -411,38 +420,46 @@ class PlayerController {
                         // 画質プロファイルに記載の画質ではなく、指定された（前回再生時の）画質を使ってレジュームする
                         default_quality = options.default_quality;
                     }
+                    const thumbnail_interval = (() => {
+                        // 以下のロジックは server/app/metadata/ThumbnailGenerator.py のものと同一
+                        // 録画番組の長さ (分単位で切り捨て)
+                        const duration_min = Math.floor(player_store.recorded_program.recorded_video.duration / 60);
+                        // 基準となる動画の長さ (30分)
+                        const BASE_DURATION_MIN = 30;
+                        // 基準となる間隔 (5秒)
+                        const BASE_INTERVAL_SEC = 5.0;
+                        // 最大間隔 (30秒)
+                        const MAX_INTERVAL_SEC = 30.0;
+                        // 30分以下は一律5秒間隔
+                        if (duration_min <= BASE_DURATION_MIN) {
+                            return BASE_INTERVAL_SEC;
+                        }
+                        // 30分超の場合は対数関数的に増加を抑制
+                        // duration_ratio = 2 (1時間) の時に、increase_ratio が約1.5になるように調整
+                        const duration_ratio = duration_min / BASE_DURATION_MIN;
+                        // log(1 + x) の代わりに log(1 + x/2) を使うことで、1時間の時に1.5倍程度になるよう調整
+                        return Math.min(
+                            MAX_INTERVAL_SEC,
+                            BASE_INTERVAL_SEC * duration_ratio / Math.log2(1 + duration_ratio/2)
+                        );
+                    })();
+                    const thumbnails = {
+                        url: `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`,
+                        interval: thumbnail_interval,
+                        width: 480,  // サムネイルの幅
+                        height: 270,  // サムネイルの高さ
+                        columnCount: 34,  // サムネイルの列数
+                    } as const;
+                    this.thumbnails_config = {
+                        interval: thumbnails.interval,
+                        width: thumbnails.width,
+                        height: thumbnails.height,
+                        columnCount: thumbnails.columnCount,
+                    };
                     return {
                         quality: qualities,
                         defaultQuality: default_quality,
-                        thumbnails: {
-                            url: `${Utils.api_base_url}/videos/${player_store.recorded_program.id}/thumbnail/tiled`,
-                            interval: (() => {
-                                // 以下のロジックは server/app/metadata/ThumbnailGenerator.py のものと同一
-                                // 録画番組の長さ (分単位で切り捨て)
-                                const duration_min = Math.floor(player_store.recorded_program.recorded_video.duration / 60);
-                                // 基準となる動画の長さ (30分)
-                                const BASE_DURATION_MIN = 30;
-                                // 基準となる間隔 (5秒)
-                                const BASE_INTERVAL_SEC = 5.0;
-                                // 最大間隔 (30秒)
-                                const MAX_INTERVAL_SEC = 30.0;
-                                // 30分以下は一律5秒間隔
-                                if (duration_min <= BASE_DURATION_MIN) {
-                                    return BASE_INTERVAL_SEC;
-                                }
-                                // 30分超の場合は対数関数的に増加を抑制
-                                // duration_ratio = 2 (1時間) の時に、increase_ratio が約1.5になるように調整
-                                const duration_ratio = duration_min / BASE_DURATION_MIN;
-                                // log(1 + x) の代わりに log(1 + x/2) を使うことで、1時間の時に1.5倍程度になるよう調整
-                                return Math.min(
-                                    MAX_INTERVAL_SEC,
-                                    BASE_INTERVAL_SEC * duration_ratio / Math.log2(1 + duration_ratio/2)
-                                );
-                            })(),
-                            width: 480,  // サムネイルの幅
-                            height: 270,  // サムネイルの高さ
-                            columnCount: 34,  // サムネイルの列数
-                        }
+                        thumbnails,
                     };
                 }
             })(),
@@ -483,18 +500,34 @@ class PlayerController {
                             // 過去ログコメントを取得できているということは、recording_start_time は null ではないはず
                             const recording_start_time = player_store.recorded_program.recorded_video.recording_start_time!;
                             // コメントリストに取得した過去ログコメントを送る
-                            // コメ番は重複している可能性がないとも言い切れないので、別途連番を振る
-                            let count = 0;
-                            player_store.event_emitter.emit('CommentReceived', {
-                                is_initial_comments: true,
-                                comments: jikkyo_comments.comments.map((comment) => ({
-                                    id: count++,
+                            const is_clip_mode = this.clip_segments !== null && this.clip_segments.length > 0;
+                            const comments_for_list: ICommentData[] = [];
+                            let comment_id = 0;
+                            for (const comment of jikkyo_comments.comments) {
+                                let display_time = Utils.apply28HourClock(
+                                    dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss'),
+                                );
+                                let playback_position_for_list = comment.time;
+                                if (is_clip_mode === true) {
+                                    const clip_elapsed = this.getClipElapsedFromVideoTime(comment.time);
+                                    if (clip_elapsed === null) {
+                                        continue;
+                                    }
+                                    display_time = this.formatSeconds(clip_elapsed);
+                                    playback_position_for_list = clip_elapsed;
+                                }
+                                comments_for_list.push({
+                                    id: comment_id++,
                                     text: comment.text,
-                                    time: Utils.apply28HourClock(dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss')),
-                                    playback_position: comment.time,
+                                    time: display_time,
+                                    playback_position: playback_position_for_list,
                                     user_id: comment.author,
                                     my_post: false,
-                                })),
+                                });
+                            }
+                            player_store.event_emitter.emit('CommentReceived', {
+                                is_initial_comments: true,
+                                comments: comments_for_list,
                             });
                             options.success(jikkyo_comments.comments);
                         }
@@ -504,14 +537,21 @@ class PlayerController {
                         // コメントリストもシークバーに合わせてスクロールさせておく（コメントリストコンポーネントに通知）
                         // この時点ではまだ映像の読み込みが完了していない可能性が高いので、currentTime がまだ 0 か非数の場合は seek_seconds をそのまま使う
                         let comment_seek_seconds = this.player!.video.currentTime;
-                        if (comment_seek_seconds === 0 || isNaN(comment_seek_seconds)) {
+                        if (comment_seek_seconds === 0 || Number.isNaN(comment_seek_seconds)) {
                             comment_seek_seconds = seek_seconds;
                         }
+                        const playback_position_for_event = (() => {
+                            if (this.clip_segments !== null && this.clip_segments.length > 0) {
+                                return this.getClipElapsedFromVideoTime(comment_seek_seconds) ?? 0;
+                            }
+                            return comment_seek_seconds;
+                        })();
                         await Utils.sleep(0.1);  // 仮想スクローラーの準備ができるまで少し待つ
                         player_store.event_emitter.emit('PlaybackPositionChanged', {
-                            playback_position: comment_seek_seconds,
+                            playback_position: playback_position_for_event,
                         });
-                        console.log(`\u001b[31m[PlayerController] Comment list seeking to ${comment_seek_seconds} seconds.`);
+                        const timeline_label = (this.clip_segments !== null && this.clip_segments.length > 0) ? ' (clip timeline)' : '';
+                        console.log(`\u001b[31m[PlayerController] Comment list seeking to ${playback_position_for_event} seconds${timeline_label}.`);
                     }
                 },
                 // コメント送信時
@@ -1386,6 +1426,7 @@ class PlayerController {
 
                 const video_element = this.player.video;
                 let playback_position = video_element.currentTime;
+                let playback_position_for_event = playback_position;
 
                 if (this.clip_segments !== null && this.clip_segments.length > 0) {
                     const tolerance = 0.05;
@@ -1442,12 +1483,15 @@ class PlayerController {
                     }
 
                     this.updateClipProgressUI(playback_position);
+                    const clip_elapsed = this.getClipElapsedFromVideoTime(playback_position);
+                    playback_position_for_event = clip_elapsed ?? 0;
                 } else {
                     this.clip_end_reached = false;
+                    playback_position_for_event = playback_position;
                 }
 
                 player_store.event_emitter.emit('PlaybackPositionChanged', {
-                    playback_position,
+                    playback_position: playback_position_for_event,
                 });
             });
 
@@ -2206,6 +2250,41 @@ class PlayerController {
         this.player.bar.set('loaded', clamped_percentage, 'width');
     }
 
+    private updateClipThumbnailPreview(clipElapsed: number): void {
+        if (this.player === null || this.thumbnails_config === null || this.clip_segments === null || this.clip_segments.length === 0 || this.clip_total_duration <= 0) {
+            return;
+        }
+
+        const { interval, width, height, columnCount } = this.thumbnails_config;
+        if (!Number.isFinite(interval) || interval <= 0) {
+            return;
+        }
+
+        const video_duration = this.player.video.duration;
+        if (!Number.isFinite(video_duration) || video_duration <= 0) {
+            return;
+        }
+
+        const normalizedElapsed = Math.max(0, Math.min(clipElapsed, this.clip_total_duration));
+        const video_time = this.getVideoTimeFromClipElapsed(normalizedElapsed);
+        if (!Number.isFinite(video_time)) {
+            return;
+        }
+
+        const total_count = Math.max(1, Math.ceil(video_duration / interval));
+        const raw_index = Math.floor(video_time / interval);
+        const index = Math.max(0, Math.min(raw_index, total_count - 1));
+        const column = index % columnCount;
+        const row = Math.floor(index / columnCount);
+
+        const VIEWPORT_WIDTH = 180;
+        const scale = VIEWPORT_WIDTH / width;
+        const backgroundX = column * width * scale;
+        const backgroundY = row * height * scale;
+
+        this.player.template.barPreview.style.backgroundPosition = `-${backgroundX}px -${backgroundY}px`;
+    }
+
     private updateClipBarTooltip(event: MouseEvent | TouchEvent): void {
         if (this.player === null || this.clip_segments === null || this.clip_segments.length === 0 || this.clip_total_duration <= 0) {
             return;
@@ -2231,6 +2310,9 @@ class PlayerController {
         const clip_seconds = this.clip_total_duration * percentage;
 
         this.player.template.playedBarTime.textContent = this.formatSeconds(clip_seconds);
+        window.requestAnimationFrame(() => {
+            this.updateClipThumbnailPreview(clip_seconds);
+        });
     }
 
     private getClipSegmentIndex(time: number, tolerance: number = 0.05): number {
@@ -2271,6 +2353,43 @@ class PlayerController {
         }
 
         return last_segment.end;
+    }
+
+    private getClipElapsedFromVideoTime(time: number, tolerance: number = 0.05): number | null {
+        if (this.clip_segments === null || this.clip_segments.length === 0) {
+            return time;
+        }
+        if (!Number.isFinite(time)) {
+            return null;
+        }
+
+        const first_segment = this.clip_segments[0];
+        const last_segment = this.clip_segments[this.clip_segments.length - 1];
+
+        if (time < first_segment.start - tolerance) {
+            return null;
+        }
+        if (time >= last_segment.end + tolerance) {
+            return this.clip_total_duration;
+        }
+
+        for (let index = 0; index < this.clip_segments.length; index++) {
+            const segment = this.clip_segments[index];
+            const segment_base = this.clip_segment_cumulative_durations[index] ?? 0;
+            const segment_start_threshold = segment.start - tolerance;
+            const segment_end_threshold = segment.end + tolerance;
+
+            if (time < segment_start_threshold) {
+                return null;
+            }
+
+            if (time <= segment_end_threshold) {
+                const clamped = Math.min(Math.max(time, segment.start), segment.end);
+                return segment_base + (clamped - segment.start);
+            }
+        }
+
+        return this.clip_total_duration;
     }
 
     private getVideoTimeFromClipElapsed(elapsed: number): number {

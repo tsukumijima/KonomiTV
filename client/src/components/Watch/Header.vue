@@ -51,7 +51,9 @@ export default defineComponent({
         },
         programTitleHtml(): string {
             if (this.playback_mode === 'Video' && this.playerStore.clip_video !== null) {
-                return Utils.escapeHTML(this.playerStore.clip_video.title);
+                const alternateTitle = this.playerStore.clip_video.alternate_title?.trim();
+                const title = alternateTitle && alternateTitle.length > 0 ? alternateTitle : this.playerStore.clip_video.title;
+                return Utils.escapeHTML(title);
             }
             return ProgramUtils.decorateProgramInfo(
                 this.playback_mode === 'Live' ? this.channelsStore.channel.current.program_present : this.playerStore.recorded_program,

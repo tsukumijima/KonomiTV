@@ -18,6 +18,10 @@
                     <div class="clip-video-info__item-label">タイトル</div>
                     <div class="clip-video-info__item-value">{{ clipVideo.title }}</div>
                 </div>
+                <div class="clip-video-info__item" v-if="clipVideo.alternate_title">
+                    <div class="clip-video-info__item-label">別タイトル</div>
+                    <div class="clip-video-info__item-value">{{ clipVideo.alternate_title }}</div>
+                </div>
                 <div class="clip-video-info__item">
                     <div class="clip-video-info__item-label">元番組タイトル</div>
                     <div class="clip-video-info__item-value">{{ clipVideo.recorded_program.title }}</div>

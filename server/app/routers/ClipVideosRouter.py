@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 import anyio
 from fastapi import (
     APIRouter,
+    Body,
     Depends,
     HTTPException,
     Path,
@@ -115,6 +116,8 @@ async def ConvertRowToClipVideo(row: dict[str, Any]) -> schemas.ClipVideo:
         'recorded_video_id': row['recorded_video_id'],
         'recorded_program': recorded_program_dict,
         'title': row['cv_title'],
+        'alternate_title': row['cv_alternate_title'] if 'cv_alternate_title' in row.keys()
+            else row.get('alternate_title'),
         'file_path': row['file_path'],
         'file_hash': row['file_hash'],
         'file_size': row['file_size'],
@@ -177,6 +180,7 @@ async def ClipVideosAPI(
             cv.id as cv_id,
             cv.recorded_video_id,
             cv.title as cv_title,
+            cv.alternate_title as cv_alternate_title,
             cv.file_path,
             cv.file_hash,
             cv.file_size,
@@ -278,6 +282,7 @@ async def ClipVideoAPI(
             cv.id as cv_id,
             cv.recorded_video_id,
             cv.title as cv_title,
+            cv.alternate_title as cv_alternate_title,
             cv.file_path,
             cv.file_hash,
             cv.file_size,
@@ -351,6 +356,45 @@ async def ClipVideoAPI(
         )
 
     return await ConvertRowToClipVideo(rows[0])
+
+
+@router.post(
+    '/{clip_video_id}/alternate-title',
+    summary = 'クリップ動画別タイトル更新 API',
+    response_description = '更新後のクリップ動画の情報。',
+    response_model = schemas.ClipVideo,
+)
+async def ClipVideoAlternateTitleUpdateAPI(
+    clip_video_id: Annotated[int, Path(description='クリップ動画の ID 。')],
+    alternate_title_update_request: Annotated[
+        schemas.ClipVideoAlternateTitleUpdateRequest,
+        Body(description='更新する別タイトル。'),
+    ],
+) -> schemas.ClipVideo:
+    """指定されたクリップ動画の別タイトルを更新する"""
+
+    clip_video = await ClipVideo.get_or_none(id=clip_video_id)
+    if clip_video is None:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = 'Clip video not found',
+        )
+
+    alternate_title = alternate_title_update_request.alternate_title
+    if alternate_title is not None:
+        alternate_title = alternate_title.strip()
+        if alternate_title == '':
+            alternate_title = None
+
+    clip_video.alternate_title = alternate_title
+    await clip_video.save()
+
+    logging.info(
+        '[ClipVideoAlternateTitleUpdateAPI] Updated alternate title. '
+        f'[clip_video_id: {clip_video_id}, alternate_title: {alternate_title!r}]'
+    )
+
+    return await ClipVideoAPI(clip_video_id)
 
 
 @router.delete(

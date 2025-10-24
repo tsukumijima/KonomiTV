@@ -25,6 +25,7 @@ class ClipVideo(TortoiseModel):
         fields.ForeignKeyField('models.RecordedVideo', related_name='clip_videos', on_delete=fields.CASCADE)
     recorded_video_id: int
     title = fields.TextField()  # クリップのタイトル (元の番組タイトル + 時間範囲)
+    alternate_title = fields.TextField(null=True)  # 手動で設定された別タイトル
     file_path = fields.TextField()  # クリップファイルのパス
     file_hash = fields.TextField()
     file_size = fields.IntField()

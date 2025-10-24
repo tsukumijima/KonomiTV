@@ -56,7 +56,13 @@
                 </div>
             </div>
             <div class="clip-video-list__grid-content">
-                <ClipVideoItem v-for="clipVideo in displayClipVideos" :key="clipVideo.id" :clipVideo="clipVideo" @deleted="handleClipVideoDeleted" />
+                <ClipVideoItem
+                    v-for="clipVideo in displayClipVideos"
+                    :key="clipVideo.id"
+                    :clipVideo="clipVideo"
+                    @deleted="handleClipVideoDeleted"
+                    @updated="handleClipVideoUpdated"
+                />
             </div>
         </div>
         <div class="clip-video-list__pagination" v-if="!hidePagination && displayTotal > 0">
@@ -113,6 +119,7 @@ defineEmits<{
     (e: 'update:sortOrder', order: SortOrder): void;
     (e: 'more'): void;
     (e: 'delete', clip_video_id: number): void;
+    (e: 'clipVideoUpdated', clipVideo: IClipVideo): void;
 }>();
 
 // 現在のページ番号
@@ -152,6 +159,14 @@ const handleClipVideoDeleted = (id: number) => {
     displayClipVideos.value = displayClipVideos.value.filter(clipVideo => clipVideo.id !== id);
     // 合計数を1減らす
     displayTotal.value--;
+};
+
+// クリップ動画が更新された時の処理
+const handleClipVideoUpdated = (updatedClipVideo: IClipVideo) => {
+    displayClipVideos.value = displayClipVideos.value.map(clipVideo =>
+        clipVideo.id === updatedClipVideo.id ? updatedClipVideo : clipVideo,
+    );
+    emit('clipVideoUpdated', updatedClipVideo);
 };
 
 </script>

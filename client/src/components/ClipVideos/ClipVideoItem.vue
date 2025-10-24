@@ -7,7 +7,7 @@
                 <div class="clip-video-item__thumbnail-duration">{{ formattedDuration }}</div>
             </div>
             <div class="clip-video-item__content">
-                <div class="clip-video-item__content-title">{{ clipVideo.title }}</div>
+                <div class="clip-video-item__content-title">{{ displayTitle }}</div>
                 <div class="clip-video-item__content-meta">
                     <div class="clip-video-item__content-meta-broadcaster" v-if="clipVideo.recorded_program.channel">
                         <img class="clip-video-item__content-meta-broadcaster-icon" loading="lazy" decoding="async"
@@ -41,6 +41,12 @@
                                 </svg>
                             </template>
                             <v-list-item-title class="ml-3">クリップ動画情報を表示</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="show_alternate_title_dialog = true">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:rename-24-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">別タイトルを編集</v-list-item-title>
                         </v-list-item>
                         <v-list-item @click="downloadClipVideo">
                             <template v-slot:prepend>
@@ -79,13 +85,14 @@
         </div>
     </router-link>
     <ClipVideoInfoDialog :clipVideo="clipVideo" v-model:show="show_clip_video_info" />
+    <ClipVideoAlternateTitleDialog :clipVideo="clipVideo" v-model:show="show_alternate_title_dialog" @saved="handleAlternateTitleSaved" />
 
     <!-- クリップ動画削除確認ダイアログ -->
     <v-dialog max-width="750" v-model="show_delete_confirmation">
         <v-card>
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当にクリップ動画を削除しますか？</v-card-title>
             <v-card-text class="pt-2 pb-0">
-                <div class="delete-confirmation__title mb-4">{{ clipVideo.title }}</div>
+                <div class="delete-confirmation__title mb-4">{{ displayTitle }}</div>
                 <div class="text-error-lighten-1 font-weight-bold">
                     このクリップ動画に関連するすべてのデータが削除されます。<br>
                     元に戻すことはできません。本当にクリップ動画を削除しますか？
@@ -107,10 +114,11 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import Message from '@/message';
 import ClipVideoInfoDialog from '@/components/ClipVideos/Dialogs/ClipVideoInfoDialog.vue';
+import ClipVideoAlternateTitleDialog from '@/components/ClipVideos/Dialogs/ClipVideoAlternateTitleDialog.vue';
 import ClipVideos, { IClipVideo } from '@/services/ClipVideos';
 import Utils from '@/utils';
 import useUserStore from '@/stores/UserStore';
@@ -123,12 +131,23 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
     (e: 'deleted', id: number): void;
+    (e: 'updated', clipVideo: IClipVideo): void;
 }>();
 
 // クリップ情報ダイアログの表示状態
 const show_clip_video_info = ref(false);
 // 削除確認ダイアログの表示状態
 const show_delete_confirmation = ref(false);
+// 別タイトル編集ダイアログの表示状態
+const show_alternate_title_dialog = ref(false);
+
+// 別タイトルの現在値
+const current_alternate_title = ref<string | null>(props.clipVideo.alternate_title);
+
+// 別タイトルが更新された際に同期する
+watch(() => props.clipVideo.alternate_title, (value) => {
+    current_alternate_title.value = value ?? null;
+});
 
 // ユーザーストア
 const userStore = useUserStore();
@@ -150,6 +169,15 @@ const formattedDuration = computed(() => {
     } else {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
+});
+
+// 表示用タイトル
+const displayTitle = computed(() => {
+    const alternate = current_alternate_title.value?.trim();
+    if (alternate && alternate.length > 0) {
+        return alternate;
+    }
+    return props.clipVideo.title;
 });
 
 // 日付のフォーマット
@@ -217,6 +245,12 @@ const deleteClipVideo = async () => {
     } else {
         Message.error('クリップ動画の削除に失敗しました。');
     }
+};
+
+// 別タイトル保存後の処理
+const handleAlternateTitleSaved = (updatedClipVideo: IClipVideo) => {
+    current_alternate_title.value = updatedClipVideo.alternate_title ?? null;
+    emit('updated', updatedClipVideo);
 };
 
 </script>

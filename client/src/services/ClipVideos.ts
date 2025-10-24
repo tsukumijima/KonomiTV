@@ -63,6 +63,7 @@ export interface IClipVideo {
     recorded_video_id: number;
     recorded_program: IClipVideoRecordedProgram;
     title: string;
+    alternate_title: string | null;
     file_path: string;
     file_hash: string;
     file_size: number;
@@ -171,6 +172,22 @@ class ClipVideos {
             return false;
         }
         return true;
+    }
+
+    /**
+     * クリップ動画の別タイトルを更新する
+     * @param clip_video_id クリップ動画の ID
+     * @param alternate_title 設定する別タイトル (null で解除)
+     * @returns 更新後のクリップ動画情報
+     */
+    static async updateClipVideoAlternateTitle(clip_video_id: number, alternate_title: string | null): Promise<IClipVideo | null> {
+        const response = await APIClient.post<IClipVideo>(`/clip-videos/${clip_video_id}/alternate-title`, {
+            alternate_title,
+        });
+        if (response.type === 'success') {
+            return response.data;
+        }
+        return null;
     }
 
     /**

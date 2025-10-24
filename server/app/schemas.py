@@ -190,6 +190,7 @@ class ClipVideo(PydanticModel):
     recorded_video_id: int
     recorded_program: RecordedProgram
     title: str
+    alternate_title: str | None = None
     file_path: str
     file_hash: str
     file_size: int
@@ -216,6 +217,11 @@ class ClipVideo(PydanticModel):
 class ClipVideos(BaseModel):
     total: int
     clip_videos: list[ClipVideo]
+
+# ***** クリップ動画 リクエスト *****
+
+class ClipVideoAlternateTitleUpdateRequest(BaseModel):
+    alternate_title: str | None = None
 
 # ***** シリーズ *****
 

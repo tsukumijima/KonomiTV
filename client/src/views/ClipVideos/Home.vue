@@ -22,7 +22,8 @@
                         :showEmptyMessage="!is_loading"
                         @update:page="updatePage"
                         @update:sortOrder="updateSortOrder($event as SortOrder)"
-                        @delete="handleDelete" />
+                        @delete="handleDelete"
+                        @clipVideoUpdated="handleClipVideoUpdated" />
                 </div>
             </div>
         </main>
@@ -101,6 +102,13 @@ const handleDelete = async (clip_video_id: number) => {
         // 削除成功したら再取得
         await fetchClipVideos();
     }
+};
+
+// クリップ動画情報が更新された時にローカルのリストも差し替える
+const handleClipVideoUpdated = (updatedClipVideo: IClipVideo) => {
+    clip_videos.value = clip_videos.value.map(clipVideo =>
+        clipVideo.id === updatedClipVideo.id ? updatedClipVideo : clipVideo,
+    );
 };
 
 // クエリパラメータが変更されたらクリップ動画を再取得
