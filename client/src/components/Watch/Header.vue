@@ -1,16 +1,12 @@
 <template>
     <header class="watch-header" :class="{'watch-header--video': playback_mode === 'Video'}">
-        <router-link class="watch-header__back-icon" v-ripple :to="playback_mode === 'Live' ? '/tv/' : '/videos/'">
+        <router-link class="watch-header__back-icon" v-ripple :to="backLink">
             <Icon icon="fluent:chevron-left-12-filled" width="21px" />
         </router-link>
         <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
             :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
-        <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(
-            playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, 'title'
-        )"></span>
-        <span class="watch-header__program-time">
-            {{ProgramUtils.getProgramTime(playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, true)}}
-        </span>
+        <span class="watch-header__program-title" v-html="programTitleHtml"></span>
+        <span class="watch-header__program-time">{{programTimeText}}</span>
         <v-spacer></v-spacer>
         <span class="watch-header__now">{{time}}</span>
     </header>
@@ -47,12 +43,46 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(useChannelsStore, usePlayerStore),
+        backLink(): string {
+            if (this.playback_mode === 'Video' && this.playerStore.clip_video !== null) {
+                return '/clip-videos/';
+            }
+            return this.playback_mode === 'Live' ? '/tv/' : '/videos/';
+        },
+        programTitleHtml(): string {
+            if (this.playback_mode === 'Video' && this.playerStore.clip_video !== null) {
+                return Utils.escapeHTML(this.playerStore.clip_video.title);
+            }
+            return ProgramUtils.decorateProgramInfo(
+                this.playback_mode === 'Live' ? this.channelsStore.channel.current.program_present : this.playerStore.recorded_program,
+                'title',
+            );
+        },
+        programTimeText(): string {
+            if (this.playback_mode === 'Video' && this.playerStore.clip_video !== null) {
+                return `長さ: ${this.formatDuration(this.playerStore.clip_video.duration)}`;
+            }
+            return ProgramUtils.getProgramTime(
+                this.playback_mode === 'Live' ? this.channelsStore.channel.current.program_present : this.playerStore.recorded_program,
+                true,
+            );
+        },
     },
     methods: {
         formatTime(time_obj: Dayjs): string {
             const is_sp_h = Utils.isSmartphoneHorizontal();
             const formatted = time_obj.format(is_sp_h ? 'HH:mm:ss' : 'YYYY/MM/DD HH:mm:ss');
             return Utils.apply28HourClock(formatted);
+        },
+        formatDuration(totalSeconds: number): string {
+            const total = Math.max(0, Math.round(totalSeconds));
+            const hours = Math.floor(total / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const seconds = total % 60;
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
         },
         updateTimeCore(): number {
             const time = dayjs();

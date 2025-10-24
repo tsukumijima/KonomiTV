@@ -158,6 +158,29 @@ export interface IJikkyoComments {
     detail: string;
 }
 
+/** クリップ書き出しの結果を表すインターフェース */
+export interface IVideoClipExportResult {
+    is_success: boolean;
+    detail: string;
+    task_id: string | null;
+}
+
+/** クリップ書き出しの進捗状況を表すインターフェース */
+export interface IVideoClipExportStatus {
+    task_id: string;
+    status: 'Processing' | 'Completed' | 'Failed';
+    progress: number;
+    detail: string;
+    output_file_path: string | null;
+    output_file_size: number | null;
+    file_hash: string | null;
+    recorded_video_id: number | null;
+    recorded_program_title: string | null;
+    start_time: number | null;
+    end_time: number | null;
+    duration: number | null;
+}
+
 class Videos {
 
     /**
@@ -343,6 +366,107 @@ class Videos {
                     APIClient.showGenericError(response, '録画ファイルの削除に失敗しました。');
                     break;
             }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * 録画番組のクリップを書き出す
+     * @param video_id 録画番組の ID
+     * @param start_time クリップ開始時刻（秒）
+     * @param end_time クリップ終了時刻（秒）
+     * @returns クリップ書き出しに成功した場合はタスク ID、失敗した場合は null
+     */
+    static async exportVideoClip(video_id: number, start_time: number, end_time: number): Promise<string | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.post<IVideoClipExportResult>(`/streams/video/${video_id}/clip-export`, {
+            start_time,
+            end_time,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'クリップの書き出しを開始できませんでした。');
+            return null;
+        }
+
+        // 成功判定
+        if (!response.data.is_success || !response.data.task_id) {
+            console.error('Clip export failed:', response.data.detail);
+            return null;
+        }
+
+        return response.data.task_id;
+    }
+
+    /**
+     * クリップ書き出しの進捗状況を取得する
+     * @param video_id 録画番組の ID
+     * @param task_id タスク ID
+     * @returns クリップ書き出しの進捗状況 or 取得に失敗した場合は null
+     */
+    static async fetchVideoClipExportStatus(video_id: number, task_id: string): Promise<IVideoClipExportStatus | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IVideoClipExportStatus>(`/streams/video/${video_id}/clip-export/${task_id}`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'クリップ書き出しの進捗状況を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * 書き出したクリップをダウンロードする
+     * @param video_id 録画番組の ID
+     * @param task_id タスク ID
+     * @returns ダウンロードに成功した場合は true
+     */
+    static async downloadVideoClip(video_id: number, task_id: string): Promise<boolean> {
+
+        try {
+            // ダウンロード URL を構築
+            const download_url = `/api/streams/video/${video_id}/clip-export/${task_id}/download`;
+
+            // 新しいタブでダウンロードを開始
+            // ブラウザのダウンロード機能を使用するため、直接リンクを開く
+            const link = document.createElement('a');
+            link.href = download_url;
+            link.download = '';  // ファイル名はサーバー側で指定される
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            return true;
+        } catch (error) {
+            console.error('Failed to download clip:', error);
+            return false;
+        }
+    }
+
+
+    /**
+     * 書き出したクリップをデータベースに保存する
+     * @param video_id 録画番組の ID
+     * @param task_id タスク ID
+     * @returns 保存に成功した場合は true
+     */
+    static async saveVideoClip(video_id: number, task_id: string): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post(`/streams/video/${video_id}/clip-export/${task_id}/save`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'クリップの保存に失敗しました。');
             return false;
         }
 

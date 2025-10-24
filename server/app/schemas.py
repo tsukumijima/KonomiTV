@@ -7,7 +7,14 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, RootModel, computed_field
+from pydantic import (
+    BaseModel,
+    Field,
+    RootModel,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+)
 from tortoise.contrib.pydantic import PydanticModel
 from typing_extensions import TypedDict
 
@@ -130,7 +137,7 @@ class CMSection(TypedDict):
 class RecordedProgram(PydanticModel):
     # デフォルト値は録画番組からメタデータを取得する処理向け
     id: int = -1  # メタデータ取得時は ID が定まらないため -1 を設定
-    recorded_video: RecordedVideo
+    recorded_video: RecordedVideo | None = None
     recording_start_margin: float = 0.0  # 取得できなかった場合のデフォルト値
     recording_end_margin: float = 0.0  # 取得できなかった場合のデフォルト値
     is_partially_recorded: bool = False
@@ -161,6 +168,39 @@ class RecordedProgram(PydanticModel):
 class RecordedPrograms(BaseModel):
     total: int
     recorded_programs: list[RecordedProgram]
+
+# ***** クリップ動画 *****
+
+class ClipVideo(PydanticModel):
+    id: int
+    recorded_video_id: int
+    recorded_program: RecordedProgram
+    title: str
+    file_path: str
+    file_hash: str
+    file_size: int
+    start_time: float  # 元動画での開始時刻 (秒)
+    end_time: float  # 元動画での終了時刻 (秒)
+    duration: float  # クリップの長さ (秒)
+    container_format: Literal['MPEG-TS', 'MPEG-4']
+    video_codec: Literal['MPEG-2', 'H.264', 'H.265']
+    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']
+    video_scan_type: Literal['Interlaced', 'Progressive']
+    video_frame_rate: float
+    video_resolution_width: int
+    video_resolution_height: int
+    primary_audio_codec: Literal['AAC-LC']
+    primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch']
+    primary_audio_sampling_rate: int
+    secondary_audio_codec: Literal['AAC-LC'] | None = None
+    secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
+    secondary_audio_sampling_rate: int | None = None
+    created_at: datetime
+    updated_at: datetime
+
+class ClipVideos(BaseModel):
+    total: int
+    clip_videos: list[ClipVideo]
 
 # ***** シリーズ *****
 
@@ -563,6 +603,37 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
 class UserAccessToken(BaseModel):
     access_token: str
     token_type: str
+
+# ***** 録画番組クリップ書き出し *****
+
+class VideoClipExportRequest(BaseModel):
+    start_time: Annotated[float, Field(ge=0, description='クリップ開始時刻（秒）')]
+    end_time: Annotated[float, Field(gt=0, description='クリップ終了時刻（秒）')]
+
+    @field_validator('end_time')
+    def validate_end_time(cls, end_time: float, info: ValidationInfo) -> float:
+        if 'start_time' in info.data and end_time <= info.data['start_time']:
+            raise ValueError('end_time must be greater than start_time')
+        return end_time
+
+class VideoClipExportResult(BaseModel):
+    is_success: bool
+    detail: str
+    task_id: str | None = None
+
+class VideoClipExportStatus(BaseModel):
+    task_id: str
+    status: Literal['Processing', 'Completed', 'Failed']
+    progress: Annotated[float, Field(ge=0, le=100, description='進捗率（%）')]
+    detail: str
+    output_file_path: str | None = None
+    output_file_size: int | None = None
+    file_hash: str | None = None
+    recorded_video_id: int | None = None
+    recorded_program_title: str | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    duration: float | None = None
 
 # ***** バージョン情報 *****
 

@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 
 import { ITweetCapture } from '@/components/Watch/Panel/Twitter.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager';
+import { IClipVideo } from '@/services/ClipVideos';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
 
@@ -47,6 +48,16 @@ export type PlayerEvents = {
     CommentSendCompleted: {
         comment: ICommentData;  // 送信したコメントデータ (を整形したもの)
     }
+    // ClipExportManager からクリップ書き出しダイアログを開くよう通知する
+    OpenClipExportDialog: {
+        player: any;  // DPlayer インスタンス (型定義が複雑なので any で妥協)
+    };
+    // ClipExportManager からクリップ書き出しパネルを開くよう通知する
+    ClipExportPanelOpened: {
+        player: any;  // DPlayer インスタンス (型定義が複雑なので any で妥協)
+    };
+    // ClipExport パネルからプレイヤーインスタンスを要求する
+    RequestPlayerInstance: Record<string, never>;
     // 録画再生時: 再生位置が変更されたことを通知する
     PlaybackPositionChanged: {
         playback_position: number;  // 再生位置 (秒)
@@ -78,6 +89,9 @@ const usePlayerStore = defineStore('player', {
         // 仮想キーボードが表示されているか
         // 既定で表示されていない想定
         is_virtual_keyboard_display: false,
+
+    // 現在再生中のクリップ動画情報 (クリップ再生時のみ設定)
+    clip_video: null as IClipVideo | null,
 
         // フルスクリーン状態かどうか
         is_fullscreen: false,
@@ -203,6 +217,7 @@ const usePlayerStore = defineStore('player', {
             this.is_watching = false;
             this.is_player_initialized = false;
             this.recorded_program = IRecordedProgramDefault;
+            this.clip_video = null;
             this.is_virtual_keyboard_display = false;
             this.is_fullscreen = false;
             this.is_document_pip = false;

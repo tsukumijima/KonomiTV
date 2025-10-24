@@ -9,6 +9,7 @@ import { watch } from 'vue';
 import APIClient from '@/services/APIClient';
 import CustomBufferController from '@/services/player/CustomBufferController';
 import CaptureManager from '@/services/player/managers/CaptureManager';
+import ClipExportManager from '@/services/player/managers/ClipExportManager';
 import DocumentPiPManager from '@/services/player/managers/DocumentPiPManager';
 import KeyboardShortcutManager from '@/services/player/managers/KeyboardShortcutManager';
 import LiveCommentManager from '@/services/player/managers/LiveCommentManager';
@@ -99,6 +100,21 @@ class PlayerController {
 
     // 破棄済みかどうか
     private destroyed = false;
+
+    // クリップ再生時: クリップ終了位置に到達したかどうか
+    private clip_end_reached = false;
+
+    // クリップ再生時: DPlayer.seek() のオリジナル実装
+    private original_player_seek: ((time: number, hideNotice?: boolean) => void) | null = null;
+
+    // クリップ再生時: DPlayer イベントハンドラー
+    private clip_mode_event_handlers: Array<{event: DPlayerType.Events; handler: (info?: Event | any) => void}> = [];
+
+    // クリップ再生時: 再生バーへの DOM イベントリスナー
+    private clip_mode_dom_event_handlers: Array<{element: Element; type: string; handler: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions}> = [];
+
+    // クリップ再生時: 有効なクリップ範囲
+    private clip_range: {start: number; end: number} | null = null;
 
 
     /**
@@ -206,6 +222,7 @@ class PlayerController {
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
+    this.clip_end_reached = false;
 
         // PlayerStore にプレイヤーを初期化したことを通知する
         // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerController.init() を実行したことが通知されることが重要
@@ -889,6 +906,7 @@ class PlayerController {
             // ビデオ視聴時に設定する PlayerManager
             this.player_managers = [
                 new CaptureManager(this.player, this.playback_mode),
+                new ClipExportManager(this.player, this.playback_mode),
                 new DocumentPiPManager(this.player, this.playback_mode),
                 new KeyboardShortcutManager(this.player, this.playback_mode),
                 new MediaSessionManager(this.player, this.playback_mode),
@@ -1362,9 +1380,65 @@ class PlayerController {
                 if (!this.player || !this.player.video) {
                     return;
                 }
+
+                const video_element = this.player.video;
+                const clip_video = player_store.clip_video;
+                let playback_position = video_element.currentTime;
+
+                if (clip_video !== null) {
+                    const clip_start = clip_video.start_time;
+                    const clip_end = clip_video.end_time;
+
+                    // クリップ開始位置より前に移動した場合は強制的に開始位置に戻す
+                    if (playback_position < clip_start - 0.05) {
+                        video_element.currentTime = clip_start;
+                        playback_position = clip_start;
+                        this.updateClipProgressUI(clip_start, clip_end, playback_position);
+                        return;
+                    }
+
+                    // クリップ終了位置に到達したら一時停止し通知する
+                    if (playback_position >= clip_end - 0.05) {
+                        if (this.clip_end_reached === false) {
+                            this.clip_end_reached = true;
+                            video_element.currentTime = clip_end;
+                            video_element.pause();
+                            player_store.event_emitter.emit('SendNotification', {
+                                message: 'クリップの再生が終了しました。',
+                                duration: 2500,
+                            });
+                        }
+                        playback_position = clip_end;
+                    } else {
+                        this.clip_end_reached = false;
+                    }
+
+                    this.updateClipProgressUI(clip_start, clip_end, playback_position);
+                } else {
+                    this.clip_end_reached = false;
+                }
+
                 player_store.event_emitter.emit('PlaybackPositionChanged', {
-                    playback_position: this.player.video.currentTime,
+                    playback_position,
                 });
+            });
+
+            // シーク操作時にクリップ範囲外へ移動させない
+            this.player.on('seeking', () => {
+                if (!this.player || !this.player.video) {
+                    return;
+                }
+                const clip_video = player_store.clip_video;
+                if (clip_video === null) {
+                    return;
+                }
+                const video_element = this.player.video;
+                if (video_element.currentTime < clip_video.start_time) {
+                    video_element.currentTime = clip_video.start_time;
+                }
+                if (video_element.currentTime > clip_video.end_time) {
+                    video_element.currentTime = clip_video.end_time;
+                }
             });
 
             // 視聴履歴の更新処理
@@ -1423,6 +1497,12 @@ class PlayerController {
                     console.log(`\u001b[31m[PlayerController] Watched history added. (Video ID: ${video_id}, last_playback_position: ${this.player.video.currentTime})`);
                 }
             }, PlayerController.WATCHED_HISTORY_THRESHOLD_SECONDS * 1000);
+
+            if (player_store.clip_video !== null) {
+                this.setupClipPlaybackUI(player_store.clip_video.start_time, player_store.clip_video.end_time);
+            } else {
+                this.clearClipPlaybackUI();
+            }
         }
     }
 
@@ -1893,6 +1973,252 @@ class PlayerController {
      * PlayerController の再起動を行う場合、基本外部から直接 await destroy() と await init() は呼び出さず、代わりに
      * player_store.event_emitter.emit('PlayerRestartRequired', 'プレイヤーを再起動しています…') のようにイベントを発火させるべき
      */
+    /**
+     * クリップ再生時の UI を初期化する
+     */
+    private setupClipPlaybackUI(clip_start: number, clip_end: number): void {
+        if (this.player === null) {
+            return;
+        }
+        this.clearClipPlaybackUI();
+
+        if (clip_end <= clip_start) {
+            return;
+        }
+
+        this.clip_range = {
+            start: clip_start,
+            end: clip_end,
+        };
+
+        const clip_duration = clip_end - clip_start;
+
+    this.updateClipProgressUI(clip_start, clip_end, clip_start);
+
+        // DPlayer.seek() をクリップ範囲前提の挙動に差し替え
+        this.original_player_seek = this.player.seek.bind(this.player);
+        const clipSeek = (time: number, hideNotice: boolean = false): void => {
+            let target_time = time;
+            if (!Number.isFinite(target_time)) {
+                target_time = clip_start;
+            }
+            if (hideNotice === true && this.player !== null) {
+                const video_duration = this.player.video.duration;
+                if (video_duration > 0 && clip_duration > 0) {
+                    const percentage = target_time / video_duration;
+                    target_time = clip_start + (clip_duration * percentage);
+                }
+            }
+            if (this.original_player_seek !== null) {
+                if (this.player !== null) {
+                    if (target_time < clip_start) {
+                        target_time = clip_start;
+                    }
+                    if (target_time > clip_end) {
+                        target_time = clip_end;
+                    }
+                }
+                this.original_player_seek(target_time, hideNotice);
+            }
+        };
+        this.player.seek = clipSeek;
+
+        // 総再生時間の表示をクリップ長に合わせる
+        const updateDuration = (): void => {
+            if (this.player === null) {
+                return;
+            }
+            this.player.template.dtime.textContent = this.formatSeconds(clip_duration);
+        };
+        updateDuration();
+
+        const onLoadedMetadata = (): void => updateDuration();
+        this.player.on('loadedmetadata', onLoadedMetadata);
+        this.clip_mode_event_handlers.push({
+            event: 'loadedmetadata',
+            handler: onLoadedMetadata,
+        });
+
+        const onDurationChange = (): void => updateDuration();
+        this.player.on('durationchange', onDurationChange);
+        this.clip_mode_event_handlers.push({
+            event: 'durationchange',
+            handler: onDurationChange,
+        });
+
+        const onProgress = (): void => this.updateClipBufferedBar(clip_start, clip_end);
+        this.player.on('progress', onProgress);
+        this.clip_mode_event_handlers.push({
+            event: 'progress',
+            handler: onProgress,
+        });
+
+        // 再生バー上のツールチップ表示をクリップ基準にする
+        const tooltipHandler = (event: Event): void => {
+            this.updateClipBarTooltip(event as MouseEvent | TouchEvent);
+        };
+        const playedBarWrap = this.player.template.playedBarWrap;
+        const passiveFalseOptions: AddEventListenerOptions = {passive: false};
+        playedBarWrap.addEventListener('mousemove', tooltipHandler);
+        this.clip_mode_dom_event_handlers.push({
+            element: playedBarWrap,
+            type: 'mousemove',
+            handler: tooltipHandler,
+        });
+        playedBarWrap.addEventListener('touchstart', tooltipHandler, passiveFalseOptions);
+        this.clip_mode_dom_event_handlers.push({
+            element: playedBarWrap,
+            type: 'touchstart',
+            handler: tooltipHandler,
+            options: passiveFalseOptions,
+        });
+        playedBarWrap.addEventListener('touchmove', tooltipHandler, passiveFalseOptions);
+        this.clip_mode_dom_event_handlers.push({
+            element: playedBarWrap,
+            type: 'touchmove',
+            handler: tooltipHandler,
+            options: passiveFalseOptions,
+        });
+
+        // 初期状態でバッファ状況を反映
+        this.updateClipBufferedBar(clip_start, clip_end);
+    }
+
+    /**
+     * クリップ再生時の UI 調整を解除する
+     */
+    private clearClipPlaybackUI(): void {
+        if (this.player !== null && this.original_player_seek !== null) {
+            this.player.seek = this.original_player_seek;
+        }
+        this.original_player_seek = null;
+
+        if (this.player !== null) {
+            for (const handler of this.clip_mode_event_handlers) {
+                this.player.off(handler.event, handler.handler);
+            }
+        }
+        this.clip_mode_event_handlers = [];
+
+        for (const listener of this.clip_mode_dom_event_handlers) {
+            listener.element.removeEventListener(listener.type, listener.handler, listener.options);
+        }
+        this.clip_mode_dom_event_handlers = [];
+
+        this.clip_range = null;
+        this.clip_end_reached = false;
+    }
+
+    /**
+     * クリップ範囲での再生バー表示を更新する
+     */
+    private updateClipProgressUI(clip_start: number, clip_end: number, playback_position: number): void {
+        if (this.player === null) {
+            return;
+        }
+        const clip_duration = clip_end - clip_start;
+        if (clip_duration <= 0) {
+            return;
+        }
+        const relative_position = Math.min(Math.max(playback_position - clip_start, 0), clip_duration);
+        const percentage = clip_duration > 0 ? relative_position / clip_duration : 0;
+        this.player.bar.set('played', percentage, 'width');
+        this.player.template.ptime.textContent = this.formatSeconds(relative_position);
+        this.player.template.dtime.textContent = this.formatSeconds(clip_duration);
+        this.updateClipBufferedBar(clip_start, clip_end);
+    }
+
+    /**
+     * クリップ範囲におけるバッファ状況を更新する
+     */
+    private updateClipBufferedBar(clip_start: number, clip_end: number): void {
+        if (this.player === null) {
+            return;
+        }
+        const clip_duration = clip_end - clip_start;
+        if (clip_duration <= 0) {
+            this.player.bar.set('loaded', 0, 'width');
+            return;
+        }
+
+        const buffered = this.player.video.buffered;
+        if (buffered.length === 0) {
+            this.player.bar.set('loaded', 0, 'width');
+            return;
+        }
+
+        let max_buffered_end = clip_start;
+        for (let index = 0; index < buffered.length; index++) {
+            const range_start = buffered.start(index);
+            const range_end = buffered.end(index);
+            if (range_end <= clip_start) {
+                continue;
+            }
+            const overlapped_start = Math.max(range_start, clip_start);
+            const overlapped_end = Math.min(range_end, clip_end);
+            if (overlapped_end > overlapped_start) {
+                max_buffered_end = Math.max(max_buffered_end, overlapped_end);
+            }
+        }
+
+        const buffered_length = Math.max(0, Math.min(max_buffered_end, clip_end) - clip_start);
+    const buffered_percentage = clip_duration > 0 ? buffered_length / clip_duration : 0;
+    const clamped_percentage = Math.max(0, Math.min(buffered_percentage, 1));
+    this.player.bar.set('loaded', clamped_percentage, 'width');
+    }
+
+    /**
+     * 再生バーのツールチップ表示をクリップ基準に補正する
+     */
+    private updateClipBarTooltip(event: MouseEvent | TouchEvent): void {
+        if (this.player === null || this.clip_range === null) {
+            return;
+        }
+        const clip_duration = this.clip_range.end - this.clip_range.start;
+        if (clip_duration <= 0) {
+            return;
+        }
+
+        const playedBarWrap = this.player.template.playedBarWrap;
+        const rect = playedBarWrap.getBoundingClientRect();
+        let clientX: number | null = null;
+        if ('touches' in event) {
+            const touch = event.touches[0] ?? event.changedTouches?.[0];
+            if (touch) {
+                clientX = touch.clientX;
+            }
+        } else {
+            clientX = event.clientX;
+        }
+        if (clientX === null || rect.width <= 0) {
+            return;
+        }
+
+        const relativeX = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+        const percentage = relativeX / rect.width;
+        const clip_seconds = clip_duration * percentage;
+
+        this.player.template.playedBarTime.textContent = this.formatSeconds(clip_seconds);
+    }
+
+    /**
+     * 秒数を 00:00 または 00:00:00 形式にフォーマットする
+     */
+    private formatSeconds(seconds: number): string {
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+            return '00:00';
+        }
+        const total_seconds = Math.max(0, Math.floor(seconds));
+        const hours = Math.floor(total_seconds / 3600);
+        const minutes = Math.floor((total_seconds - (hours * 3600)) / 60);
+        const secs = total_seconds - (hours * 3600) - (minutes * 60);
+        const pad = (value: number): string => value.toString().padStart(2, '0');
+        if (hours > 0) {
+            return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+        }
+        return `${pad(minutes)}:${pad(secs)}`;
+    }
+
     public async destroy(): Promise<void> {
         const settings_store = useSettingsStore();
         const player_store = usePlayerStore();
@@ -1992,7 +2318,10 @@ class PlayerController {
             this.lshaped_screen_crop_watchers = [];
         }
 
-        // DPlayer 本体を破棄
+    // クリップ再生時の UI 調整を解除
+    this.clearClipPlaybackUI();
+
+    // DPlayer 本体を破棄
         // なぜか例外が出ることがあるので try-catch で囲む
         if (this.player !== null) {
             // プレイヤーの破棄を実行する前に、DPlayer 側に登録された HTMLVideoElement の error イベントハンドラーを全て削除
@@ -2028,6 +2357,7 @@ class PlayerController {
         // 破棄済みかどうかのフラグを立てる
         this.destroying = false;
         this.destroyed = true;
+    this.clip_end_reached = false;
 
         // PlayerStore にプレイヤーを破棄したことを通知
         player_store.is_player_initialized = false;

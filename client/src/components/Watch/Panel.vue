@@ -26,6 +26,8 @@
                 :class="{'watch-panel__content--active': panel_active_tab === 'Comment'}" />
             <Twitter class="watch-panel__content" :playback_mode="playback_mode"
                 :class="{'watch-panel__content--active': panel_active_tab === 'Twitter'}" />
+            <ClipExport class="watch-panel__content" v-if="playback_mode === 'Video'"
+                :class="{'watch-panel__content--active': panel_active_tab === 'ClipExport'}" />
             <button v-ripple class="watch-panel__content-remocon-button elevation-8" v-if="playback_mode === 'Live'"
                 :class="{'watch-panel__content-remocon-button--active': panel_active_tab === 'Program' || panel_active_tab === 'Channel'}"
                 @click="playerStore.is_remocon_display = !playerStore.is_remocon_display">
@@ -82,6 +84,7 @@ import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 
 import Channel from '@/components/Watch/Panel/Channel.vue';
+import ClipExport from '@/components/Watch/Panel/ClipExport.vue';
 import Comment from '@/components/Watch/Panel/Comment.vue';
 import Program from '@/components/Watch/Panel/Program.vue';
 import RecordedProgram from '@/components/Watch/Panel/RecordedProgram.vue';
@@ -96,6 +99,7 @@ export default defineComponent({
     name: 'Watch-Panel',
     components: {
         Channel,
+        ClipExport,
         Comment,
         Program,
         RecordedProgram,

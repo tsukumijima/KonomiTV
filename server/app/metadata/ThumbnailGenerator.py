@@ -151,6 +151,7 @@ class ThumbnailGenerator:
         """
 
         self.file_path = file_path
+        self.file_hash = file_hash
         self.container_format = container_format
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
@@ -284,6 +285,8 @@ class ThumbnailGenerator:
 
         start_time = time.time()
         logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
+        tile_failure_marker = anyio.Path(str(THUMBNAILS_DIR / f'{self.file_hash}_tile.failed'))
+
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
@@ -296,6 +299,37 @@ class ThumbnailGenerator:
                     self.seekbar_thumbnails_tile_path = jpg_path
                     tile_exists = True
             tile_is_not_empty = tile_exists and (await self.seekbar_thumbnails_tile_path.stat()).st_size > 0
+
+            tile_failure_marker_exists = await tile_failure_marker.is_file()
+            if tile_failure_marker_exists and not tile_is_not_empty:
+                logging.info(
+                    f'{self.file_path}: Previous tile generation failure detected. Skipping tile regeneration.'
+                )
+                representative_exists = await self.representative_thumbnail_path.is_file()
+                representative_is_not_empty = (
+                    representative_exists and
+                    (await self.representative_thumbnail_path.stat()).st_size > 0
+                )
+                if not representative_is_not_empty:
+                    if await self.__generateFallbackRepresentativeThumbnail():
+                        logging.warning(
+                            f'{self.file_path}: Fallback representative thumbnail generated without tile image.'
+                        )
+                    else:
+                        logging.error(
+                            f'{self.file_path}: Fallback representative thumbnail generation also failed.'
+                        )
+                return
+
+            if tile_is_not_empty and tile_failure_marker_exists:
+                try:
+                    await tile_failure_marker.unlink(missing_ok=True)
+                except Exception as marker_cleanup_ex:
+                    logging.warning(
+                        f'{self.file_path}: Failed to remove stale tile failure marker. '
+                        f'[error: {marker_cleanup_ex}]'
+                    )
+
             if tile_is_not_empty and skip_tile_if_exists:
                 ## ファイルが存在し、かつ0バイトでないなら生成済みとみなしてスキップ
                 logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
@@ -303,8 +337,60 @@ class ThumbnailGenerator:
                 ## まだシークバー用サムネイルタイルが生成されていなければ生成
                 if not await self.__generateThumbnailTile():
                     logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
+
+                    # 生成に失敗した場合はフォールバックとして代表サムネイルのみ生成を試みる
+                    if await self.__generateFallbackRepresentativeThumbnail():
+                        logging.warning(
+                            f'{self.file_path}: Fallback representative thumbnail generated without tile image.'
+                        )
+                    else:
+                        logging.error(
+                            f'{self.file_path}: Fallback representative thumbnail generation also failed.'
+                        )
+
+                    try:
+                        await tile_failure_marker.touch(exist_ok=True)
+                    except Exception as marker_ex:
+                        logging.warning(
+                            f'{self.file_path}: Failed to write tile failure marker. '
+                            f'[error: {marker_ex}]'
+                        )
+
+                    # フォールバックの成否に関わらずここで処理を終了（タイル生成不可なため）
                     return
+
                 logging.info(f'{self.file_path}: Seekbar thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
+                try:
+                    await tile_failure_marker.unlink(missing_ok=True)
+                except Exception as marker_cleanup_ex:
+                    logging.warning(
+                        f'{self.file_path}: Failed to remove tile failure marker after success. '
+                        f'[error: {marker_cleanup_ex}]'
+                    )
+
+            # タイルの最新状態を確認し、存在しない場合は代表サムネイルのみ生成して終了
+            tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
+            tile_is_not_empty = tile_exists and (await self.seekbar_thumbnails_tile_path.stat()).st_size > 0
+            if not tile_is_not_empty:
+                if not await self.representative_thumbnail_path.is_file():
+                    if await self.__generateFallbackRepresentativeThumbnail():
+                        logging.warning(
+                            f'{self.file_path}: Fallback representative thumbnail generated without tile image.'
+                        )
+                    else:
+                        logging.error(
+                            f'{self.file_path}: Fallback representative thumbnail generation also failed.'
+                        )
+
+                try:
+                    await tile_failure_marker.touch(exist_ok=True)
+                except Exception as marker_ex:
+                    logging.warning(
+                        f'{self.file_path}: Failed to write tile failure marker. '
+                        f'[error: {marker_ex}]'
+                    )
+
+                return
 
             # 2. プレイヤーのシークバー用サムネイルタイル画像を読み込み、各タイル(フレーム)を切り出し、
             #    そのタイムスタンプが candidate_intervals に含まれる場合だけ
@@ -909,6 +995,73 @@ class ThumbnailGenerator:
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in representative thumbnail saving:', exc_info=ex)
+            return False
+
+
+    async def __generateFallbackRepresentativeThumbnail(self) -> bool:
+        """ サムネイルタイル生成に失敗した際に、単一フレームから代表サムネイルのみ生成する """
+
+        try:
+            # フォールバック用の抽出位置を決定
+            if self.candidate_intervals:
+                start, end = self.candidate_intervals[0]
+                fallback_offset = max(0.0, min(self.duration_sec, start + (end - start) / 2))
+            else:
+                fallback_offset = max(0.0, self.duration_sec / 2)
+
+            if fallback_offset + 0.01 > self.duration_sec:
+                fallback_offset = max(0.0, self.duration_sec - 0.02)
+
+            formatted_offset = self.__formatTime(fallback_offset)
+
+            process = await asyncio.create_subprocess_exec(
+                LIBRARY_PATH['FFmpeg'],
+                *[
+                    '-y',
+                    '-nostdin',
+                    '-ss', formatted_offset,
+                    '-i', str(self.file_path),
+                    '-an',
+                    '-frames:v', '1',
+                    '-vf', f'scale={self.TILE_SCALE[0]}:{self.TILE_SCALE[1]}',
+                    '-codec:v', 'png',
+                    '-threads', 'auto',
+                    '-f', 'image2pipe',
+                    'pipe:1',
+                ],
+                stdin = asyncio.subprocess.DEVNULL,
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+            if process.returncode != 0 or not stdout:
+                error_message = stderr.decode('utf-8', errors='ignore') if stderr else ''
+                logging.error(
+                    f'{self.file_path}: Fallback frame extraction failed. '
+                    f'[offset: {formatted_offset}, error: {error_message}]'
+                )
+                return False
+
+            # 抽出した PNG を OpenCV で読み込む
+            image_data = np.frombuffer(stdout, dtype=np.uint8)
+            frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+            if frame is None:
+                logging.error(f'{self.file_path}: Failed to decode fallback PNG frame.')
+                return False
+
+            # 代表サムネイルとして保存
+            if not await self.__saveRepresentativeThumbnail(frame):
+                return False
+
+            logging.info(
+                f'{self.file_path}: Fallback representative thumbnail generation completed. '
+                f'(offset: {formatted_offset})'
+            )
+            return True
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in fallback representative thumbnail generation:', exc_info=ex)
             return False
 
 

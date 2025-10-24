@@ -50,6 +50,16 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
+            path: '/clip-videos/',
+            name: 'Clip Videos Home',
+            component: () => import('@/views/ClipVideos/Home.vue'),
+        },
+        {
+            path: '/clip-videos/watch/:clip_video_id',
+            name: 'Clip Videos Watch',
+            component: () => import('@/views/ClipVideos/Watch.vue'),
+        },
+        {
             path: '/mylist/',
             name: 'Mylist',
             component: () => import('@/views/Mylist.vue'),

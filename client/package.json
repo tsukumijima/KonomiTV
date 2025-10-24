@@ -12,7 +12,7 @@
         "lint": "eslint . --fix --ignore-path .gitignore"
     },
     "engines": {
-        "node": ">=20.16.0"
+        "node": "20.16.0"
     },
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",

@@ -27,6 +27,7 @@ from app.models.TwitterAccount import TwitterAccount
 from app.routers import (
     CapturesRouter,
     ChannelsRouter,
+    ClipVideosRouter,
     DataBroadcastingRouter,
     LiveStreamsRouter,
     MaintenanceRouter,
@@ -69,6 +70,7 @@ app = FastAPI(
 app.include_router(ChannelsRouter.router)
 app.include_router(ProgramsRouter.router)
 app.include_router(VideosRouter.router)
+app.include_router(ClipVideosRouter.router)
 app.include_router(SeriesRouter.router)
 app.include_router(LiveStreamsRouter.router)
 app.include_router(VideoStreamsRouter.router)
