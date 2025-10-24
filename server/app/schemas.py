@@ -14,6 +14,7 @@ from pydantic import (
     ValidationInfo,
     computed_field,
     field_validator,
+    model_validator,
 )
 from tortoise.contrib.pydantic import PydanticModel
 from typing_extensions import TypedDict
@@ -171,6 +172,19 @@ class RecordedPrograms(BaseModel):
 
 # ***** クリップ動画 *****
 
+class ClipSegment(BaseModel):
+    start_time: Annotated[float, Field(ge=0, description='セグメントの開始時刻（秒）。')]
+    end_time: Annotated[float, Field(gt=0, description='セグメントの終了時刻（秒）。')]
+
+    @field_validator('end_time')
+    @classmethod
+    def validate_end_time(cls, end_time: float, info: ValidationInfo) -> float:
+        start_time = info.data.get('start_time')
+        if start_time is not None and end_time <= start_time:
+            raise ValueError('end_time must be greater than start_time')
+        return end_time
+
+
 class ClipVideo(PydanticModel):
     id: int
     recorded_video_id: int
@@ -195,6 +209,7 @@ class ClipVideo(PydanticModel):
     secondary_audio_codec: Literal['AAC-LC'] | None = None
     secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
     secondary_audio_sampling_rate: int | None = None
+    segments: list[ClipSegment] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -607,14 +622,28 @@ class UserAccessToken(BaseModel):
 # ***** 録画番組クリップ書き出し *****
 
 class VideoClipExportRequest(BaseModel):
-    start_time: Annotated[float, Field(ge=0, description='クリップ開始時刻（秒）')]
-    end_time: Annotated[float, Field(gt=0, description='クリップ終了時刻（秒）')]
+    start_time: float | None = Field(default=None, ge=0, description='クリップ開始時刻（秒）')
+    end_time: float | None = Field(default=None, gt=0, description='クリップ終了時刻（秒）')
+    segments: list[ClipSegment] | None = Field(default=None, min_length=1, description='複数セグメントを指定する場合のリスト。')
 
     @field_validator('end_time')
-    def validate_end_time(cls, end_time: float, info: ValidationInfo) -> float:
-        if 'start_time' in info.data and end_time <= info.data['start_time']:
+    @classmethod
+    def validate_end_time(cls, end_time: float | None, info: ValidationInfo) -> float | None:
+        if end_time is None:
+            return None
+        start_time = info.data.get('start_time')
+        if start_time is not None and end_time <= start_time:
             raise ValueError('end_time must be greater than start_time')
         return end_time
+
+    @model_validator(mode='after')
+    def validate_request(cls, values: 'VideoClipExportRequest') -> 'VideoClipExportRequest':
+        segments = values.segments or []
+        if segments:
+            return values
+        if values.start_time is None or values.end_time is None:
+            raise ValueError('Either segments or start/end must be provided')
+        return values
 
 class VideoClipExportResult(BaseModel):
     is_success: bool
@@ -634,6 +663,7 @@ class VideoClipExportStatus(BaseModel):
     start_time: float | None = None
     end_time: float | None = None
     duration: float | None = None
+    segments: list[ClipSegment] | None = None
 
 # ***** バージョン情報 *****
 

@@ -53,6 +53,11 @@ export interface IClipVideoRecordedProgram {
 }
 
 // クリップ動画情報を表すインターフェイス
+export interface IClipSegment {
+    start_time: number;
+    end_time: number;
+}
+
 export interface IClipVideo {
     id: number;
     recorded_video_id: number;
@@ -77,6 +82,7 @@ export interface IClipVideo {
     secondary_audio_codec: 'AAC-LC' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
+    segments: IClipSegment[];
     created_at: string;
     updated_at: string;
 }

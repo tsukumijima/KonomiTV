@@ -1,6 +1,7 @@
 
 import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
+import { IClipSegment } from '@/services/ClipVideos';
 import { CommentUtils } from '@/utils';
 
 /** ソート順序を表す型 */
@@ -179,6 +180,7 @@ export interface IVideoClipExportStatus {
     start_time: number | null;
     end_time: number | null;
     duration: number | null;
+    segments: IClipSegment[] | null;
 }
 
 class Videos {
@@ -380,13 +382,13 @@ class Videos {
      * @param end_time クリップ終了時刻（秒）
      * @returns クリップ書き出しに成功した場合はタスク ID、失敗した場合は null
      */
-    static async exportVideoClip(video_id: number, start_time: number, end_time: number): Promise<string | null> {
+    static async exportVideoClip(video_id: number, segments: IClipSegment[]): Promise<string | null> {
 
-        // API リクエストを実行
-        const response = await APIClient.post<IVideoClipExportResult>(`/streams/video/${video_id}/clip-export`, {
-            start_time,
-            end_time,
-        });
+        const payload = segments.length === 1
+            ? { start_time: segments[0].start_time, end_time: segments[0].end_time }
+            : { segments };
+
+        const response = await APIClient.post<IVideoClipExportResult>(`/streams/video/${video_id}/clip-export`, payload);
 
         // エラー処理
         if (response.type === 'error') {

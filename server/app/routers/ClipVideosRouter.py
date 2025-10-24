@@ -97,6 +97,18 @@ async def ConvertRowToClipVideo(row: dict[str, Any]) -> schemas.ClipVideo:
         'series': series_dict,
     }
 
+    # セグメントデータを抽出
+    segments_raw = row['segments'] if 'segments' in row.keys() else None
+    if isinstance(segments_raw, str) and segments_raw != '':
+        try:
+            segments_value = json.loads(segments_raw)
+        except json.JSONDecodeError:
+            segments_value = []
+    elif isinstance(segments_raw, list):
+        segments_value = segments_raw
+    else:
+        segments_value = []
+
     # clip_video のデータを構築
     clip_video_dict = {
         'id': row['cv_id'],
@@ -124,6 +136,7 @@ async def ConvertRowToClipVideo(row: dict[str, Any]) -> schemas.ClipVideo:
         'secondary_audio_sampling_rate': row['secondary_audio_sampling_rate'],
         'created_at': row['created_at'],
         'updated_at': row['updated_at'],
+        'segments': segments_value,
     }
 
     return schemas.ClipVideo(**clip_video_dict)
@@ -170,6 +183,7 @@ async def ClipVideosAPI(
             cv.start_time as start_time_in_video,
             cv.end_time as end_time_in_video,
             cv.duration as cv_duration,
+            cv.segments as segments,
             cv.container_format,
             cv.video_codec,
             cv.video_codec_profile,
@@ -270,6 +284,7 @@ async def ClipVideoAPI(
             cv.start_time as start_time_in_video,
             cv.end_time as end_time_in_video,
             cv.duration as cv_duration,
+            cv.segments as segments,
             cv.container_format,
             cv.video_codec,
             cv.video_codec_profile,

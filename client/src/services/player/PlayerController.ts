@@ -113,8 +113,11 @@ class PlayerController {
     // クリップ再生時: 再生バーへの DOM イベントリスナー
     private clip_mode_dom_event_handlers: Array<{element: Element; type: string; handler: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions}> = [];
 
-    // クリップ再生時: 有効なクリップ範囲
-    private clip_range: {start: number; end: number} | null = null;
+    // クリップ再生時: 有効なクリップセグメントのリスト
+    private clip_segments: Array<{start: number; end: number}> | null = null;
+    private clip_segment_cumulative_durations: number[] = [];
+    private clip_total_duration = 0;
+    private clip_current_segment_index = 0;
 
 
     /**
@@ -1382,38 +1385,63 @@ class PlayerController {
                 }
 
                 const video_element = this.player.video;
-                const clip_video = player_store.clip_video;
                 let playback_position = video_element.currentTime;
 
-                if (clip_video !== null) {
-                    const clip_start = clip_video.start_time;
-                    const clip_end = clip_video.end_time;
+                if (this.clip_segments !== null && this.clip_segments.length > 0) {
+                    const tolerance = 0.05;
+                    const first_segment = this.clip_segments[0];
+                    const last_segment = this.clip_segments[this.clip_segments.length - 1];
 
-                    // クリップ開始位置より前に移動した場合は強制的に開始位置に戻す
-                    if (playback_position < clip_start - 0.05) {
-                        video_element.currentTime = clip_start;
-                        playback_position = clip_start;
-                        this.updateClipProgressUI(clip_start, clip_end, playback_position);
-                        return;
+                    if (playback_position < first_segment.start - tolerance) {
+                        playback_position = first_segment.start;
+                        video_element.currentTime = playback_position;
+                        this.clip_current_segment_index = 0;
                     }
 
-                    // クリップ終了位置に到達したら一時停止し通知する
-                    if (playback_position >= clip_end - 0.05) {
-                        if (this.clip_end_reached === false) {
-                            this.clip_end_reached = true;
-                            video_element.currentTime = clip_end;
-                            video_element.pause();
-                            player_store.event_emitter.emit('SendNotification', {
-                                message: 'クリップの再生が終了しました。',
-                                duration: 2500,
-                            });
+                    if (playback_position > last_segment.end + tolerance) {
+                        playback_position = last_segment.end;
+                        video_element.currentTime = playback_position;
+                    }
+
+                    let segment_index = this.getClipSegmentIndex(playback_position, tolerance);
+                    if (segment_index === -1) {
+                        const next_segment = this.clip_segments.find(segment => segment.start > playback_position);
+                        if (next_segment) {
+                            playback_position = next_segment.start;
+                            video_element.currentTime = playback_position;
+                            segment_index = this.clip_segments.indexOf(next_segment);
+                        } else {
+                            segment_index = this.clip_segments.length - 1;
                         }
-                        playback_position = clip_end;
+                    }
+
+                    const current_segment = this.clip_segments[segment_index];
+                    this.clip_current_segment_index = segment_index;
+
+                    if (playback_position >= current_segment.end - tolerance) {
+                        const next_segment = this.clip_segments[segment_index + 1];
+                        if (next_segment) {
+                            playback_position = next_segment.start;
+                            video_element.currentTime = playback_position;
+                            this.clip_current_segment_index = segment_index + 1;
+                            this.clip_end_reached = false;
+                        } else {
+                            if (this.clip_end_reached === false) {
+                                this.clip_end_reached = true;
+                                video_element.currentTime = current_segment.end;
+                                video_element.pause();
+                                player_store.event_emitter.emit('SendNotification', {
+                                    message: 'クリップの再生が終了しました。',
+                                    duration: 2500,
+                                });
+                            }
+                            playback_position = current_segment.end;
+                        }
                     } else {
                         this.clip_end_reached = false;
                     }
 
-                    this.updateClipProgressUI(clip_start, clip_end, playback_position);
+                    this.updateClipProgressUI(playback_position);
                 } else {
                     this.clip_end_reached = false;
                 }
@@ -1423,21 +1451,23 @@ class PlayerController {
                 });
             });
 
-            // シーク操作時にクリップ範囲外へ移動させない
             this.player.on('seeking', () => {
                 if (!this.player || !this.player.video) {
                     return;
                 }
-                const clip_video = player_store.clip_video;
-                if (clip_video === null) {
+
+                if (this.clip_segments === null || this.clip_segments.length === 0) {
                     return;
                 }
-                const video_element = this.player.video;
-                if (video_element.currentTime < clip_video.start_time) {
-                    video_element.currentTime = clip_video.start_time;
+
+                const clamped_time = this.clampToClipSegments(this.player.video.currentTime);
+                if (Math.abs(clamped_time - this.player.video.currentTime) > 0.0001) {
+                    this.player.video.currentTime = clamped_time;
                 }
-                if (video_element.currentTime > clip_video.end_time) {
-                    video_element.currentTime = clip_video.end_time;
+
+                const segment_index = this.getClipSegmentIndex(clamped_time);
+                if (segment_index >= 0) {
+                    this.clip_current_segment_index = segment_index;
                 }
             });
 
@@ -1499,7 +1529,17 @@ class PlayerController {
             }, PlayerController.WATCHED_HISTORY_THRESHOLD_SECONDS * 1000);
 
             if (player_store.clip_video !== null) {
-                this.setupClipPlaybackUI(player_store.clip_video.start_time, player_store.clip_video.end_time);
+                const clip_video = player_store.clip_video;
+                const segments = clip_video.segments && clip_video.segments.length > 0
+                    ? clip_video.segments.map(segment => ({
+                        start: segment.start_time,
+                        end: segment.end_time,
+                    }))
+                    : [{
+                        start: clip_video.start_time,
+                        end: clip_video.end_time,
+                    }];
+                this.setupClipPlaybackUI(segments);
             } else {
                 this.clearClipPlaybackUI();
             }
@@ -1976,59 +2016,61 @@ class PlayerController {
     /**
      * クリップ再生時の UI を初期化する
      */
-    private setupClipPlaybackUI(clip_start: number, clip_end: number): void {
+    private setupClipPlaybackUI(segments: Array<{start: number; end: number}>): void {
         if (this.player === null) {
             return;
         }
+
         this.clearClipPlaybackUI();
 
-        if (clip_end <= clip_start) {
+        const sanitizedSegments = segments
+            .filter(segment => Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start)
+            .map(segment => ({ start: segment.start, end: segment.end }))
+            .sort((a, b) => a.start - b.start);
+
+        if (sanitizedSegments.length === 0) {
             return;
         }
 
-        this.clip_range = {
-            start: clip_start,
-            end: clip_end,
-        };
+        this.clip_segments = sanitizedSegments;
+        this.clip_segment_cumulative_durations = [];
+        let cumulative = 0;
+        for (const segment of sanitizedSegments) {
+            this.clip_segment_cumulative_durations.push(cumulative);
+            cumulative += segment.end - segment.start;
+        }
+        this.clip_total_duration = cumulative;
+        this.clip_current_segment_index = 0;
+        this.clip_end_reached = false;
 
-        const clip_duration = clip_end - clip_start;
+        this.updateClipProgressUI(sanitizedSegments[0].start);
 
-    this.updateClipProgressUI(clip_start, clip_end, clip_start);
-
-        // DPlayer.seek() をクリップ範囲前提の挙動に差し替え
         this.original_player_seek = this.player.seek.bind(this.player);
         const clipSeek = (time: number, hideNotice: boolean = false): void => {
             let target_time = time;
-            if (!Number.isFinite(target_time)) {
-                target_time = clip_start;
+            if (!Number.isFinite(target_time) && this.clip_segments !== null) {
+                target_time = this.clip_segments[0].start;
             }
-            if (hideNotice === true && this.player !== null) {
+            if (hideNotice === true && this.player !== null && this.clip_total_duration > 0) {
                 const video_duration = this.player.video.duration;
-                if (video_duration > 0 && clip_duration > 0) {
+                if (video_duration > 0) {
                     const percentage = target_time / video_duration;
-                    target_time = clip_start + (clip_duration * percentage);
+                    const clipElapsed = this.clip_total_duration * percentage;
+                    target_time = this.getVideoTimeFromClipElapsed(clipElapsed);
                 }
             }
+            target_time = this.clampToClipSegments(target_time);
             if (this.original_player_seek !== null) {
-                if (this.player !== null) {
-                    if (target_time < clip_start) {
-                        target_time = clip_start;
-                    }
-                    if (target_time > clip_end) {
-                        target_time = clip_end;
-                    }
-                }
                 this.original_player_seek(target_time, hideNotice);
             }
         };
         this.player.seek = clipSeek;
 
-        // 総再生時間の表示をクリップ長に合わせる
         const updateDuration = (): void => {
             if (this.player === null) {
                 return;
             }
-            this.player.template.dtime.textContent = this.formatSeconds(clip_duration);
+            this.player.template.dtime.textContent = this.formatSeconds(this.clip_total_duration);
         };
         updateDuration();
 
@@ -2046,14 +2088,13 @@ class PlayerController {
             handler: onDurationChange,
         });
 
-        const onProgress = (): void => this.updateClipBufferedBar(clip_start, clip_end);
+        const onProgress = (): void => this.updateClipBufferedBar();
         this.player.on('progress', onProgress);
         this.clip_mode_event_handlers.push({
             event: 'progress',
             handler: onProgress,
         });
 
-        // 再生バー上のツールチップ表示をクリップ基準にする
         const tooltipHandler = (event: Event): void => {
             this.updateClipBarTooltip(event as MouseEvent | TouchEvent);
         };
@@ -2080,8 +2121,7 @@ class PlayerController {
             options: passiveFalseOptions,
         });
 
-        // 初期状態でバッファ状況を反映
-        this.updateClipBufferedBar(clip_start, clip_end);
+        this.updateClipBufferedBar();
     }
 
     /**
@@ -2105,39 +2145,40 @@ class PlayerController {
         }
         this.clip_mode_dom_event_handlers = [];
 
-        this.clip_range = null;
+        this.clip_segments = null;
+        this.clip_segment_cumulative_durations = [];
+        this.clip_total_duration = 0;
+        this.clip_current_segment_index = 0;
         this.clip_end_reached = false;
     }
 
     /**
      * クリップ範囲での再生バー表示を更新する
      */
-    private updateClipProgressUI(clip_start: number, clip_end: number, playback_position: number): void {
-        if (this.player === null) {
+    private updateClipProgressUI(playback_position: number): void {
+        if (this.player === null || this.clip_segments === null || this.clip_segments.length === 0 || this.clip_total_duration <= 0) {
             return;
         }
-        const clip_duration = clip_end - clip_start;
-        if (clip_duration <= 0) {
+
+        const segment_index = this.getClipSegmentIndex(playback_position);
+        if (segment_index === -1) {
             return;
         }
-        const relative_position = Math.min(Math.max(playback_position - clip_start, 0), clip_duration);
-        const percentage = clip_duration > 0 ? relative_position / clip_duration : 0;
+
+        const segment = this.clip_segments[segment_index];
+        const segment_base = this.clip_segment_cumulative_durations[segment_index] ?? 0;
+        const clamped_time = Math.min(Math.max(playback_position, segment.start), segment.end);
+        const clip_elapsed = segment_base + (clamped_time - segment.start);
+        const percentage = this.clip_total_duration > 0 ? clip_elapsed / this.clip_total_duration : 0;
+
         this.player.bar.set('played', percentage, 'width');
-        this.player.template.ptime.textContent = this.formatSeconds(relative_position);
-        this.player.template.dtime.textContent = this.formatSeconds(clip_duration);
-        this.updateClipBufferedBar(clip_start, clip_end);
+        this.player.template.ptime.textContent = this.formatSeconds(clip_elapsed);
+        this.player.template.dtime.textContent = this.formatSeconds(this.clip_total_duration);
+        this.updateClipBufferedBar();
     }
 
-    /**
-     * クリップ範囲におけるバッファ状況を更新する
-     */
-    private updateClipBufferedBar(clip_start: number, clip_end: number): void {
-        if (this.player === null) {
-            return;
-        }
-        const clip_duration = clip_end - clip_start;
-        if (clip_duration <= 0) {
-            this.player.bar.set('loaded', 0, 'width');
+    private updateClipBufferedBar(): void {
+        if (this.player === null || this.clip_segments === null || this.clip_segments.length === 0 || this.clip_total_duration <= 0) {
             return;
         }
 
@@ -2147,35 +2188,26 @@ class PlayerController {
             return;
         }
 
-        let max_buffered_end = clip_start;
-        for (let index = 0; index < buffered.length; index++) {
-            const range_start = buffered.start(index);
-            const range_end = buffered.end(index);
-            if (range_end <= clip_start) {
-                continue;
-            }
-            const overlapped_start = Math.max(range_start, clip_start);
-            const overlapped_end = Math.min(range_end, clip_end);
-            if (overlapped_end > overlapped_start) {
-                max_buffered_end = Math.max(max_buffered_end, overlapped_end);
+        let buffered_duration = 0;
+        for (const segment of this.clip_segments) {
+            for (let index = 0; index < buffered.length; index++) {
+                const range_start = buffered.start(index);
+                const range_end = buffered.end(index);
+                const overlapped_start = Math.max(range_start, segment.start);
+                const overlapped_end = Math.min(range_end, segment.end);
+                if (overlapped_end > overlapped_start) {
+                    buffered_duration += overlapped_end - overlapped_start;
+                }
             }
         }
 
-        const buffered_length = Math.max(0, Math.min(max_buffered_end, clip_end) - clip_start);
-    const buffered_percentage = clip_duration > 0 ? buffered_length / clip_duration : 0;
-    const clamped_percentage = Math.max(0, Math.min(buffered_percentage, 1));
-    this.player.bar.set('loaded', clamped_percentage, 'width');
+        const buffered_percentage = this.clip_total_duration > 0 ? buffered_duration / this.clip_total_duration : 0;
+        const clamped_percentage = Math.max(0, Math.min(buffered_percentage, 1));
+        this.player.bar.set('loaded', clamped_percentage, 'width');
     }
 
-    /**
-     * 再生バーのツールチップ表示をクリップ基準に補正する
-     */
     private updateClipBarTooltip(event: MouseEvent | TouchEvent): void {
-        if (this.player === null || this.clip_range === null) {
-            return;
-        }
-        const clip_duration = this.clip_range.end - this.clip_range.start;
-        if (clip_duration <= 0) {
+        if (this.player === null || this.clip_segments === null || this.clip_segments.length === 0 || this.clip_total_duration <= 0) {
             return;
         }
 
@@ -2196,9 +2228,75 @@ class PlayerController {
 
         const relativeX = Math.min(Math.max(clientX - rect.left, 0), rect.width);
         const percentage = relativeX / rect.width;
-        const clip_seconds = clip_duration * percentage;
+        const clip_seconds = this.clip_total_duration * percentage;
 
         this.player.template.playedBarTime.textContent = this.formatSeconds(clip_seconds);
+    }
+
+    private getClipSegmentIndex(time: number, tolerance: number = 0.05): number {
+        if (this.clip_segments === null || this.clip_segments.length === 0) {
+            return -1;
+        }
+        for (let index = 0; index < this.clip_segments.length; index++) {
+            const segment = this.clip_segments[index];
+            if (time >= segment.start - tolerance && time <= segment.end + tolerance) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private clampToClipSegments(time: number): number {
+        if (this.clip_segments === null || this.clip_segments.length === 0) {
+            return time;
+        }
+
+        const first_segment = this.clip_segments[0];
+        const last_segment = this.clip_segments[this.clip_segments.length - 1];
+
+        if (time <= first_segment.start) {
+            return first_segment.start;
+        }
+        if (time >= last_segment.end) {
+            return last_segment.end;
+        }
+
+        for (const segment of this.clip_segments) {
+            if (time < segment.start) {
+                return segment.start;
+            }
+            if (time <= segment.end) {
+                return time;
+            }
+        }
+
+        return last_segment.end;
+    }
+
+    private getVideoTimeFromClipElapsed(elapsed: number): number {
+        if (this.clip_segments === null || this.clip_segments.length === 0) {
+            return elapsed;
+        }
+
+        if (elapsed <= 0) {
+            return this.clip_segments[0].start;
+        }
+        if (elapsed >= this.clip_total_duration) {
+            return this.clip_segments[this.clip_segments.length - 1].end;
+        }
+
+        for (let index = 0; index < this.clip_segments.length; index++) {
+            const segment = this.clip_segments[index];
+            const segment_base = this.clip_segment_cumulative_durations[index] ?? 0;
+            const segment_duration = segment.end - segment.start;
+            const segment_end_elapsed = segment_base + segment_duration;
+            if (elapsed <= segment_end_elapsed) {
+                const offset = elapsed - segment_base;
+                return segment.start + offset;
+            }
+        }
+
+        return this.clip_segments[this.clip_segments.length - 1].end;
     }
 
     /**

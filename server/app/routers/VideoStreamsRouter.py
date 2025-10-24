@@ -293,14 +293,57 @@ async def VideoClipExportAPI(
             task_id = None,
         )
 
-    # 時間範囲のバリデーション
-    if request.end_time > recorded_video.duration:
-        logging.error(f'[VideoClipExportAPI] End time exceeds video duration. [video_id: {video_id}, end_time: {request.end_time}, duration: {recorded_video.duration}]')
+    # セグメントの正規化とバリデーション
+    raw_segments: list[dict[str, float]]
+    if request.segments:
+        raw_segments = [{'start_time': float(segment.start_time), 'end_time': float(segment.end_time)} for segment in request.segments]
+    else:
+        assert request.start_time is not None and request.end_time is not None
+        raw_segments = [{'start_time': float(request.start_time), 'end_time': float(request.end_time)}]
+
+    normalized_segments: list[dict[str, float]] = []
+    for segment in raw_segments:
+        start_time = segment['start_time']
+        end_time = segment['end_time']
+        if end_time > recorded_video.duration:
+            logging.error(
+                f'[VideoClipExportAPI] Segment end time exceeds video duration. '
+                f'[video_id: {video_id}, end_time: {end_time}, duration: {recorded_video.duration}]'
+            )
+            return VideoClipExportResult(
+                is_success = False,
+                detail = f'End time ({end_time}s) exceeds video duration ({recorded_video.duration}s)',
+                task_id = None,
+            )
+        normalized_segments.append({'start_time': start_time, 'end_time': end_time})
+
+    normalized_segments.sort(key=lambda s: s['start_time'])
+
+    total_clip_duration = 0.0
+    for segment in normalized_segments:
+        duration = segment['end_time'] - segment['start_time']
+        if duration <= 0:
+            logging.error(
+                '[VideoClipExportAPI] Invalid segment duration detected. '
+                f"[video_id: {video_id}, start_time: {segment['start_time']}, end_time: {segment['end_time']}]"
+            )
+            return VideoClipExportResult(
+                is_success = False,
+                detail = 'Each segment must have a positive duration',
+                task_id = None,
+            )
+        total_clip_duration += duration
+
+    if total_clip_duration <= 0:
+        logging.error(f'[VideoClipExportAPI] Total clip duration is zero. [video_id: {video_id}]')
         return VideoClipExportResult(
             is_success = False,
-            detail = f'End time ({request.end_time}s) exceeds video duration ({recorded_video.duration}s)',
+            detail = 'Total clip duration must be greater than zero',
             task_id = None,
         )
+
+    overall_start = normalized_segments[0]['start_time']
+    overall_end = normalized_segments[-1]['end_time']
 
     # タスク ID を生成
     task_id = str(uuid.uuid4())
@@ -309,10 +352,10 @@ async def VideoClipExportAPI(
     output_dir = DATA_DIR / 'clip_exports'
     output_dir.mkdir(exist_ok=True)
 
-    # 出力ファイル名を生成 (番組タイトル + 日時 + タスクID)
-    # ファイル名に使えない文字を除去
+    # 出力ファイル名を生成 (番組タイトル + 範囲 + タスクID)
     safe_title = ''.join(c for c in recorded_program.title if c.isalnum() or c in (' ', '-', '_')).strip()
-    output_filename = f'{safe_title}_{request.start_time:.0f}-{request.end_time:.0f}_{task_id[:8]}.mp4'
+    range_suffix = '_'.join(f"{int(segment['start_time']):d}-{int(segment['end_time']):d}" for segment in normalized_segments)
+    output_filename = f'{safe_title}_{range_suffix}_{task_id[:8]}.mp4'
     output_path = output_dir / output_filename
 
     # タスクの初期状態を登録
@@ -323,22 +366,29 @@ async def VideoClipExportAPI(
         detail = 'Clip export started',
         output_file_path = None,
         output_file_size = None,
+        recorded_video_id = recorded_video.id,
+        recorded_program_title = recorded_program.title,
+        start_time = overall_start,
+        end_time = overall_end,
+        duration = total_clip_duration,
+        segments = normalized_segments,
     )
 
     # バックグラウンドでクリップ書き出しを実行
     background_tasks.add_task(
-        ExecuteClipExport,
-        task_id,
-        recorded_video.file_path,
-        str(output_path),
-        request.start_time,
-        request.end_time,
-        recorded_video.duration,
-        recorded_video.id,
-        recorded_program.title,
+    ExecuteClipExport,
+    task_id,
+    recorded_video.file_path,
+    str(output_path),
+    normalized_segments,
+    recorded_video.id,
+    recorded_program.title,
     )
 
-    logging.info(f'[VideoClipExportAPI] Clip export task started. [video_id: {video_id}, task_id: {task_id}, start_time: {request.start_time}, end_time: {request.end_time}]')
+    logging.info(
+        '[VideoClipExportAPI] Clip export task started. '
+        f'[video_id: {video_id}, task_id: {task_id}, segments: {normalized_segments}]'
+    )
 
     return VideoClipExportResult(
         is_success = True,
@@ -524,9 +574,17 @@ async def VideoClipSaveAPI(
         )
 
     # 必要な情報が全て揃っているか確認
-    if (task.recorded_video_id is None or task.recorded_program_title is None or 
-        task.start_time is None or task.end_time is None or task.duration is None or
-        task.file_hash is None or task.output_file_size is None):
+    if (
+        task.recorded_video_id is None
+        or task.recorded_program_title is None
+        or task.start_time is None
+        or task.end_time is None
+        or task.duration is None
+        or task.file_hash is None
+        or task.output_file_size is None
+        or task.segments is None
+        or len(task.segments) == 0
+    ):
         logging.error(f'[VideoClipSaveAPI] Task metadata incomplete. [video_id: {video_id}, task_id: {task_id}]')
         logging.error(f'  recorded_video_id: {task.recorded_video_id}')
         logging.error(f'  recorded_program_title: {task.recorded_program_title}')
@@ -535,13 +593,20 @@ async def VideoClipSaveAPI(
         logging.error(f'  duration: {task.duration}')
         logging.error(f'  file_hash: {task.file_hash}')
         logging.error(f'  output_file_size: {task.output_file_size}')
+        logging.error(f'  segments: {task.segments}')
         raise HTTPException(
             status_code = status.HTTP_400_BAD_REQUEST,
             detail = 'Task metadata incomplete',
         )
 
     # クリップ動画のタイトルを生成
-    clip_title = f'{task.recorded_program_title} ({int(task.start_time)}秒〜{int(task.end_time)}秒)'
+    if task.segments:
+        ranges_str = ', '.join(
+            f'{int(segment.start_time)}秒〜{int(segment.end_time)}秒' for segment in task.segments
+        )
+    else:
+        ranges_str = f'{int(task.start_time)}秒〜{int(task.end_time)}秒'
+    clip_title = f'{task.recorded_program_title} ({ranges_str})'
 
     logging.info(f'[VideoClipSaveAPI] Attempting to save clip to database. [clip_title: {clip_title}]')
 
@@ -621,6 +686,7 @@ async def VideoClipSaveAPI(
             start_time = task.start_time,
             end_time = task.end_time,
             duration = task.duration,
+            segments = [segment.model_dump() for segment in task.segments],
             container_format = recorded_video.container_format,
             video_codec = recorded_video.video_codec,
             video_codec_profile = recorded_video.video_codec_profile,
@@ -676,123 +742,226 @@ async def ExecuteClipExport(
     task_id: str,
     input_path: str,
     output_path: str,
-    start_time: float,
-    end_time: float,
-    duration: float,
+    segments: list[dict[str, float]],
     recorded_video_id: int,
     recorded_program_title: str,
 ) -> None:
-    """
-    FFmpeg を使ってクリップを書き出す実際の処理
-    バックグラウンドタスクとして実行される
+    """FFmpeg を用いて複数セグメントのクリップを書き出すバックグラウンド処理。"""
 
-    Args:
-        task_id (str): タスク ID
-        input_path (str): 入力ファイルパス
-        output_path (str): 出力ファイルパス
-        start_time (float): 開始時刻（秒）
-        end_time (float): 終了時刻（秒）
-        duration (float): 動画の総再生時間（秒）
-        recorded_video_id (int): 録画ビデオの ID
-        recorded_program_title (str): 録画番組のタイトル
-    """
+    temp_dir: PathLib | None = None
 
     try:
-        # FFmpeg のパスを取得
         ffmpeg_path = LIBRARY_PATH['FFmpeg']
 
-        # クリップの長さを計算
-        clip_duration = end_time - start_time
+        if len(segments) == 0:
+            raise ValueError('No segments specified for clip export')
 
-        # FFmpeg コマンドを構築
-        # -ss を -i の前に置くことで高速シークが可能になる
-        # -c copy でストリームをそのままコピー（再エンコードなし）
-        cmd = [
-            ffmpeg_path,
-            '-y',  # 既存ファイルを上書き
-            '-ss', str(start_time),  # 開始位置（入力前に指定することで高速シーク）
-            '-i', input_path,  # 入力ファイル
-            '-t', str(clip_duration),  # クリップの長さ
-            '-c', 'copy',  # コーデックをコピー（再エンコードしない）
-            '-avoid_negative_ts', 'make_zero',  # タイムスタンプを調整
-            '-movflags', '+faststart',  # Web 最適化（メタデータを先頭に配置）
-            output_path,  # 出力ファイル
-        ]
+        total_clip_duration = sum(max(0.0, segment['end_time'] - segment['start_time']) for segment in segments)
+        if total_clip_duration <= 0:
+            raise ValueError('Calculated clip duration must be positive')
 
-        logging.info(f'[ExecuteClipExport] Starting FFmpeg clip export. [task_id: {task_id}, command: {" ".join(cmd)}]')
+        if len(segments) == 1:
+            start_time = segments[0]['start_time']
+            end_time = segments[0]['end_time']
+            clip_duration = end_time - start_time
 
-        # FFmpeg を実行（進捗監視付き）
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout = asyncio.subprocess.PIPE,
-            stderr = asyncio.subprocess.PIPE,
-        )
+            cmd = [
+                ffmpeg_path,
+                '-y',
+                '-ss', str(start_time),
+                '-i', input_path,
+                '-t', str(clip_duration),
+                '-c', 'copy',
+                '-avoid_negative_ts', 'make_zero',
+                '-movflags', '+faststart',
+                output_path,
+            ]
 
-        # 進捗を監視しながら実行
-        stderr_output = []
-        while True:
-            line = await process.stderr.readline()  # type: ignore
-            if not line:
-                break
+            logging.info(f'[ExecuteClipExport] Starting FFmpeg clip export. [task_id: {task_id}, command: {" ".join(cmd)}]')
 
-            line_str = line.decode('utf-8', errors='ignore')
-            stderr_output.append(line_str)
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
+            )
 
-            # FFmpeg の進捗情報を解析（time=の部分を抽出）
-            if 'time=' in line_str:
-                try:
-                    # time=00:01:23.45 のような形式から秒数を抽出
-                    time_str = line_str.split('time=')[1].split()[0]
-                    time_parts = time_str.split(':')
-                    if len(time_parts) == 3:
-                        hours, minutes, seconds = time_parts
+            stderr_output: list[str] = []
+            while True:
+                line = await process.stderr.readline()  # type: ignore[arg-type]
+                if not line:
+                    break
+
+                line_str = line.decode('utf-8', errors='ignore')
+                stderr_output.append(line_str)
+
+                if 'time=' in line_str:
+                    try:
+                        time_str = line_str.split('time=')[1].split()[0]
+                        hours, minutes, seconds = time_str.split(':')
                         current_time = float(hours) * 3600 + float(minutes) * 60 + float(seconds)
-                        # 進捗率を計算（クリップの長さに対する割合）
                         progress = min((current_time / clip_duration) * 100, 100.0)
                         _clip_export_tasks[task_id].progress = progress
-                        _clip_export_tasks[task_id].detail = f'Processing: {progress:.1f}%'
-                except Exception:
-                    pass  # 進捗解析に失敗しても続行
+                        _clip_export_tasks[task_id].detail = f'Processing segment 1/1: {progress:.1f}%'
+                    except Exception:
+                        pass
 
-        # プロセスの完了を待つ
-        await process.wait()
+            await process.wait()
 
-        # 終了コードを確認
-        if process.returncode == 0:
-            # 成功
-            output_file_path = PathLib(output_path)
-            output_file_size = output_file_path.stat().st_size
+            if process.returncode != 0:
+                stderr_full = ''.join(stderr_output)
+                _clip_export_tasks[task_id].status = 'Failed'
+                _clip_export_tasks[task_id].detail = f'FFmpeg failed with return code {process.returncode}'
+                logging.error(
+                    f'[ExecuteClipExport] Clip export failed. '
+                    f'[task_id: {task_id}, return_code: {process.returncode}, stderr: {stderr_full}]'
+                )
+                return
 
-            # ファイルハッシュを計算
-            file_hash_md5 = hashlib.md5()
-            with open(output_path, 'rb') as f:
-                for chunk in iter(lambda: f.read(8192), b''):
-                    file_hash_md5.update(chunk)
-            file_hash = file_hash_md5.hexdigest()
-
-            _clip_export_tasks[task_id].status = 'Completed'
-            _clip_export_tasks[task_id].progress = 100.0
-            _clip_export_tasks[task_id].detail = 'Clip export completed successfully'
-            _clip_export_tasks[task_id].output_file_path = output_path
-            _clip_export_tasks[task_id].output_file_size = output_file_size
-            _clip_export_tasks[task_id].file_hash = file_hash
-            # recorded_video_id と start_time, end_time もタスク情報に保存（DB保存時に使用）
-            _clip_export_tasks[task_id].recorded_video_id = recorded_video_id
-            _clip_export_tasks[task_id].recorded_program_title = recorded_program_title
-            _clip_export_tasks[task_id].start_time = start_time
-            _clip_export_tasks[task_id].end_time = end_time
-            _clip_export_tasks[task_id].duration = clip_duration
-            logging.info(f'[ExecuteClipExport] Clip export completed successfully. [task_id: {task_id}, output_path: {output_path}, size: {output_file_size}]')
         else:
-            # 失敗
-            stderr_full = ''.join(stderr_output)
-            _clip_export_tasks[task_id].status = 'Failed'
-            _clip_export_tasks[task_id].detail = f'FFmpeg failed with return code {process.returncode}'
-            logging.error(f'[ExecuteClipExport] Clip export failed. [task_id: {task_id}, return_code: {process.returncode}, stderr: {stderr_full}]')
+            temp_dir = PathLib(output_path).parent / f'.clip_export_{task_id}'
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            segment_files: list[PathLib] = []
+            processed_duration = 0.0
+
+            for index, segment in enumerate(segments, start=1):
+                segment_duration = segment['end_time'] - segment['start_time']
+                segment_file = temp_dir / f'segment_{index:02d}.ts'
+                segment_files.append(segment_file)
+
+                cmd = [
+                    ffmpeg_path,
+                    '-y',
+                    '-ss', str(segment['start_time']),
+                    '-i', input_path,
+                    '-t', str(segment_duration),
+                    '-c', 'copy',
+                    '-avoid_negative_ts', 'make_zero',
+                    segment_file.as_posix(),
+                ]
+
+                logging.info(
+                    f'[ExecuteClipExport] Starting segment extraction. '
+                    f'[task_id: {task_id}, segment_index: {index}, command: {" ".join(cmd)}]'
+                )
+
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout = asyncio.subprocess.PIPE,
+                    stderr = asyncio.subprocess.PIPE,
+                )
+
+                stderr_output: list[str] = []
+                while True:
+                    line = await process.stderr.readline()  # type: ignore[arg-type]
+                    if not line:
+                        break
+
+                    line_str = line.decode('utf-8', errors='ignore')
+                    stderr_output.append(line_str)
+
+                    if 'time=' in line_str:
+                        try:
+                            time_str = line_str.split('time=')[1].split()[0]
+                            hours, minutes, seconds = time_str.split(':')
+                            current_time = float(hours) * 3600 + float(minutes) * 60 + float(seconds)
+                            progress = ((processed_duration + min(current_time, segment_duration)) / total_clip_duration) * 100
+                            progress = min(progress, 97.0)
+                            _clip_export_tasks[task_id].progress = progress
+                            _clip_export_tasks[task_id].detail = f'Processing segment {index}/{len(segments)}: {progress:.1f}%'
+                        except Exception:
+                            pass
+
+                await process.wait()
+
+                if process.returncode != 0:
+                    stderr_full = ''.join(stderr_output)
+                    _clip_export_tasks[task_id].status = 'Failed'
+                    _clip_export_tasks[task_id].detail = f'FFmpeg segment export failed with return code {process.returncode}'
+                    logging.error(
+                        f'[ExecuteClipExport] Segment export failed. '
+                        f'[task_id: {task_id}, segment_index: {index}, return_code: {process.returncode}, stderr: {stderr_full}]'
+                    )
+                    return
+
+                processed_duration += segment_duration
+
+            concat_list_path = temp_dir / 'segments.txt'
+            with concat_list_path.open('w', encoding='utf-8') as concat_file:
+                for segment_file in segment_files:
+                    concat_file.write(f"file '{segment_file.as_posix()}'\n")
+
+            _clip_export_tasks[task_id].progress = min(_clip_export_tasks[task_id].progress + 1.0, 98.0)
+            _clip_export_tasks[task_id].detail = 'Combining segments...'
+
+            cmd = [
+                ffmpeg_path,
+                '-y',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', concat_list_path.as_posix(),
+                '-c', 'copy',
+                '-bsf:a', 'aac_adtstoasc',
+                '-movflags', '+faststart',
+                output_path,
+            ]
+
+            logging.info(f'[ExecuteClipExport] Combining segments. [task_id: {task_id}, command: {" ".join(cmd)}]')
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout = asyncio.subprocess.PIPE,
+                stderr = asyncio.subprocess.PIPE,
+            )
+
+            stderr_output = []
+            while True:
+                line = await process.stderr.readline()  # type: ignore[arg-type]
+                if not line:
+                    break
+                line_str = line.decode('utf-8', errors='ignore')
+                stderr_output.append(line_str)
+
+            await process.wait()
+
+            if process.returncode != 0:
+                stderr_full = ''.join(stderr_output)
+                _clip_export_tasks[task_id].status = 'Failed'
+                _clip_export_tasks[task_id].detail = f'FFmpeg concat failed with return code {process.returncode}'
+                logging.error(
+                    f'[ExecuteClipExport] Segment combine failed. '
+                    f'[task_id: {task_id}, return_code: {process.returncode}, stderr: {stderr_full}]'
+                )
+                return
+
+        output_file_path = PathLib(output_path)
+        output_file_size = output_file_path.stat().st_size
+
+        file_hash_md5 = hashlib.md5()
+        with open(output_path, 'rb') as file_handle:
+            for chunk in iter(lambda: file_handle.read(8192), b''):
+                file_hash_md5.update(chunk)
+        file_hash = file_hash_md5.hexdigest()
+
+        _clip_export_tasks[task_id].status = 'Completed'
+        _clip_export_tasks[task_id].progress = 100.0
+        _clip_export_tasks[task_id].detail = 'Clip export completed successfully'
+        _clip_export_tasks[task_id].output_file_path = output_path
+        _clip_export_tasks[task_id].output_file_size = output_file_size
+        _clip_export_tasks[task_id].file_hash = file_hash
+        _clip_export_tasks[task_id].recorded_video_id = recorded_video_id
+        _clip_export_tasks[task_id].recorded_program_title = recorded_program_title
+        _clip_export_tasks[task_id].duration = total_clip_duration
+        logging.info(f'[ExecuteClipExport] Clip export completed successfully. [task_id: {task_id}, output_path: {output_path}, size: {output_file_size}]')
 
     except Exception as ex:
-        # 例外が発生した場合
         _clip_export_tasks[task_id].status = 'Failed'
         _clip_export_tasks[task_id].detail = f'Exception occurred: {ex!s}'
         logging.error(f'[ExecuteClipExport] Clip export failed with exception. [task_id: {task_id}, exception: {ex}]')
+
+    finally:
+        if temp_dir is not None and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
 

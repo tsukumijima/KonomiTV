@@ -31,6 +31,7 @@ class ClipVideo(TortoiseModel):
     start_time = fields.FloatField()  # 元動画での開始時刻 (秒)
     end_time = fields.FloatField()  # 元動画での終了時刻 (秒)
     duration = fields.FloatField()  # クリップの長さ (秒)
+    segments = fields.JSONField(default=list)  # クリップに含まれるセグメントのリスト
     container_format = cast(TortoiseField[Literal['MPEG-TS', 'MPEG-4']], fields.CharField(255))
     video_codec = cast(TortoiseField[Literal['MPEG-2', 'H.264', 'H.265']], fields.CharField(255))
     video_codec_profile = cast(TortoiseField[Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']], fields.CharField(255))

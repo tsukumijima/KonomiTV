@@ -39,6 +39,7 @@
                         :max="playerStore.recorded_program?.recorded_video?.duration || 0"
                         :step="0.1"
                         v-model.number="start_time_seconds"
+                        :disabled="currentSegment === null"
                         @input="onStartTimeSliderChange"
                     />
                     <input
@@ -48,12 +49,59 @@
                         :max="playerStore.recorded_program?.recorded_video?.duration || 0"
                         :step="0.1"
                         v-model.number="end_time_seconds"
+                        :disabled="currentSegment === null"
                         @input="onEndTimeSliderChange"
                     />
                     <div class="range-track">
                         <div class="range-track-selected" :style="selectedRangeStyle"></div>
                     </div>
                 </div>
+            </div>
+
+            <div class="segments-list mb-3">
+                <div class="segments-list__header">
+                    <span class="segments-list__title">クリップに含める範囲</span>
+                    <v-btn size="small" variant="text" color="primary" @click="addSegment">
+                        <Icon icon="fluent:add-20-regular" width="18px" height="18px" class="mr-1" />
+                        範囲を追加
+                    </v-btn>
+                </div>
+                <div v-if="segments.length === 0" class="segments-list__empty text-body-2">
+                    範囲を追加してクリップの区間を指定してください。
+                </div>
+                <v-list
+                    v-else
+                    density="compact"
+                    class="segments-list__items"
+                >
+                    <v-list-item
+                        v-for="(segment, index) in segments"
+                        :key="segment.id"
+                        @click="selectSegment(segment.id)"
+                        :class="['segments-list__item', { 'segments-list__item--active': segment.id === selected_segment_id }]"
+                    >
+                        <v-list-item-title class="segments-list__item-main">
+                            <span class="segments-list__item-label">第{{ index + 1 }}範囲</span>
+                            <span class="segments-list__item-range">
+                                {{ formatTime(segment.start) }} - {{ formatTime(segment.end) }}
+                            </span>
+                            <span class="segments-list__item-duration">
+                                ({{ formatTime(segment.end - segment.start) }})
+                            </span>
+                        </v-list-item-title>
+                        <template #append>
+                            <v-btn
+                                icon
+                                variant="text"
+                                size="small"
+                                color="text-darken-1"
+                                @click.stop="removeSegment(segment.id)"
+                            >
+                                <Icon icon="fluent:delete-20-regular" width="18px" height="18px" />
+                            </v-btn>
+                        </template>
+                    </v-list-item>
+                </v-list>
             </div>
 
             <!-- 時刻入力 -->
@@ -66,6 +114,7 @@
                         variant="outlined"
                         hide-details
                         placeholder="00:00:00"
+                        :disabled="currentSegment === null"
                         @input="onStartTimeInput"
                         class="time-field"
                     ></v-text-field>
@@ -81,6 +130,7 @@
                         variant="outlined"
                         hide-details
                         placeholder="00:00:00"
+                        :disabled="currentSegment === null"
                         @input="onEndTimeInput"
                         class="time-field"
                     ></v-text-field>
@@ -95,10 +145,10 @@
             </v-alert>
 
             <div class="text-body-2 mb-3">
-                クリップ時間: {{ formatTime(end_time_seconds - start_time_seconds) }}
+                クリップ時間: {{ formatTime(totalClipDuration) }}
             </div>
 
-            <v-btn color="primary" variant="flat" block @click="startExport" :disabled="!isValidTimeRange">
+            <v-btn color="primary" variant="flat" block @click="startExport" :disabled="!hasValidSegments">
                 <Icon icon="material-symbols:content-cut" width="20px" class="mr-2" />
                 書き出し開始
             </v-btn>
@@ -164,6 +214,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import { IClipSegment } from '@/services/ClipVideos';
 import Videos from '@/services/Videos';
 import usePlayerStore from '@/stores/PlayerStore';
 import { useSnackbarsStore } from '@/stores/SnackbarsStore';
@@ -172,6 +223,9 @@ export default defineComponent({
     name: 'ClipExport',
     data() {
         return {
+            segments: [] as { id: number; start: number; end: number; }[],
+            selected_segment_id: null as number | null,
+            segment_id_counter: 0,
             start_time_display: '00:00:00',
             end_time_display: '00:00:00',
             start_time_seconds: 0,
@@ -191,12 +245,28 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(usePlayerStore, useSnackbarsStore),
-        isValidTimeRange(): boolean {
-            return this.start_time_seconds >= 0 && 
-                   this.end_time_seconds > this.start_time_seconds &&
-                   this.end_time_seconds <= (this.playerStore.recorded_program?.recorded_video?.duration || 0);
+        currentSegment(): { id: number; start: number; end: number; } | null {
+            if (this.selected_segment_id === null) {
+                return null;
+            }
+            return this.segments.find(segment => segment.id === this.selected_segment_id) ?? null;
+        },
+        currentSegmentIndex(): number {
+            if (this.currentSegment === null) {
+                return -1;
+            }
+            return this.segments.findIndex(segment => segment.id === this.currentSegment?.id);
+        },
+        totalClipDuration(): number {
+            return this.segments.reduce((sum, segment) => sum + Math.max(segment.end - segment.start, 0), 0);
+        },
+        hasValidSegments(): boolean {
+            return this.error_message === '' && this.segments.length > 0;
         },
         selectedRangeStyle(): any {
+            if (this.currentSegment === null) {
+                return { left: '0%', width: '0%' };
+            }
             const duration = this.playerStore.recorded_program?.recorded_video?.duration || 0;
             if (duration === 0) return { left: '0%', width: '0%' };
             const left = (this.start_time_seconds / duration) * 100;
@@ -217,37 +287,162 @@ export default defineComponent({
         },
     },
     methods: {
+        generateSegmentId(): number {
+            this.segment_id_counter += 1;
+            return this.segment_id_counter;
+        },
+        getVideoDuration(): number {
+            return this.playerStore.recorded_program?.recorded_video?.duration || 0;
+        },
+        selectSegment(segmentId: number): void {
+            const segment = this.segments.find(entry => entry.id === segmentId);
+            if (!segment) {
+                return;
+            }
+            this.selected_segment_id = segmentId;
+            this.start_time_seconds = segment.start;
+            this.end_time_seconds = segment.end;
+            this.start_time_display = this.formatTime(segment.start);
+            this.end_time_display = this.formatTime(segment.end);
+            this.validateSegments();
+        },
+        applySegmentUpdate(segmentId: number, start: number, end: number): void {
+            const duration = this.getVideoDuration();
+            if (duration <= 0) {
+                return;
+            }
+
+            let normalizedStart = Math.max(0, Math.min(start, duration));
+            let normalizedEnd = Math.max(0, Math.min(end, duration));
+
+            if (normalizedEnd <= normalizedStart) {
+                const minimumGap = Math.min(1, duration);
+                normalizedEnd = Math.min(normalizedStart + minimumGap, duration);
+                if (normalizedEnd <= normalizedStart) {
+                    normalizedStart = Math.max(normalizedEnd - minimumGap, 0);
+                }
+            }
+
+            const updatedSegment = { id: segmentId, start: normalizedStart, end: normalizedEnd };
+            const nextSegments = this.segments.map(segment => segment.id === segmentId ? updatedSegment : segment);
+            nextSegments.sort((a, b) => a.start - b.start);
+            this.segments = nextSegments;
+
+            const refreshed = this.segments.find(segment => segment.id === segmentId);
+            if (refreshed) {
+                this.selected_segment_id = refreshed.id;
+                this.start_time_seconds = refreshed.start;
+                this.end_time_seconds = refreshed.end;
+                this.start_time_display = this.formatTime(refreshed.start);
+                this.end_time_display = this.formatTime(refreshed.end);
+            }
+
+            this.validateSegments();
+        },
+        addSegment(): void {
+            const duration = this.getVideoDuration();
+            if (duration <= 0) {
+                this.snackbarsStore.show('error', '録画番組の長さを取得できませんでした', 5);
+                return;
+            }
+
+            const baseTime = this.main_player ? this.main_player.video.currentTime : this.current_playback_time;
+            const windowLength = Math.min(30, duration);
+            let start = Math.max(Math.min(baseTime, duration), 0);
+            if (start + windowLength > duration) {
+                start = Math.max(duration - windowLength, 0);
+            }
+
+            const segmentId = this.generateSegmentId();
+            this.segments = [...this.segments, { id: segmentId, start, end: start + windowLength }]
+                .sort((a, b) => a.start - b.start);
+            this.applySegmentUpdate(segmentId, start, start + windowLength);
+        },
+        removeSegment(segmentId: number): void {
+            const previousIndex = this.segments.findIndex(segment => segment.id === this.selected_segment_id);
+            this.segments = this.segments.filter(segment => segment.id !== segmentId);
+
+            if (this.segments.length === 0) {
+                this.selected_segment_id = null;
+                this.start_time_seconds = 0;
+                this.end_time_seconds = 0;
+                this.start_time_display = '00:00:00';
+                this.end_time_display = '00:00:00';
+            } else {
+                const targetIndex = Math.min(Math.max(previousIndex, 0), this.segments.length - 1);
+                const nextSegment = this.segments[targetIndex];
+                this.selectSegment(nextSegment.id);
+            }
+
+            this.validateSegments();
+        },
+        updateCurrentSegment(): void {
+            const current = this.currentSegment;
+            if (!current) {
+                return;
+            }
+            this.applySegmentUpdate(current.id, this.start_time_seconds, this.end_time_seconds);
+        },
+        getSegmentsForExport(): IClipSegment[] {
+            return this.segments
+                .slice()
+                .sort((a, b) => a.start - b.start)
+                .map(segment => ({ start_time: segment.start, end_time: segment.end }));
+        },
+        validateSegments(): void {
+            this.error_message = '';
+            const duration = this.getVideoDuration();
+
+            if (this.segments.length === 0) {
+                this.error_message = 'クリップ範囲を少なくとも1つ追加してください';
+                return;
+            }
+
+            for (let index = 0; index < this.segments.length; index++) {
+                const segment = this.segments[index];
+                if (segment.start < 0) {
+                    this.error_message = `第${index + 1}範囲の開始時刻は0秒以上にしてください`;
+                    return;
+                }
+                if (segment.end <= segment.start) {
+                    this.error_message = `第${index + 1}範囲の終了時刻は開始時刻より後にしてください`;
+                    return;
+                }
+                if (duration > 0 && segment.end > duration) {
+                    this.error_message = `第${index + 1}範囲の終了時刻は動画の長さ（${this.formatTime(duration)}）以下にしてください`;
+                    return;
+                }
+            }
+        },
         initializeClipExport() {
-            // DPlayer インスタンスを取得
-            this.playerStore.event_emitter.on('ClipExportPanelOpened', (payload: any) => {
+            const handlePanelOpened = (payload: any) => {
                 this.main_player = payload.player;
-                
-                // メインプレイヤーが再生中の場合は一時停止
+
                 if (this.main_player && !this.main_player.video.paused) {
                     this.main_player.pause();
                 }
 
-                // 現在の再生位置を取得
                 this.current_playback_time = this.main_player?.video.currentTime || 0;
+                const duration = this.getVideoDuration();
+                this.segment_id_counter = 0;
+                const defaultStart = Math.floor(Math.min(this.current_playback_time, Math.max(duration - 1, 0)));
+                const defaultEndCandidate = duration > 0 ? Math.min(defaultStart + 30, duration) : defaultStart + 30;
+                const segmentId = this.generateSegmentId();
+                this.segments = [{ id: segmentId, start: defaultStart, end: defaultEndCandidate }];
+                this.applySegmentUpdate(segmentId, defaultStart, defaultEndCandidate);
+                this.validateSegments();
 
-                // デフォルトで現在位置から30秒後までを設定
-                this.start_time_seconds = Math.floor(this.current_playback_time);
-                this.end_time_seconds = Math.min(
-                    this.start_time_seconds + 30,
-                    this.playerStore.recorded_program?.recorded_video?.duration || 0
-                );
-                this.start_time_display = this.formatTime(this.start_time_seconds);
-                this.end_time_display = this.formatTime(this.end_time_seconds);
-
-                // メインプレイヤーの再生位置を定期的に更新
+                if (this.playback_time_interval) {
+                    clearInterval(this.playback_time_interval);
+                }
                 this.playback_time_interval = window.setInterval(() => {
                     if (this.main_player) {
                         this.current_playback_time = this.main_player.video.currentTime;
                     }
                 }, 100);
-            });
-            
-            // イベントを発火してプレイヤーインスタンスを要求
+            };
+
+            this.playerStore.event_emitter.on('ClipExportPanelOpened', handlePanelOpened);
             this.playerStore.event_emitter.emit('RequestPlayerInstance', {});
         },
         cleanupIntervals() {
@@ -295,42 +490,35 @@ export default defineComponent({
             }
         },
         setStartTimeFromPlayer() {
-            if (this.main_player) {
-                this.start_time_seconds = this.main_player.video.currentTime;
-                this.start_time_display = this.formatTime(this.start_time_seconds);
-                this.validateTimeRange();
+            if (!this.main_player) {
+                return;
             }
+            this.start_time_seconds = this.main_player.video.currentTime;
+            this.start_time_display = this.formatTime(this.start_time_seconds);
+            if (this.main_player.video.currentTime > this.end_time_seconds) {
+                this.end_time_seconds = Math.min(this.start_time_seconds + 1, this.getVideoDuration());
+                this.end_time_display = this.formatTime(this.end_time_seconds);
+            }
+            this.updateCurrentSegment();
         },
         setEndTimeFromPlayer() {
-            if (this.main_player) {
-                this.end_time_seconds = this.main_player.video.currentTime;
-                this.end_time_display = this.formatTime(this.end_time_seconds);
-                this.validateTimeRange();
+            if (!this.main_player) {
+                return;
             }
+            this.end_time_seconds = this.main_player.video.currentTime;
+            this.end_time_display = this.formatTime(this.end_time_seconds);
+            this.updateCurrentSegment();
         },
         onStartTimeSliderChange() {
             this.start_time_display = this.formatTime(this.start_time_seconds);
-            this.validateTimeRange();
-            
-            const duration = this.playerStore.recorded_program?.recorded_video?.duration || 0;
-            
-            if (this.start_time_seconds >= this.end_time_seconds) {
-                this.end_time_seconds = Math.min(this.start_time_seconds + 1, duration);
-                this.end_time_display = this.formatTime(this.end_time_seconds);
-            }
-
+            this.updateCurrentSegment();
             if (this.main_player) {
                 this.main_player.seek(this.start_time_seconds);
             }
         },
         onEndTimeSliderChange() {
             this.end_time_display = this.formatTime(this.end_time_seconds);
-            this.validateTimeRange();
-            
-            if (this.end_time_seconds <= this.start_time_seconds) {
-                this.start_time_seconds = Math.max(this.end_time_seconds - 1, 0);
-                this.start_time_display = this.formatTime(this.start_time_seconds);
-            }
+            this.updateCurrentSegment();
         },
         formatTime(seconds: number): string {
             const h = Math.floor(seconds / 3600);
@@ -347,26 +535,14 @@ export default defineComponent({
         },
         onStartTimeInput(event: Event) {
             this.start_time_seconds = this.parseTime((event.target as HTMLInputElement).value);
-            this.validateTimeRange();
+            this.updateCurrentSegment();
         },
         onEndTimeInput(event: Event) {
             this.end_time_seconds = this.parseTime((event.target as HTMLInputElement).value);
-            this.validateTimeRange();
-        },
-        validateTimeRange() {
-            this.error_message = '';
-            const duration = this.playerStore.recorded_program?.recorded_video?.duration || 0;
-            
-            if (this.start_time_seconds < 0) {
-                this.error_message = '開始時刻は0秒以上である必要があります';
-            } else if (this.end_time_seconds <= this.start_time_seconds) {
-                this.error_message = '終了時刻は開始時刻より後である必要があります';
-            } else if (this.end_time_seconds > duration) {
-                this.error_message = `終了時刻は動画の長さ（${this.formatTime(duration)}）以下である必要があります`;
-            }
+            this.updateCurrentSegment();
         },
         async startExport() {
-            if (!this.isValidTimeRange) return;
+            if (!this.hasValidSegments) return;
 
             const video_id = this.playerStore.recorded_program?.id;
             if (!video_id) {
@@ -382,7 +558,8 @@ export default defineComponent({
             this.progress = 0;
             this.status_detail = 'クリップ書き出しを開始しています...';
 
-            const task_id = await Videos.exportVideoClip(video_id, this.start_time_seconds, this.end_time_seconds);
+            const exportSegments = this.getSegmentsForExport();
+            const task_id = await Videos.exportVideoClip(video_id, exportSegments);
             if (!task_id) {
                 this.export_status = 'failed';
                 this.status_detail = '書き出しの開始に失敗しました';
@@ -465,6 +642,7 @@ export default defineComponent({
             this.output_file_size = null;
             this.error_message = '';
             this.is_saving = false;
+            this.validateSegments();
         },
         formatFileSize(bytes: number | null): string {
             if (bytes === null) return '不明';
@@ -593,6 +771,72 @@ export default defineComponent({
         padding: 12px 0 10px;
         margin-bottom: 12px;
     }
+}
+
+.segments-list {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    padding: 12px;
+
+    @include smartphone-horizontal {
+        padding: 10px;
+    }
+
+    @include smartphone-vertical {
+        padding: 10px;
+    }
+}
+
+.segments-list__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.segments-list__title {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.segments-list__empty {
+    padding: 8px 0;
+    color: rgb(var(--v-theme-text-darken-1));
+}
+
+.segments-list__items {
+    padding: 0;
+    background: transparent;
+}
+
+.segments-list__item {
+    border-radius: 6px;
+    transition: background-color 0.15s;
+}
+
+.segments-list__item--active {
+    background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.segments-list__item-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.segments-list__item-label {
+    font-weight: 600;
+    color: rgb(var(--v-theme-text));
+}
+
+.segments-list__item-range {
+    font-feature-settings: "palt" 1;
+}
+
+.segments-list__item-duration {
+    color: rgb(var(--v-theme-text-darken-1));
+    font-size: 0.85rem;
 }
 
 .range-slider-container {
