@@ -17,6 +17,11 @@
             <Icon class="watch-navigation__link-icon" icon="fluent:movies-and-tv-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/clip-videos')}"
+            v-ftooltip.right="'クリップ動画'" to="/clip-videos/">
+            <Icon class="watch-navigation__link-icon" icon="fluent:video-clip-20-regular" width="26px" />
+        </router-link>
+        <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/timetable')}"
             v-ftooltip.right="'番組表'" to="/timetable/">
             <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
