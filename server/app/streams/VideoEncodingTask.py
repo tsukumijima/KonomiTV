@@ -982,7 +982,7 @@ class VideoEncodingTask:
                     # tsreadex プロセスを kill したので、パイプがクローズされてタスクは終了するはず
                     if self._tsreadex_feed_task is not None:
                         try:
-                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                         except TimeoutError:
                             logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout.')
                         except Exception:
@@ -1024,7 +1024,7 @@ class VideoEncodingTask:
                         # リトライ前にフィードタスクの完了を待つ
                         if self._tsreadex_feed_task is not None:
                             try:
-                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                             except TimeoutError:
                                 logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
                             except Exception:
@@ -1056,7 +1056,7 @@ class VideoEncodingTask:
                 if self._tsreadex_feed_task is not None:
                     try:
                         # 最大2秒待機（通常は tsreadex プロセスの kill により即座に終了する）
-                        await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                        await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                     except TimeoutError:
                         logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout, proceeding to close file.')
                     except Exception:
@@ -1066,9 +1066,9 @@ class VideoEncodingTask:
                 file.close()
 
             # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
-            if CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT:
+            if (CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT) and self._encoder_process is not None:
                 logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
-                assert self._encoder_process is not None and self._encoder_process.stderr is not None
+                assert self._encoder_process.stderr is not None
                 while True:
                     try:
                         line = await self._encoder_process.stderr.readline()
@@ -1081,7 +1081,7 @@ class VideoEncodingTask:
             # 通常はリトライループ内で既に完了しているが、念のため再チェック
             if self._tsreadex_feed_task is not None:
                 try:
-                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                 except TimeoutError:
                     logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout in finally cleanup.')
                 except Exception:
