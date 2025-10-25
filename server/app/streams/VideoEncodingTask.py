@@ -219,9 +219,6 @@ class VideoEncodingTask:
         max_interleave_delta = round(5000 + (self._retry_count * 1000))
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:0')
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K')
-        ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
-        if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
-            options.append('--disable-opencl')
         ## NVEncC では NVML によるモニタリングと DX11, Vulkan を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
             options.append('--disable-nvml 1 --disable-dx11 --disable-vulkan')
@@ -277,6 +274,14 @@ class VideoEncodingTask:
         else:
             options.append('--profile high')
         options.append('--dar 16:9')
+
+        ## バンディング回避のためのオプション (OpenCL が必要)
+        ## H.265/HEVC では HW エンコーダーが対応している場合は 10bit でエンコードし、さらにバンディング耐性を高める
+        ## (VCEEncC は 10bit 対応の機種かを判定できず、rkmppenc は 10bit エンコード自体に非対応のため設定しない)
+        ## ref: https://github.com/tsukumijima/KonomiTV/pull/164#issuecomment-3368738859
+        options.append('--vpp-deband')
+        if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
+            options.append('--output-depth 10 --fallback-bitdepth')
 
         ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
