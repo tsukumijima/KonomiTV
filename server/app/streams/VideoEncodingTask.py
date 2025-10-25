@@ -672,6 +672,12 @@ class VideoEncodingTask:
                         stderr = asyncio.subprocess.DEVNULL,
                     )
 
+                    # パイプの read 側は子プロセスに渡したので、親プロセス側でクローズする
+                    # 子プロセスに FD を渡した後、親プロセス側で使わない FD はクローズする必要がある
+                    # これを忘れるとファイルディスクリプタがリークする
+                    os.close(tsreadex_stdin_read)
+
+                    # tsreadex に PAT/PMT を先頭に付加した TS ストリームを流し込むタスクを開始
                     self._tsreadex_feed_task = asyncio.create_task(feed_data_with_pat_pmt())
                 else:
                     # tsreadex のプロセスを作成・実行
