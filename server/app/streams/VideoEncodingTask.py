@@ -632,6 +632,15 @@ class VideoEncodingTask:
                                 if not chunk:
                                     break
                                 WriteAllToPipe(tsreadex_stdin_write, chunk)
+                        except BrokenPipeError:
+                            # tsreadex プロセスが終了した場合（正常なシャットダウン or エラー）
+                            pass
+                        except ValueError as ex:
+                            # ファイルが閉じられた場合（サーバーシャットダウン時など）
+                            if 'closed file' in str(ex):
+                                pass  # 正常なシャットダウンなので何もしない
+                            else:
+                                logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
                         except Exception as ex:
                             logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
                         finally:
@@ -964,6 +973,16 @@ class VideoEncodingTask:
                     except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
 
+                    # tsreadex への入力タスクの完了を待つ
+                    # tsreadex プロセスを kill したので、パイプがクローズされてタスクは終了するはず
+                    if self._tsreadex_feed_task is not None:
+                        try:
+                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                        except TimeoutError:
+                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout.')
+                        except Exception:
+                            pass
+
                 # psisimux プロセスを終了
                 if self._psisimux_process is not None:
                     try:
@@ -997,6 +1016,14 @@ class VideoEncodingTask:
                                     logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                                 except Exception:
                                     pass
+                        # リトライ前にフィードタスクの完了を待つ
+                        if self._tsreadex_feed_task is not None:
+                            try:
+                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                            except TimeoutError:
+                                logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
+                            except Exception:
+                                pass
                         self._encoder_process = None
                         self._tsreadex_process = None
                         self._tsreadex_feed_task = None
@@ -1018,6 +1045,18 @@ class VideoEncodingTask:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
                     self._psisimux_process = None
             else:
+                # フィードタスクが実行中の場合、ファイルをクローズする前に完了を待つ
+                # スレッドで file.read() 実行中に file.close() すると ValueError が発生するため
+                # 通常はリトライループ内で既に完了しているが、念のため再チェック
+                if self._tsreadex_feed_task is not None:
+                    try:
+                        # 最大2秒待機（通常は tsreadex プロセスの kill により即座に終了する）
+                        await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                    except TimeoutError:
+                        logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout, proceeding to close file.')
+                    except Exception:
+                        pass  # その他のエラーは無視
+
                 # ファイルを閉じる
                 file.close()
 
@@ -1033,6 +1072,15 @@ class VideoEncodingTask:
                         logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                     except Exception:
                         pass
+            # finally 句の最後でクリーンアップする前に、フィードタスクの完了を待つ
+            # 通常はリトライループ内で既に完了しているが、念のため再チェック
+            if self._tsreadex_feed_task is not None:
+                try:
+                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=2.0)
+                except TimeoutError:
+                    logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout in finally cleanup.')
+                except Exception:
+                    pass
             self._encoder_process = None
             self._tsreadex_process = None
             self._tsreadex_feed_task = None
