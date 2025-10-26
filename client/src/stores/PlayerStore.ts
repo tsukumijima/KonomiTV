@@ -188,6 +188,13 @@ const usePlayerStore = defineStore('player', {
         // Twitter パネルコンポーネントで利用する、現在モーダルで拡大表示中のキャプチャ
         // UI 上と KeyboardShortcutManager の両方から操作する必要があるため PlayerStore に持たせている
         twitter_zoom_capture: null as ITweetCapture | null,
+
+        // ライブ視聴: 即時録画機能の状態
+        // null: 録画していない, number: 録画中の録画予約 ID
+        instant_recording_reservation_id: null as number | null,
+
+        // ライブ視聴: 即時録画機能の録画処理中フラグ (API リクエスト中)
+        is_instant_recording_processing: false,
     }),
     actions: {
 
@@ -250,6 +257,8 @@ const usePlayerStore = defineStore('player', {
             this.twitter_captures = [];
             this.twitter_zoom_capture_modal = false;
             this.twitter_zoom_capture = null;
+            this.instant_recording_reservation_id = null;
+            this.is_instant_recording_processing = false;
         }
     }
 });

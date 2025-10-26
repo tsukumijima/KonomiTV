@@ -173,6 +173,11 @@ export default defineComponent({
             visibility: visible !important;
         }
     }
+    // コントロール表示時にボタンを表示
+    .watch-player__button {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
 }
 
 // コントロール非表示時

@@ -256,6 +256,13 @@ const handleSettingCoverClick = () => {
                         padding: 5.4px !important;
                     }
                 }
+                // 録画ボタンのスタイル
+                &.dplayer-instant-recording-icon {
+                    transition: color 0.2s ease;
+                    &.dplayer-instant-recording-icon--recording {
+                        color: rgb(var(--v-theme-error));
+                    }
+                }
                 // ブラウザフルスクリーンボタンを削除（実質あまり意味がないため）
                 &.dplayer-full-in-icon {
                     display: none !important;

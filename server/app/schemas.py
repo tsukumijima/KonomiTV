@@ -287,6 +287,18 @@ class ReservationUpdateRequest(BaseModel):
     # 録画設定
     record_settings: RecordSettings
 
+# 即時録画を開始する
+class InstantRecordingStartRequest(BaseModel):
+    # 録画対象のチャンネル ID (display_channel_id)
+    channel_id: str
+    # 録画設定 (省略時はデフォルト設定を使用)
+    record_settings: RecordSettings | None = None
+
+# 即時録画を終了する
+class InstantRecordingStopRequest(BaseModel):
+    # 録画予約 ID
+    reservation_id: int
+
 # キーワード自動予約条件を追加する
 class ReservationConditionAddRequest(BaseModel):
     # 番組検索条件

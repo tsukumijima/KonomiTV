@@ -36,6 +36,146 @@ router = APIRouter(
 _bitrate_ini_cache: dict[str, int] | None = None
 _bitrate_ini_cache_timestamp: float | None = None
 
+# EpgTimerSrv.ini に定義されたデフォルト録画プリセットのキャッシュ (TTL: 5分)
+_default_record_settings_cache: schemas.RecordSettings | None = None
+_default_record_settings_cache_timestamp: float | None = None
+
+
+async def GetDefaultRecordSettingsFromEDCB(edcb: CtrlCmdUtil) -> schemas.RecordSettings | None:
+    """EpgTimerSrv.ini に設定されているデフォルトの録画プリセットを取得して RecordSettings に変換する"""
+
+    global _default_record_settings_cache, _default_record_settings_cache_timestamp
+
+    current_time = time.time()
+
+    # キャッシュが 5 分以内ならそれを使用
+    if (_default_record_settings_cache is not None and
+        _default_record_settings_cache_timestamp is not None and
+        current_time - _default_record_settings_cache_timestamp < 300):
+        return _default_record_settings_cache.model_copy(deep=True)
+
+    try:
+        files = await edcb.sendFileCopy2(['EpgTimerSrv.ini'])
+        if files is None or len(files) == 0:
+            logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] Failed to get EpgTimerSrv.ini from EDCB.')
+            return None
+
+        ini_data = files[0].get('data')
+        if ini_data is None:
+            logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] EpgTimerSrv.ini data is empty.')
+            return None
+
+        # バイナリをテキストに変換 (UTF-16 with BOM または UTF-8)
+        try:
+            if ini_data.startswith(b'\xff\xfe'):
+                ini_text = ini_data.decode('utf-16')
+            else:
+                ini_text = ini_data.decode('utf-8')
+        except UnicodeDecodeError:
+            ini_text = ini_data.decode('shift_jis', errors='ignore')
+
+        config = configparser.ConfigParser()
+        config.optionxform = str  # 大文字小文字を保持
+        config.read_string(ini_text)
+
+        if 'SET' not in config:
+            logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] [SET] section not found in EpgTimerSrv.ini.')
+            return None
+
+        preset_id_raw = config['SET'].get('PresetID', '0')
+        preset_id = 0
+        if preset_id_raw:
+            try:
+                preset_tokens = [token for token in preset_id_raw.replace(' ', '').split(',') if token != '']
+                if len(preset_tokens) > 0:
+                    preset_id = int(preset_tokens[0])
+            except ValueError:
+                logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] Failed to parse PresetID value: %s', preset_id_raw)
+                preset_id = 0
+
+        def get_section_name(base: str) -> str:
+            return base if preset_id == 0 else f'{base}{preset_id}'
+
+        preset_section_name = get_section_name('REC_DEF')
+        if preset_section_name not in config:
+            logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] Preset section %s not found.', preset_section_name)
+            return None
+
+        preset_section = config[preset_section_name]
+
+        def parse_bool(value: str | None, default: bool = False) -> bool:
+            if value is None:
+                return default
+            lowered = value.strip().lower()
+            if lowered in ('', '0', 'false', 'off'):
+                return False
+            return True
+
+        def parse_int(value: str | None, default: int = 0) -> int:
+            if value is None:
+                return default
+            try:
+                return int(value.strip())
+            except ValueError:
+                return default
+
+        def parse_rec_folders(section_name: str) -> list[RecFileSetInfoRequired]:
+            rec_folders: list[RecFileSetInfoRequired] = []
+            if section_name not in config:
+                return rec_folders
+            section = config[section_name]
+            count = parse_int(section.get('Count'), 0)
+            for index in range(count):
+                folder_raw = section.get(str(index), '')
+                folder_path = folder_raw.strip() if isinstance(folder_raw, str) else ''
+                if folder_path == '':
+                    continue
+                write_plugin_raw = section.get(f'{index}WritePlugIn', section.get('WritePlugIn', 'Write_Default.dll'))
+                write_plugin = write_plugin_raw.strip() if isinstance(write_plugin_raw, str) else 'Write_Default.dll'
+                if write_plugin == '':
+                    write_plugin = 'Write_Default.dll'
+                rec_name_plugin_raw = section.get(f'{index}RecNamePlugIn', section.get('RecNamePlugIn', 'RecName_Macro.dll'))
+                rec_name_plugin = rec_name_plugin_raw.strip() if isinstance(rec_name_plugin_raw, str) else 'RecName_Macro.dll'
+                if rec_name_plugin == '':
+                    rec_name_plugin = 'RecName_Macro.dll'
+                rec_folders.append({
+                    'rec_folder': folder_path,
+                    'write_plug_in': write_plugin,
+                    'rec_name_plug_in': rec_name_plugin,
+                })
+            return rec_folders
+
+        rec_setting_data: RecSettingDataRequired = {
+            'rec_mode': parse_int(preset_section.get('RecMode'), 1),
+            'priority': max(parse_int(preset_section.get('Priority'), 3), 1),
+            'tuijyuu_flag': parse_bool(preset_section.get('TuijyuuFlag'), True),
+            'service_mode': parse_int(preset_section.get('ServiceMode'), 0),
+            'pittari_flag': parse_bool(preset_section.get('PittariFlag'), False),
+            'bat_file_path': preset_section.get('BatFilePath', '').strip(),
+            'rec_folder_list': parse_rec_folders(get_section_name('REC_DEF_FOLDER')),
+            'suspend_mode': parse_int(preset_section.get('SuspendMode'), 0),
+            'reboot_flag': parse_bool(preset_section.get('RebootFlag'), False),
+            'continue_rec_flag': parse_bool(preset_section.get('ContinueRec'), False),
+            'partial_rec_flag': parse_int(preset_section.get('PartialRec'), 0),
+            'tuner_id': parse_int(preset_section.get('TunerID'), 0),
+            'partial_rec_folder': parse_rec_folders(get_section_name('REC_DEF_FOLDER_1SEG')),
+        }
+
+        if parse_bool(preset_section.get('UseMargineFlag'), False):
+            rec_setting_data['start_margin'] = parse_int(preset_section.get('StartMargine'), 0)
+            rec_setting_data['end_margin'] = parse_int(preset_section.get('EndMargine'), 0)
+
+        record_settings = DecodeEDCBRecSettingData(rec_setting_data)
+
+        _default_record_settings_cache = record_settings
+        _default_record_settings_cache_timestamp = current_time
+
+        return record_settings.model_copy(deep=True)
+
+    except Exception as ex:
+        logging.warning('[ReservationsRouter][GetDefaultRecordSettingsFromEDCB] Failed to parse default preset.', exc_info=ex)
+        return None
+
 
 async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None, programs: dict[tuple[int, int, int], Program] | None = None) -> schemas.Reservation:
     """
@@ -374,7 +514,8 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
     is_enabled: bool = rec_settings_data['rec_mode'] <= 4  # 0 ~ 4 なら有効
 
     # 録画予約の優先度: 1 ~ 5 の数値で数値が大きいほど優先度が高い
-    priority: int = rec_settings_data['priority']
+    # EDCB のデフォルトプリセットでは 0 が返ってくることがあるため、その場合は 1 に補正する
+    priority: int = max(rec_settings_data['priority'], 1)
 
     # 保存先の録画フォルダのパスのリスト
     recording_folders: list[schemas.RecordingFolder] = []
@@ -1001,3 +1142,174 @@ async def DeleteReservationAPI(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to delete the specified recording reservation',
         )
+
+
+@router.post(
+    '/instant/start',
+    summary = '即時録画開始 API',
+    status_code = status.HTTP_201_CREATED,
+    response_model = schemas.Reservation,
+)
+async def StartInstantRecordingAPI(
+    instant_recording_request: Annotated[schemas.InstantRecordingStartRequest, Body(description='即時録画の設定。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    現在放送中の番組を即時録画開始する。
+    指定されたチャンネルの現在放送中の番組を取得し、現在時刻から番組終了時刻まで録画予約を作成する。
+    """
+
+    # 指定されたチャンネル ID のチャンネルがあるかを確認
+    channel = await Channel.filter(display_channel_id=instant_recording_request.channel_id).get_or_none()
+    if channel is None:
+        logging.error(f'[ReservationsRouter][StartInstantRecordingAPI] Specified channel was not found. [channel_id: {instant_recording_request.channel_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified channel was not found',
+        )
+
+    # EDCB バックエンド利用時は必ずチャンネル情報に transport_stream_id が含まれる
+    assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+
+    # 現在時刻を取得 (日本時間)
+    now = datetime.now(timezone(timedelta(hours=9)))
+
+    # 現在放送中の番組を取得
+    ## データベースから現在時刻が start_time と end_time の間にある番組を取得
+    current_program = await Program.filter(
+        channel_id=channel.id,
+        start_time__lte=now,
+        end_time__gt=now,
+    ).first()
+
+    if current_program is None:
+        logging.error(f'[ReservationsRouter][StartInstantRecordingAPI] No program is currently broadcasting on the specified channel. [channel_id: {instant_recording_request.channel_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'No program is currently broadcasting on the specified channel',
+        )
+
+    # すでに同じ番組の録画予約が存在するかを確認
+    for reserve_data in await GetReserveDataList(edcb):
+        if (reserve_data['onid'] == channel.network_id and
+            reserve_data['tsid'] == channel.transport_stream_id and
+            reserve_data['sid'] == channel.service_id and
+            reserve_data['eid'] == current_program.event_id):
+            logging.error(f'[ReservationsRouter][StartInstantRecordingAPI] The current program is already reserved. [program_id: {current_program.id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'The current program is already reserved',
+            )
+
+    # EDCB から録画予約対象の番組に一致する ServiceEventInfo を取得
+    service_event_info = await GetServiceEventInfo(channel, current_program, edcb)
+
+    # ReserveData オブジェクトに設定するチャンネル情報・番組情報を取得
+    title: str = current_program.title
+    start_time: datetime = current_program.start_time
+    duration_second: int = int(current_program.duration)
+    station_name: str = service_event_info['service_info']['service_name']
+    if len(service_event_info['event_list']) > 0:
+        if 'short_info' in service_event_info['event_list'][0]:
+            if 'event_name' in service_event_info['event_list'][0]['short_info']:
+                title = service_event_info['event_list'][0]['short_info']['event_name']
+        if 'start_time' in service_event_info['event_list'][0]:
+            start_time = service_event_info['event_list'][0]['start_time']
+        if 'duration_sec' in service_event_info['event_list'][0]:
+            duration_second = service_event_info['event_list'][0]['duration_sec']
+
+    # 録画設定を作成 (リクエストで指定されていない場合はEDCBのデフォルトプリセットを使用)
+    # EDCBでは rec_setting を省略すると、EpgTimerSrv.iniで設定されたデフォルトプリセットが自動的に適用される
+    if instant_recording_request.record_settings is not None:
+        # 録画設定が指定されている場合はそれを使用
+        record_settings = instant_recording_request.record_settings
+        rec_setting_data = cast(RecSettingData, EncodeEDCBRecSettingData(record_settings))
+    else:
+        # 録画設定が指定されていない場合は EpgTimerSrv.ini のデフォルトプリセットを取得して適用する
+        default_record_settings = await GetDefaultRecordSettingsFromEDCB(edcb)
+        if default_record_settings is not None:
+            rec_setting_data = cast(RecSettingData, EncodeEDCBRecSettingData(default_record_settings))
+        else:
+            # 取得に失敗した場合は rec_setting を省略して EDCB 側の既定動作に委ねる
+            rec_setting_data = None
+
+    # EDCB の ReserveData オブジェクトを組み立てる
+    add_reserve_data: ReserveData = {
+        'title': title,
+        'start_time': start_time,
+        'start_time_epg': start_time,
+        'duration_second': duration_second,
+        'station_name': station_name,
+        'onid': channel.network_id,
+        'tsid': channel.transport_stream_id,
+        'sid': channel.service_id,
+        'eid': current_program.event_id,
+        'comment': '即時録画',  # コメントで識別できるようにする
+    }
+    # rec_setting が None でない場合のみ追加
+    if rec_setting_data is not None:
+        add_reserve_data['rec_setting'] = rec_setting_data
+
+    # EDCB に録画予約を追加するように指示
+    result = await edcb.sendAddReserve([add_reserve_data])
+    if result is False:
+        logging.error('[ReservationsRouter][StartInstantRecordingAPI] Failed to start instant recording.')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to start instant recording',
+        )
+
+    # 追加された録画予約を取得して返す
+    ## sendAddReserve() からは録画予約 ID が取得できないため、追加直後の録画予約一覧から該当の予約を探す
+    for reserve_data in await GetReserveDataList(edcb):
+        if (reserve_data['onid'] == channel.network_id and
+            reserve_data['tsid'] == channel.transport_stream_id and
+            reserve_data['sid'] == channel.service_id and
+            reserve_data['eid'] == current_program.event_id):
+            return await DecodeEDCBReserveData(reserve_data)
+
+    # ここには到達しないはずだが、念のため
+    logging.error('[ReservationsRouter][StartInstantRecordingAPI] Failed to get the added recording reservation.')
+    raise HTTPException(
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail = 'Failed to get the added recording reservation',
+    )
+
+
+@router.post(
+    '/instant/stop',
+    summary = '即時録画終了 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def StopInstantRecordingAPI(
+    instant_recording_stop_request: Annotated[schemas.InstantRecordingStopRequest, Body(description='即時録画の終了設定。')],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
+):
+    """
+    即時録画を終了する。
+    指定された録画予約を削除することで録画を終了する。
+    """
+
+    # 指定された録画予約が存在するかを確認
+    reserve_data = None
+    for reserve in await GetReserveDataList(edcb):
+        if reserve['reserve_id'] == instant_recording_stop_request.reservation_id:
+            reserve_data = reserve
+            break
+
+    if reserve_data is None:
+        logging.error(f'[ReservationsRouter][StopInstantRecordingAPI] Specified reservation_id was not found. [reservation_id: {instant_recording_stop_request.reservation_id}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Specified reservation_id was not found',
+        )
+
+    # EDCB に指定された録画予約を削除するように指示
+    result = await edcb.sendDelReserve([instant_recording_stop_request.reservation_id])
+    if result is False:
+        logging.error('[ReservationsRouter][StopInstantRecordingAPI] Failed to stop instant recording.')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to stop instant recording',
+        )
+

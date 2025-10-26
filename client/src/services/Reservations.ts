@@ -73,6 +73,21 @@ export interface IReservationUpdateRequest {
 }
 
 /**
+ * 即時録画開始リクエスト
+ */
+export interface IInstantRecordingStartRequest {
+    channel_id: string;
+    record_settings?: IRecordSettings | null;
+}
+
+/**
+ * 即時録画終了リクエスト
+ */
+export interface IInstantRecordingStopRequest {
+    reservation_id: number;
+}
+
+/**
  * 録画予約に関する API 操作を提供するクラス
  */
 class Reservations {
@@ -203,6 +218,80 @@ class Reservations {
                     break;
                 default:
                     APIClient.showGenericError(response, `録画予約 (ID: ${reservation_id}) の削除に失敗しました。`);
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 即時録画を開始する
+     * @param channel_id 録画対象のチャンネル ID (display_channel_id)
+     * @param record_settings 録画設定 (省略時はデフォルト設定を使用)
+     * @returns 成功した場合は録画予約情報、失敗した場合は null
+     */
+    static async startInstantRecording(channel_id: string, record_settings?: IRecordSettings | null): Promise<IReservation | null> {
+        const request_data: IInstantRecordingStartRequest = {
+            channel_id,
+            record_settings: record_settings ?? null,
+        };
+
+        const response = await APIClient.post<IReservation>('/recording/reservations/instant/start', request_data);
+
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                case 'This API is only available when the backend is EDCB':
+                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    break;
+                case 'Specified channel was not found':
+                    APIClient.showGenericError(response, '指定されたチャンネルが見つかりませんでした。');
+                    break;
+                case 'No program is currently broadcasting on the specified channel':
+                    APIClient.showGenericError(response, '現在放送中の番組がありません。');
+                    break;
+                case 'The current program is already reserved':
+                    APIClient.showGenericError(response, 'この番組は既に録画予約されています。');
+                    break;
+                case 'Failed to start instant recording':
+                    APIClient.showGenericError(response, '録画の開始に失敗しました。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, '録画の開始に失敗しました。');
+                    break;
+            }
+            return null;
+        }
+
+        return response.data;
+    }
+
+    /**
+     * 即時録画を終了する
+     * @param reservation_id 録画予約 ID
+     * @returns 成功した場合は true、失敗した場合は false
+     */
+    static async stopInstantRecording(reservation_id: number): Promise<boolean> {
+        const request_data: IInstantRecordingStopRequest = {
+            reservation_id,
+        };
+
+        const response = await APIClient.post<void>('/recording/reservations/instant/stop', request_data);
+
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                case 'This API is only available when the backend is EDCB':
+                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    break;
+                case 'Specified reservation_id was not found':
+                    APIClient.showGenericError(response, '指定された録画予約が見つかりませんでした。');
+                    break;
+                case 'Failed to stop instant recording':
+                    APIClient.showGenericError(response, '録画の終了に失敗しました。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, '録画の終了に失敗しました。');
                     break;
             }
             return false;

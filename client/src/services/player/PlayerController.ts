@@ -17,6 +17,7 @@ import LiveDataBroadcastingManager from '@/services/player/managers/LiveDataBroa
 import LiveEventManager from '@/services/player/managers/LiveEventManager';
 import MediaSessionManager from '@/services/player/managers/MediaSessionManager';
 import PlayerManager from '@/services/player/PlayerManager';
+import Reservations from '@/services/Reservations';
 import Videos from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
@@ -897,6 +898,65 @@ class PlayerController {
                 </span>
             </div>
         `);
+
+        // ライブ視聴時のみ、録画ボタンを追加
+        if (this.playback_mode === 'Live') {
+            this.player.container.querySelector('.dplayer-icons.dplayer-icons-right')!.insertAdjacentHTML('afterbegin', `
+                <div class="dplayer-icon dplayer-instant-recording-icon" aria-label="録画開始"
+                    data-balloon-nofocus="" data-balloon-pos="up">
+                    <span class="dplayer-icon-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8s8 3.58 8 8s-3.58 8-8 8m-3-8c0 1.66 1.34 3 3 3s3-1.34 3-3s-1.34-3-3-3s-3 1.34-3 3"/></svg>
+                    </span>
+                </div>
+            `);
+
+            // 録画ボタンのクリックイベントを設定
+            const recordButton = this.player.container.querySelector('.dplayer-instant-recording-icon')!;
+            recordButton.addEventListener('click', async () => {
+                // 処理中の場合は何もしない
+                if (player_store.is_instant_recording_processing) {
+                    return;
+                }
+
+                player_store.is_instant_recording_processing = true;
+
+                try {
+                    if (player_store.instant_recording_reservation_id === null) {
+                        // 録画開始
+                        const channels_store = useChannelsStore();
+                        const reservation = await Reservations.startInstantRecording(channels_store.display_channel_id);
+                        if (reservation) {
+                            player_store.instant_recording_reservation_id = reservation.id;
+                            // ボタンの表示を更新
+                            recordButton.classList.add('dplayer-instant-recording-icon--recording');
+                            recordButton.setAttribute('aria-label', '録画終了');
+                            recordButton.querySelector('.dplayer-icon-content')!.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8s8 3.58 8 8s-3.58 8-8 8m-2-4h4c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1h-4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1"/></svg>
+                            `;
+                            // 成功通知
+                            this.player?.notice('録画を開始しました', 2000, undefined, undefined);
+                        }
+                    } else {
+                        // 録画終了
+                        const result = await Reservations.stopInstantRecording(player_store.instant_recording_reservation_id);
+                        if (result) {
+                            player_store.instant_recording_reservation_id = null;
+                            // ボタンの表示を更新
+                            recordButton.classList.remove('dplayer-instant-recording-icon--recording');
+                            recordButton.setAttribute('aria-label', '録画開始');
+                            recordButton.querySelector('.dplayer-icon-content')!.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8s8 3.58 8 8s-3.58 8-8 8m-3-8c0 1.66 1.34 3 3 3s3-1.34 3-3s-1.34-3-3-3s-3 1.34-3 3"/></svg>
+                            `;
+                            // 成功通知
+                            this.player?.notice('録画を終了しました', 2000, undefined, undefined);
+                        }
+                    }
+                } finally {
+                    player_store.is_instant_recording_processing = false;
+                }
+            });
+        }
+
         // PlayerRestartRequired イベントとは異なり、通知メッセージなしで即座に PlayerController を再起動する
         this.player.container.querySelector('.dplayer-player-restart-icon')!.addEventListener('click', async () => {
 
@@ -961,7 +1021,53 @@ class PlayerController {
         // 同期処理すると時間が掛かるので、並行して実行する
         await Promise.all(this.player_managers.map((player_manager) => player_manager.init()));
 
+        // ライブ視聴時のみ、現在のチャンネルで録画中の予約があるかチェックし、録画状態を復元する
+        if (this.playback_mode === 'Live') {
+            this.restoreInstantRecordingState();
+        }
+
         console.log('\u001b[31m[PlayerController] Initialized.');
+    }
+
+    /**
+     * ライブ視聴: 現在のチャンネルで録画中の「即時録画」予約があれば、録画状態を復元する
+     * ページ再読み込み時に録画中の状態を維持するために使用する
+     */
+    private async restoreInstantRecordingState(): Promise<void> {
+        const channels_store = useChannelsStore();
+        const player_store = usePlayerStore();
+
+        try {
+            // 録画予約一覧を取得
+            const reservations = await Reservations.fetchReservations();
+            if (!reservations) {
+                return;
+            }
+
+            // 現在のチャンネルで「即時録画」コメント付きの録画予約を探す
+            const instant_recording = reservations.reservations.find(reservation => {
+                return reservation.channel.display_channel_id === channels_store.display_channel_id &&
+                       reservation.comment === '即時録画';
+            });
+
+            // 録画中の予約が見つかった場合、状態を復元
+            if (instant_recording) {
+                player_store.instant_recording_reservation_id = instant_recording.id;
+                
+                // 録画ボタンのUIを更新
+                const recordButton = this.player?.container.querySelector('.dplayer-instant-recording-icon');
+                if (recordButton) {
+                    recordButton.classList.add('dplayer-instant-recording-icon--recording');
+                    recordButton.setAttribute('aria-label', '録画終了');
+                    recordButton.querySelector('.dplayer-icon-content')!.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8s8 3.58 8 8s-3.58 8-8 8m-2-4h4c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1h-4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1"/></svg>
+                    `;
+                    console.log('\u001b[31m[PlayerController] Restored instant recording state. [reservation_id: ' + instant_recording.id + ']');
+                }
+            }
+        } catch (error) {
+            console.error('\u001b[31m[PlayerController] Failed to restore instant recording state:', error);
+        }
     }
 
 
