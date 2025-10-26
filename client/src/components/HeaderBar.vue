@@ -21,7 +21,7 @@
 
 import { pwaInstallHandler } from 'pwa-install-handler';
 import { onMounted, ref, computed, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { NavigationFailureType, isNavigationFailure, useRouter, useRoute } from 'vue-router';
 
 const isButtonDisplay = ref(false);
 const search_query = ref('');
@@ -29,9 +29,25 @@ const router = useRouter();
 const route = useRoute();
 
 // 検索クエリの初期化関数
+const resolveQueryValue = (value: unknown): string | undefined => {
+    if (Array.isArray(value)) {
+        const first = value[0];
+        return typeof first === 'string' ? first : undefined;
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return undefined;
+};
+
 const initialize_search_query = () => {
+    if (route.path.startsWith('/clip-videos')) {
+        search_query.value = resolveQueryValue(route.query.keyword) ?? '';
+        return;
+    }
     if (route.path.endsWith('/search') && route.query.query) {
         search_query.value = decodeURIComponent(route.query.query as string);
+        return;
     }
 };
 
@@ -46,28 +62,69 @@ onMounted(() => {
 watch(() => route.fullPath, initialize_search_query);
 
 const search_placeholder = computed(() => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/watched-history')
-        ? '録画番組を検索...'
-        : '放送予定の番組を検索...';
+    const path = route.path;
+    if (path.startsWith('/clip-videos')) {
+        return 'クリップ動画を検索...';
+    }
+    if (path.startsWith('/videos') || path.startsWith('/mylist') || path.startsWith('/watched-history')) {
+        return '録画番組を検索...';
+    }
+    return '放送予定の番組を検索...';
 });
 
 const getSearchPath = () => {
-    return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/watched-history')
-        ? '/videos/search'
-        : '/tv/search';
+    if (route.path.startsWith('/clip-videos')) {
+        return '/clip-videos/';
+    }
+    if (route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/watched-history')) {
+        return '/videos/search';
+    }
+    return '/tv/search';
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter' && !event.isComposing) {
-        doSearch();
+        void doSearch();
     }
 };
 
-const doSearch = () => {
-    if (search_query.value.trim()) {
-        const search_path = getSearchPath();
-        router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
+const doSearch = async () => {
+    const trimmed = search_query.value.trim();
+    const path = route.path;
+
+    if (path.startsWith('/clip-videos')) {
+        const orderParam = resolveQueryValue(route.query.order);
+        const order = orderParam === 'asc' ? 'asc' : 'desc';
+
+        const query: Record<string, string> = {
+            order,
+            page: '1',
+        };
+        if (trimmed !== '') {
+            query.keyword = trimmed;
+        }
+
+        try {
+            await router.push({
+                path: '/clip-videos/',
+                query,
+            });
+        } catch (error) {
+            if (isNavigationFailure(error, NavigationFailureType.duplicated)) {
+                window.dispatchEvent(new CustomEvent('clip-videos-search', { detail: trimmed }));
+                return;
+            }
+            throw error;
+        }
+        return;
     }
+
+    if (trimmed === '') {
+        return;
+    }
+
+    const search_path = getSearchPath();
+    router.push(`${search_path}?query=${encodeURIComponent(trimmed)}`);
 };
 
 const showSearchInput = computed(() => {

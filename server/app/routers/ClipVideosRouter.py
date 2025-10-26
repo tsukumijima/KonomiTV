@@ -154,6 +154,7 @@ async def ConvertRowToClipVideo(row: dict[str, Any]) -> schemas.ClipVideo:
 async def ClipVideosAPI(
     sort: Annotated[Literal['desc', 'asc'], Query(description='並び順。desc: 新しい順、asc: 古い順。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。', ge=1)] = 1,
+    keyword: Annotated[str | None, Query(description='検索キーワード。', max_length=100)] = None,
 ) -> schemas.ClipVideos:
     """
     クリップ動画のリストを取得する。
@@ -168,10 +169,46 @@ async def ClipVideosAPI(
     # ページング計算
     offset = (page - 1) * PAGE_SIZE
 
+    # 検索キーワードの前処理
+    normalized_keyword = keyword.strip() if keyword else None
+    if normalized_keyword == '':
+        normalized_keyword = None
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+
+    if normalized_keyword is not None:
+        escaped_keyword = (
+            normalized_keyword
+                .replace('\\', '\\\\')
+                .replace('%', '\\%')
+                .replace('_', '\\_')
+        )
+        like_pattern = f'%{escaped_keyword}%'
+        text_search_clause = (
+            "("
+            "COALESCE(cv.title, '') LIKE ? ESCAPE '\\' OR "
+            "COALESCE(cv.alternate_title, '') LIKE ? ESCAPE '\\' OR "
+            "COALESCE(rp.title, '') LIKE ? ESCAPE '\\' OR "
+            "COALESCE(rp.description, '') LIKE ? ESCAPE '\\'"
+            ")"
+        )
+        where_clauses.append(text_search_clause)
+        where_params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
+
+    where_sql = ''
+    if where_clauses:
+        where_sql = 'WHERE ' + ' AND '.join(where_clauses)
+
     # 全体のカウントを取得
-    count_result = await conn.execute_query(
-        'SELECT COUNT(*) as total FROM clip_videos cv WHERE EXISTS (SELECT 1 FROM recorded_videos rv WHERE rv.id = cv.recorded_video_id)'
-    )
+    count_sql = f'''
+        SELECT COUNT(*) as total
+        FROM clip_videos cv
+        INNER JOIN recorded_videos rv ON cv.recorded_video_id = rv.id
+        INNER JOIN recorded_programs rp ON rv.recorded_program_id = rp.id
+        {where_sql}
+    '''
+    count_result = await conn.execute_query(count_sql, list(where_params))
     total = count_result[1][0]['total']
 
     # クリップ動画とそれに紐づく録画番組情報を取得
@@ -241,11 +278,12 @@ async def ClipVideosAPI(
         INNER JOIN recorded_programs rp ON rv.recorded_program_id = rp.id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
         LEFT JOIN series s ON rp.series_id = s.id
+        {where_sql}
         ORDER BY {order_clause}
         LIMIT {PAGE_SIZE} OFFSET {offset}
     '''
 
-    result = await conn.execute_query(sql)
+    result = await conn.execute_query(sql, list(where_params))
     rows = result[1]
 
     # 各行を ClipVideo モデルに変換

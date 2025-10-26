@@ -105,9 +105,17 @@ class ClipVideos {
      * @param page ページ番号 (1始まり)
      * @returns クリップ動画一覧
      */
-    static async fetchClipVideos(sort: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IClipVideos | null> {
+    static async fetchClipVideos(sort: 'desc' | 'asc' = 'desc', page: number = 1, keyword?: string): Promise<IClipVideos | null> {
+        const params: Record<string, string | number> = {
+            sort,
+            page,
+        };
+        if (keyword && keyword.trim() !== '') {
+            params.keyword = keyword.trim();
+        }
+
         const response = await APIClient.get<IClipVideos>('/clip-videos', {
-            params: { sort, page },
+            params,
         });
         if (response.type === 'success') {
             return response.data;

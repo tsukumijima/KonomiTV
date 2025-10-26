@@ -114,7 +114,7 @@ const props = withDefaults(defineProps<{
 });
 
 // Emits
-defineEmits<{
+const emit = defineEmits<{
     (e: 'update:page', page: number): void;
     (e: 'update:sortOrder', order: SortOrder): void;
     (e: 'more'): void;
@@ -132,6 +132,7 @@ const sort_order = ref<SortOrder>(props.sortOrder);
 const displayClipVideos = ref<IClipVideo[]>([...props.clipVideos]);
 // 内部で管理する合計数
 const displayTotal = ref<number>(props.total);
+
 
 // props の page が変更されたら current_page を更新
 watch(() => props.page, (newPage) => {
