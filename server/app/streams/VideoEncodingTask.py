@@ -633,6 +633,9 @@ class VideoEncodingTask:
                             assert file is not None
                             chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
                             while True:
+                                # tsreadex プロセス終了時は速やかにループを抜ける
+                                if self._tsreadex_process is None or self._tsreadex_process.returncode is not None:
+                                    break
                                 chunk = file.read(chunk_size)
                                 if not chunk:
                                     break
