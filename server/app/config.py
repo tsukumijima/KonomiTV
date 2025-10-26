@@ -162,17 +162,25 @@ class _ServerSettingsGeneral(BaseModel):
             # 試しにリクエストを送り、200 (OK) が返ってきたときだけ有効な URL とみなす
             try:
                 response = httpx.get(
-                    # Mirakurun API は http://127.0.0.1:40772//api/version のような二重スラッシュを許容しないので、
+                    # Mirakurun API は http://127.0.0.1:40772//api/tuners のような二重スラッシュを許容しないので、
                     # mirakurun_url の末尾のスラッシュを削除してから endpoint を追加する必要がある
-                    url = str(mirakurun_url).rstrip('/') + '/api/version',
+                    ## 従来は /api/version にアクセスしていたが、Mirakurun 4.0.0-beta.5 以下のバージョンには
+                    ## API 実行時に録画中のストリームがドロップする重大なバグがあるため、他のエンドポイントを使うようにした
+                    ## ref: https://github.com/Chinachu/Mirakurun/commit/27fccf9cd9dd08e56614dabf2ceb1b27a6096f0e
+                    url = str(mirakurun_url).rstrip('/') + '/api/tuners',
                     headers = API_REQUEST_HEADERS,
                     timeout = 20,  # 久々のアクセスだとなぜか時間がかかることがあるため、ここだけタイムアウトを長めに設定
                 )
-                # レスポンスヘッダーの server が mirakc であれば mirakc と判定できる
-                if ('server' in response.headers) and ('mirakc' in response.headers['server']):
+                # レスポンスヘッダーの Server から Mirakurun か mirakc かを判定
+                server_header = response.headers.get('server', '').lower()
+                if 'mirakc' in server_header:
                     mirakurun_or_mirakc = 'mirakc'
+                    # Server ヘッダーからバージョン情報を抽出 (例: mirakc/3.4.4)
+                    version_info = server_header.split('/')[-1] if '/' in server_header else 'unknown'
                 else:
                     mirakurun_or_mirakc = 'Mirakurun'
+                    # Server ヘッダーからバージョン情報を抽出 (例: Mirakurun/3.9.0-rc.4)
+                    version_info = server_header.split('/')[-1] if '/' in server_header else 'unknown'
             except (httpx.NetworkError, httpx.TimeoutException):
                 raise ValueError(
                     f'Mirakurun / mirakc ({mirakurun_url}) にアクセスできませんでした。\n'
@@ -180,7 +188,7 @@ class _ServerSettingsGeneral(BaseModel):
                 )
             try:
                 response_json = response.json()
-                if response.status_code != 200 or response_json.get('current') is None:
+                if response.status_code != 200 or not isinstance(response_json, list) or version_info == 'unknown':
                     raise ValueError()
             except Exception:
                 raise ValueError(
@@ -188,7 +196,7 @@ class _ServerSettingsGeneral(BaseModel):
                     f'{mirakurun_or_mirakc} の URL を間違えている可能性があります。'
                 )
             from app import logging
-            logging.info(f'Backend: {mirakurun_or_mirakc} {response_json.get("current")} ({mirakurun_url})')
+            logging.info(f'Backend: {mirakurun_or_mirakc} {version_info} ({mirakurun_url})')
             if info.data.get('always_receive_tv_from_mirakurun') is True:
                 logging.info(f'Always receive TV from {mirakurun_or_mirakc}.')
         return mirakurun_url
