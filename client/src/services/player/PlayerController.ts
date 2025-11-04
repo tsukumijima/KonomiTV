@@ -803,9 +803,14 @@ class PlayerController {
 
             // 現在の再生画質・再生速度・再生位置を取得
             // この情報がプレイヤー再起動後にレジュームされる
-            const current_quality = this.player?.qualityIndex ? this.player.options.video.quality![this.player.qualityIndex] : null;
-            const current_playback_rate = this.player?.video.playbackRate ?? null;
-            const current_time = this.player?.video.currentTime ?? null;
+            const should_resume_quality = event.should_resume_quality !== false;
+            const quality_index = this.player.qualityIndex ?? null;
+            // 画質プロファイルの既定値を優先する場合は直前の画質を引き継がない
+            const current_quality = should_resume_quality === true && this.player.options.video.quality && typeof quality_index === 'number'
+                ? this.player.options.video.quality[quality_index]
+                : null;
+            const current_playback_rate = this.player.video.playbackRate ?? null;
+            const current_time = this.player.video.currentTime ?? null;
 
             // PlayerController 自身を破棄
             await this.destroy();
@@ -1585,6 +1590,8 @@ class PlayerController {
                     // 他の通知と被らないように、メッセージを遅らせて表示する
                     message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
+                    // モバイル回線プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                    should_resume_quality: false,
                 });
             // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
             } else {
@@ -1594,6 +1601,8 @@ class PlayerController {
                     // 他の通知と被らないように、メッセージを遅らせて表示する
                     message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
+                    // Wi-Fi プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                    should_resume_quality: false,
                 });
             }
         });

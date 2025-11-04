@@ -26,6 +26,7 @@ export type PlayerEvents = {
         message?: string;  // プレイヤーに通知するメッセージ
         message_delay_seconds?: number;  // メッセージを表示するまでの待機時間 (秒)
         is_error_message?: boolean;  // メッセージをエラーメッセージとして表示するか (既定は true)
+        should_resume_quality?: boolean;  // 再起動後に直前の画質を引き継ぐかどうか (既定は true)
     };
     // PlayerController.setControlDisplayTimer() をそのまま呼び出す
     SetControlDisplayTimer: {
