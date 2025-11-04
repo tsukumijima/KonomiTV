@@ -378,9 +378,10 @@ class LiveEncodingTask:
             options.append('--vpp-deband')
         ## H.265/HEVC では HW エンコーダーが対応している場合は 10bit でエンコードし、さらにバンディング耐性を高める
         ## (VCEEncC は 10bit 対応の機種かを判定できず、rkmppenc は 10bit エンコード自体に非対応のため設定しない)
+        ## TODO: 思ったより 10bit HEVC デコードに対応してない Android タブレットが多そうなので個別調整できるようになるまで無効化
         ## ref: https://github.com/tsukumijima/KonomiTV/pull/164#issuecomment-3368738859
-        if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
-            options.append('--output-depth 10 --fallback-bitdepth')
+        # if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
+        #     options.append('--output-depth 10 --fallback-bitdepth')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
