@@ -502,25 +502,6 @@ class TwitterGraphQLAPI:
             headers['x-xp-forwarded-for'] = xpff_header
             logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-XP-Forwarded-For: {xpff_header}')
 
-        # CreateTweet / CreateRetweet エンドポイントのみ、Bearer トークンを旧 TweetDeck / 現 X Pro 用のものに差し替える
-        ## 旧 TweetDeck 用 Bearer トークン自体は現在も X Pro 用として使われているからか (ただし URL は https://pro.x.com/i/graphql/ 配下) 、
-        ## 2024/08/08 現在では Twitter Web App 用 Bearer トークンでリクエストした際と異なり、スパム判定によるツイート失敗がほとんどないメリットがある
-        ## なぜこの Bearer トークンが使えるのかはよく分からないが、実際 OldTweetDeck でも同様の実装で数ヶ月運用されている
-        ## 今後対策される可能性もなくもないが実装時点ではうまく機能しているので、推定ユーザー数万人を有する OldTweetDeck の実装に合わせる
-        ## 2025/05/13 現在は FavoriteTweet / SearchTimeline も同様の対応が必要
-        ## UnfavoriteTweet はこの対応をしなくても動作するが、対になる操作のためリストに入れている
-        ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1208-L1219
-        ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/v4.0.3/src/interception.js#L1273-L1292
-        ## ref: https://github.com/dimdenGD/OldTweetDeck/commit/7afe6fce041943f32838825660815588c0f501ed
-        if endpoint_info.endpoint in [
-            'CreateTweet',
-            'CreateRetweet',
-            'FavoriteTweet',
-            'UnfavoriteTweet',
-            'SearchTimeline',
-        ]:
-            headers['authorization'] = self.cookie_session_user_handler.TWEETDECK_BEARER_TOKEN
-
         # Twitter GraphQL API に HTTP リクエストを送信する
         try:
             if endpoint_info.method == 'POST':

@@ -3,7 +3,6 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import asyncio
 import json
 import time
 from typing import TYPE_CHECKING
@@ -55,25 +54,27 @@ class TwitterAccount(TortoiseModel):
                 await twitter_account.delete()
                 continue
 
-            # tweepy の API インスタンスを取得
-            api = twitter_account.getTweepyAPI()
+            # 2025年11月の OldTweetDeck 絡みの凍結祭りに鑑み、当面バックグラウンドで API アクセスを行う以下の処理を無効化
 
-            # アカウント情報を更新
-            try:
-                verify_credentials = await asyncio.to_thread(api.verify_credentials)
-            except tweepy.TweepyException as ex:
-                logging.error(f'Failed to get user information for Twitter account @{twitter_account.screen_name}', exc_info=ex)
-                continue
-            # アカウント名
-            twitter_account.name = verify_credentials.name
-            # スクリーンネーム
-            twitter_account.screen_name = verify_credentials.screen_name
-            # アイコン URL
-            ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-            twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+            # # tweepy の API インスタンスを取得
+            # api = twitter_account.getTweepyAPI()
 
-            # 更新したアカウント情報を保存
-            await twitter_account.save()
+            # # アカウント情報を更新
+            # try:
+            #     verify_credentials = await asyncio.to_thread(api.verify_credentials)
+            # except tweepy.TweepyException as ex:
+            #     logging.error(f'Failed to get user information for Twitter account @{twitter_account.screen_name}', exc_info=ex)
+            #     continue
+            # # アカウント名
+            # twitter_account.name = verify_credentials.name
+            # # スクリーンネーム
+            # twitter_account.screen_name = verify_credentials.screen_name
+            # # アイコン URL
+            # ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
+            # twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+
+            # # 更新したアカウント情報を保存
+            # await twitter_account.save()
 
         logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
