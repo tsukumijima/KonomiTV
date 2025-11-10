@@ -1,7 +1,6 @@
 
 import Message from '@/message';
 import APIClient from '@/services/APIClient';
-import useTwitterStore from '@/stores/TwitterStore';
 
 
 /** Twitter アカウントと連携するための認証 URL を表すインターフェイス */
@@ -63,25 +62,6 @@ export interface ITimelineTweetsResult extends ITwitterAPIResult {
     previous_cursor_id: string;
     tweets: ITweet[];
 }
-
-/** Twitter チャレンジデータを表すインターフェイス */
-export interface ITwitterChallengeData extends ITwitterAPIResult {
-    endpoint_infos: { [key: string]: ITwitterGraphQLAPIEndpointInfo };
-    verification_code: string;
-    challenge_js_code: string;
-    vendor_js_code: string;
-    challenge_animation_svg_codes: string[];
-}
-
-/** Twitter GraphQL API のエンドポイント情報を表すインターフェイス */
-export interface ITwitterGraphQLAPIEndpointInfo {
-    method: 'GET' | 'POST';
-    query_id: string;
-    endpoint: string;
-    features: { [key: string]: any } | null;
-    path: string;
-}
-
 
 class Twitter {
 
@@ -160,36 +140,6 @@ class Twitter {
 
 
     /**
-     * Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要な Challenge 情報を取得する
-     * @param screen_name Twitter のスクリーンネーム
-     * @returns Challenge 情報
-     */
-    static async fetchChallengeData(screen_name: string): Promise<ITwitterChallengeData | null> {
-
-        // API リクエストを実行
-        const response = await APIClient.get<ITwitterChallengeData>(`/twitter/accounts/${screen_name}/challenge-data`);
-
-        // エラー処理
-        if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'Twitter の Challenge 情報を取得できませんでした。');
-                    break;
-            }
-            return null;
-        }
-
-        // HTTP エラーではないが、実際には処理が失敗した場合
-        if (response.data.is_success === false) {
-            Message.error(response.data.detail);
-            return null;
-        }
-
-        return response.data;
-    }
-
-
-    /**
      * ツイートを送信する
      * @param screen_name Twitter のスクリーンネーム
      * @param text ツイート本文
@@ -204,15 +154,10 @@ class Twitter {
             form_data.append('images', tweet_capture);
         }
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'CreateTweet');
-
         // API リクエストを実行
         const response = await APIClient.post<IPostTweetResult>(`/twitter/accounts/${screen_name}/tweets`, form_data, {
             headers: {
                 'Content-Type': 'multipart/form-data',
-                'X-Client-Transaction-ID': x_client_transaction_id,
             },
             // 連投間隔によってはツイート送信に時間がかかるため、
             // タイムアウトを 10 分に設定
@@ -253,14 +198,8 @@ class Twitter {
      */
     static async retweet(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'CreateRetweet');
-
         // API リクエストを実行
-        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, undefined, {
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
-        });
+        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, undefined);
 
         // エラー処理
         if (response.type === 'error') {
@@ -290,14 +229,8 @@ class Twitter {
      */
     static async cancelRetweet(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'DeleteRetweet');
-
         // API リクエストを実行
-        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, {
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
-        });
+        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`);
 
         // エラー処理
         if (response.type === 'error') {
@@ -327,14 +260,8 @@ class Twitter {
      */
     static async favorite(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'FavoriteTweet');
-
         // API リクエストを実行
-        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, undefined, {
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
-        });
+        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, undefined);
 
         // エラー処理
         if (response.type === 'error') {
@@ -364,14 +291,8 @@ class Twitter {
      */
     static async cancelFavorite(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'UnfavoriteTweet');
-
         // API リクエストを実行
-        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, {
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
-        });
+        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`);
 
         // エラー処理
         if (response.type === 'error') {
@@ -401,14 +322,9 @@ class Twitter {
      */
     static async getHomeTimeline(screen_name: string, cursor_id?: string): Promise<ITimelineTweetsResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'HomeLatestTimeline');
-
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/timeline`, {
             params: { cursor_id },
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
         });
 
         // エラー処理
@@ -440,14 +356,9 @@ class Twitter {
      */
     static async searchTweets(screen_name: string, query: string, cursor_id?: string): Promise<ITimelineTweetsResult | null> {
 
-        // Twitter の GraphQL API へのリクエストに必要な X-Client-Transaction-ID ヘッダーを Challenge を解決することで算出する
-        // X-Client-Transaction-ID を設定せずとも API 操作は可能だが、垢ロックやツイート失敗の確率が上がる
-        const x_client_transaction_id = await useTwitterStore().solveChallenge(screen_name, 'SearchTimeline');
-
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/search`, {
             params: { query, cursor_id },
-            headers: {'X-Client-Transaction-ID': x_client_transaction_id},
         });
 
         // エラー処理
