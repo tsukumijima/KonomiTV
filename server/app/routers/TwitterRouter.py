@@ -1,6 +1,5 @@
 
 import asyncio
-import json
 from collections.abc import Coroutine
 from typing import Annotated, Any, Literal, cast
 
@@ -17,7 +16,6 @@ from fastapi import (
     UploadFile,
     status,
 )
-from tweepy_authlib import CookieSessionUserHandler
 
 from app import logging, schemas
 from app.models.TwitterAccount import TwitterAccount
@@ -54,6 +52,16 @@ async def GetCurrentTwitterAccount(
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
 
+    # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) は利用できない
+    # これが検出された場合、その場で当該レコードを削除する
+    if twitter_account[0].access_token != 'NETSCAPE_COOKIE_FILE':
+        logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] Old cookie format or OAuth session is no longer available. [screen_name: {twitter_account[0].screen_name}]')
+        await twitter_account[0].delete()
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Old cookie format or OAuth session is no longer available',
+        )
+
     return twitter_account[0]
 
 
@@ -62,115 +70,92 @@ async def GetCurrentTwitterAccount(
     summary = 'Twitter 認証 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def TwitterPasswordAuthAPI(
-    auth_request: Annotated[schemas.TwitterPasswordAuthRequest | schemas.TwitterCookieAuthRequest, Body(description='Twitter 認証リクエスト')],
+async def TwitterCookieAuthAPI(
+    auth_request: Annotated[schemas.TwitterCookieAuthRequest, Body(description='Twitter 認証リクエスト')],
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
-    tweepy-authlib によるパスワードログイン or 指定された Cookie 情報で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
+    指定された Cookie 情報 (Netscape 形式) で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
     """
 
-    # スクリーンネームとパスワードでログインを実行し、Cookie を取得
-    if isinstance(auth_request, schemas.TwitterPasswordAuthRequest):
-
-        # 万が一スクリーンネームに @ が含まれていた場合は事前に削除する
-        auth_request.screen_name = auth_request.screen_name.replace('@', '')
-
-        try:
-            # ログインには数秒かかるため、非同期で実行
-            auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
-                screen_name=auth_request.screen_name,
-                password=auth_request.password,
-            )
-        except tweepy.HTTPException as ex:
-            # パスワードが間違っている、Twitter サーバー側の規制が強化された、Twitter が鯖落ちしているなどの理由で認証に失敗した
-            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password. ({error_message}) [screen_name: {auth_request.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to authenticate with password ({error_message})',
-            )
-        except tweepy.TweepyException as ex:
-            # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
-            error_message = f'Message: {ex}'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password. ({error_message}) [screen_name: {auth_request.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Unexpected error occurred while authenticate with password ({error_message})',
-            )
-
-        # 現在のログインセッションの Cookie を取得
-        cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
-
-    # cookies.txt (Netscape 形式) をパースして Cookie を取得
-    else:
-
-        try:
-            # cookies.txt の内容を行ごとに分割
-            cookies_lines = auth_request.cookies_txt.strip().split('\n')
-            cookies: dict[str, str] = {}
-            for line in cookies_lines:
-                # コメント行やヘッダー行をスキップ
-                if line.startswith('#') or line.startswith('# ') or not line.strip():
-                    continue
-                # タブで分割し、必要な情報を取得
-                parts = line.split('\t')
-                if len(parts) >= 7:
-                    domain, _, _, _, _, name, value = parts[:7]
-                    # ドメインが .twitter.com または .x.com の場合のみ処理
-                    if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
-                        cookies[name] = value
-            if not cookies:
-                logging.error('[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided cookies.txt.')
-                raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'No valid cookies found in the provided cookies.txt',
-                )
-        except Exception as ex:
-            error_message = f'Failed to parse cookies.txt: {ex!s}'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] {error_message}')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = error_message,
-            )
+    # cookies.txt (Netscape 形式) をパースして Cookie が取得できるかを試す
+    # パースしたデータ自体は使われないが、正しいフォーマットかを検証するために必須
+    try:
+        # cookies.txt の内容を行ごとに分割
+        cookies_lines = auth_request.cookies_txt.strip().split('\n')
+        cookies: dict[str, str] = {}
+        for line in cookies_lines:
+            # コメント行やヘッダー行をスキップ
+            if line.startswith('#') or line.startswith('# ') or not line.strip():
+                continue
+            # タブで分割し、必要な情報を取得
+            parts = line.split('\t')
+            if len(parts) >= 7:
+                domain, _, _, _, _, name, value = parts[:7]
+                # ドメインが .twitter.com または .x.com の場合のみ処理
+                if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
+                    cookies[name] = value
+    except Exception as ex:
+        error_message = f'Failed to parse cookies.txt: {ex!s}'
+        logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] {error_message}')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = error_message,
+        ) from ex
+    if not cookies:
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] No valid cookies found in the provided cookies.txt.')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'No valid cookies found in the provided cookies.txt',
+        )
 
     # TwitterAccount のレコードを作成
-    ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "DIRECT_COOKIE_SESSION" または "COOKIE_SESSION" の固定値、
-    ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
-    ## ここでは ORM クラスのみを作成し、Twitter アカウント情報を取得した後に DB に保存する
+    ## アクセストークンは "NETSCAPE_COOKIE_FILE" の固定値、
+    ## アクセストークンシークレットとして Netscape 形式の Cookie ファイルの内容をそのまま保存する
+    ## ここでは ORM インスタンスのみを作成し、実際にログイン中の Twitter アカウント情報を取得できた段階で DB に保存する
     twitter_account = TwitterAccount(
         user = current_user,
         name = 'Temporary',
         screen_name = 'Temporary',
         icon_url = 'Temporary',
-        # Cookie ログインの場合は "DIRECT_COOKIE_SESSION" で、パスワードログインの場合は "COOKIE_SESSION" で固定
-        access_token = 'DIRECT_COOKIE_SESSION' if isinstance(auth_request, schemas.TwitterCookieAuthRequest) else 'COOKIE_SESSION',
-        access_token_secret = json.dumps(cookies, ensure_ascii=False),
+        # Netscape Cookie ファイル形式の場合は "NETSCAPE_COOKIE_FILE" で固定
+        access_token = 'NETSCAPE_COOKIE_FILE',
+        # Netscape 形式の Cookie ファイルの内容をそのまま保存
+        access_token_secret = auth_request.cookies_txt,
     )
 
-    # tweepy の API インスタンスを取得
-    tweepy_api = twitter_account.getTweepyAPI()
-
-    # 自分の Twitter アカウント情報を取得
+    # 現在ログイン中の Twitter アカウント情報を取得
     try:
-        verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
-    except tweepy.TweepyException as ex:
-        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information for Twitter account @{twitter_account.screen_name}:', exc_info=ex)
+        viewer_result = await TwitterGraphQLAPI(twitter_account).fetchLoggedViewer()
+    except Exception as ex:
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get user information',
+        ) from ex
+
+    # ユーザー情報の取得に失敗した場合
+    if isinstance(viewer_result, schemas.TwitterAPIResult) and viewer_result.is_success is False:
+        logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information: {viewer_result.detail}')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = viewer_result.detail,
+        )
+
+    # viewer_result が TweetUser の場合のみ処理を続行
+    if not isinstance(viewer_result, schemas.TweetUser):
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information: Invalid response type')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get user information',
         )
 
     # アカウント名を設定
-    twitter_account.name = verify_credentials.name
+    twitter_account.name = viewer_result.name
     # スクリーンネームを設定
-    twitter_account.screen_name = verify_credentials.screen_name
+    twitter_account.screen_name = viewer_result.screen_name
     # アイコン URL を設定
-    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-    twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+    twitter_account.icon_url = viewer_result.icon_url
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
     existing_accounts = await TwitterAccount.filter(
@@ -194,18 +179,26 @@ async def TwitterPasswordAuthAPI(
             if account.id != oldest_account.id:
                 await account.delete()
 
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Updated existing account and removed {len(existing_accounts) - 1} duplicate(s). [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Updated existing account and removed {len(existing_accounts) - 1} duplicate(s). [screen_name: {twitter_account.screen_name}]')
 
     # 既存のアカウントが見つからなかった場合、新しいアカウント情報を DB に保存
     else:
         await twitter_account.save()
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Created new account. [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Created new account. [screen_name: {twitter_account.screen_name}]')
+
+    # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) を自動削除
+    ## これにより、古い OAuth 認証や旧 Cookie 形式のレコードが処理に用いられないようにする
+    old_format_accounts = await TwitterAccount.filter(
+        user_id = current_user.id,
+    ).exclude(access_token = 'NETSCAPE_COOKIE_FILE')
+    if old_format_accounts:
+        deleted_count = await TwitterAccount.filter(
+            user_id = current_user.id,
+        ).exclude(access_token = 'NETSCAPE_COOKIE_FILE').delete()
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted {deleted_count} old format account(s).')
 
     # 処理完了
-    if isinstance(auth_request, schemas.TwitterCookieAuthRequest):
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with cookie. [screen_name: {twitter_account.screen_name}]')
-    else:
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with password. [screen_name: {twitter_account.screen_name}]')
+    logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Logged in with cookie. [screen_name: {twitter_account.screen_name}]')
 
 
 @router.delete(
@@ -220,43 +213,6 @@ async def TwitterAccountDeleteAPI(
     指定された Twitter アカウントの連携を解除する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
-
-    assert twitter_account.access_token in ['COOKIE_SESSION', 'DIRECT_COOKIE_SESSION'], 'OAuth session is no longer available.'
-
-    # パスワードログイン (COOKIE_SESSION) の場合は明示的にログアウト処理を行う
-    ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
-    ## Cookie ログイン (DIRECT_COOKIE_SESSION) の場合はここでログアウトするとブラウザ側もログアウトされてしまうので、行わない
-    if twitter_account.access_token == 'COOKIE_SESSION':
-        cookie_session_user_handler = twitter_account.getTweepyAuthHandler()
-        try:
-            await asyncio.to_thread(cookie_session_user_handler.logout)
-            logging.info(f'[TwitterRouter][TwitterAccountDeleteAPI] Logged out with password. [screen_name: {twitter_account.screen_name}]')
-        except tweepy.HTTPException as ex:
-            # サーバーエラーが発生した
-            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-                # Code: 32 が返された場合、現在のログインセッションが強制的に無効化 (強制ログアウト) されている
-                ## この場合同時にアカウントごとロックされ (解除には Arkose チャレンジのクリアが必要) 、
-                ## また当該アカウントの Twitter Web App でのログインセッションが全て無効化されるケースが大半
-                ## エラーは送出せず、当該 Twitter アカウントに紐づくレコードを削除して連携解除とする
-                if ex.api_codes[0] == 32:
-                    await twitter_account.delete()
-                    return
-                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout. ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to logout ({error_message})',
-            )
-        except tweepy.TweepyException as ex:
-            # 予期せぬエラーが発生した
-            error_message = f'Message: {ex}'
-            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout. ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Unexpected error occurred while logging out ({error_message})',
-            )
 
     # 指定された Twitter アカウントのレコードを削除
     ## Cookie 情報などが保持されたレコードを削除することで連携解除とする

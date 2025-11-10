@@ -259,10 +259,6 @@ class UserUpdateRequestForAdmin(BaseModel):
 class TwitterCookieAuthRequest(BaseModel):
     cookies_txt: str
 
-class TwitterPasswordAuthRequest(BaseModel):
-    screen_name: str
-    password: str
-
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
 
