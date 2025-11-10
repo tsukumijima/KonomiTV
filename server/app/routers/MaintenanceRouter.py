@@ -33,7 +33,6 @@ from app.models.Channel import Channel
 from app.models.Program import Program
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
-from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 
@@ -174,7 +173,6 @@ async def UpdateDatabaseAPI():
     await Channel.update()
     await Channel.updateJikkyoStatus()
     await Program.update(multiprocess=True)
-    await TwitterAccount.updateAccountsInformation()
 
 
 @router.post(

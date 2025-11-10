@@ -23,7 +23,6 @@ from app.constants import (
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.models.Channel import Channel
 from app.models.Program import Program
-from app.models.TwitterAccount import TwitterAccount
 from app.routers import (
     CapturesRouter,
     ChannelsRouter,
@@ -191,9 +190,6 @@ async def Startup():
     # 番組情報を更新
     await Program.update()
 
-    # 登録されている Twitter アカウントの情報を更新
-    await TwitterAccount.updateAccountsInformation()
-
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channel.filter(is_watchable=True).order_by('channel_number'):
         for quality in QUALITY:
@@ -224,12 +220,6 @@ async def UpdateChannelAndProgram():
 @repeat_every(seconds=0.5 * 60, wait_first=0.5 * 60, logger=logging.logger)
 async def UpdateChannelJikkyoStatus():
     await Channel.updateJikkyoStatus()
-
-# 1時間に1回、登録されている Twitter アカウントの情報を更新する
-@app.on_event('startup')
-@repeat_every(seconds=60 * 60, wait_first=60 * 60, logger=logging.logger)
-async def UpdateTwitterAccountInformation():
-    await TwitterAccount.updateAccountsInformation()
 
 # サーバーの終了時に実行する
 cleanup = False
