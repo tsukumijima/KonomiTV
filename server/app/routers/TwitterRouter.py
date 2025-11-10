@@ -168,6 +168,9 @@ async def TwitterCookieAuthAPI(
     twitter_account.screen_name = viewer_result.screen_name
     # アイコン URL を設定
     twitter_account.icon_url = viewer_result.icon_url
+    # Cookie を暗号化して保持
+    encrypted_cookie = await twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
+    twitter_account.access_token_secret = encrypted_cookie
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
     existing_accounts = await TwitterAccount.filter(
@@ -183,7 +186,7 @@ async def TwitterCookieAuthAPI(
         oldest_account.name = twitter_account.name  # アカウント名
         oldest_account.icon_url = twitter_account.icon_url  # アイコン URL
         oldest_account.access_token = twitter_account.access_token  # アクセストークン
-        oldest_account.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        oldest_account.access_token_secret = encrypted_cookie  # アクセストークンシークレット
         await oldest_account.save()
 
         # 他の重複アカウントを削除
@@ -268,7 +271,7 @@ async def TwitterTweetAPI(
         # 画像をアップロードするタスク
         # TODO: 本来はここもヘッドレスブラウザ経由で送信すべきだが、おそらく画像の受け渡しが面倒なのと、
         # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままでセキュリティも緩そうなので当面これで行く…
-        tweepy_api = twitter_account.getTweepyAPI()
+        tweepy_api = await twitter_account.getTweepyAPI()
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload,

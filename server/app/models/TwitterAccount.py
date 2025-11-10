@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import tweepy
+from cryptography.fernet import InvalidToken
 from fastapi import HTTPException, status
 from requests.cookies import RequestsCookieJar
 from tortoise import fields
@@ -13,6 +14,10 @@ from tortoise.models import Model as TortoiseModel
 from tweepy_authlib import CookieSessionUserHandler
 
 from app import logging
+from app.constants import (
+    TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX,
+    TWITTER_ACCOUNT_COOKIE_FERNET,
+)
 
 
 if TYPE_CHECKING:
@@ -39,7 +44,52 @@ class TwitterAccount(TortoiseModel):
     updated_at = fields.DatetimeField(auto_now=True)
 
 
-    def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
+    async def encryptAccessTokenSecret(self, plain_text: str) -> str:
+        """
+        Netscape 形式の Cookie を暗号化して返す。
+
+        Returns:
+            str: 暗号化済みのテキスト
+        """
+
+        # 空文字は暗号化不要なのでそのまま返して無駄な処理を避ける
+        if plain_text == '':
+            return ''
+        # Fernet で暗号化し、接頭辞を付けて暗号化済みであることを明示する
+        encrypted_text = TWITTER_ACCOUNT_COOKIE_FERNET.encrypt(plain_text.encode('utf-8')).decode('utf-8')
+        return f'{TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX}{encrypted_text}'
+
+
+    async def decryptAccessTokenSecret(self) -> str:
+        """
+        データベースに保存されている Cookie を復号して返す。
+
+        Returns:
+            str: 復号済みのテキスト
+        """
+
+        # 暗号化された Cookie の接頭辞がない場合はそのまま返す
+        encrypted_text = self.access_token_secret or ''
+        if encrypted_text == '':
+            return ''
+        # 接頭辞が無い (= 従来形式) 場合は平文として扱う
+        if encrypted_text.startswith(TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX) is False:
+            return encrypted_text
+
+        # 暗号化された Cookie の接頭辞を除去して復号する
+        token = encrypted_text[len(TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX):].encode('utf-8')
+        try:
+            decrypted_text = TWITTER_ACCOUNT_COOKIE_FERNET.decrypt(token).decode('utf-8')
+        except InvalidToken as ex:
+            logging.error('[TwitterAccount][decryptAccessTokenSecret] Failed to decrypt cookie:', exc_info=ex)
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Failed to decrypt Twitter cookies. Please re-link your Twitter account.',
+            ) from ex
+        return decrypted_text
+
+
+    async def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
         """
         tweepy の認証ハンドラーを取得する
         access_token_secret には Netscape 形式の Cookie ファイルの内容が格納されている想定
@@ -57,7 +107,7 @@ class TwitterAccount(TortoiseModel):
 
             # access_token_secret から Netscape 形式の Cookie をパースし、RequestCookieJar オブジェクトを作成
             cookies = RequestsCookieJar()
-            cookies_txt_content = self.access_token_secret
+            cookies_txt_content = await self.decryptAccessTokenSecret()
             # TwitterScrapeBrowser の parseNetscapeCookieFile を使って Cookie をパース
             cookie_params = TwitterScrapeBrowser.parseNetscapeCookieFile(cookies_txt_content)
             # CookieParam から RequestsCookieJar に変換
@@ -81,7 +131,7 @@ class TwitterAccount(TortoiseModel):
         return auth_handler
 
 
-    def getTweepyAPI(self) -> tweepy.API:
+    async def getTweepyAPI(self) -> tweepy.API:
         """
         tweepy の API インスタンスを取得する
 
@@ -90,4 +140,5 @@ class TwitterAccount(TortoiseModel):
         """
 
         # auth_handler で初期化した tweepy.API インスタンスを返す
-        return tweepy.API(auth=self.getTweepyAuthHandler())
+        auth_handler = await self.getTweepyAuthHandler()
+        return tweepy.API(auth=auth_handler)

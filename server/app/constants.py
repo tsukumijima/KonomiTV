@@ -1,4 +1,6 @@
 
+import base64
+import hashlib
 import pkgutil
 import secrets
 import sys
@@ -6,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
+from cryptography.fernet import Fernet
 from passlib.context import CryptContext
 from pydantic import BaseModel, PositiveInt
 
@@ -365,6 +368,15 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーをロードする
 with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as file:
     JWT_SECRET_KEY = file.read().strip()
+
+# 暗号化された Cookie の接頭辞
+TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX = 'enc:'
+# Cookie の暗号化に使う Fernet の暗号化キー
+TWITTER_ACCOUNT_COOKIE_FERNET_KEY = base64.urlsafe_b64encode(
+    hashlib.sha256(JWT_SECRET_KEY.encode('utf-8')).digest(),
+)
+# Cookie の暗号化に使う Fernet のインスタンス
+TWITTER_ACCOUNT_COOKIE_FERNET = Fernet(TWITTER_ACCOUNT_COOKIE_FERNET_KEY)
 
 # パスワードハッシュ化のための設定
 PASSWORD_CONTEXT = CryptContext(
