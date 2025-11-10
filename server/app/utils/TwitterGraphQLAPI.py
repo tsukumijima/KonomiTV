@@ -4,12 +4,10 @@ import json
 import re
 import time
 from datetime import datetime
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal
 from zoneinfo import ZoneInfo
 
-from bs4 import BeautifulSoup
 from curl_cffi import requests as curl_requests
-from tweepy_authlib import XPFFHeaderGenerator
 from typing_extensions import TypedDict
 
 from app import logging, schemas
@@ -187,13 +185,6 @@ class TwitterGraphQLAPI:
         416: 'Twitter API アプリケーションが無効化されています。',
     }
 
-    # Challenge 情報のキャッシュの有効期限 (秒)
-    CHALLENGE_INFO_CACHE_EXPIRATION_TIME = 60 * 60  # 1 時間
-
-    # アカウントごとに Challenge 情報を 60 分間キャッシュするための辞書
-    ## Twitter Web App は PWA のため、2回目以降のロードでは Service Worker から HTML や JS が返されている
-    ## そのため、毎回取得するのではなく一定期間同一の Challenge 情報を返した方がより公式のロジックに近くなると考えられる
-    __challenge_info_cache: ClassVar[dict[str, tuple[float, schemas.TwitterChallengeData]]] = {}
 
     # ツイートの最小送信間隔 (秒)
     MINIMUM_TWEET_INTERVAL = 20  # 必ずアカウントごとに 20 秒以上間隔を空けてツイートする
@@ -217,14 +208,6 @@ class TwitterGraphQLAPI:
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
         ## GraphQL API 用ヘッダー
         self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers(cross_origin=True)
-        ## HTML 用ヘッダー
-        self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()
-        ## JavaScript 用ヘッダー
-        self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)
-
-        # X-XP-Forwarded-For ヘッダーを生成するために使う XPFFHeaderGenerator インスタンス
-        # User-Agent は CookieSessionUserHandler が使うものと同じ文字列を設定する
-        self.xpff_header_generator = XPFFHeaderGenerator(self.cookie_session_user_handler.USER_AGENT)
 
         # 指定されたアカウントへの認証情報が含まれる Cookie を取得し、curl_cffi.requests.Cookies に変換
         ## ここで生成した Cookie を HTTP クライアントに渡す
@@ -344,136 +327,9 @@ class TwitterGraphQLAPI:
         await self.twitter_account.save()
 
 
-    async def fetchChallengeData(self) -> schemas.TwitterChallengeData | schemas.TwitterAPIResult:
-        """
-        Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要な Challenge 情報を取得する
-        X-Client-Transaction-ID はスクレイピング回避のためのヘッダーで、難読化された JavaScript に含まれる算出関数に検証コード
-        (twitter-site-verification) とアニメーション SVG (svg[id^="loading-x"] の outerHTML) を投入することで算出される
-
-        詳細な動作原理はよく理解できていないが、ともかくアニメーション SVG のレンダリングや JavaScript の実行にブラウザエンジンが必要になるため、
-        Python 製のサーバーだけでは X-Client-Transaction-ID を算出できない
-        そのため、サーバー側では X-Client-Transaction-ID の算出に必要な Challenge 情報を返し、そのデータを元にブラウザ上のフロントエンドで算出した
-        X-Client-Transaction-ID をサーバーへの API リクエストに含めてもらい、受け取った値を GraphQL API リクエスト時に送信する設計としている
-
-        ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/challenge.js#L150-L169
-        ref: https://antibot.blog/twitter-header-part-3/
-
-        Returns:
-            schemas.TwitterChallengeData | schemas.TwitterAPIResult: Challenge 情報またはエラーメッセージ
-        """
-
-        # まだ有効であればキャッシュから Challenge 情報を取得
-        ## 頻繁にこの操作が行われると不審と判断される可能性があるため、一定期間フロントエンドに対し同一の Challenge 情報を使わせる
-        if self.twitter_account.screen_name in self.__challenge_info_cache:
-            cached_time, cached_challenge_data = self.__challenge_info_cache[self.twitter_account.screen_name]
-            if time.time() - cached_time < self.CHALLENGE_INFO_CACHE_EXPIRATION_TIME:
-                return cached_challenge_data
-
-        # Twitter Web App (SPA) の HTML を取得
-        ## HTML リクエスト用のヘッダーに差し替えるのが重要
-        twitter_web_app_html = await self.curl_session.get('https://x.com/home', headers=self.html_headers_dict)
-        if twitter_web_app_html.status_code != 200:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch Twitter Web App HTML: {twitter_web_app_html.status_code}')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = f'Challenge 情報の取得に失敗しました。Twitter Web App の HTML を取得できませんでした。(HTTP Error {twitter_web_app_html.status_code})',
-            )
-        twitter_web_app_html_text = twitter_web_app_html.text
-
-        # BeautifulSoup を使って HTML をパース
-        soup = BeautifulSoup(twitter_web_app_html_text, 'html.parser')
-
-        # HTML の meta タグに含まれる検証コードを取得
-        meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
-        if meta_tag is None:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML.')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から検証コードを取得できませんでした。',
-            )
-        verification_code = cast(str, meta_tag['content'])
-
-        # HTML からチャレンジコードを取得
-        challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
-        if not challenge_code_match:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML.')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
-            )
-        challenge_code = challenge_code_match.group(1)
-
-        # HTML から vendor コードを取得
-        vendor_code_match = re.search(r'vendor\.(\w+)\.js["\']', twitter_web_app_html_text)
-        if not vendor_code_match:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor code from Twitter Web App HTML.')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から vendor コードを取得できませんでした。',
-            )
-        vendor_code = vendor_code_match.group(1)
-
-        # HTML からアニメーション SVG の outerHTML を取得
-        challenge_animation_svg_codes = [str(svg) for svg in soup.select('svg[id^="loading-x"]')]
-
-        # Challenge 情報を取得
-        ## JavaScript リクエスト用のヘッダーに差し替えるのが重要
-        challenge_js_code_response = await self.curl_session.get(
-            url = f'https://abs.twimg.com/responsive-web/client-web/ondemand.s.{challenge_code}a.js',
-            headers = self.js_headers_dict,
-        )
-        if challenge_js_code_response.status_code != 200:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML.')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = (
-                    f'Challenge 情報の取得に失敗しました。Twitter Web App のチャレンジコードからチャレンジコードを取得できませんでした。'
-                    f'(HTTP Error {challenge_js_code_response.status_code})'
-                ),
-            )
-        challenge_js_code = challenge_js_code_response.text
-
-        # Challenge 解決時に必要になる vendor コードを取得
-        vendor_js_code_response = await self.curl_session.get(
-            url = f'https://abs.twimg.com/responsive-web/client-web/vendor.{vendor_code}.js',
-            headers = self.js_headers_dict,
-        )
-        if vendor_js_code_response.status_code != 200:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch vendor script from Twitter Web App HTML.')
-            return schemas.TwitterAPIResult(
-                is_success = False,
-                detail = (
-                    'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から vendor コードを取得できませんでした。'
-                    f'(HTTP Error {vendor_js_code_response.status_code})'
-                ),
-            )
-        vendor_js_code = vendor_js_code_response.text
-
-        # この時点でリクエスト自体は成功しているはずなので、curl-cffi のセッションが持つ Cookie を DB に反映する
-        ## HTML リクエスト時に Cookie が更新される可能性があるため、ここで変更された可能性がある Cookie を永続化する
-        await self.persistCookies()
-
-        challenge_data = schemas.TwitterChallengeData(
-            is_success = True,
-            detail = 'Twitter Web App の Challenge 情報を取得しました。',
-            endpoint_infos = self.ENDPOINT_INFOS,
-            verification_code = verification_code,
-            challenge_js_code = challenge_js_code,
-            vendor_js_code = vendor_js_code,
-            challenge_animation_svg_codes = challenge_animation_svg_codes,
-        )
-
-        # Challenge 情報をキャッシュに保存
-        ## 短期間に何回もアクセスされた場合でも、同一の Challenge 情報が返される (そうした方がより精度高く偽装できるはず)
-        self.__challenge_info_cache[self.twitter_account.screen_name] = (time.time(), challenge_data)
-
-        return challenge_data
-
-
     async def invokeGraphQLAPI(self,
         endpoint_info: schemas.TwitterGraphQLAPIEndpointInfo,
         variables: dict[str, Any],
-        x_client_transaction_id: str | None = None,
         error_message_prefix: str = 'Twitter API の操作に失敗しました。',
     ) -> dict[str, Any] | str:
         """
@@ -483,7 +339,6 @@ class TwitterGraphQLAPI:
         Args:
             endpoint_info (schemas.TwitterGraphQLAPIEndpointInfo): GraphQL API の各エンドポイントごとに固有の静的な情報
             variables (dict[str, Any]): GraphQL API へのリクエストパラメータ (ペイロードのうち "variables" の部分)
-            x_client_transaction_id (str | None, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
             error_message_prefix (str, optional): エラー発生時に付与する prefix (例: 'ツイートの送信に失敗しました。')
 
         Returns:
@@ -491,16 +346,7 @@ class TwitterGraphQLAPI:
         """
 
         # リクエストヘッダーを組み立てる
-        ## X-Client-Transaction-ID は指定されている場合のみ付与する
         headers = self.graphql_headers_dict.copy()
-        if x_client_transaction_id is not None:
-            headers['x-client-transaction-id'] = x_client_transaction_id
-            logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-Client-Transaction-ID: {x_client_transaction_id}')
-            # X-Client-Transaction-ID を付与する時は、別途 X-XP-Forwarded-For ヘッダーも生成して付与する
-            guest_id = self.curl_session.cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
-            xpff_header = self.xpff_header_generator.generate(guest_id)
-            headers['x-xp-forwarded-for'] = xpff_header
-            logging.debug_simple(f'[TwitterGraphQLAPI][{endpoint_info.endpoint}] X-XP-Forwarded-For: {xpff_header}')
 
         # Twitter GraphQL API に HTTP リクエストを送信する
         try:
@@ -605,7 +451,6 @@ class TwitterGraphQLAPI:
     async def createTweet(self,
         tweet: str,
         media_ids: list[str] = [],
-        x_client_transaction_id: str | None = None,
     ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
         ツイートを送信する
@@ -613,7 +458,6 @@ class TwitterGraphQLAPI:
         Args:
             tweet (str): ツイート内容
             media_ids (list[str], optional): 添付するメディアの ID のリスト (デフォルトは空リスト)
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
@@ -655,7 +499,6 @@ class TwitterGraphQLAPI:
                     'semantic_annotation_ids': [],
                     'disallowed_reply_options': None,
                 },
-                x_client_transaction_id = x_client_transaction_id,
                 error_message_prefix = 'ツイートの送信に失敗しました。',
             )
 
@@ -691,13 +534,12 @@ class TwitterGraphQLAPI:
             )
 
 
-    async def createRetweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
+    async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
         """
         ツイートをリツイートする
 
         Args:
             tweet_id (str): リツイートするツイートの ID
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: リツイートの結果
@@ -710,7 +552,6 @@ class TwitterGraphQLAPI:
                 'tweet_id': tweet_id,
                 'dark_request': False,
             },
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'リツイートに失敗しました。',
         )
 
@@ -728,13 +569,12 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def deleteRetweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
+    async def deleteRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
         """
         ツイートのリツイートを取り消す
 
         Args:
             tweet_id (str): リツイートを取り消すツイートの ID
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: リツイートの取り消し結果
@@ -747,7 +587,6 @@ class TwitterGraphQLAPI:
                 'source_tweet_id': tweet_id,
                 'dark_request': False,
             },
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'リツイートの取り消しに失敗しました。',
         )
 
@@ -765,13 +604,12 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def favoriteTweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
+    async def favoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
         """
         ツイートをいいねする
 
         Args:
             tweet_id (str): いいねするツイートの ID
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: いいねの結果
@@ -783,7 +621,6 @@ class TwitterGraphQLAPI:
             variables = {
                 'tweet_id': tweet_id,
             },
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'いいねに失敗しました。',
         )
 
@@ -801,13 +638,12 @@ class TwitterGraphQLAPI:
         )
 
 
-    async def unfavoriteTweet(self, tweet_id: str, x_client_transaction_id: str | None = None) -> schemas.TwitterAPIResult:
+    async def unfavoriteTweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
         """
         ツイートのいいねを取り消す
 
         Args:
             tweet_id (str): いいねを取り消すツイートの ID
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TwitterAPIResult: いいねの取り消し結果
@@ -819,7 +655,6 @@ class TwitterGraphQLAPI:
             variables = {
                 'tweet_id': tweet_id,
             },
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'いいねの取り消しに失敗しました。',
         )
 
@@ -1005,7 +840,6 @@ class TwitterGraphQLAPI:
     async def homeLatestTimeline(self,
         cursor_id: str | None = None,
         count: int = 20,
-        x_client_transaction_id: str | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         タイムラインの最新ツイートを取得する
@@ -1014,7 +848,6 @@ class TwitterGraphQLAPI:
         Args:
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
             count (int, optional): 取得するツイート数 (デフォルトは 20)
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -1035,7 +868,6 @@ class TwitterGraphQLAPI:
         response = await self.invokeGraphQLAPI(
             endpoint_info = self.ENDPOINT_INFOS['HomeLatestTimeline'],
             variables = variables,
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'タイムラインの取得に失敗しました。',
         )
 
@@ -1076,7 +908,6 @@ class TwitterGraphQLAPI:
         query: str,
         cursor_id: str | None = None,
         count: int = 20,
-        x_client_transaction_id: str | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         ツイートを検索する
@@ -1086,7 +917,6 @@ class TwitterGraphQLAPI:
             query (str): 検索クエリ
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
             count (int, optional): 取得するツイート数 (デフォルトは 20)
-            x_client_transaction_id (str, optional): ブラウザ側で算出して API リクエストヘッダーに添付された X-Client-Transaction-ID ヘッダーの値
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -1106,7 +936,6 @@ class TwitterGraphQLAPI:
         response = await self.invokeGraphQLAPI(
             endpoint_info = self.ENDPOINT_INFOS['SearchTimeline'],
             variables = variables,
-            x_client_transaction_id = x_client_transaction_id,
             error_message_prefix = 'ツイートの検索に失敗しました。',
         )
 

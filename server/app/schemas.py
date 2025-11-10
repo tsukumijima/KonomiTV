@@ -540,13 +540,6 @@ class TimelineTweetsResult(TwitterAPIResult):
     previous_cursor_id: str
     tweets: list[Tweet]
 
-class TwitterChallengeData(TwitterAPIResult):
-    endpoint_infos: dict[str, TwitterGraphQLAPIEndpointInfo]
-    verification_code: str
-    challenge_js_code: str
-    vendor_js_code: str
-    challenge_animation_svg_codes: list[str]
-
 class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']
     query_id: str
