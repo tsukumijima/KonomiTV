@@ -44,7 +44,7 @@ class TwitterAccount(TortoiseModel):
     updated_at = fields.DatetimeField(auto_now=True)
 
 
-    async def encryptAccessTokenSecret(self, plain_text: str) -> str:
+    def encryptAccessTokenSecret(self, plain_text: str) -> str:
         """
         Netscape 形式の Cookie を暗号化して返す。
 
@@ -60,7 +60,7 @@ class TwitterAccount(TortoiseModel):
         return f'{TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX}{encrypted_text}'
 
 
-    async def decryptAccessTokenSecret(self) -> str:
+    def decryptAccessTokenSecret(self) -> str:
         """
         データベースに保存されている Cookie を復号して返す。
 
@@ -89,7 +89,7 @@ class TwitterAccount(TortoiseModel):
         return decrypted_text
 
 
-    async def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
+    def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
         """
         tweepy の認証ハンドラーを取得する
         access_token_secret には Netscape 形式の Cookie ファイルの内容が格納されている想定
@@ -107,7 +107,7 @@ class TwitterAccount(TortoiseModel):
 
             # access_token_secret から Netscape 形式の Cookie をパースし、RequestCookieJar オブジェクトを作成
             cookies = RequestsCookieJar()
-            cookies_txt_content = await self.decryptAccessTokenSecret()
+            cookies_txt_content = self.decryptAccessTokenSecret()
             # TwitterScrapeBrowser の parseNetscapeCookieFile を使って Cookie をパース
             cookie_params = TwitterScrapeBrowser.parseNetscapeCookieFile(cookies_txt_content)
             # CookieParam から RequestsCookieJar に変換
@@ -131,7 +131,7 @@ class TwitterAccount(TortoiseModel):
         return auth_handler
 
 
-    async def getTweepyAPI(self) -> tweepy.API:
+    def getTweepyAPI(self) -> tweepy.API:
         """
         tweepy の API インスタンスを取得する
 
@@ -140,5 +140,5 @@ class TwitterAccount(TortoiseModel):
         """
 
         # auth_handler で初期化した tweepy.API インスタンスを返す
-        auth_handler = await self.getTweepyAuthHandler()
+        auth_handler = self.getTweepyAuthHandler()
         return tweepy.API(auth=auth_handler)

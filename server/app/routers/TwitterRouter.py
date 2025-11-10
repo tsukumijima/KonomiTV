@@ -169,7 +169,7 @@ async def TwitterCookieAuthAPI(
     # アイコン URL を設定
     twitter_account.icon_url = viewer_result.icon_url
     # Cookie を暗号化して保持
-    encrypted_cookie = await twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
+    encrypted_cookie = twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
     twitter_account.access_token_secret = encrypted_cookie
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
@@ -239,6 +239,22 @@ async def TwitterAccountDeleteAPI(
 
 
 @router.post(
+    '/accounts/{screen_name}/keep-alive',
+    summary = 'Twitter ヘッドレスブラウザ Keep-Alive API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def TwitterKeepAliveAPI(
+    twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
+):
+    """
+    この API がユーザーが視聴画面の Twitter パネルで操作を継続している間アクセスされ続けることで、起動中のヘッドレスブラウザの自動シャットダウンを抑制する。<br>
+    JWT エンコードされたアクセストークンが Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    await TwitterGraphQLAPI(twitter_account).keepAlive()
+
+
+@router.post(
     '/accounts/{screen_name}/tweets',
     summary = 'ツイート送信 API',
     response_description = 'ツイートの送信結果。',
@@ -271,7 +287,7 @@ async def TwitterTweetAPI(
         # 画像をアップロードするタスク
         # TODO: 本来はここもヘッドレスブラウザ経由で送信すべきだが、おそらく画像の受け渡しが面倒なのと、
         # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままでセキュリティも緩そうなので当面これで行く…
-        tweepy_api = await twitter_account.getTweepyAPI()
+        tweepy_api = twitter_account.getTweepyAPI()
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload,

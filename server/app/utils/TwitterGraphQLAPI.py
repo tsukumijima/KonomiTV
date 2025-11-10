@@ -10,7 +10,10 @@ from zoneinfo import ZoneInfo
 
 from app import logging, schemas
 from app.models.TwitterAccount import TwitterAccount
-from app.utils.TwitterScrapeBrowser import TwitterScrapeBrowser
+from app.utils.TwitterScrapeBrowser import (
+    BrowserBinaryNotFoundError,
+    TwitterScrapeBrowser,
+)
 
 
 class TwitterGraphQLAPI:
@@ -51,7 +54,7 @@ class TwitterGraphQLAPI:
     # ツイートの最小送信間隔 (秒)
     MINIMUM_TWEET_INTERVAL = 20  # 必ずアカウントごとに 20 秒以上間隔を空けてツイートする
 
-    # ブラウザの自動シャットダウンまでの無操作時間 (秒)
+    # ヘッドレスブラウザの自動シャットダウンまでの無操作時間 (秒)
     BROWSER_IDLE_TIMEOUT = 60
 
     # Twitter アカウント ID ごとのシングルトンインスタンスを管理する辞書
@@ -70,7 +73,7 @@ class TwitterGraphQLAPI:
 
         # ZenDriver で自動操作されるヘッドレスブラウザのインスタンス
         self._browser = TwitterScrapeBrowser(self.twitter_account)
-        # 一定期間後にブラウザをシャットダウンするタスク
+        # 一定期間後にヘッドレスブラウザをシャットダウンするタスク
         self._shutdown_task: asyncio.Task[None] | None = None
         # shutdown_task へのアクセスを保護するためのロック
         self._shutdown_task_lock = asyncio.Lock()
@@ -114,7 +117,6 @@ class TwitterGraphQLAPI:
     async def removeInstance(cls, twitter_account_id: int) -> None:
         """
         指定された Twitter アカウント ID のシングルトンインスタンスを削除する
-        アカウント削除後のリソースリークを防ぐために使用する
 
         Args:
             twitter_account_id (int): 削除する Twitter アカウントの ID
@@ -129,7 +131,7 @@ class TwitterGraphQLAPI:
                     if not instance._shutdown_task.done():
                         instance._shutdown_task.cancel()
                     instance._shutdown_task = None
-            # ブラウザをシャットダウン
+            # ヘッドレスブラウザをシャットダウン
             ## browser.shutdown() が例外を投げた場合でもレジストリエントリは確実に削除する必要があるため、try/except で囲む
             if instance._browser is not None and instance._browser.is_setup_complete is True:
                 try:
@@ -141,6 +143,37 @@ class TwitterGraphQLAPI:
                     )
             # レジストリエントリを削除
             del cls.__instances[twitter_account_id]
+
+    async def __scheduleShutdownTask(self) -> None:
+        """
+        一定時間後にヘッドレスブラウザを自動停止させるタスクを再スケジュールする
+        """
+
+        # まだヘッドレスブラウザが立ち上がっていない場合は何もしない
+        if self._browser.is_setup_complete is not True:
+            return
+
+        async def OnShutdown() -> None:
+            # タイムアウト時間に到達するまで待つ
+            await asyncio.sleep(self.BROWSER_IDLE_TIMEOUT)
+            # GraphQL API の前回呼び出し時刻を確認し、タイムアウト時間が経過している場合のみ、
+            # しばらく API 呼び出しが行われていないため、リソース節約のためにヘッドレスブラウザをシャットダウンする
+            current_time = time.time()
+            if current_time - self._last_graphql_api_call_time >= self.BROWSER_IDLE_TIMEOUT:
+                logging.info(
+                    f'[TwitterGraphQLAPI] Shutting down browser after {self.BROWSER_IDLE_TIMEOUT} seconds of inactivity.'
+                )
+                await self._browser.shutdown()
+
+        # 一定時間後にヘッドレスブラウザをシャットダウンするタスクを一旦キャンセルして再スケジュールする
+        ## この処理は API リクエストの成功・失敗に関わらず API リクエスト完了後に常に実行すべき
+        ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
+        async with self._shutdown_task_lock:
+            if self._shutdown_task is not None:
+                if not self._shutdown_task.done():
+                    self._shutdown_task.cancel()
+                self._shutdown_task = None
+            self._shutdown_task = asyncio.create_task(OnShutdown())
 
     async def invokeGraphQLAPI(
         self,
@@ -164,9 +197,14 @@ class TwitterGraphQLAPI:
             dict[str, Any] | str: GraphQL API のレスポンス (失敗時は日本語のエラーメッセージを返す)
         """
 
-        # ヘッドブラウザがまだ起動していない場合、セットアップ処理を実行
+        # ヘッドレスブラウザがまだ起動していない場合、セットアップ処理を実行
         if self._browser.is_setup_complete is not True:
-            await self._browser.setup()
+            try:
+                await self._browser.setup()
+            except BrowserBinaryNotFoundError as ex:
+                # Chrome / Brave 未導入時は UI に案内できるよう固定のエラーメッセージを返す
+                logging.error('[TwitterGraphQLAPI] Chrome or Brave is not installed on this machine:', exc_info=ex)
+                return 'Chrome or Brave is not installed on this machine.'
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
         browser = self._browser
@@ -180,37 +218,20 @@ class TwitterGraphQLAPI:
             logging.error('[TwitterGraphQLAPI] Failed to connect to Twitter GraphQL API:', exc_info=ex)
             return error_message_prefix + 'Twitter API に接続できませんでした。'
         finally:
-            # GraphQL API リクエスト完了後、更新された可能性があるブラウザの Cookie を DB 側に反映
+            # GraphQL API リクエスト完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
             ## こうすることでヘッドレスブラウザと DB 間で Cookie の変更が同期されるはず
-            ## この処理は API リクエストの成功・失敗に関わらず常に API リクエスト完了後に常に実行すべき
+            ## この処理は API リクエストの成功・失敗に関わらず API リクエスト完了後に常に実行すべき
             cookies_txt_content = await browser.saveTwitterCookiesToNetscapeFormat()
-            self.twitter_account.access_token_secret = cookies_txt_content
+            # Cookie を暗号化してから DB に反映する
+            encrypted_cookie = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
+            self.twitter_account.access_token_secret = encrypted_cookie
             await self.twitter_account.save()  # これで変更が DB に反映される
 
             # GraphQL API の前回呼び出し時刻を更新
             self._last_graphql_api_call_time = time.time()
 
-            async def OnShutdown() -> None:
-                # タイムアウト時間に到達するまで待つ
-                await asyncio.sleep(self.BROWSER_IDLE_TIMEOUT)
-                # GraphQL API の前回呼び出し時刻を確認し、タイムアウト時間が経過している場合のみ、
-                # しばらく API 呼び出しが行われていないため、リソース節約のためにブラウザをシャットダウンする
-                current_time = time.time()
-                if current_time - self._last_graphql_api_call_time >= self.BROWSER_IDLE_TIMEOUT:
-                    logging.info(
-                        f'[TwitterGraphQLAPI] Shutting down browser after {self.BROWSER_IDLE_TIMEOUT} seconds of inactivity.'
-                    )
-                    await self._browser.shutdown()
-
-            # 一定時間後にブラウザをシャットダウンするタスクを再スケジュール
-            ## これも API リクエストの成功・失敗に関わらず常に API リクエスト完了後に常に実行すべき
-            ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
-            async with self._shutdown_task_lock:
-                if self._shutdown_task is not None:
-                    if not self._shutdown_task.done():
-                        self._shutdown_task.cancel()
-                    self._shutdown_task = None
-                self._shutdown_task = asyncio.create_task(OnShutdown())
+            # 一定時間後にヘッドレスブラウザをシャットダウンするタスクを再スケジュールする
+            await self.__scheduleShutdownTask()
 
         # 生のレスポンスデータを取得
         parsed_response = raw_response['parsedResponse']
@@ -287,6 +308,20 @@ class TwitterGraphQLAPI:
 
         # ここまで来たら (中身のデータ構造はともかく) GraphQL API レスポンスの取得には成功しているはず
         return response_json['data']
+
+    async def keepAlive(self) -> None:
+        """
+        ヘッドレスブラウザの自動シャットダウンを抑制する
+        視聴画面の Twitter パネルでユーザーの操作が継続している間はこのメソッドが定期的に呼び出される
+        """
+
+        # ヘッドレスブラウザが起動していないときは念のため何もしない
+        if self._browser.is_setup_complete is not True:
+            return
+
+        # 直近アクセス時刻を更新し、再度シャットダウンタイマーをセットする
+        self._last_graphql_api_call_time = time.time()
+        await self.__scheduleShutdownTask()
 
     async def fetchLoggedViewer(
         self,

@@ -9,10 +9,16 @@ from app.constants import STATIC_DIR
 from app.models.TwitterAccount import TwitterAccount
 
 
+class BrowserBinaryNotFoundError(RuntimeError):
+    """
+    Chrome / Brave の実行ファイルが検出できず、ZenDriver がブラウザを起動できない場合に送出される例外
+    """
+
+
 class TwitterScrapeBrowser:
     """
     Twitter のヘッドレスブラウザ操作を隠蔽するクラス
-    ブラウザのセットアップ処理や、ブラウザインスタンス自身の低レベル操作を隠蔽する
+    ヘッドレスブラウザのセットアップ処理や、ブラウザインスタンス自身の低レベル操作を隠蔽する
     """
 
     def __init__(self, twitter_account: TwitterAccount) -> None:
@@ -51,27 +57,36 @@ class TwitterScrapeBrowser:
             # セットアップ処理の完了を把握するための Future を作成
             setup_complete_future = asyncio.get_running_loop().create_future()
 
-            # ZenDriver でブラウザを起動
+            # ZenDriver でヘッドレスブラウザを起動
             logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Starting browser...')
-            self._browser = await Browser.create(
-                # ユーザーデータディレクトリはあえて設定せず、立ち上げたプロセスが終了したらプロファイルも消えるようにする
-                # Cookie に関しては別途 DB と同期・永続化されていて、毎回セットアップ時に復元されるため問題はない
-                user_data_dir=None,
-                # 今の所ウインドウを表示せずとも問題なく動作しているので、ヘッドレスモードで起動する
-                headless=True,
-                # ブラウザは現在の環境にインストールされているものを自動選択させる
-                browser='auto',
-            )
+            try:
+                self._browser = await Browser.create(
+                    # ユーザーデータディレクトリはあえて設定せず、立ち上げたプロセスが終了したらプロファイルも消えるようにする
+                    # Cookie に関しては別途 DB と同期・永続化されていて、毎回セットアップ時に復元されるため問題はない
+                    user_data_dir=None,
+                    # 今の所ウインドウを表示せずとも問題なく動作しているので、ヘッドレスモードで起動する
+                    headless=True,
+                    # ブラウザは現在の環境にインストールされているものを自動選択させる
+                    browser='auto',
+                )
+            except FileNotFoundError as ex:
+                logging.error(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Chrome or Brave is not installed.',
+                    exc_info=ex,
+                )
+                raise BrowserBinaryNotFoundError(
+                    'Chrome or Brave is not installed on the server.',
+                ) from ex
             logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser started.')
 
             # まず空のタブを開く
             self._page = await self._browser.get('about:blank')
             logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Blank page opened.')
 
-            # cookies.txt の内容をパースして Cookie を設定
-            # access_token_secret に cookies.txt の内容が入っている想定
-            if self.twitter_account.access_token_secret:
-                cookie_params = self.parseNetscapeCookieFile(self.twitter_account.access_token_secret)
+            # DB から復号した cookies.txt の内容をパースし、ヘッドレスブラウザの Cookie に設定
+            cookies_txt_content = self.twitter_account.decryptAccessTokenSecret()
+            if cookies_txt_content:
+                cookie_params = self.parseNetscapeCookieFile(cookies_txt_content)
                 logging.debug(
                     f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Found {len(cookie_params)} cookies in cookies.txt.'
                 )
@@ -233,7 +248,7 @@ class TwitterScrapeBrowser:
             dict[str, Any]: 生のレスポンスデータ（parsedResponse, statusCode, responseText, headers, requestError を含む）
         """
 
-        # 通常、ブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
+        # 通常、ヘッドレスブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
         if self._browser is None or self._page is None:
             raise RuntimeError('Browser or page is not initialized.')
 
@@ -309,7 +324,7 @@ class TwitterScrapeBrowser:
             ## これにより、シャットダウン中に setup が呼ばれた場合でも、シャットダウン完了後に再度セットアップが必要になる
             self.is_setup_complete = False
 
-            # ブラウザを停止
+            # ヘッドレスブラウザを停止
             logging.info(
                 f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for browser to terminate...'
             )
@@ -333,7 +348,7 @@ class TwitterScrapeBrowser:
             str: Netscape フォーマットの Cookie ファイルの内容
         """
 
-        # 通常、ブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
+        # 通常、ヘッドレスブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
         if self._browser is None:
             raise RuntimeError('Browser is not initialized.')
 
