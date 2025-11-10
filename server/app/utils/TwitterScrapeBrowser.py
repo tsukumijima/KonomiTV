@@ -1,0 +1,428 @@
+import asyncio
+import json
+from typing import Any
+
+from zendriver import Browser, Config, Tab, cdp
+
+from app import logging
+from app.constants import STATIC_DIR
+from app.models.TwitterAccount import TwitterAccount
+
+
+class TwitterScrapeBrowser:
+    """
+    Twitter のヘッドレスブラウザ操作を隠蔽するクラス
+    ブラウザのセットアップ処理や、ブラウザインスタンス自身の低レベル操作を隠蔽する
+    """
+
+    def __init__(self, twitter_account: TwitterAccount) -> None:
+        """
+        TwitterScrapeBrowser を初期化する
+
+        Args:
+            twitter_account (TwitterAccount): Twitter アカウントのモデル
+        """
+
+        self.twitter_account = twitter_account
+
+        # ZenDriver のブラウザインスタンス
+        self.browser: Browser | None = None
+        # 現在アクティブなタブ（ページ）インスタンス
+        self.page: Tab | None = None
+
+        # セットアップ・シャットダウン処理の排他制御用ロック
+        ## setup と shutdown が同時に実行されないようにするため、同じロックを使用する
+        self.setup_lock = asyncio.Lock()
+        # セットアップ処理が完了したかどうかのフラグ
+        self.is_setup_complete = False
+
+    async def setup(self) -> None:
+        """
+        ヘッドレスブラウザを起動し、Cookie の供給などのセットアップ処理を行う
+        既にセットアップ済みの場合は何も行われない
+        """
+
+        # セットアップ処理が複数進行していないことを確認
+        async with self.setup_lock:
+            # 既にセットアップ済みの場合は何もしない
+            if self.is_setup_complete is True:
+                return
+
+            # セットアップ処理の完了を把握するための Future を作成
+            setup_complete_future = asyncio.get_running_loop().create_future()
+
+            # ZenDriver でブラウザを起動
+            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Starting browser...')
+            self.browser = await Browser.create(Config(
+                # ユーザーデータディレクトリはあえて設定せず、立ち上げたプロセスが終了したらプロファイルも消えるようにする
+                # Cookie に関しては別途 DB と同期・永続化されていて、毎回セットアップ時に復元されるため問題はない
+                user_data_dir=None,
+                # 今の所ウインドウを表示せずとも問題なく動作しているので、ヘッドレスモードで起動する
+                headless=True,
+                # ブラウザは現在の環境にインストールされているものを自動選択させる
+                browser='auto',
+                # Accept-Language に使われる値をデフォルトの "en-US,en;q=0.9" から "ja" に変更
+                lang='ja',
+            ))
+            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser started.')
+
+            # まず空のタブを開く
+            self.page = await self.browser.get('about:blank')
+            logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Blank page opened.')
+
+            # cookies.txt の内容をパースして Cookie を設定
+            # access_token_secret に cookies.txt の内容が入っている想定
+            if self.twitter_account.access_token_secret:
+                cookie_params = self.parseNetscapeCookieFile(self.twitter_account.access_token_secret)
+                logging.debug(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Found {len(cookie_params)} cookies in cookies.txt.'
+                )
+                # 読み込んだ CookieParam のリストを CookieJar に一括で設定
+                try:
+                    await self.browser.cookies.set_all(cookie_params)
+                    logging.info(
+                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Successfully set {len(cookie_params)} cookies.'
+                    )
+                except Exception as ex:
+                    logging.error(
+                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error setting cookies: {ex}',
+                        exc_info=ex,
+                    )
+            else:
+                logging.warning(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] cookies.txt content is empty, skipping Cookie loading.'
+                )
+
+            # Debugger を有効化
+            await self.page.send(cdp.debugger.enable())
+            logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] DevTools debugger enabled.')
+
+            # zendriver_setup.js の内容を読み込む
+            setup_js_path = STATIC_DIR / 'zendriver_setup.js'
+            setup_js_code = setup_js_path.read_text(encoding='utf-8')
+
+            # Debugger.paused イベントをリッスン
+            async def on_paused(event: cdp.debugger.Paused) -> None:
+                logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Pause event fired.')
+                assert self.page is not None
+                page = self.page
+                try:
+                    # ブレークポイント停止中に zendriver_setup.js のコードをブラウザタブ側に設置する
+                    ## await_promise は指定しない（デフォルトは False）ので、スクリプトは設置されるが待機しない
+                    ## その後、ブレークポイントから実行を再開すると、設置されたスクリプトが実行される
+                    _, exception = await page.send(
+                        cdp.runtime.evaluate(
+                            expression=setup_js_code,
+                            return_by_value=True,
+                        )
+                    )
+                    logging.debug(
+                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js executed.'
+                    )
+                    if exception is not None:
+                        # 実行中になんらかの例外が発生した場合
+                        setup_complete_future.set_exception(
+                            Exception(f'Failed to execute zendriver_setup.js: {exception}')
+                        )
+                except Exception as ex:
+                    setup_complete_future.set_exception(ex)
+                finally:
+                    # ブレークポイントから実行を再開
+                    await page.send(cdp.debugger.resume())
+                    try:
+                        # 再開後に少し待つ (でないと window.__invokeGraphQLAPISetupPromise 自体がまだセットされていない可能性がある)
+                        await asyncio.sleep(1)
+                        logging.info(
+                            f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for zendriver_setup.js to be resolved...'
+                        )
+                        # 再開後、window.__invokeGraphQLAPISetupPromise の Promise が解決されるまで待つ
+                        result, exception = await page.send(
+                            cdp.runtime.evaluate(
+                                expression='window.__invokeGraphQLAPISetupPromise',
+                                await_promise=True,
+                                return_by_value=True,
+                            )
+                        )
+                        logging.debug(
+                            f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js evaluated.'
+                        )
+                        if exception is not None:
+                            setup_complete_future.set_exception(
+                                Exception(f'Failed to wait for setup promise: {exception}')
+                            )
+                        else:
+                            # result.value が厳密に True であることを確認（undefined の可能性を排除）
+                            if result.value is True:
+                                logging.debug(
+                                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js resolved.'
+                                )
+                                setup_complete_future.set_result(True)
+                            else:
+                                setup_complete_future.set_exception(
+                                    Exception(f'Setup promise did not return true. Got: {result.value}')
+                                )
+                    except Exception as ex:
+                        setup_complete_future.set_exception(ex)
+
+            self.page.add_handler(cdp.debugger.Paused, on_paused)
+
+            # x.com の main.js の1行目にブレークポイントを設定
+            # ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
+            breakpoint_id, _ = await self.page.send(
+                cdp.debugger.set_breakpoint_by_url(
+                    line_number=0,  # 0-based なので 1行目は 0
+                    url_regex=r'.*main.*\.js',  # main.js をマッチさせる正規表現
+                )
+            )
+            logging.debug(
+                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Breakpoint set. id: {breakpoint_id}'
+            )
+
+            # x.com に移動
+            ## x.com/home だと万が一 Cookie セッションが revoke されている場合にログインモーダルが表示されて
+            ## セットアップが解決できないっぽいので、ログイン前の画面がそのまま出てくる x.com/ 直下である必要がある
+            self.page = await self.browser.get('https://x.com/')
+            await self.page.activate()
+
+            # zendriver_setup.js に記述したセットアップ処理が完了するまで待つ
+            try:
+                await asyncio.wait_for(setup_complete_future, timeout=15.0)
+                logging.info(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Setup completed successfully.'
+                )
+                # セットアップ完了後、もうブレークポイントを打つ必要はないのでデバッガを無効化
+                try:
+                    await self.page.send(cdp.debugger.disable())
+                    logging.debug(
+                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] DevTools debugger disabled.'
+                    )
+                except Exception as ex:
+                    logging.error(
+                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error disabling debugger: {ex}',
+                        exc_info=ex,
+                    )
+                self.is_setup_complete = True
+            except TimeoutError as ex:
+                logging.error(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.'
+                )
+                self.is_setup_complete = False
+                raise ex
+            except Exception as ex:
+                logging.error(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error during setup: {ex}', exc_info=ex
+                )
+                self.is_setup_complete = False
+                raise ex
+
+    async def invokeGraphQLAPI(
+        self,
+        endpoint_name: str,
+        variables: dict[str, Any],
+        additional_flags: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        ヘッドレスブラウザ越しに、Twitter Web App が持つ内部 GraphQL API クライアントに対して HTTP リクエストの実行を要求する
+        エラー処理は行わず、生のレスポンスデータを返す（エラー処理は TwitterGraphQLAPI 側で行う）
+
+        Args:
+            endpoint_name (str): GraphQL API のエンドポイント名 (例: 'CreateTweet')
+            variables (dict[str, Any]): GraphQL API へのリクエストパラメータ (ペイロードのうち "variables" の部分)
+            additional_flags (dict[str, Any] | None): 追加のフラグ（オプション）
+
+        Returns:
+            dict[str, Any]: 生のレスポンスデータ（parsedResponse, statusCode, responseText, headers, requestError を含む）
+        """
+
+        # 通常、ブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
+        if self.browser is None or self.page is None:
+            raise RuntimeError('Browser or page is not initialized.')
+
+        # JavaScript コードを構築（JSON を文字列化して渡す）
+        # エラー処理は JavaScript 側で完結し、シリアライズ可能なデータを返す
+        additional_flags_json = (
+            json.dumps(additional_flags, ensure_ascii=False) if additional_flags is not None else 'null'
+        )
+        js_code = f"""
+        (async () => {{
+            const requestPayload = {json.dumps(variables, ensure_ascii=False)};
+            const additionalFlags = {additional_flags_json};
+            const result = await window.__invokeGraphQLAPI('{endpoint_name}', requestPayload, additionalFlags);
+            console.log('window.__invokeGraphQLAPI() result:', result);
+            return result;
+        }})()
+        """
+
+        # Twitter GraphQL API に HTTP リクエストを送信する
+        result, exception = await self.page.send(
+            cdp.runtime.evaluate(
+                expression=js_code,
+                await_promise=True,
+                return_by_value=True,
+            )
+        )
+
+        # 例外が発生した場合はそのまま例外を投げる
+        if exception is not None:
+            raise RuntimeError(f'Failed to execute JavaScript: {exception}')
+
+        # 結果が None の場合は例外を投げる
+        if result.value is None:
+            raise RuntimeError('Response is None.')
+
+        # JavaScript 側から返された結果を取得
+        result_value = result.value
+        if not isinstance(result_value, dict):
+            raise RuntimeError(f'Response is not a dict. Got: {type(result_value)}')
+
+        # API レスポンスを取得
+        parsed_response = result_value.get('parsedResponse')
+        status_code = result_value.get('statusCode')
+        response_text = result_value.get('responseText')
+        headers = result_value.get('headers')
+        request_error = result_value.get('requestError')
+
+        # 生のレスポンスデータを返す（エラー処理は TwitterGraphQLAPI 側で行う）
+        return {
+            'parsedResponse': parsed_response,
+            'statusCode': status_code,
+            'responseText': response_text,
+            'headers': headers,
+            'requestError': request_error,
+        }
+
+    async def shutdown(self) -> None:
+        """
+        使われなくなったヘッドレスブラウザを安全にシャットダウンする
+        シャットダウン中は setup() や shutdown() が同時に呼ばれないように、self.setup_lock を使用して排他制御する
+        """
+
+        # セットアップ・シャットダウン処理の排他制御
+        ## シャットダウン中に setup が呼ばれると状態が競合するため、同じロックを使用する
+        async with self.setup_lock:
+            if self.browser is None:
+                logging.warning(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser is not initialized, skipping shutdown.'
+                )
+                return
+
+            # セットアップ完了フラグをリセット（シャットダウン開始時点でセットアップ状態を無効化）
+            ## これにより、シャットダウン中に setup が呼ばれた場合でも、シャットダウン完了後に再度セットアップが必要になる
+            self.is_setup_complete = False
+
+            # ブラウザを停止
+            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for browser to terminate...')
+            try:
+                await self.browser.stop()
+                logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser terminated.')
+            except Exception as ex:
+                logging.error(
+                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error while terminating browser: {ex}',
+                    exc_info=ex,
+                )
+
+            self.browser = None
+            self.page = None
+
+    async def saveTwitterCookiesToNetscapeFormat(self) -> str:
+        """
+        起動中のヘッドレスブラウザから x.com 関連の Cookie を取得し、Netscape フォーマットの文字列に変換して返す
+
+        Returns:
+            str: Netscape フォーマットの Cookie ファイルの内容
+        """
+
+        # 通常、ブラウザが起動していない時にこのメソッドが呼ばれることはない（呼ばれた場合は何かがバグっている）
+        if self.browser is None:
+            raise RuntimeError('Browser is not initialized.')
+
+        # 全ての Cookie を取得
+        all_cookies = await self.browser.cookies.get_all(requests_cookie_format=False)
+        # requests_cookie_format=False なので cdp.network.Cookie のリストが返される
+        # x.com に関連する Cookie をフィルタリング
+        twitter_cookies: list[cdp.network.Cookie] = [
+            c for c in all_cookies if isinstance(c, cdp.network.Cookie) and ('x.com' in c.domain)
+        ]
+
+        if not twitter_cookies:
+            logging.warning(
+                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] No Twitter-related cookies found, skipping save.'
+            )
+            return self.twitter_account.access_token_secret
+
+        # Netscape フォーマットで文字列を構築
+        lines: list[str] = []
+        # Netscape フォーマットのヘッダーを追加
+        lines.append('# Netscape HTTP Cookie File')
+        lines.append('# https://curl.haxx.se/rfc/cookie_spec.html')
+        lines.append('# This is a generated file! Do not edit.')
+        lines.append('')
+        # 各 Cookie を Netscape フォーマットで追加
+        for cookie in twitter_cookies:
+            # domain がドットで始まる場合は flag を TRUE、そうでなければ FALSE
+            flag = 'TRUE' if cookie.domain.startswith('.') else 'FALSE'
+            # secure フラグを TRUE/FALSE に変換
+            secure_str = 'TRUE' if cookie.secure else 'FALSE'
+            # expires が None の場合は 0（セッション cookie）を設定
+            expires_value = int(cookie.expires) if cookie.expires is not None else 0
+            # Netscape フォーマット: domain, flag, path, secure, expiration, name, value
+            netscape_line = (
+                f'{cookie.domain}\t{flag}\t{cookie.path}\t{secure_str}\t{expires_value}\t{cookie.name}\t{cookie.value}'
+            )
+            lines.append(netscape_line)
+
+        return '\n'.join(lines)
+
+    @staticmethod
+    def parseNetscapeCookieFile(cookies_content: str) -> list[cdp.network.CookieParam]:
+        """
+        Netscape フォーマットの Cookie 文字列をパースして CookieParam に変換する
+
+        Args:
+            cookies_content (str): Cookie ファイルの内容
+
+        Returns:
+            list[cdp.network.CookieParam]: CookieParam のリスト
+        """
+
+        cookie_params: list[cdp.network.CookieParam] = []
+        for line in cookies_content.splitlines():
+            line = line.strip()
+            # コメント行や空行をスキップ
+            if not line or line.startswith('#'):
+                continue
+            # Netscape フォーマット: domain, flag, path, secure, expiration, name, value
+            parts = line.split('\t')
+            if len(parts) < 7:
+                continue
+            domain = parts[0]
+            # flag (parts[1]) は使用しない
+            path = parts[2]
+            secure = parts[3] == 'TRUE'
+            expires_str = parts[4]
+            expires = int(expires_str) if expires_str and expires_str != '0' else None
+            name = parts[5]
+            value = parts[6]
+
+            # expires が None の場合は設定しない（セッション Cookie として扱われる）
+            expires_param = None
+            if expires is not None:
+                # TimeSinceEpoch は秒単位の Unix timestamp
+                expires_param = cdp.network.TimeSinceEpoch(expires)
+            # domain から URL を構築（ドットで始まる場合は除去）
+            domain_for_url = domain.lstrip('.')
+            # secure フラグに応じてプロトコルを選択
+            protocol = 'https' if secure else 'http'
+            url = f'{protocol}://{domain_for_url}'
+            cookie_params.append(
+                cdp.network.CookieParam(
+                    name=name,
+                    value=value,
+                    url=url,
+                    domain=domain if domain else None,
+                    path=path if path else None,
+                    secure=secure,
+                    expires=expires_param,
+                )
+            )
+        return cookie_params
