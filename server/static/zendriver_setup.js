@@ -21,44 +21,108 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
         const operationInfoMap = {};
         // オリジナルの Function.prototype.call を保存
         const originalCall = Function.prototype.call;
-        // Function.prototype.call を上書きする
-        Function.prototype.call = function (thisArg, ...args) {
-            const module = args[0];
-            const ret = originalCall.apply(this, [thisArg, ...args]);
-            try {
-                const exp = module.exports;
-                if (exp.operationName) {
-                    operationInfoMap[exp.operationName] = exp;
-                    collectedOperationNames.add(exp.operationName);
-                    // 必要な operationInfo が全て揃ったかチェック
-                    const isAllCollected = Array.from(requiredOperationNames).every(
-                        name => collectedOperationNames.has(name)
-                    );
-                    if (isAllCollected) {
-                        // Function.prototype.call を元に戻す
-                        Function.prototype.call = originalCall;
-                        resolve(operationInfoMap);
-                    }
-                }
-            } catch (_) {}
-            return ret;
+        // クリーンアップが1回だけ実行されるようにするフラグ
+        let isCleanedUp = false;
+        // クリーンアップ処理 (Function.prototype.call を元に戻す)
+        const cleanup = () => {
+            if (isCleanedUp) return;
+            isCleanedUp = true;
+            Function.prototype.call = originalCall;
         };
+        // タイムアウトタイマーの ID を保存
+        let timeoutTimerId = null;
+        // タイムアウト用 Promise
+        const timeoutPromise = new Promise((_, timeoutReject) => {
+            timeoutTimerId = setTimeout(() => {
+                cleanup();
+                timeoutReject(new Error('Operation info collection timeout'));
+            }, 10 * 1000);  // 10 秒でタイムアウト
+        });
+        const collectionPromise = new Promise((collectionResolve) => {
+            // Function.prototype.call を上書きする
+            Function.prototype.call = function (thisArg, ...args) {
+                const module = args[0];
+                const ret = originalCall.apply(this, [thisArg, ...args]);
+                try {
+                    const exp = module.exports;
+                    if (exp.operationName) {
+                        operationInfoMap[exp.operationName] = exp;
+                        collectedOperationNames.add(exp.operationName);
+                        // 必要な operationInfo が全て揃ったかチェック
+                        const isAllCollected = Array.from(requiredOperationNames).every(
+                            name => collectedOperationNames.has(name)
+                        );
+                        if (isAllCollected) {
+                            // タイムアウトタイマーをクリア
+                            if (timeoutTimerId !== null) {
+                                clearTimeout(timeoutTimerId);
+                                timeoutTimerId = null;
+                            }
+                            cleanup();
+                            collectionResolve(operationInfoMap);
+                        }
+                    }
+                } catch (_) {}
+                return ret;
+            };
+        });
+        // Promise.race でタイムアウトと収集を競合させる
+        Promise.race([collectionPromise, timeoutPromise])
+            .then((result) => {
+                resolve(result);
+            })
+            .catch((error) => {
+                // タイムアウト時は現在の operationInfoMap を返す
+                resolve(operationInfoMap);
+            });
     });
     console.log("operationInfoMap:", operationInfoMap);
 
     // Twitter Web App が内部で使用している API クライアント実装のオブジェクトを収集
-    const apiClient = await new Promise((resolve) => {
+    const apiClient = await new Promise((resolve, reject) => {
         // オリジナルの Function.prototype.apply を保存
         const __origApply = Function.prototype.apply;
-        // Function.prototype.apply を上書きする
-        Function.prototype.apply = function (thisArg, argsArray) {
-            if (thisArg && typeof thisArg === 'object' && thisArg.dispatch === this) {
-                // Function.prototype.apply を元に戻す
-                Function.prototype.apply = __origApply;
-                resolve(thisArg);
-            }
-            return __origApply.call(this, thisArg, argsArray);
+        // クリーンアップが1回だけ実行されるようにするフラグ
+        let isCleanedUp = false;
+        // クリーンアップ処理 (Function.prototype.apply を元に戻す)
+        const cleanup = () => {
+            if (isCleanedUp) return;
+            isCleanedUp = true;
+            Function.prototype.apply = __origApply;
         };
+        // タイムアウトタイマーの ID を保存
+        let timeoutTimerId = null;
+        // タイムアウト用 Promise
+        const timeoutPromise = new Promise((_, timeoutReject) => {
+            timeoutTimerId = setTimeout(() => {
+                cleanup();
+                timeoutReject(new Error('API client collection timeout'));
+            }, 10 * 1000);  // 10 秒でタイムアウト
+        });
+        const collectionPromise = new Promise((collectionResolve) => {
+            // Function.prototype.apply を上書きする
+            Function.prototype.apply = function (thisArg, argsArray) {
+                if (thisArg && typeof thisArg === 'object' && thisArg.dispatch === this) {
+                    // タイムアウトタイマーをクリア
+                    if (timeoutTimerId !== null) {
+                        clearTimeout(timeoutTimerId);
+                        timeoutTimerId = null;
+                    }
+                    cleanup();
+                    collectionResolve(thisArg);
+                }
+                return __origApply.call(this, thisArg, argsArray);
+            };
+        });
+        // Promise.race でタイムアウトと収集を競合させる
+        Promise.race([collectionPromise, timeoutPromise])
+            .then((result) => {
+                resolve(result);
+            })
+            .catch((error) => {
+                // タイムアウト時はエラーを返す（apiClient は必須のため）
+                reject(error);
+            });
     });
     console.log("apiClient:", apiClient);
 
@@ -130,7 +194,7 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
         window.XMLHttpRequest.prototype = OriginalXHR.prototype;
         try {
             // operationName から operationInfo を取得
-            const operationInfo = operationInfoMap[operationName]
+            const operationInfo = operationInfoMap[operationName];
             // HTTP リクエストを実行
             // X-Client-Transaction-ID や各ヘッダーの付与はすべて内部で行われる
             // XHR フックで生のレスポンスを取得するため、戻り値は使用しない

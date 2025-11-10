@@ -167,11 +167,13 @@ class TwitterScrapeBrowser:
             self.page.add_handler(cdp.debugger.Paused, on_paused)
 
             # x.com の main.js の1行目にブレークポイントを設定
-            # ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
+            ## ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
+            ## 正規表現はパスが main.<hash>.js 形式のファイルのみにマッチするように厳密化している
+            ## ホスト名やパスは任意でマッチするため、ファイル名が変わらなければ URL 変更にも対応できるはず
             breakpoint_id, _ = await self.page.send(
                 cdp.debugger.set_breakpoint_by_url(
                     line_number=0,  # 0-based なので 1行目は 0
-                    url_regex=r'.*main.*\.js',  # main.js をマッチさせる正規表現
+                    url_regex=r'^https://[^/]+/main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
                 )
             )
             logging.debug(
@@ -344,12 +346,6 @@ class TwitterScrapeBrowser:
             c for c in all_cookies if isinstance(c, cdp.network.Cookie) and ('x.com' in c.domain)
         ]
 
-        if not twitter_cookies:
-            logging.warning(
-                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] No Twitter-related cookies found, skipping save.'
-            )
-            return self.twitter_account.access_token_secret
-
         # Netscape フォーマットで文字列を構築
         lines: list[str] = []
         # Netscape フォーマットのヘッダーを追加
@@ -357,6 +353,13 @@ class TwitterScrapeBrowser:
         lines.append('# https://curl.haxx.se/rfc/cookie_spec.html')
         lines.append('# This is a generated file! Do not edit.')
         lines.append('')
+
+        if not twitter_cookies:
+            logging.warning(
+                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] No Twitter-related cookies found, returning empty Netscape format.'
+            )
+            return '\n'.join(lines)
+
         # 各 Cookie を Netscape フォーマットで追加
         for cookie in twitter_cookies:
             # domain がドットで始まる場合は flag を TRUE、そうでなければ FALSE
@@ -419,8 +422,8 @@ class TwitterScrapeBrowser:
                     name=name,
                     value=value,
                     url=url,
-                    domain=domain if domain else None,
-                    path=path if path else None,
+                    domain=domain,
+                    path=path,
                     secure=secure,
                     expires=expires_param,
                 )
