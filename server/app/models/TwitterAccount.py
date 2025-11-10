@@ -48,6 +48,9 @@ class TwitterAccount(TortoiseModel):
             CookieSessionUserHandler: tweepy の認証ハンドラー (Cookie セッション)
         """
 
+        # 循環インポート防止のためここでインポート
+        from app.utils.TwitterScrapeBrowser import TwitterScrapeBrowser
+
         # Netscape Cookie ファイル形式の場合
         ## access_token フィールドが "NETSCAPE_COOKIE_FILE" の固定値になっている
         if self.access_token == 'NETSCAPE_COOKIE_FILE':
@@ -55,19 +58,13 @@ class TwitterAccount(TortoiseModel):
             # access_token_secret から Netscape 形式の Cookie をパースし、RequestCookieJar オブジェクトを作成
             cookies = RequestsCookieJar()
             cookies_txt_content = self.access_token_secret
-            # cookies.txt の内容を行ごとに分割
-            cookies_lines = cookies_txt_content.strip().split('\n')
-            for line in cookies_lines:
-                # コメント行やヘッダー行をスキップ
-                if line.startswith('#') or line.startswith('# ') or not line.strip():
-                    continue
-                # タブで分割し、必要な情報を取得
-                parts = line.split('\t')
-                if len(parts) >= 7:
-                    domain, _, _, _, _, name, value = parts[:7]
-                    # ドメインが .twitter.com または .x.com の場合のみ処理
-                    if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
-                        cookies.set(name, value, domain=domain)
+            # TwitterScrapeBrowser の parseNetscapeCookieFile を使って Cookie をパース
+            cookie_params = TwitterScrapeBrowser.parseNetscapeCookieFile(cookies_txt_content)
+            # CookieParam から RequestsCookieJar に変換
+            for param in cookie_params:
+                # ドメインが .x.com の場合のみ処理
+                if param.domain is not None and 'x.com' in param.domain:
+                    cookies.set(param.name, param.value, domain=param.domain)
 
             # 読み込んだ RequestCookieJar オブジェクトを CookieSessionUserHandler に渡す
             ## Cookie を指定する際はコンストラクタ内部で API リクエストは行われないため、ログイン時のように await する必要性はない

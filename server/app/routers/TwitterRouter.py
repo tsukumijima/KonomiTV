@@ -22,6 +22,7 @@ from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
+from app.utils.TwitterScrapeBrowser import TwitterScrapeBrowser
 
 
 # ルーター
@@ -54,15 +55,33 @@ async def GetCurrentTwitterAccount(
 
     # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) は利用できない
     # これが検出された場合、その場で当該レコードを削除する
-    if twitter_account[0].access_token != 'NETSCAPE_COOKIE_FILE':
-        logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] Old cookie format or OAuth session is no longer available. [screen_name: {twitter_account[0].screen_name}]')
-        await twitter_account[0].delete()
+    ## 重複レコードの可能性もなくもないため、リスト全体をイテレートしてチェックする
+    is_removed = False
+    valid_accounts: list[TwitterAccount] = []
+    for record in twitter_account:
+        if record.access_token != 'NETSCAPE_COOKIE_FILE':
+            logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] Old cookie format or OAuth session is no longer available. [screen_name: {record.screen_name}, id: {record.id}]')
+            await record.delete()
+            is_removed = True
+        else:
+            valid_accounts.append(record)
+
+    # 古い形式のレコードが削除された場合、エラーを返す
+    if is_removed is True:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Old cookie format or OAuth session is no longer available',
         )
 
-    return twitter_account[0]
+    # 有効なアカウントが存在しない場合
+    if len(valid_accounts) == 0:
+        logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] No valid TwitterAccount found after cleanup. [screen_name: {screen_name}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'TwitterAccount associated with screen_name does not exist',
+        )
+
+    return valid_accounts[0]
 
 
 @router.post(
@@ -81,20 +100,13 @@ async def TwitterCookieAuthAPI(
     # cookies.txt (Netscape 形式) をパースして Cookie が取得できるかを試す
     # パースしたデータ自体は使われないが、正しいフォーマットかを検証するために必須
     try:
-        # cookies.txt の内容を行ごとに分割
-        cookies_lines = auth_request.cookies_txt.strip().split('\n')
-        cookies: dict[str, str] = {}
-        for line in cookies_lines:
-            # コメント行やヘッダー行をスキップ
-            if line.startswith('#') or line.startswith('# ') or not line.strip():
-                continue
-            # タブで分割し、必要な情報を取得
-            parts = line.split('\t')
-            if len(parts) >= 7:
-                domain, _, _, _, _, name, value = parts[:7]
-                # ドメインが .twitter.com または .x.com の場合のみ処理
-                if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
-                    cookies[name] = value
+        cookie_params = TwitterScrapeBrowser.parseNetscapeCookieFile(auth_request.cookies_txt)
+        # Twitter 関連の Cookie が存在するかを確認
+        ## CookieParam の domain に 'x.com' が含まれているかチェック
+        twitter_cookies = [
+            param for param in cookie_params
+            if param.domain is not None and 'x.com' in param.domain
+        ]
     except Exception as ex:
         error_message = f'Failed to parse cookies.txt: {ex!s}'
         logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] {error_message}')
@@ -102,7 +114,7 @@ async def TwitterCookieAuthAPI(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = error_message,
         ) from ex
-    if not cookies:
+    if len(twitter_cookies) == 0:
         logging.error('[TwitterRouter][TwitterCookieAuthAPI] No valid cookies found in the provided cookies.txt.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -188,13 +200,10 @@ async def TwitterCookieAuthAPI(
 
     # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) を自動削除
     ## これにより、古い OAuth 認証や旧 Cookie 形式のレコードが処理に用いられないようにする
-    old_format_accounts = await TwitterAccount.filter(
+    deleted_count = await TwitterAccount.filter(
         user_id = current_user.id,
-    ).exclude(access_token = 'NETSCAPE_COOKIE_FILE')
-    if old_format_accounts:
-        deleted_count = await TwitterAccount.filter(
-            user_id = current_user.id,
-        ).exclude(access_token = 'NETSCAPE_COOKIE_FILE').delete()
+    ).exclude(access_token = 'NETSCAPE_COOKIE_FILE').delete()
+    if deleted_count > 0:
         logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted {deleted_count} old format account(s).')
 
     # 処理完了
@@ -214,9 +223,16 @@ async def TwitterAccountDeleteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    # Twitter アカウントレコードの ID を取得（削除前に取得する必要がある）
+    # この値は Twitter 側のアカウント ID とは異なるので注意
+    twitter_account_id = twitter_account.id
+
     # 指定された Twitter アカウントのレコードを削除
     ## Cookie 情報などが保持されたレコードを削除することで連携解除とする
     await twitter_account.delete()
+
+    # シングルトンインスタンスを削除してリソースリークを防ぐ
+    await TwitterGraphQLAPI.removeInstance(twitter_account_id)
 
 
 @router.post(
@@ -249,10 +265,10 @@ async def TwitterTweetAPI(
     media_ids: list[str] = []
 
     try:
-
-        tweepy_api = twitter_account.getTweepyAPI()
-
         # 画像をアップロードするタスク
+        # TODO: 本来はここもヘッドレスブラウザ経由で送信すべきだが、おそらく画像の受け渡しが面倒なのと、
+        # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままでセキュリティも緩そうなので当面これで行く…
+        tweepy_api = twitter_account.getTweepyAPI()
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload,

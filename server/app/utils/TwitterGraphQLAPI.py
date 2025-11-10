@@ -63,30 +63,33 @@ class TwitterGraphQLAPI:
         同じ Twitter アカウント ID のインスタンスが既に存在する場合は、そのインスタンスを返す（シングルトンパターン）
 
         Args:
-            twitter_account: Twitter アカウントのモデル
+            twitter_account (TwitterAccount): Twitter アカウントのモデル
         """
 
         self.twitter_account = twitter_account
 
         # ZenDriver で自動操作されるヘッドレスブラウザのインスタンス
-        self.browser = TwitterScrapeBrowser(self.twitter_account)
+        self._browser = TwitterScrapeBrowser(self.twitter_account)
         # 一定期間後にブラウザをシャットダウンするタスク
-        self.shutdown_task: asyncio.Task[None] | None = None
+        self._shutdown_task: asyncio.Task[None] | None = None
+        # shutdown_task へのアクセスを保護するためのロック
+        self._shutdown_task_lock = asyncio.Lock()
 
         # GraphQL API の前回呼び出し時刻
-        self.last_graphql_api_call_time: float = 0.0
+        self._last_graphql_api_call_time: float = 0.0
 
         # ツイート送信時の排他制御用のロック・前回ツイート時刻
-        self.tweet_lock = asyncio.Lock()
-        self.last_tweet_time: float = 0.0
+        self._tweet_lock = asyncio.Lock()
+        self._last_tweet_time: float = 0.0
 
     def __new__(cls, twitter_account: TwitterAccount) -> TwitterGraphQLAPI:
         """
         シングルトンパターンの実装
         同じ Twitter アカウント ID のインスタンスが既に存在する場合は、そのインスタンスを返す
+        既存インスタンスが見つかった場合、コンストラクタに渡された twitter_account の情報で既存インスタンスを更新する
 
         Args:
-            twitter_account: Twitter アカウントのモデル
+            twitter_account (TwitterAccount): Twitter アカウントのモデル
 
         Returns:
             TwitterGraphQLAPI: Twitter GraphQL API クライアントのインスタンス
@@ -96,7 +99,40 @@ class TwitterGraphQLAPI:
         if account_id not in cls.__instances:
             instance = super().__new__(cls)
             cls.__instances[account_id] = instance
+        else:
+            # 既存インスタンスが見つかった場合、twitter_account の情報を更新する
+            ## DB から取得した新鮮な twitter_account の情報で既存インスタンスを更新することで、認証情報の変更などが反映される
+            existing_instance = cls.__instances[account_id]
+            existing_instance.twitter_account = twitter_account
+            # browser インスタンスが持っている twitter_account も更新する
+            ## 次回 setup() が呼ばれた際に新しい Cookie が使われるようになる
+            if existing_instance._browser is not None:
+                existing_instance._browser.twitter_account = twitter_account
         return cls.__instances[account_id]
+
+    @classmethod
+    async def removeInstance(cls, twitter_account_id: int) -> None:
+        """
+        指定された Twitter アカウント ID のシングルトンインスタンスを削除する
+        アカウント削除後のリソースリークを防ぐために使用する
+
+        Args:
+            twitter_account_id (int): 削除する Twitter アカウントの ID
+        """
+
+        if twitter_account_id in cls.__instances:
+            instance = cls.__instances[twitter_account_id]
+            # シャットダウンタスクをキャンセル
+            ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
+            async with instance._shutdown_task_lock:
+                if instance._shutdown_task is not None:
+                    if not instance._shutdown_task.done():
+                        instance._shutdown_task.cancel()
+                    instance._shutdown_task = None
+            # ブラウザをシャットダウン
+            if instance._browser is not None and instance._browser.is_setup_complete is True:
+                await instance._browser.shutdown()
+            del cls.__instances[twitter_account_id]
 
     async def invokeGraphQLAPI(
         self,
@@ -121,11 +157,11 @@ class TwitterGraphQLAPI:
         """
 
         # ヘッドブラウザがまだ起動していない場合、セットアップ処理を実行
-        if self.browser.is_setup_complete is not True:
-            await self.browser.setup()
+        if self._browser.is_setup_complete is not True:
+            await self._browser.setup()
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
-        browser = self.browser
+        browser = self._browser
         try:
             raw_response = await browser.invokeGraphQLAPI(
                 endpoint_name=endpoint_name,
@@ -144,7 +180,7 @@ class TwitterGraphQLAPI:
             await self.twitter_account.save()  # これで変更が DB に反映される
 
             # GraphQL API の前回呼び出し時刻を更新
-            self.last_graphql_api_call_time = time.time()
+            self._last_graphql_api_call_time = time.time()
 
             async def OnShutdown() -> None:
                 # タイムアウト時間に到達するまで待つ
@@ -152,19 +188,21 @@ class TwitterGraphQLAPI:
                 # GraphQL API の前回呼び出し時刻を確認し、タイムアウト時間が経過している場合のみ、
                 # しばらく API 呼び出しが行われていないため、リソース節約のためにブラウザをシャットダウンする
                 current_time = time.time()
-                if current_time - self.last_graphql_api_call_time >= self.BROWSER_IDLE_TIMEOUT:
+                if current_time - self._last_graphql_api_call_time >= self.BROWSER_IDLE_TIMEOUT:
                     logging.info(
                         f'[TwitterGraphQLAPI] Shutting down browser after {self.BROWSER_IDLE_TIMEOUT} seconds of inactivity.'
                     )
-                    await self.browser.shutdown()
+                    await self._browser.shutdown()
 
             # 一定時間後にブラウザをシャットダウンするタスクを再スケジュール
             ## これも API リクエストの成功・失敗に関わらず常に API リクエスト完了後に常に実行すべき
-            if self.shutdown_task is not None:
-                if not self.shutdown_task.done():
-                    self.shutdown_task.cancel()
-                self.shutdown_task = None
-            self.shutdown_task = asyncio.create_task(OnShutdown())
+            ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
+            async with self._shutdown_task_lock:
+                if self._shutdown_task is not None:
+                    if not self._shutdown_task.done():
+                        self._shutdown_task.cancel()
+                    self._shutdown_task = None
+                self._shutdown_task = asyncio.create_task(OnShutdown())
 
         # 生のレスポンスデータを取得
         parsed_response = raw_response['parsedResponse']
@@ -356,10 +394,10 @@ class TwitterGraphQLAPI:
         """
 
         # ツイートの最小送信間隔を守るためにロックを取得
-        async with self.tweet_lock:
+        async with self._tweet_lock:
             # 最後のツイート時刻から最小送信間隔を経過していない場合は待機
             current_time = time.time()
-            wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - self.last_tweet_time))
+            wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - self._last_tweet_time))
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
 
@@ -385,7 +423,7 @@ class TwitterGraphQLAPI:
             )
 
             # 最後のツイート時刻を更新
-            self.last_tweet_time = time.time()
+            self._last_tweet_time = time.time()
 
             # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
             if isinstance(response, str):
