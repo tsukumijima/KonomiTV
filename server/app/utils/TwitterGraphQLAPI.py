@@ -130,8 +130,16 @@ class TwitterGraphQLAPI:
                         instance._shutdown_task.cancel()
                     instance._shutdown_task = None
             # ブラウザをシャットダウン
+            ## browser.shutdown() が例外を投げた場合でもレジストリエントリは確実に削除する必要があるため、try/except で囲む
             if instance._browser is not None and instance._browser.is_setup_complete is True:
-                await instance._browser.shutdown()
+                try:
+                    await instance._browser.shutdown()
+                except Exception as ex:
+                    logging.error(
+                        f'Failed to shutdown browser for Twitter account {twitter_account_id}: {ex}',
+                        exc_info=ex,
+                    )
+            # レジストリエントリを削除
             del cls.__instances[twitter_account_id]
 
     async def invokeGraphQLAPI(
