@@ -669,7 +669,7 @@ class RecordedScanTask:
         try:
             return await file_path.resolve()
         except (OSError, RuntimeError) as ex:
-            logging.warning(f'{file_path}: Failed to resolve symlink. Using original path.', exc_info=ex)
+            logging.warning(f'{file_path}: Failed to resolve symlink. Using original path:', exc_info=ex)
             return file_path
 
 

@@ -293,7 +293,7 @@ class MetadataAnalyzer:
                     logging.warning(f'{self.recorded_file_path}: Unsupported TS packet size detected: {first_bad} bytes.')
                     return None
             except Exception as ex:
-                logging.warning(f'{self.recorded_file_path}: Failed to validate ts_packetsize.', exc_info=ex)
+                logging.warning(f'{self.recorded_file_path}: Failed to validate ts_packetsize:', exc_info=ex)
 
         # メディア情報から録画ファイルのメタデータを取得
         # 全般（コンテナ情報）
@@ -804,7 +804,7 @@ class MetadataAnalyzer:
         try:
             full_probe = FFprobeResult(**full_json)
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse full ffprobe result.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse full ffprobe result:', exc_info=ex)
             return None
 
         # FFprobe から再生時間を取得できない場合のフォールバック処理
@@ -869,7 +869,7 @@ class MetadataAnalyzer:
                 # MPEG-TS 形式でない場合は部分解析はせず、全体解析の結果をそのまま設定
                 sample_json = full_json
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to analyze sample via ffprobe.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to analyze sample via ffprobe:', exc_info=ex)
             return None
 
         if sample_json is None:
@@ -878,7 +878,7 @@ class MetadataAnalyzer:
         try:
             sample_probe = FFprobeSampleResult(**sample_json)
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to parse sample ffprobe result.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to parse sample ffprobe result:', exc_info=ex)
             return None
 
         # 解析処理中に calculateTSFileDuration() を実行した場合は、有効な TS データの終了位置も一緒に返す
@@ -914,7 +914,7 @@ class MetadataAnalyzer:
                 return None
             return cast(dict[str, Any], json.loads(proc.stdout.decode('utf-8')))
         except Exception as ex:
-            logging.warning(f'{self.recorded_file_path}: Failed to run ffprobe.', exc_info=ex)
+            logging.warning(f'{self.recorded_file_path}: Failed to run ffprobe:', exc_info=ex)
             return None
 
 

@@ -275,7 +275,7 @@ class TSInfoAnalyzer:
                         pass
 
             except Exception as ex:
-                logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS.', exc_info=ex)
+                logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS:', exc_info=ex)
                 return None
 
             return None
