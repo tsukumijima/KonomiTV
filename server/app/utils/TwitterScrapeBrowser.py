@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Any
 
-from zendriver import Browser, Config, Tab, cdp
+from zendriver import Browser, Tab, cdp
 
 from app import logging
 from app.constants import STATIC_DIR
@@ -53,7 +53,7 @@ class TwitterScrapeBrowser:
 
             # ZenDriver でブラウザを起動
             logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Starting browser...')
-            self._browser = await Browser.create(Config(
+            self._browser = await Browser.create(
                 # ユーザーデータディレクトリはあえて設定せず、立ち上げたプロセスが終了したらプロファイルも消えるようにする
                 # Cookie に関しては別途 DB と同期・永続化されていて、毎回セットアップ時に復元されるため問題はない
                 user_data_dir=None,
@@ -61,9 +61,7 @@ class TwitterScrapeBrowser:
                 headless=True,
                 # ブラウザは現在の環境にインストールされているものを自動選択させる
                 browser='auto',
-                # Accept-Language に使われる値をデフォルトの "en-US,en;q=0.9" から "ja" に変更
-                lang='ja',
-            ))
+            )
             logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser started.')
 
             # まず空のタブを開く
@@ -169,11 +167,10 @@ class TwitterScrapeBrowser:
             # x.com の main.js の1行目にブレークポイントを設定
             ## ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
             ## 正規表現はパスが main.<hash>.js 形式のファイルのみにマッチするように厳密化している
-            ## ホスト名やパスは任意でマッチするため、ファイル名が変わらなければ URL 変更にも対応できるはず
             breakpoint_id, _ = await self._page.send(
                 cdp.debugger.set_breakpoint_by_url(
                     line_number=0,  # 0-based なので 1行目は 0
-                    url_regex=r'^https://[^/]+/main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
+                    url_regex=r'^.*?main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
                 )
             )
             logging.debug(
@@ -313,7 +310,9 @@ class TwitterScrapeBrowser:
             self.is_setup_complete = False
 
             # ブラウザを停止
-            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for browser to terminate...')
+            logging.info(
+                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for browser to terminate...'
+            )
             try:
                 await self._browser.stop()
                 logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser terminated.')
