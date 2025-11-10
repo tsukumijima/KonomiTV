@@ -72,6 +72,7 @@ export interface IReservationUpdateRequest {
     record_settings: IRecordSettings;
 }
 
+
 /**
  * 録画予約に関する API 操作を提供するクラス
  */

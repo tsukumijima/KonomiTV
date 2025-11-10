@@ -114,6 +114,7 @@ export interface IProgramSearchConditionDate {
     end_minute: number; // 0-59
 }
 
+
 /**
  * 番組情報に関する API 操作を提供するクラス
  */

@@ -158,6 +158,7 @@ export interface IJikkyoComments {
     detail: string;
 }
 
+
 class Videos {
 
     /**
