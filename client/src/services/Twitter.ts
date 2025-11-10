@@ -3,17 +3,6 @@ import Message from '@/message';
 import APIClient from '@/services/APIClient';
 
 
-/** Twitter アカウントと連携するための認証 URL を表すインターフェイス */
-export interface ITwitterAuthURL {
-    authorization_url: string;
-}
-
-/** Twitter アカウントとパスワード認証で連携するためのリクエストを表すインターフェイス */
-export interface ITwitterPasswordAuthRequest {
-    screen_name: string;
-    password: string;
-}
-
 /** Twitter アカウントと Cookie 認証で連携するためのリクエストを表すインターフェイス */
 export interface ITwitterCookieAuthRequest {
     cookies_txt: string;
@@ -66,30 +55,11 @@ export interface ITimelineTweetsResult extends ITwitterAPIResult {
 class Twitter {
 
     /**
-     * Twitter アカウントと連携するための認証 URL を取得する
-     * @returns 認証 URL or 認証 URL の取得に失敗した場合は null
-     */
-    static async fetchAuthorizationURL(): Promise<string | null> {
-
-        // API リクエストを実行
-        const response = await APIClient.get<ITwitterAuthURL>('/twitter/auth');
-
-        // エラー処理
-        if (response.type === 'error') {
-            APIClient.showGenericError(response, 'Twitter アカウントとの連携用の認証 URL を取得できませんでした。');
-            return null;
-        }
-
-        return response.data.authorization_url;
-    }
-
-
-    /**
-     * Twitter アカウントと Cookie or パスワードログインで連携する
-     * @param twitter_auth_request cookies.txt または スクリーンネーム&パスワード
+     * Twitter アカウントと Cookie ログインで連携する
+     * @param twitter_auth_request Netscape 形式の Cookie ファイルの内容を格納した文字列
      * @returns ログインできた場合は true, 失敗した場合は false
      */
-    static async auth(twitter_auth_request: ITwitterPasswordAuthRequest | ITwitterCookieAuthRequest): Promise<boolean> {
+    static async auth(twitter_auth_request: ITwitterCookieAuthRequest): Promise<boolean> {
 
         // API リクエストを実行
         const response = await APIClient.post('/twitter/auth', twitter_auth_request);
@@ -97,15 +67,7 @@ class Twitter {
         // エラー処理
         if (response.type === 'error') {
             if (typeof response.data.detail === 'string') {
-                if (response.data.detail.startsWith('Failed to authenticate with password')) {
-                    const error = response.data.detail.match(/Message: (.+)\)/)![1];
-                    Message.error(`ログインに失敗しました。${error}`);
-                    return false;
-                } else if (response.data.detail.startsWith('Unexpected error occurred while authenticate with password')) {
-                    const error = response.data.detail.match(/Message: (.+)\)/)![1];
-                    Message.error(`ログインフローの途中で予期せぬエラーが発生しました。${error}`);
-                    return false;
-                } else if (response.data.detail.startsWith('Failed to get user information')) {
+                if (response.data.detail.startsWith('Failed to get user information')) {
                     Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
                     return false;
                 }
