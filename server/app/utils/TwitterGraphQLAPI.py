@@ -211,6 +211,10 @@ class TwitterGraphQLAPI:
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
         browser = self._browser
         try:
+            logging.info(f'{self.log_prefix} Requesting {endpoint_name} GraphQL API ...')
+            logging.debug(f'{self.log_prefix} Request variables: {variables}')
+            if additional_flags is not None:
+                logging.debug(f'{self.log_prefix} Additional flags: {additional_flags}')
             raw_response = await browser.invokeGraphQLAPI(
                 endpoint_name=endpoint_name,
                 variables=variables,
@@ -309,6 +313,7 @@ class TwitterGraphQLAPI:
             )
 
         # ここまで来たら (中身のデータ構造はともかく) GraphQL API レスポンスの取得には成功しているはず
+        logging.info(f'{self.log_prefix} {endpoint_name} GraphQL API request completed.')
         return response_json['data']
 
     async def keepAlive(self) -> None:
