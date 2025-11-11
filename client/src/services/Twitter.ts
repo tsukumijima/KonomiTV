@@ -68,13 +68,24 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            if (typeof response.data.detail === 'string' &&
-                response.data.detail.startsWith('Failed to get user information')) {
-                Message.error('Twitter アカウント情報の取得に失敗しました。有効な Cookie を入力してください。');
-                return false;
+            switch (response.data.detail) {
+                case 'No valid cookies found in the provided cookies.txt': {
+                    Message.error('Cookie データのフォーマットが不正です。Netscape 形式の Cookie データを入力してください。');
+                    break;
+                }
+                case 'Failed to get user information': {
+                    Message.error('Twitter アカウント情報の取得に失敗しました。');
+                    break;
+                }
+                case 'Chrome or Brave is not installed on this machine.': {
+                    Message.error('ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。');
+                    break;
+                }
+                default: {
+                    APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。再度お試しください。');
+                    break;
+                }
             }
-            // 上記以外のエラー
-            APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
             return false;
         }
 
@@ -194,11 +205,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'ツイートをリツイートできませんでした。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'ツイートをリツイートできませんでした。');
             return null;
         }
 
@@ -226,11 +233,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'リツイートを取り消せませんでした。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'リツイートを取り消せませんでした。');
             return null;
         }
 
@@ -258,11 +261,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'ツイートをいいねできませんでした。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'ツイートをいいねできませんでした。');
             return null;
         }
 
@@ -290,11 +289,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'いいねを取り消せませんでした。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'いいねを取り消せませんでした。');
             return null;
         }
 
@@ -324,11 +319,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'ホームタイムラインを取得できませんでした。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'ホームタイムラインを取得できませんでした。');
             return null;
         }
 
@@ -359,11 +350,7 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            switch (response.data.detail) {
-                default:
-                    APIClient.showGenericError(response, 'ツイートの検索に失敗しました。');
-                    break;
-            }
+            APIClient.showGenericError(response, 'ツイートの検索に失敗しました。');
             return null;
         }
 
