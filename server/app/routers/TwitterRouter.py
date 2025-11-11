@@ -172,8 +172,7 @@ async def TwitterCookieAuthAPI(
     # アイコン URL を設定
     twitter_account.icon_url = viewer_result.icon_url
     # Cookie を暗号化して保持
-    encrypted_cookie = twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
-    twitter_account.access_token_secret = encrypted_cookie
+    twitter_account.access_token_secret = twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
     existing_accounts = await TwitterAccount.filter(
@@ -192,7 +191,7 @@ async def TwitterCookieAuthAPI(
         oldest_account.name = twitter_account.name  # アカウント名
         oldest_account.icon_url = twitter_account.icon_url  # アイコン URL
         oldest_account.access_token = twitter_account.access_token  # アクセストークン
-        oldest_account.access_token_secret = encrypted_cookie  # アクセストークンシークレット
+        oldest_account.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
         await oldest_account.save()
 
         # 他の重複アカウントを削除

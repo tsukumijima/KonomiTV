@@ -46,15 +46,16 @@ class TwitterAccount(TortoiseModel):
 
     def encryptAccessTokenSecret(self, plain_text: str) -> str:
         """
-        Netscape 形式の Cookie を暗号化して返す。
+        Netscape 形式の Cookie データを暗号化する
 
         Returns:
             str: 暗号化済みのテキスト
         """
 
-        # 空文字は暗号化不要なのでそのまま返して無駄な処理を避ける
+        # 空文字は暗号化不要なのでそのまま返し、無駄な処理を避ける
         if plain_text == '':
             return ''
+
         # Fernet で暗号化し、接頭辞を付けて暗号化済みであることを明示する
         encrypted_text = TWITTER_ACCOUNT_COOKIE_FERNET.encrypt(plain_text.encode('utf-8')).decode('utf-8')
         return f'{TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX}{encrypted_text}'
@@ -62,7 +63,7 @@ class TwitterAccount(TortoiseModel):
 
     def decryptAccessTokenSecret(self) -> str:
         """
-        データベースに保存されている Cookie を復号して返す。
+        データベースに保存されている Cookie データを復号する
 
         Returns:
             str: 復号済みのテキスト
@@ -86,6 +87,7 @@ class TwitterAccount(TortoiseModel):
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Failed to decrypt Twitter cookies. Please re-link your Twitter account.',
             ) from ex
+
         return decrypted_text
 
 

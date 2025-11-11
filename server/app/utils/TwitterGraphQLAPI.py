@@ -288,8 +288,7 @@ class TwitterGraphQLAPI:
             ## この処理は API リクエストの成功・失敗に関わらず API リクエスト完了後に常に実行すべき
             cookies_txt_content = await browser.saveTwitterCookiesToNetscapeFormat()
             # Cookie を暗号化してから DB に反映する
-            encrypted_cookie = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
-            self.twitter_account.access_token_secret = encrypted_cookie
+            self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
             await self.twitter_account.save()  # これで変更が DB に反映される
 
             # GraphQL API の前回呼び出し時刻を更新
