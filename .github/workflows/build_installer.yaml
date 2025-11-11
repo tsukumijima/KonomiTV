@@ -108,18 +108,10 @@ jobs:
           # Python Standalone Builds をダウンロードしてインストール
           RUN curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz && \
               tar xvf python.tar.gz && \
-              mv python /usr/local/python && \
-              rm python.tar.gz
-          # Python をパスの通った場所にシンボリックリンクで配置
-          RUN ln -s /usr/local/python/bin/python3 /usr/local/bin/python3 && \
-              ln -s /usr/local/python/bin/python3 /usr/local/bin/python3.11 && \
-              ln -s /usr/local/python/bin/python3 /usr/local/bin/python && \
-              ln -s /usr/local/python/bin/pip3 /usr/local/bin/pip3 && \
-              ln -s /usr/local/python/bin/pip3 /usr/local/bin/pip
+              cp -r python/* /usr/local/ && \
+              rm -rf python python.tar.gz
           # poetry をインストール
           RUN python3.11 -m pip install poetry==${{ env.POETRY_VERSION }}
-          # poetry をパスの通った場所にシンボリックリンクで配置
-          RUN ln -s /usr/local/python/bin/poetry /usr/local/bin/poetry
           EOF
 
       # Ubuntu 20.04 の Docker イメージをビルド
