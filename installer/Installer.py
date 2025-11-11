@@ -923,14 +923,14 @@ def Installer(version: str) -> None:
                 ])
                 ShowPanel([
                     'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。',
-                    'Ubuntu 20.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/focal/amdgpu-install_6.0.60003-1_all.deb[/cyan]',
-                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/jammy/amdgpu-install_6.0.60003-1_all.deb[/cyan]',
+                    'Ubuntu 24.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
+                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。',
                     '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。',
                     'インストール/アップデート完了後は、システムの再起動が必要です。',
-                    '[cyan]sudo apt install -y ./amdgpu-install_6.0.60003-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32[/cyan]',
+                    '[cyan]sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'VCEEncC のログ:\n' + result.stdout.strip(),
