@@ -406,7 +406,7 @@ class ThumbnailGenerator:
         try:
             # 動画の長さと tile_interval_sec から候補フレーム数を算出
             # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
-            num_candidates = int(math.ceil(self.duration_sec / self.tile_interval_sec))
+            num_candidates = math.ceil(self.duration_sec / self.tile_interval_sec)
             if num_candidates < 1:
                 num_candidates = 1
 

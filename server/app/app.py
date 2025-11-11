@@ -10,7 +10,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_utils.tasks import repeat_every
 
 from app import logging
 from app.config import Config, LoadConfig
@@ -43,6 +42,7 @@ from app.routers import (
 )
 from app.streams.LiveStream import LiveStream
 from app.utils.edcb.EDCBTuner import EDCBTuner
+from app.utils.FastAPITaskUtil import repeat_every
 
 
 # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする

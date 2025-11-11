@@ -863,7 +863,7 @@ class VideoEncodingTask:
                             # Future がまだ未完了の場合にのみ実行
                             if current_segment is not None:
                                 # 判定に用いる次セグメント開始時刻
-                                next_segment_start_timestamp = current_segment.start_dts + int(round(current_segment.duration_seconds * ts.HZ))
+                                next_segment_start_timestamp = current_segment.start_dts + round(current_segment.duration_seconds * ts.HZ)
                                 # logging.debug(
                                 #     f'{self.video_stream.log_prefix} Current Timestamp: {current_timestamp_unwrapped} / '
                                 #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'
