@@ -822,17 +822,17 @@ class VideoEncodingTask:
                                         video_pid = elementary_pid
                                         # H.264 映像 PES を解析できるようパーサーを差し替える
                                         video_parser = PESParser(H264PES)
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.264 PID: 0x{elementary_pid:04x}')
+                                        logging.debug(f'{self.video_stream.log_prefix} H.264 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x24:  # H.265
                                     if video_pid is None:
                                         video_pid = elementary_pid
                                         # H.265 映像 PES を解析できるようパーサーを差し替える
                                         video_parser = PESParser(H265PES)
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
+                                        logging.debug(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x0F:  # AAC
                                     if audio_pid is None:
                                         audio_pid = elementary_pid
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
+                                        logging.debug(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
                             # PMT を再構築して candidate に追加
                             for packet in packetize_section(pmt, False, False, cast(int, pmt_pid), 0, pmt_cc):
                                 encoded_segment += packet
@@ -864,7 +864,7 @@ class VideoEncodingTask:
                             if current_segment is not None:
                                 # 判定に用いる次セグメント開始時刻
                                 next_segment_start_timestamp = current_segment.start_dts + int(round(current_segment.duration_seconds * ts.HZ))
-                                # logging.debug_simple(
+                                # logging.debug(
                                 #     f'{self.video_stream.log_prefix} Current Timestamp: {current_timestamp_unwrapped} / '
                                 #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'
                                 # )
@@ -1019,14 +1019,14 @@ class VideoEncodingTask:
                         logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
                         # エンコーダーのデバッグログが有効な場合のみ、全てのログを出力
                         if CONFIG.general.debug_encoder is True:
-                            logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
+                            logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
                             assert self._encoder_process.stderr is not None
                             while True:
                                 try:
                                     line = await self._encoder_process.stderr.readline()
                                     if not line:  # EOF
                                         break
-                                    logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                                    logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                                 except Exception:
                                     pass
                         # リトライ前にフィードタスクの完了を待つ
@@ -1075,14 +1075,14 @@ class VideoEncodingTask:
 
             # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
             if (CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT) and self._encoder_process is not None:
-                logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
+                logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
                 assert self._encoder_process.stderr is not None
                 while True:
                     try:
                         line = await self._encoder_process.stderr.readline()
                         if not line:  # EOF
                             break
-                        logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                        logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                     except Exception:
                         pass
             # finally 句の最後でクリーンアップする前に、フィードタスクの完了を待つ

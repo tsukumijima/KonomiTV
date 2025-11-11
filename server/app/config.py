@@ -392,7 +392,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
     if bypass_validation is False:
         try:
             _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': False})
-            logging.debug_simple('Server settings loaded.')
+            logging.debug('Server settings loaded.')
         except ValidationError as error:
 
             # エラーのうちどれか一つでもカスタムバリデーターからのエラーだった場合、エラーメッセージを表示して終了する
@@ -413,7 +413,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             sys.exit(1)
     else:
         _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': True})
-        # logging.debug_simple('Server settings loaded (bypassed validation).')
+        # logging.debug('Server settings loaded (bypassed validation).')
 
     return _CONFIG
 

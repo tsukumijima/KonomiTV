@@ -278,7 +278,7 @@ class MetadataAnalyzer:
         if result is None:
             return None
         full_probe, sample_probe, end_ts_offset = result
-        logging.debug_simple(f'{self.recorded_file_path}: FFprobe analysis completed.')
+        logging.debug(f'{self.recorded_file_path}: FFprobe analysis completed.')
 
         # MPEG-TS の TS パケットサイズが 188 以外であれば弾く（BDAV 等は非対応）
         if full_probe.format.format_name == 'mpegts':
@@ -523,7 +523,7 @@ class MetadataAnalyzer:
             analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset)
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
-                logging.debug_simple(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
+                logging.debug(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
                 # 取得成功時は録画開始時刻と録画終了時刻も解析する
                 recording_time = analyzer.analyzeRecordingTime()
                 if recording_time is not None:
@@ -539,7 +539,7 @@ class MetadataAnalyzer:
             analyzer = TSInfoAnalyzer(recorded_video)
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
-                logging.debug_simple(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')
+                logging.debug(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')
                 # 取得成功時は録画開始時刻と録画終了時刻も解析する
                 recording_time = analyzer.analyzeRecordingTime()
                 if recording_time is not None:
@@ -765,7 +765,7 @@ class MetadataAnalyzer:
                 # --- 再生時間の算出 ---
                 # 先頭と末尾の PCR 値から再生時間（秒）を算出する
                 duration = last_timestamp - first_timestamp
-                logging.debug_simple(f'{self.recorded_file_path}: Duration calculated: {duration} seconds.')
+                logging.debug(f'{self.recorded_file_path}: Duration calculated: {duration} seconds.')
 
                 return (duration, valid_data_end)
 
@@ -816,7 +816,7 @@ class MetadataAnalyzer:
                 duration, _ = duration_result
                 # FFprobe の結果を更新
                 full_probe.format.duration = str(duration)
-                logging.debug_simple(f'{self.recorded_file_path}: Duration fallback completed: {duration} seconds.')
+                logging.debug(f'{self.recorded_file_path}: Duration fallback completed: {duration} seconds.')
             else:
                 # 再生時間を算出できなかった (ファイルが破損しているなど)
                 logging.warning(f'{self.recorded_file_path}: Duration is missing and fallback failed.')

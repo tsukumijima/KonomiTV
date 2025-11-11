@@ -725,7 +725,7 @@ class LiveEncodingTask:
 
             # チューナーを起動する
             # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
-            logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
+            logging.debug(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
             self.live_stream.setStatus('Standby', 'チューナーを起動しています…')
             is_tuner_opened = await self.live_stream.tuner.open()
 
@@ -1042,7 +1042,7 @@ class LiveEncodingTask:
                     # ストリーム関連のログを表示
                     ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべてのログを出力する
                     if 'Stream #0:' in line or CONFIG.general.debug_encoder is True:
-                        logging.debug_simple(f'[Live: {self.live_stream.live_stream_id}] [{ENCODER_TYPE}] ' + line)
+                        logging.debug(f'[Live: {self.live_stream.live_stream_id}] [{ENCODER_TYPE}] ' + line)
 
                     # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                     if CONFIG.general.debug_encoder is True and encoder_log is not None:

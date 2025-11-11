@@ -510,7 +510,7 @@ class RecordedScanTask:
                     if (existing_recorded_video_summary.file_created_at == file_created_at and
                         existing_recorded_video_summary.file_modified_at == file_modified_at and
                         existing_recorded_video_summary.file_size == file_size):
-                        # logging.debug_simple(f'{file_path}: File metadata unchanged, skipping...')
+                        # logging.debug(f'{file_path}: File metadata unchanged, skipping...')
                         return
 
                 # 現在録画中とマークされているファイルの処理
@@ -573,7 +573,7 @@ class RecordedScanTask:
                 # 60秒未満のファイルは録画失敗または切り抜きとみなしてスキップ
                 # 録画中だがまだ60秒に満たない場合、今後のファイル変更イベント発火時に60秒を超えていれば録画中ファイルとして処理される
                 if recorded_program.recorded_video.duration < self.MINIMUM_RECORDING_SECONDS:
-                    logging.debug_simple(f'{file_path}: This file is too short. (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s) Skipped.')
+                    logging.debug(f'{file_path}: This file is too short. (duration {recorded_program.recorded_video.duration:.1f}s < {self.MINIMUM_RECORDING_SECONDS}s) Skipped.')
                     return
 
                 # 前回の DB 取得からメタデータ解析までの間に他のタスクがレコードを作成/更新している可能性があるため、
@@ -607,7 +607,7 @@ class RecordedScanTask:
                         file_size = file_size,
                         mtime_continuous_start_at = file_modified_at,  # 初回は必ず mtime_continuous_start_at を設定
                     )
-                    logging.debug_simple(f'{file_path}: This file is recording or copying. (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s)')
+                    logging.debug(f'{file_path}: This file is recording or copying. (duration {recorded_program.recorded_video.duration:.1f}s >= {self.MINIMUM_RECORDING_SECONDS}s)')
                 else:
                     # status を Recorded に設定
                     # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
@@ -930,18 +930,18 @@ class RecordedScanTask:
                 if file_size != last_size:
                     mtime_continuous_start_at = None
                     if not throttle_event:
-                        logging.debug_simple(f'{file_path}: File size changed.')
+                        logging.debug(f'{file_path}: File size changed.')
                 # mtime が変化している場合は継続更新判定を更新
                 elif last_modified > recording_info.last_modified:
                     if mtime_continuous_start_at is None:
                         mtime_continuous_start_at = last_modified
                         if not throttle_event:
-                            logging.debug_simple(f'{file_path}: File modified time changed.')
+                            logging.debug(f'{file_path}: File modified time changed.')
                     else:
                         continuous_duration = (now - mtime_continuous_start_at).total_seconds()
                         if continuous_duration >= self.CONTINUOUS_UPDATE_THRESHOLD_SECONDS:
                             if not throttle_event:
-                                logging.debug_simple(f'{file_path}: Still recording. (continuous mtime updates for {continuous_duration:.1f} seconds)')
+                                logging.debug(f'{file_path}: Still recording. (continuous mtime updates for {continuous_duration:.1f} seconds)')
 
                 # 状態を更新
                 recording_info.last_modified = last_modified

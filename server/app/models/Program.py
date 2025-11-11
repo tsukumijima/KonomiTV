@@ -426,9 +426,9 @@ class Program(TortoiseModel):
 
                     # 番組情報をデータベースに保存する
                     if duplicate_program is None:
-                        logging.debug_simple(f'Add Program: {program.id}')
+                        logging.debug(f'Add Program: {program.id}')
                     else:
-                        logging.debug_simple(f'Update Program: {program.id}')
+                        logging.debug(f'Update Program: {program.id}')
 
                     ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
                     ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
@@ -444,7 +444,7 @@ class Program(TortoiseModel):
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
-                    logging.debug_simple(f'Delete Program: {duplicate_program.id}')
+                    logging.debug(f'Delete Program: {duplicate_program.id}')
                     try:
                         await duplicate_program.delete()
                     except exceptions.OperationalError:
@@ -712,9 +712,9 @@ class Program(TortoiseModel):
 
                         # 番組情報をデータベースに保存する
                         if duplicate_program is None:
-                            logging.debug_simple(f'Add Program: {program.id}')
+                            logging.debug(f'Add Program: {program.id}')
                         else:
-                            logging.debug_simple(f'Update Program: {program.id}')
+                            logging.debug(f'Update Program: {program.id}')
 
                         ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
                         ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
@@ -730,7 +730,7 @@ class Program(TortoiseModel):
                 # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
                 # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
                 for duplicate_program in duplicate_programs.values():
-                    logging.debug_simple(f'Delete Program: {duplicate_program.id}')
+                    logging.debug(f'Delete Program: {duplicate_program.id}')
                     try:
                         await duplicate_program.delete()
                     except exceptions.OperationalError:
