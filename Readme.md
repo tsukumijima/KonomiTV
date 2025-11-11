@@ -131,6 +131,9 @@
     - 240622 以降で実装された Linux 版 EDCB での動作確認は行っていません。私の開発環境では [EDCB-Wine](https://github.com/tsukumijima/EDCB-Wine) で安定稼働しています。
   - **Mirakurun は 3.9.0 以降を推奨します。**
     - 3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。
+    - **Mirakurun 4.0.0-beta.5 以下のバージョンでは、KonomiTV の起動時のバージョン情報取得によりドロップが発生する問題があります。**
+      - この問題を回避するには、KonomiTV を 0.13.0 以降に更新するか、Mirakurun を 4.0.0-beta.6 以降に更新する必要があります。
+      - 詳細は [こちらのツイートスレッド](https://x.com/TVRemotePlus/status/1982242605200011590) をご確認ください。
   - **Mirakurun 互換チューナーサーバーである [mirakc](https://github.com/mirakc/mirakc) も利用できます。**
     - 動作確認は最新版のみで行っています。
     - mirakc は局ロゴの収集に対応していないため、局ロゴが同梱されていないチャンネルでは、常にデフォルトの局ロゴが利用されます。
@@ -274,12 +277,12 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 
 #### Windows
 
-- QSVEncC：[Intel Graphics Driver](https://downloadcenter.intel.com/ja/product/80939/Graphics-Drivers)
+- QSVEncC：[Intel Graphics Driver](https://www.intel.co.jp/content/www/jp/ja/support/articles/000005629/graphics/processor-graphics.html)
 - NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx)
-- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support)
+- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support/download/drivers.html)
 
 それぞれのハードウェアエンコーダーを使用するには、対応した GPU ドライバーのインストールが必要です。  
-基本的にすでにインストールされていると思います。
+Windows の場合、基本的にすでにインストール済みのはずです。
 
 > [!NOTE]  
 > **古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。**  
@@ -311,7 +314,7 @@ echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] 
 sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2
 ```
 
-上記のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS / Ubuntu 22.04 LTS / Ubuntu 24.04 LTS 向け) 。  
+上記のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
 最新のインストール手順は [QSVEncC の公式ドキュメント](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 > [!NOTE]  
@@ -338,7 +341,7 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 #### Linux - VCEEncC
 
-**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。**  
+**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/download/linux-drivers.html) のインストールが必要です。**  
 
 > [!WARNING]  
 > **古いドライバーがインストールされている場合、VCEEncC が動作しない可能性があります。**  
@@ -362,7 +365,7 @@ sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,o
 sudo reboot
 ```
 
-上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS / Ubuntu 24.04 LTS 向け) 。
+上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS 以降向け) 。
 
 #### Linux - rkmppenc
 
@@ -386,7 +389,7 @@ rm rockchip-multimedia-config_1.0.2-1_all.deb
 sudo reboot
 ```
 
-上記のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください。  
+上記のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
 [rkmppenc の公式ドキュメント](https://github.com/tsukumijima/rkmppenc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 ### Tailscale の導入
@@ -944,7 +947,7 @@ Copy-Item -Force config.example.yaml config.yaml
 cp -a config.example.yaml config.yaml
 nano config.yaml
 
-# 一時的な Poetry 仮想環境の構築 (UpdateThirdparty の実行に必要)
+# 一時的な Poetry 仮想環境の構築 (poetry run task update-thirdparty の実行に必要)
 cd server/
 poetry env use 3.11
 poetry install --no-root
