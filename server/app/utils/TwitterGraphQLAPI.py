@@ -59,6 +59,8 @@ class TwitterGraphQLAPI:
 
     # Twitter アカウント ID ごとのシングルトンインスタンスを管理する辞書
     __instances: ClassVar[dict[int, TwitterGraphQLAPI]] = {}
+    # __instances へのアクセスを保護するためのロック
+    __instances_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     # 必ず Twitter アカウント ID ごとに1つのインスタンスになるように (Singleton)
     def __new__(cls, twitter_account: TwitterAccount) -> TwitterGraphQLAPI:
@@ -146,24 +148,26 @@ class TwitterGraphQLAPI:
             twitter_account_id (int): 削除する Twitter アカウントの ID
         """
 
-        if twitter_account_id in cls.__instances:
-            instance = cls.__instances[twitter_account_id]
-            # シャットダウンタスクをキャンセル
-            ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
-            async with instance._shutdown_task_lock:
-                if instance._shutdown_task is not None:
-                    if not instance._shutdown_task.done():
-                        instance._shutdown_task.cancel()
-                    instance._shutdown_task = None
-            # ヘッドレスブラウザをシャットダウン
-            ## browser.shutdown() が例外を投げた場合でもレジストリエントリは確実に削除する必要があるため、try/except で囲む
-            if instance._browser is not None and instance._browser.is_setup_complete is True:
-                try:
-                    await instance._browser.shutdown()
-                except Exception as ex:
-                    logging.error(f'Failed to shutdown browser for Twitter account {twitter_account_id}:', exc_info=ex)
-            # レジストリエントリを削除
-            del cls.__instances[twitter_account_id]
+        # __instances へのアクセスを保護するため、ロックで保護する
+        async with cls.__instances_lock:
+            if twitter_account_id in cls.__instances:
+                instance = cls.__instances[twitter_account_id]
+                # シャットダウンタスクをキャンセル
+                ## 複数の同時リクエスト完了時の競合状態を防ぐため、ロックで保護する
+                async with instance._shutdown_task_lock:
+                    if instance._shutdown_task is not None:
+                        if not instance._shutdown_task.done():
+                            instance._shutdown_task.cancel()
+                        instance._shutdown_task = None
+                # ヘッドレスブラウザをシャットダウン
+                ## browser.shutdown() が例外を投げた場合でもレジストリエントリは確実に削除する必要があるため、try/except で囲む
+                if instance._browser is not None and instance._browser.is_setup_complete is True:
+                    try:
+                        await instance._browser.shutdown()
+                    except Exception as ex:
+                        logging.error(f'Failed to shutdown browser for Twitter account {twitter_account_id}:', exc_info=ex)
+                # レジストリエントリを削除
+                del cls.__instances[twitter_account_id]
 
     async def __scheduleShutdownTask(self) -> None:
         """

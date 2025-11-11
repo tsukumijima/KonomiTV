@@ -212,6 +212,7 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
                 responseText: responseData.responseText,
                 statusCode: responseData.statusCode,
                 headers: responseData.headers,
+                requestError: responseData.requestError,
             };
         } catch (error) {
             // XMLHttpRequest を元に戻す
