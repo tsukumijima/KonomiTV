@@ -60,31 +60,7 @@ class TwitterGraphQLAPI:
     # Twitter アカウント ID ごとのシングルトンインスタンスを管理する辞書
     __instances: ClassVar[dict[int, TwitterGraphQLAPI]] = {}
 
-    def __init__(self, twitter_account: TwitterAccount) -> None:
-        """
-        Twitter GraphQL API クライアントを初期化する
-        同じ Twitter アカウント ID のインスタンスが既に存在する場合は、そのインスタンスを返す（シングルトンパターン）
-
-        Args:
-            twitter_account (TwitterAccount): Twitter アカウントのモデル
-        """
-
-        self.twitter_account = twitter_account
-
-        # ZenDriver で自動操作されるヘッドレスブラウザのインスタンス
-        self._browser = TwitterScrapeBrowser(self.twitter_account)
-        # 一定期間後にヘッドレスブラウザをシャットダウンするタスク
-        self._shutdown_task: asyncio.Task[None] | None = None
-        # shutdown_task へのアクセスを保護するためのロック
-        self._shutdown_task_lock = asyncio.Lock()
-
-        # GraphQL API の前回呼び出し時刻
-        self._last_graphql_api_call_time: float = 0.0
-
-        # ツイート送信時の排他制御用のロック・前回ツイート時刻
-        self._tweet_lock = asyncio.Lock()
-        self._last_tweet_time: float = 0.0
-
+    # 必ず Twitter アカウント ID ごとに1つのインスタンスになるように (Singleton)
     def __new__(cls, twitter_account: TwitterAccount) -> TwitterGraphQLAPI:
         """
         シングルトンパターンの実装
@@ -98,20 +74,61 @@ class TwitterGraphQLAPI:
             TwitterGraphQLAPI: Twitter GraphQL API クライアントのインスタンス
         """
 
-        account_id = twitter_account.id
-        if account_id not in cls.__instances:
+        # まだ同じ Twitter アカウント ID のインスタンスがないときだけ、インスタンスを生成する
+        if twitter_account.id not in cls.__instances:
+
+            # 新しいインスタンスを作成する
             instance = super().__new__(cls)
-            cls.__instances[account_id] = instance
+
+            # Twitter アカウントのモデル
+            instance.twitter_account = twitter_account
+
+            # ZenDriver で自動操作されるヘッドレスブラウザのインスタンス
+            instance._browser = TwitterScrapeBrowser(twitter_account)
+            # 一定期間後にヘッドレスブラウザをシャットダウンするタスク
+            instance._shutdown_task = None
+            # self._shutdown_task へのアクセスを保護するためのロック
+            instance._shutdown_task_lock = asyncio.Lock()
+
+            # GraphQL API の前回呼び出し時刻
+            instance._last_graphql_api_call_time = 0.0
+
+            # ツイート送信時の排他制御用のロック・前回ツイート時刻
+            instance._tweet_lock = asyncio.Lock()
+            instance._last_tweet_time = 0.0
+
+            # 生成したインスタンスを登録する
+            cls.__instances[twitter_account.id] = instance
         else:
             # 既存インスタンスが見つかった場合、twitter_account の情報を更新する
             ## DB から取得した新鮮な twitter_account の情報で既存インスタンスを更新することで、認証情報の変更などが反映される
-            existing_instance = cls.__instances[account_id]
+            existing_instance = cls.__instances[twitter_account.id]
             existing_instance.twitter_account = twitter_account
+
             # browser インスタンスが持っている twitter_account も更新する
             ## 次回 setup() が呼ばれた際に新しい Cookie が使われるようになる
-            if existing_instance._browser is not None:
-                existing_instance._browser.twitter_account = twitter_account
-        return cls.__instances[account_id]
+            existing_instance._browser.twitter_account = twitter_account
+
+        # 登録されているインスタンスを返す
+        return cls.__instances[twitter_account.id]
+
+    def __init__(self, twitter_account: TwitterAccount) -> None:
+        """
+        Twitter GraphQL API クライアントのインスタンスを取得する
+
+        Args:
+            twitter_account (TwitterAccount): Twitter アカウントのモデル
+        """
+
+        # インスタンス変数の型ヒントを定義
+        # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
+        self.twitter_account: TwitterAccount
+        self._browser: TwitterScrapeBrowser
+        self._shutdown_task: asyncio.Task[None] | None
+        self._shutdown_task_lock: asyncio.Lock
+        self._last_graphql_api_call_time: float
+        self._tweet_lock: asyncio.Lock
+        self._last_tweet_time: float
 
     @property
     def log_prefix(self) -> str:

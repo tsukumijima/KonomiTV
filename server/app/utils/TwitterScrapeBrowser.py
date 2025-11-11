@@ -101,7 +101,6 @@ class TwitterScrapeBrowser:
 
             # Debugger を有効化
             await self._page.send(cdp.debugger.enable())
-            logging.debug(f'{self.log_prefix} DevTools debugger enabled.')
 
             # zendriver_setup.js の内容を読み込む
             setup_js_path = STATIC_DIR / 'zendriver_setup.js'
@@ -184,11 +183,10 @@ class TwitterScrapeBrowser:
             # zendriver_setup.js に記述したセットアップ処理が完了するまで待つ
             try:
                 await asyncio.wait_for(setup_complete_future, timeout=15.0)
-                logging.info(f'{self.log_prefix} Setup completed successfully.')
+                logging.info(f'{self.log_prefix} Setup completed.')
                 # セットアップ完了後、もうブレークポイントを打つ必要はないのでデバッガを無効化
                 try:
                     await self._page.send(cdp.debugger.disable())
-                    logging.debug(f'{self.log_prefix} DevTools debugger disabled.')
                 except Exception as ex:
                     logging.error(f'{self.log_prefix} Error disabling debugger:', exc_info=ex)
                 self.is_setup_complete = True
