@@ -1,6 +1,7 @@
 
 import Message from '@/message';
 import APIClient from '@/services/APIClient';
+import useTwitterStore from '@/stores/TwitterStore';
 
 
 /** Twitter アカウントと Cookie 認証で連携するためのリクエストを表すインターフェイス */
@@ -52,6 +53,7 @@ export interface ITimelineTweetsResult extends ITwitterAPIResult {
     tweets: ITweet[];
 }
 
+
 class Twitter {
 
     /**
@@ -66,11 +68,10 @@ class Twitter {
 
         // エラー処理
         if (response.type === 'error') {
-            if (typeof response.data.detail === 'string') {
-                if (response.data.detail.startsWith('Failed to get user information')) {
-                    Message.error('Twitter アカウントのユーザー情報の取得に失敗しました。');
-                    return false;
-                }
+            if (typeof response.data.detail === 'string' &&
+                response.data.detail.startsWith('Failed to get user information')) {
+                Message.error('Twitter アカウント情報の取得に失敗しました。有効な Cookie を入力してください。');
+                return false;
             }
             // 上記以外のエラー
             APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
@@ -102,6 +103,25 @@ class Twitter {
 
 
     /**
+     * KonomiTV サーバー内部で起動しているヘッドレスブラウザのシャットダウンを遅らせる
+     * @param screen_name Twitter のスクリーンネーム
+     */
+    static async keepAlive(screen_name: string): Promise<void> {
+
+        // API リクエストを実行
+        const response = await APIClient.post(`/twitter/accounts/${screen_name}/keep-alive`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'ヘッドレスブラウザへの Keep-Alive 送信に失敗しました。');
+            return;
+        }
+
+        Twitter.recordAccountActivity(screen_name);
+    }
+
+
+    /**
      * ツイートを送信する
      * @param screen_name Twitter のスクリーンネーム
      * @param text ツイート本文
@@ -127,7 +147,15 @@ class Twitter {
         });
 
         // エラー処理 (API リクエスト自体に失敗した場合)
+        // このエンドポイントのみ、Message (SnackBar) では通知せず、通知をプレイヤー側に委ねる必要がある
         if (response.type === 'error') {
+            if (typeof response.data.detail === 'string' &&
+                response.data.detail === 'Chrome or Brave is not installed on this machine.') {
+                return {
+                    message: 'ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。',
+                    is_error: true,
+                };
+            }
             if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
                     // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
@@ -147,6 +175,7 @@ class Twitter {
             return {message: response.data.detail, is_error: true};
         } else {
             // ツイート成功
+            Twitter.recordAccountActivity(screen_name);
             return {message: response.data.detail, is_error: false};
         }
     }
@@ -179,6 +208,7 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
     }
 
@@ -210,6 +240,7 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
     }
 
@@ -241,6 +272,7 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
     }
 
@@ -272,6 +304,7 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
     }
 
@@ -305,6 +338,7 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
     }
 
@@ -339,7 +373,21 @@ class Twitter {
             return null;
         }
 
+        Twitter.recordAccountActivity(screen_name);
         return response.data;
+    }
+
+
+    /**
+     * 指定したスクリーンネームのアカウントで API 呼び出しが行われたことを記録する
+     * @param screen_name Twitter のスクリーンネーム
+     */
+    private static recordAccountActivity(screen_name: string): void {
+        if (screen_name === '') {
+            return;
+        }
+        const twitterStore = useTwitterStore();
+        twitterStore.markAccountAPIActivity(screen_name);
     }
 }
 

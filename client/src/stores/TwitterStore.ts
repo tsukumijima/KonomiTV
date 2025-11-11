@@ -17,6 +17,10 @@ const useTwitterStore = defineStore('twitter', {
 
         // 現在ツイート対象として選択されている Twitter アカウント
         selected_twitter_account: null as ITwitterAccount | null,
+
+        // 各アカウントごとに API 呼び出しが行われたかどうかを管理するオブジェクト
+        // キーは Twitter アカウントのスクリーンネーム、値は API 呼び出しが行われたかどうかを表す真偽値
+        account_api_activity: {} as Record<string, boolean>,
     }),
     actions: {
 
@@ -54,8 +58,45 @@ const useTwitterStore = defineStore('twitter', {
                         return twitter_account.id === settings_store.settings.selected_twitter_account_id;
                     });
                     this.selected_twitter_account = user_store.user.twitter_accounts[twitter_account_index];
+
+                    // 選択されている Twitter アカウントがあればその API 活動フラグをリセット
+                    if (this.selected_twitter_account) {
+                        this.resetAccountAPIActivity(this.selected_twitter_account.screen_name);
+                    }
                 }
+            } else {
+                this.is_logged_in_twitter = false;
+                this.selected_twitter_account = null;
+                this.account_api_activity = {};
             }
+        },
+
+        /**
+         * 指定したスクリーンネームのアカウントに紐づく API 呼び出しフラグを立てる
+         * @param screen_name Twitter のスクリーンネーム
+         */
+        markAccountAPIActivity(screen_name: string): void {
+            if (screen_name === '') {
+                return;
+            }
+            this.account_api_activity = {
+                ...this.account_api_activity,
+                [screen_name]: true,
+            };
+        },
+
+        /**
+         * 指定したスクリーンネームのアカウントに紐づく API 呼び出しフラグをリセットする
+         * @param screen_name Twitter のスクリーンネーム
+         */
+        resetAccountAPIActivity(screen_name: string): void {
+            if (screen_name === '') {
+                return;
+            }
+            this.account_api_activity = {
+                ...this.account_api_activity,
+                [screen_name]: false,
+            };
         },
     }
 });

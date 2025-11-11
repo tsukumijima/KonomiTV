@@ -235,6 +235,10 @@ class APIClient {
                 Message.error(`${template}\nこのリソースにアクセスする権限がありません。`);
                 return;
             }
+            case 'Chrome or Brave is not installed on this machine.': {
+                Message.error('ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。');
+                return;
+            }
             default: {
                 if (Array.isArray(error_response.data.detail)) {
                     // バリデーションエラーが発生した場合

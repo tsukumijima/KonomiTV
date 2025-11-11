@@ -75,7 +75,7 @@ class TwitterScrapeBrowser:
                     exc_info=ex,
                 )
                 raise BrowserBinaryNotFoundError(
-                    'Chrome or Brave is not installed on the server.',
+                    'Chrome or Brave is not installed on this machine.',
                 ) from ex
             logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser started.')
 
