@@ -304,7 +304,8 @@ async def TwitterTweetAPI(
     try:
         # 画像をアップロードするタスク
         # TODO: 本来はここもヘッドレスブラウザ経由で送信すべきだが、おそらく画像の受け渡しが面倒なのと、
-        # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままでセキュリティも緩そうなので当面これで行く…
+        # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままで Bot 対策も比較的緩そうなので当面これで行く…
+        logging.info(f'[TwitterRouter][TwitterTweetAPI] Uploading {len(images)} images...')
         tweepy_api = twitter_account.getTweepyAPI()
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
@@ -312,7 +313,7 @@ async def TwitterTweetAPI(
                 filename = image.filename,
                 file = image.file,
                 # Twitter Web App の挙動に合わせて常にチャンク送信方式でアップロードする
-                chunk = True,
+                chunked = True,
                 # Twitter Web App の挙動に合わせる
                 media_category = 'tweet_image',
             ))
@@ -322,6 +323,7 @@ async def TwitterTweetAPI(
         ## ref: https://developer.twitter.com/ja/docs/media/upload-media/api-reference/post-media-upload-init
         for image_upload_result in await asyncio.gather(*image_upload_task):
             if image_upload_result is not None:
+                logging.info(f'[TwitterRouter][TwitterTweetAPI] Uploaded image. [media_id: {image_upload_result.media_id}]')
                 media_ids.append(str(image_upload_result.media_id))
 
     # 画像のアップロードに失敗した
