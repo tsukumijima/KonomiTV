@@ -11,7 +11,7 @@ from app.models.TwitterAccount import TwitterAccount
 
 class BrowserBinaryNotFoundError(RuntimeError):
     """
-    Chrome / Brave の実行ファイルが検出できず、ZenDriver がブラウザを起動できない場合に送出される例外
+    Chrome / Brave の実行ファイルが検出できず、Zendriver がブラウザを起動できない場合に送出される例外
     """
 
 
@@ -31,7 +31,7 @@ class TwitterScrapeBrowser:
 
         self.twitter_account = twitter_account
 
-        # ZenDriver のブラウザインスタンス
+        # Zendriver のブラウザインスタンス
         self._browser: Browser | None = None
         # 現在アクティブなタブ（ページ）インスタンス
         self._page: Tab | None = None
@@ -64,7 +64,7 @@ class TwitterScrapeBrowser:
             # セットアップ処理の完了を把握するための Future を作成
             setup_complete_future = asyncio.get_running_loop().create_future()
 
-            # ZenDriver でヘッドレスブラウザを起動
+            # Zendriver でヘッドレスブラウザを起動
             logging.info(f'{self.log_prefix} Starting browser...')
             try:
                 self._browser = await Browser.create(
@@ -75,6 +75,32 @@ class TwitterScrapeBrowser:
                     headless=True,
                     # ブラウザは現在の環境にインストールされているものを自動選択させる
                     browser='auto',
+                    # Chrome 系ブラウザの起動最適化フラグをチューニングし、なるべくメモリ使用量を下げる
+                    # Zendriver デフォルトで指定されているフラグに加え、さらに以下のフラグを追加する
+                    browser_args=[
+                        # ウインドウをゲストモードで起動する
+                        '--bwsi',
+                        # 互換性の問題だとかが起きそうな予感がするので GPU レンダリングを無効化
+                        '--disable-gpu',
+                        '--use-gl=swiftshader',
+                        # レンダラープロセスを1つに制限することで、メモリ使用量を抑える
+                        # 今の所タブは1つしか開かないので、1つで十分
+                        '--renderer-process-limit=1',
+                        # 一時フォルダに作成されるプロファイルに保存するディスクキャッシュ領域を可能な限り小さくする
+                        '--disk-cache-size=1048576',
+                        '--media-cache-size=1048576',
+                        # Chrome に実装されている各機能のうち、ヘッドレス用途では不要なものを無効化する
+                        '--disable-client-side-phishing-detection',
+                        '--disable-component-extensions-with-background-pages',
+                        '--disable-domain-reliability',
+                        '--disable-default-apps',
+                        '--disable-extensions',
+                        '--disable-notifications',
+                        '--disable-print-preview',
+                        '--disable-speech-api',
+                        '--disable-sync',
+                        '--disable-translate',
+                    ]
                 )
             except FileNotFoundError as ex:
                 logging.error(f'{self.log_prefix} Chrome or Brave is not installed.', exc_info=ex)

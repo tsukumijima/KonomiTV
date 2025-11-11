@@ -85,7 +85,7 @@ class TwitterGraphQLAPI:
             # Twitter アカウントのモデル
             instance.twitter_account = twitter_account
 
-            # ZenDriver で自動操作されるヘッドレスブラウザのインスタンス
+            # Zendriver で自動操作されるヘッドレスブラウザのインスタンス
             instance._browser = TwitterScrapeBrowser(twitter_account)
             # 一定期間後にヘッドレスブラウザをシャットダウンするタスク
             instance._shutdown_task = None
