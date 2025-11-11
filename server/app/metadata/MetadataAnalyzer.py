@@ -147,7 +147,7 @@ class FFprobeResult(BaseModel):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
-                    logging.warning(f'Invalid video stream data: {ex}')
+                    logging.warning('Invalid video stream data:', exc_info=ex)
         return video_streams
 
     def getAudioStreams(self) -> list[FFprobeAudioStream]:
@@ -159,7 +159,7 @@ class FFprobeResult(BaseModel):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
-                    logging.warning(f'Invalid audio stream data: {ex}')
+                    logging.warning('Invalid audio stream data:', exc_info=ex)
         return audio_streams
 
 class FFprobeSampleResult(BaseModel):
@@ -175,7 +175,7 @@ class FFprobeSampleResult(BaseModel):
                 try:
                     video_streams.append(stream)
                 except Exception as ex:
-                    logging.warning(f'Invalid video stream data: {ex}')
+                    logging.warning('Invalid video stream data:', exc_info=ex)
         return video_streams
 
     def getAudioStreams(self) -> list[FFprobeAudioStream]:
@@ -187,7 +187,7 @@ class FFprobeSampleResult(BaseModel):
                 try:
                     audio_streams.append(stream)
                 except Exception as ex:
-                    logging.warning(f'Invalid audio stream data: {ex}')
+                    logging.warning('Invalid audio stream data:', exc_info=ex)
         return audio_streams
 
 

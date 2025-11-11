@@ -42,6 +42,13 @@ class TwitterScrapeBrowser:
         ## setup と shutdown が同時に実行されないようにするため、同じロックを使用する
         self._setup_lock = asyncio.Lock()
 
+    @property
+    def log_prefix(self) -> str:
+        """
+        ログのプレフィックス
+        """
+        return f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}]'
+
     async def setup(self) -> None:
         """
         ヘッドレスブラウザを起動し、Cookie の供給などのセットアップ処理を行う
@@ -58,7 +65,7 @@ class TwitterScrapeBrowser:
             setup_complete_future = asyncio.get_running_loop().create_future()
 
             # ZenDriver でヘッドレスブラウザを起動
-            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Starting browser...')
+            logging.info(f'{self.log_prefix} Starting browser...')
             try:
                 self._browser = await Browser.create(
                     # ユーザーデータディレクトリはあえて設定せず、立ち上げたプロセスが終了したらプロファイルも消えるようにする
@@ -70,45 +77,31 @@ class TwitterScrapeBrowser:
                     browser='auto',
                 )
             except FileNotFoundError as ex:
-                logging.error(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Chrome or Brave is not installed.',
-                    exc_info=ex,
-                )
-                raise BrowserBinaryNotFoundError(
-                    'Chrome or Brave is not installed on this machine.',
-                ) from ex
-            logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser started.')
+                logging.error(f'{self.log_prefix} Chrome or Brave is not installed.', exc_info=ex)
+                raise BrowserBinaryNotFoundError('Chrome or Brave is not installed on this machine.') from ex
+            logging.info(f'{self.log_prefix} Browser started.')
 
             # まず空のタブを開く
             self._page = await self._browser.get('about:blank')
-            logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Blank page opened.')
+            logging.debug(f'{self.log_prefix} Blank page opened.')
 
             # DB から復号した cookies.txt の内容をパースし、ヘッドレスブラウザの Cookie に設定
             cookies_txt_content = self.twitter_account.decryptAccessTokenSecret()
             if cookies_txt_content:
                 cookie_params = self.parseNetscapeCookieFile(cookies_txt_content)
-                logging.debug(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Found {len(cookie_params)} cookies in cookies.txt.'
-                )
+                logging.debug(f'{self.log_prefix} Found {len(cookie_params)} cookies in cookies.txt.')
                 # 読み込んだ CookieParam のリストを CookieJar に一括で設定
                 try:
                     await self._browser.cookies.set_all(cookie_params)
-                    logging.info(
-                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Successfully set {len(cookie_params)} cookies.'
-                    )
+                    logging.info(f'{self.log_prefix} Successfully set {len(cookie_params)} cookies.')
                 except Exception as ex:
-                    logging.error(
-                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error setting cookies: {ex}',
-                        exc_info=ex,
-                    )
+                    logging.error(f'{self.log_prefix} Error setting cookies:', exc_info=ex)
             else:
-                logging.warning(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] cookies.txt content is empty, skipping Cookie loading.'
-                )
+                logging.warning(f'{self.log_prefix} cookies.txt content is empty, skipping Cookie loading.')
 
             # Debugger を有効化
             await self._page.send(cdp.debugger.enable())
-            logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] DevTools debugger enabled.')
+            logging.debug(f'{self.log_prefix} DevTools debugger enabled.')
 
             # zendriver_setup.js の内容を読み込む
             setup_js_path = STATIC_DIR / 'zendriver_setup.js'
@@ -116,7 +109,7 @@ class TwitterScrapeBrowser:
 
             # Debugger.paused イベントをリッスン
             async def on_paused(event: cdp.debugger.Paused) -> None:
-                logging.debug(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Pause event fired.')
+                logging.debug(f'{self.log_prefix} Pause event fired.')
                 assert self._page is not None
                 page = self._page
                 try:
@@ -129,9 +122,7 @@ class TwitterScrapeBrowser:
                             return_by_value=True,
                         )
                     )
-                    logging.debug(
-                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js executed.'
-                    )
+                    logging.debug(f'{self.log_prefix} zendriver_setup.js executed.')
                     if exception is not None:
                         # 実行中になんらかの例外が発生した場合
                         setup_complete_future.set_exception(
@@ -145,9 +136,7 @@ class TwitterScrapeBrowser:
                     try:
                         # 再開後に少し待つ (でないと window.__invokeGraphQLAPISetupPromise 自体がまだセットされていない可能性がある)
                         await asyncio.sleep(1)
-                        logging.info(
-                            f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for zendriver_setup.js to be resolved...'
-                        )
+                        logging.info(f'{self.log_prefix} Waiting for zendriver_setup.js to be resolved...')
                         # 再開後、window.__invokeGraphQLAPISetupPromise の Promise が解決されるまで待つ
                         result, exception = await page.send(
                             cdp.runtime.evaluate(
@@ -156,9 +145,7 @@ class TwitterScrapeBrowser:
                                 return_by_value=True,
                             )
                         )
-                        logging.debug(
-                            f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js evaluated.'
-                        )
+                        logging.debug(f'{self.log_prefix} zendriver_setup.js evaluated.')
                         if exception is not None:
                             setup_complete_future.set_exception(
                                 Exception(f'Failed to wait for setup promise: {exception}')
@@ -166,9 +153,7 @@ class TwitterScrapeBrowser:
                         else:
                             # result.value が厳密に True であることを確認（undefined の可能性を排除）
                             if result.value is True:
-                                logging.debug(
-                                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] zendriver_setup.js resolved.'
-                                )
+                                logging.debug(f'{self.log_prefix} zendriver_setup.js resolved.')
                                 setup_complete_future.set_result(True)
                             else:
                                 setup_complete_future.set_exception(
@@ -188,9 +173,7 @@ class TwitterScrapeBrowser:
                     url_regex=r'^.*?main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
                 )
             )
-            logging.debug(
-                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Breakpoint set. id: {breakpoint_id}'
-            )
+            logging.debug(f'{self.log_prefix} Breakpoint set. id: {breakpoint_id}')
 
             # x.com に移動
             ## x.com/home だと万が一 Cookie セッションが revoke されている場合にログインモーダルが表示されて
@@ -201,31 +184,20 @@ class TwitterScrapeBrowser:
             # zendriver_setup.js に記述したセットアップ処理が完了するまで待つ
             try:
                 await asyncio.wait_for(setup_complete_future, timeout=15.0)
-                logging.info(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Setup completed successfully.'
-                )
+                logging.info(f'{self.log_prefix} Setup completed successfully.')
                 # セットアップ完了後、もうブレークポイントを打つ必要はないのでデバッガを無効化
                 try:
                     await self._page.send(cdp.debugger.disable())
-                    logging.debug(
-                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] DevTools debugger disabled.'
-                    )
+                    logging.debug(f'{self.log_prefix} DevTools debugger disabled.')
                 except Exception as ex:
-                    logging.error(
-                        f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error disabling debugger: {ex}',
-                        exc_info=ex,
-                    )
+                    logging.error(f'{self.log_prefix} Error disabling debugger:', exc_info=ex)
                 self.is_setup_complete = True
             except TimeoutError as ex:
-                logging.error(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.'
-                )
+                logging.error(f'{self.log_prefix} Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.')
                 self.is_setup_complete = False
                 raise ex
             except Exception as ex:
-                logging.error(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error during setup: {ex}', exc_info=ex
-                )
+                logging.error(f'{self.log_prefix} Error during setup:', exc_info=ex)
                 self.is_setup_complete = False
                 raise ex
 
@@ -315,9 +287,7 @@ class TwitterScrapeBrowser:
         ## シャットダウン中に setup が呼ばれると状態が競合するため、同じロックを使用する
         async with self._setup_lock:
             if self._browser is None:
-                logging.warning(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser is not initialized, skipping shutdown.'
-                )
+                logging.warning(f'{self.log_prefix} Browser is not initialized, skipping shutdown.')
                 return
 
             # セットアップ完了フラグをリセット（シャットダウン開始時点でセットアップ状態を無効化）
@@ -325,17 +295,12 @@ class TwitterScrapeBrowser:
             self.is_setup_complete = False
 
             # ヘッドレスブラウザを停止
-            logging.info(
-                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Waiting for browser to terminate...'
-            )
+            logging.info(f'{self.log_prefix} Waiting for browser to terminate...')
             try:
                 await self._browser.stop()
-                logging.info(f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Browser terminated.')
+                logging.info(f'{self.log_prefix} Browser terminated.')
             except Exception as ex:
-                logging.error(
-                    f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] Error while terminating browser: {ex}',
-                    exc_info=ex,
-                )
+                logging.error(f'{self.log_prefix} Error while terminating browser:', exc_info=ex)
 
             self._browser = None
             self._page = None
@@ -369,9 +334,7 @@ class TwitterScrapeBrowser:
         lines.append('')
 
         if not twitter_cookies:
-            logging.warning(
-                f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}] No Twitter-related cookies found, returning empty Netscape format.'
-            )
+            logging.warning(f'{self.log_prefix} No Twitter-related cookies found, returning empty Netscape format.')
             return '\n'.join(lines)
 
         # 各 Cookie を Netscape フォーマットで追加

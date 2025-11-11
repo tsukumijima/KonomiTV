@@ -113,6 +113,13 @@ class TwitterGraphQLAPI:
                 existing_instance._browser.twitter_account = twitter_account
         return cls.__instances[account_id]
 
+    @property
+    def log_prefix(self) -> str:
+        """
+        ログのプレフィックス
+        """
+        return f'[TwitterGraphQLAPI][@{self.twitter_account.screen_name}]'
+
     @classmethod
     async def removeInstance(cls, twitter_account_id: int) -> None:
         """
@@ -137,10 +144,7 @@ class TwitterGraphQLAPI:
                 try:
                     await instance._browser.shutdown()
                 except Exception as ex:
-                    logging.error(
-                        f'Failed to shutdown browser for Twitter account {twitter_account_id}: {ex}',
-                        exc_info=ex,
-                    )
+                    logging.error(f'Failed to shutdown browser for Twitter account {twitter_account_id}:', exc_info=ex)
             # レジストリエントリを削除
             del cls.__instances[twitter_account_id]
 
@@ -160,9 +164,7 @@ class TwitterGraphQLAPI:
             # しばらく API 呼び出しが行われていないため、リソース節約のためにヘッドレスブラウザをシャットダウンする
             current_time = time.time()
             if current_time - self._last_graphql_api_call_time >= self.BROWSER_IDLE_TIMEOUT:
-                logging.info(
-                    f'[TwitterGraphQLAPI] Shutting down browser after {self.BROWSER_IDLE_TIMEOUT} seconds of inactivity.'
-                )
+                logging.info(f'{self.log_prefix} Shutting down browser after {self.BROWSER_IDLE_TIMEOUT} seconds of inactivity.')
                 await self._browser.shutdown()
 
         # 一定時間後にヘッドレスブラウザをシャットダウンするタスクを一旦キャンセルして再スケジュールする
@@ -203,7 +205,7 @@ class TwitterGraphQLAPI:
                 await self._browser.setup()
             except BrowserBinaryNotFoundError as ex:
                 # Chrome / Brave 未導入時は UI に案内できるよう固定のエラーメッセージを返す
-                logging.error('[TwitterGraphQLAPI] Chrome or Brave is not installed on this machine:', exc_info=ex)
+                logging.error(f'{self.log_prefix} Chrome or Brave is not installed on this machine:', exc_info=ex)
                 return 'Chrome or Brave is not installed on this machine.'
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
@@ -215,7 +217,7 @@ class TwitterGraphQLAPI:
                 additional_flags=additional_flags,
             )
         except Exception as ex:
-            logging.error('[TwitterGraphQLAPI] Failed to connect to Twitter GraphQL API:', exc_info=ex)
+            logging.error(f'{self.log_prefix} Failed to connect to Twitter GraphQL API:', exc_info=ex)
             return error_message_prefix + 'Twitter API に接続できませんでした。'
         finally:
             # GraphQL API リクエスト完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
@@ -242,7 +244,7 @@ class TwitterGraphQLAPI:
 
         # リクエストエラーが発生した場合（接続エラー）
         if request_error:
-            logging.error(f'[TwitterGraphQLAPI] Request error: {request_error}')
+            logging.error(f'{self.log_prefix} Request error: {request_error}')
             return error_message_prefix + 'Twitter API に接続できませんでした。'
 
         # JSON でないレスポンスが返ってきた場合
@@ -250,7 +252,7 @@ class TwitterGraphQLAPI:
         if headers and isinstance(headers, dict):
             content_type = headers.get('content-type', '')
             if content_type and 'application/json' not in content_type:
-                logging.error(f'[TwitterGraphQLAPI] Response is not JSON. (Content-Type: {content_type})')
+                logging.error(f'{self.log_prefix} Response is not JSON. (Content-Type: {content_type})')
                 return (
                     error_message_prefix
                     + f'Twitter API から JSON 以外のレスポンスが返されました。(Content-Type: {content_type})'
@@ -268,16 +270,16 @@ class TwitterGraphQLAPI:
             except Exception as ex:
                 # 何もレスポンスが返ってきていないが、HTTP ステータスコードが 200 系以外で返ってきている場合
                 if status_code is not None and not (200 <= status_code < 300):
-                    logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API. (HTTP Error {status_code})')
-                    logging.error(f'[TwitterGraphQLAPI] Response: {response_text}')
+                    logging.error(f'{self.log_prefix} Failed to invoke GraphQL API. (HTTP Error {status_code})')
+                    logging.error(f'{self.log_prefix} Response: {response_text}')
                     return error_message_prefix + f'Twitter API から HTTP {status_code} エラーが返されました。'
 
                 # HTTP ステータスコードは 200 系だが、何もレスポンスが返ってきていない場合
-                logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON:', exc_info=ex)
+                logging.error(f'{self.log_prefix} Failed to parse response as JSON:', exc_info=ex)
                 return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         if response_json is None:
-            logging.error('[TwitterGraphQLAPI] Failed to parse response as JSON.')
+            logging.error(f'{self.log_prefix} Failed to parse response as JSON.')
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         # API レスポンスにエラーが含まれていて、かつ data キーが存在しない場合
@@ -291,7 +293,7 @@ class TwitterGraphQLAPI:
 
             # 想定外のエラーコードが返ってきた場合のエラーメッセージ
             alternative_error_message = f'Code: {response_error_code} / Message: {response_error_message}'
-            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API ({alternative_error_message})')
+            logging.error(f'{self.log_prefix} Failed to invoke GraphQL API ({alternative_error_message})')
 
             # エラーコードに対応するエラーメッセージを返し、対応するものがない場合は alternative_error_message を返す
             return error_message_prefix + self.ERROR_MESSAGES.get(response_error_code, alternative_error_message)
@@ -300,7 +302,7 @@ class TwitterGraphQLAPI:
         ## 実装時点の GraphQL API は必ず成功時は 'data' キーの下にレスポンスが格納されるはず
         ## もし 'data' キーが存在しない場合は、API 仕様が変更されている可能性がある
         if 'data' not in response_json:
-            logging.error('[TwitterGraphQLAPI] Response does not have "data" key.')
+            logging.error(f'{self.log_prefix} Response does not have "data" key.')
             return (
                 error_message_prefix
                 + 'Twitter API のレスポンスに "data" キーが存在しません。開発者に修正を依頼してください。'
@@ -350,7 +352,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、ユーザー情報の取得に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch logged viewer: {response}')
+            logging.error(f'{self.log_prefix} Failed to fetch logged viewer: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -365,7 +367,7 @@ class TwitterGraphQLAPI:
 
             # 必要な情報が存在しない場合はエラーを返す
             if not result:
-                logging.error('[TwitterGraphQLAPI] Failed to fetch logged viewer: user_results.result not found')
+                logging.error(f'{self.log_prefix} Failed to fetch logged viewer: user_results.result not found')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ユーザー情報の取得に失敗しました。レスポンスにユーザー情報が含まれていません。開発者に修正を依頼してください。',
@@ -374,7 +376,7 @@ class TwitterGraphQLAPI:
             # ユーザー ID を取得
             user_id = result.get('rest_id')
             if not user_id:
-                logging.error('[TwitterGraphQLAPI] Failed to fetch logged viewer: rest_id not found')
+                logging.error(f'{self.log_prefix} Failed to fetch logged viewer: rest_id not found')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ユーザー情報の取得に失敗しました。ユーザー ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -385,7 +387,7 @@ class TwitterGraphQLAPI:
             name = core.get('name', '')
             screen_name = core.get('screen_name', '')
             if not name or not screen_name:
-                logging.error('[TwitterGraphQLAPI] Failed to fetch logged viewer: name or screen_name not found')
+                logging.error(f'{self.log_prefix} Failed to fetch logged viewer: name or screen_name not found')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ユーザー情報の取得に失敗しました。ユーザー名またはスクリーンネームを取得できませんでした。開発者に修正を依頼してください。',
@@ -395,7 +397,7 @@ class TwitterGraphQLAPI:
             avatar = result.get('avatar', {})
             icon_url = avatar.get('image_url', '')
             if not icon_url:
-                logging.error('[TwitterGraphQLAPI] Failed to fetch logged viewer: image_url not found')
+                logging.error(f'{self.log_prefix} Failed to fetch logged viewer: image_url not found')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ユーザー情報の取得に失敗しました。アイコン URL を取得できませんでした。開発者に修正を依頼してください。',
@@ -413,8 +415,8 @@ class TwitterGraphQLAPI:
 
         except Exception as ex:
             # 予期しないエラーが発生した場合
-            logging.error('[TwitterGraphQLAPI] Failed to fetch logged viewer:', exc_info=ex)
-            logging.error(f'[TwitterGraphQLAPI] Response: {response}')
+            logging.error(f'{self.log_prefix} Failed to fetch logged viewer:', exc_info=ex)
+            logging.error(f'{self.log_prefix} Response: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail='ユーザー情報の取得に失敗しました。予期しないエラーが発生しました。開発者に修正を依頼してください。',
@@ -470,7 +472,7 @@ class TwitterGraphQLAPI:
 
             # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
             if isinstance(response, str):
-                logging.error(f'[TwitterGraphQLAPI] Failed to create tweet: {response}')
+                logging.error(f'{self.log_prefix} Failed to create tweet: {response}')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail=response,  # エラーメッセージをそのまま返す
@@ -482,8 +484,8 @@ class TwitterGraphQLAPI:
                 tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
             except Exception as ex:
                 # API レスポンスが変わっているなどでツイート ID を取得できなかった
-                logging.error('[TwitterGraphQLAPI] Failed to get tweet ID:', exc_info=ex)
-                logging.error(f'[TwitterGraphQLAPI] Response: {response}')
+                logging.error(f'{self.log_prefix} Failed to get tweet ID:', exc_info=ex)
+                logging.error(f'{self.log_prefix} Response: {response}')
                 return schemas.PostTweetResult(
                     is_success=False,
                     detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -519,7 +521,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、リツイートに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to create retweet: {response}')
+            logging.error(f'{self.log_prefix} Failed to create retweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -553,7 +555,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、リツイートの取り消しに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to delete retweet: {response}')
+            logging.error(f'{self.log_prefix} Failed to delete retweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -586,7 +588,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、いいねに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to favorite tweet: {response}')
+            logging.error(f'{self.log_prefix} Failed to favorite tweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -619,7 +621,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、いいねの取り消しに失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to unfavorite tweet: {response}')
+            logging.error(f'{self.log_prefix} Failed to unfavorite tweet: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -659,7 +661,7 @@ class TwitterGraphQLAPI:
         # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
         else:
             instructions = []
-            logging.warning(f'[TwitterGraphQLAPI] Unknown timeline response format: {response}')
+            logging.warning(f'{self.log_prefix} Unknown timeline response format: {response}')
 
         for instruction in instructions:
             if instruction.get('type') == 'TimelineAddEntries':
@@ -724,9 +726,7 @@ class TwitterGraphQLAPI:
             if 'quoted_status_result' in raw_tweet_object:
                 if 'result' not in raw_tweet_object['quoted_status_result']:
                     # ごく稀に quoted_status_result.result が空のツイート情報が返ってくるので、その場合は警告を出した上で無視する
-                    logging.warning(
-                        f'[TwitterGraphQLAPI] Quoted tweet not found: {raw_tweet_object.get("rest_id", "unknown")}'
-                    )
+                    logging.warning(f'{self.log_prefix} Quoted tweet not found: {raw_tweet_object.get("rest_id", "unknown")}')
                 else:
                     quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
 
@@ -805,7 +805,7 @@ class TwitterGraphQLAPI:
         # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
         else:
             instructions = []
-            logging.warning(f'[TwitterGraphQLAPI] Unknown timeline response format: {response}')
+            logging.warning(f'{self.log_prefix} Unknown timeline response format: {response}')
 
         tweets: list[schemas.Tweet] = []
         for instruction in instructions:
@@ -864,7 +864,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、タイムラインの取得に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch timeline: {response}')
+            logging.error(f'{self.log_prefix} Failed to fetch timeline: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -879,7 +879,7 @@ class TwitterGraphQLAPI:
             response, 'Bottom'
         )  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error('[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
+            logging.error(f'{self.log_prefix} Failed to fetch timeline: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail='タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -939,7 +939,7 @@ class TwitterGraphQLAPI:
 
         # 戻り値が str の場合、ツイートの検索に失敗している (エラーメッセージが返ってくる)
         if isinstance(response, str):
-            logging.error(f'[TwitterGraphQLAPI] Failed to search tweets: {response}')
+            logging.error(f'{self.log_prefix} Failed to search tweets: {response}')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail=response,  # エラーメッセージをそのまま返す
@@ -954,7 +954,7 @@ class TwitterGraphQLAPI:
             response, 'Bottom'
         )  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error('[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
+            logging.error(f'{self.log_prefix} Failed to search tweets: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success=False,
                 detail='ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
