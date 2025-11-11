@@ -213,8 +213,8 @@ const toggleSettings = () => {
 
 let isFirstFetchCompleted = false;
 const fetchTimelineTweets = async () => {
-    if (isFetching.value) return;
     isInitialFetchPending.value = false;
+    if (isFetching.value) return;
     isFetching.value = true;
     await useUserStore().fetchUser();
     if (!selected_twitter_account.value) {
@@ -423,7 +423,6 @@ const checkScrollPosition = () => {
 
 // コンポーネントマウント時は、タイムラインタブが表示されている場合のみ自動取得する
 onMounted(() => {
-    isInitialFetchPending.value = true;
     tryAutoFetchTimeline();
     nextTick(() => {
         if (scroller.value && scroller.value.$el) {
