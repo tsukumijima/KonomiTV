@@ -23,7 +23,6 @@ logging.config.dictConfig(LOGGING_CONFIG)
 
 # ロガーを取得
 logger = logging.getLogger('uvicorn')
-logger_debug = logging.getLogger('uvicorn.debug')
 
 
 def debug(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
