@@ -77,12 +77,8 @@ class Twitter {
                     Message.error('Twitter アカウント情報の取得に失敗しました。');
                     break;
                 }
-                case 'Chrome or Brave is not installed on this machine.': {
-                    Message.error('ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。');
-                    break;
-                }
                 default: {
-                    APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。再度お試しください。');
+                    APIClient.showGenericError(response, 'Twitter アカウントとの連携に失敗しました。');
                     break;
                 }
             }
@@ -160,13 +156,6 @@ class Twitter {
         // エラー処理 (API リクエスト自体に失敗した場合)
         // このエンドポイントのみ、Message (SnackBar) では通知せず、通知をプレイヤー側に委ねる必要がある
         if (response.type === 'error') {
-            if (typeof response.data.detail === 'string' &&
-                response.data.detail === 'Chrome or Brave is not installed on this machine.') {
-                return {
-                    message: 'ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。',
-                    is_error: true,
-                };
-            }
             if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
                     // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合

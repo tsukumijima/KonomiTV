@@ -154,7 +154,7 @@ async def TwitterCookieAuthAPI(
         logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information: {viewer_result.detail}')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail = viewer_result.detail,
+            detail = viewer_result.detail,  # エラーメッセージをそのまま返す
         )
 
     # viewer_result が TweetUser の場合のみ処理を続行

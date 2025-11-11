@@ -14,6 +14,11 @@ class BrowserBinaryNotFoundError(RuntimeError):
     Chrome / Brave の実行ファイルが検出できず、Zendriver がブラウザを起動できない場合に送出される例外
     """
 
+class BrowserConnectionFailedError(RuntimeError):
+    """
+    Chrome / Brave はおそらく起動できたが、ブラウザインスタンスへの接続に失敗した場合に送出される例外
+    """
+
 
 class TwitterScrapeBrowser:
     """
@@ -103,8 +108,15 @@ class TwitterScrapeBrowser:
                     ]
                 )
             except FileNotFoundError as ex:
-                logging.error(f'{self.log_prefix} Chrome or Brave is not installed.', exc_info=ex)
-                raise BrowserBinaryNotFoundError('Chrome or Brave is not installed on this machine.') from ex
+                logging.error(f'{self.log_prefix} Chrome or Brave is not installed on this machine:', exc_info=ex)
+                raise BrowserBinaryNotFoundError('ヘッドレスブラウザの起動に必要な Chrome または Brave が KonomiTV サーバーにインストールされていません。') from ex
+            except Exception as ex:
+                if 'Failed to connect to browser' in str(ex):
+                    logging.error(f'{self.log_prefix} Browser connection failed. Please check if Chrome or Brave is installed:', exc_info=ex)
+                    raise BrowserConnectionFailedError('ヘッドレスブラウザとの接続に失敗しました。Chrome または Brave が KonomiTV サーバーにインストールされているかどうかを確認してください。') from ex
+                else:
+                    logging.error(f'{self.log_prefix} Error starting browser:', exc_info=ex)
+                    raise ex
             logging.info(f'{self.log_prefix} Browser started.')
 
             # まず空のタブを開く

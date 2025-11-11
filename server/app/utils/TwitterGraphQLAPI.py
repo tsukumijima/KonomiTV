@@ -12,6 +12,7 @@ from app import logging, schemas
 from app.models.TwitterAccount import TwitterAccount
 from app.utils.TwitterScrapeBrowser import (
     BrowserBinaryNotFoundError,
+    BrowserConnectionFailedError,
     TwitterScrapeBrowser,
 )
 
@@ -263,10 +264,9 @@ class TwitterGraphQLAPI:
         if self._browser.is_setup_complete is not True:
             try:
                 await self._browser.setup()
-            except BrowserBinaryNotFoundError as ex:
-                # Chrome / Brave 未導入時は UI に案内できるよう固定のエラーメッセージを返す
-                logging.error(f'{self.log_prefix} Chrome or Brave is not installed on this machine:', exc_info=ex)
-                return 'Chrome or Brave is not installed on this machine.'
+            except (BrowserBinaryNotFoundError, BrowserConnectionFailedError) as ex:
+                # Chrome / Brave 未導入時やブラウザ起動失敗時は、日本語のエラーメッセージをそのまま返す
+                return str(ex)
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
         browser = self._browser
