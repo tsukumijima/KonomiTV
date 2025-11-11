@@ -87,16 +87,17 @@ class TwitterGraphQLAPI:
 
             # Zendriver で自動操作されるヘッドレスブラウザのインスタンス
             instance._browser = TwitterScrapeBrowser(twitter_account)
+
             # 一定期間後にヘッドレスブラウザをシャットダウンするタスク
             instance._shutdown_task = None
             # self._shutdown_task へのアクセスを保護するためのロック
             instance._shutdown_task_lock = asyncio.Lock()
-
-            # GraphQL API の前回呼び出し時刻
+            # GraphQL API の前回呼び出し時刻 (UNIX 時間)
             instance._last_graphql_api_call_time = 0.0
 
-            # ツイート送信時の排他制御用のロック・前回ツイート時刻
+            # ツイート送信時の排他制御用のロック
             instance._tweet_lock = asyncio.Lock()
+            # 前回ツイートを送信した時刻 (UNIX 時間)
             instance._last_tweet_time = 0.0
 
             # 生成したインスタンスを登録する
