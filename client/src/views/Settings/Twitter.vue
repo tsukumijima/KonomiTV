@@ -43,33 +43,35 @@
                     @click="loginTwitterAccountWithCookieForm()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携する Twitter アカウントを追加
                 </v-btn>
-                <v-dialog max-width="720" v-model="twitter_cookie_auth_dialog">
+                <v-dialog max-width="740" v-model="twitter_cookie_auth_dialog">
                     <v-card>
                         <v-card-title class="d-flex justify-center pt-6 font-weight-bold">連携する Twitter アカウントを追加</v-card-title>
                         <v-card-text class="pt-2 pb-0">
                             <p>
-                                2023年7月以降、<a class="link" href="https://www.watch.impress.co.jp/docs/news/1475575.html" target="_blank">Twitter のサードパーティー API の有料化（個人向け API の事実上廃止）</a> により、従来の連携方法では Twitter にアクセスできなくなりました。
+                                2023年7月以降、<a class="link" href="https://www.watch.impress.co.jp/docs/news/1475575.html" target="_blank">Twitter のサードパーティー API の有料化（個人向け API の事実上廃止）</a> により、従来の連携方法では KonomiTV から Twitter にアクセスできなくなりました。
                             </p>
                             <p class="mt-2">
-                                そこで KonomiTV では、<strong>代わりに <a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能「GET cookies.txt LOCALLY」</a> を使い、ブラウザから Netscape 形式でエクスポートした、<a class="link" href="https://x.com/" target="_blank">Web 版 Twitter</a> の Cookie データによる Twitter 連携に対応しています。</strong>
+                                そこで KonomiTV では、<strong><a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能「GET cookies.txt LOCALLY」</a> を使い、ブラウザから Netscape 形式でエクスポートした、<a class="link" href="https://x.com/" target="_blank">Web 版 Twitter</a> の Cookie データによる Twitter 連携に対応しています。</strong>
                             </p>
                             <p class="mt-2">
-                                <strong>ここで入力した Cookie データはローカルの KonomiTV サーバーにのみ保存されます。</strong>Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
+                                <strong>ここで入力した Cookie データは、ローカルの KonomiTV サーバーにのみ、暗号化の上で保存されます。</strong><br>
+                                Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
                             </p>
                             <p class="mt-2">
-                                <strong>詳しい手順はこちら：<a class="link" href="https://x.com/TVRemotePlus/status/1821283471727493413" target="_blank">ブラウザから Web 版 Twitter の Cookie データをエクスポートする手順</a></strong>
+                                <strong>詳しい手順はこちら：<a class="link" href="https://x.com/TVRemotePlus/status/1821283471727493413" target="_blank">Chrome から Web 版 Twitter の Cookie データをエクスポートする手順</a></strong>
                             </p>
                             <blockquote class="mt-3">
-                                ⚠️ 万全は期していますが、<strong>非公式な方法で無理やり実装しているため、使い方次第ではアカウントがロック・凍結される可能性もあります。</strong>自己の責任のもとでご利用ください。<br>
+                                ⚠️ 不審判定されないよう様々な技術的対策を施してはいますが、<strong>非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。</strong>自己の責任のもとでご利用ください。<br>
                                 <p class="mt-1">
-                                    <strong>📢 念のため、なるべく <a class="link" href="https://x.com/i/subscription/premium" target="_blank">X Premium</a> に加入している Twitter アカウントでの利用をおすすめします。</strong><br>
-                                    Basic プランでは X Pro (新 TweetDeck) が使えないため、凍結避け効果は薄いと思われます。
+                                    <strong>📢 念のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に加入している Twitter アカウントでの利用をおすすめします。</strong><br>
+                                    Basic プランでは X Pro (新 TweetDeck) が使えないため、凍結避け効果は薄いと思われます。<br>
+                                    また、万が一の凍結リスクに備え、<strong>実況専用に作成したサブアカウントでの連携をおすすめします。</strong>
                                 </p>
                             </blockquote>
                             <v-form class="settings__item" ref="twitter_form" @submit.prevent>
-                                <v-textarea class="settings__item-form mt-4" color="primary" variant="outlined"
+                                <v-textarea class="settings__item-form mt-4" style="height: 200px !important;" color="primary" variant="outlined"
                                     label='Cookie (Netscape cookies.txt 形式)'
-                                    placeholder='まず PC ブラウザ版 Twitter で連携したいアカウントに切り替えます。その後 PC ブラウザ版 Twitter の表示中に「Get cookies.txt LOCALLY」拡張機能を起動し、[Copy] ボタンを押してクリップボードにコピーした Cookie をここに貼り付けてください。'
+                                    placeholder='まず Chrome 拡張機能「Get cookies.txt LOCALLY」を PC 版 Chrome にインストールします。次に Chrome の「シークレットウインドウ」で Web 版 Twitter を開き、連携したいアカウントにのみログインします。ログインできたら、Web 版 Twitter を開いているタブで Chrome 拡張機能「Get cookies.txt LOCALLY」を起動します。その後、[Export Format] が [Netscape] になっていることを確認してから [Copy] ボタンを押し、クリップボードにコピーされた x.com の Cookie データをこのフォームに貼り付けてください。'
                                     v-model="twitter_cookie"
                                     :density="is_form_dense ? 'compact' : 'default'"
                                     :rules="[(value) => {
