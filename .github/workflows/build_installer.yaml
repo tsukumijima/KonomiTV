@@ -97,10 +97,11 @@ jobs:
           cat <<EOF > Dockerfile
           FROM ubuntu:20.04
           ENV DEBIAN_FRONTEND=noninteractive
-          # build-essential, curl, zlib などの必要なパッケージをインストール
+          # build-essential, curl, zlib, ca-certificates などの必要なパッケージをインストール
           RUN apt-get update && \
               apt-get install -y --no-install-recommends \
                 build-essential \
+                ca-certificates \
                 curl \
                 zlib1g \
                 zlib1g-dev
