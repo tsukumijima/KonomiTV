@@ -334,28 +334,30 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 #### Linux - VCEEncC
 
 **VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。**  
-古いドライバーがインストールされていると、VCEEncC を利用できないことがあります。最新のドライバーをインストールしてください。
+
+> [!WARNING]  
+> **古いドライバーがインストールされている場合、VCEEncC が動作しない可能性があります。**  
+> KonomiTV をアップデートした後は、AMDGPU-PRO Driver も最新のドライバーにアップデートしてください。
 
 > [!WARNING]  
 > **VCEEncC を使うには AMDGPU-PRO ドライバーが必要です。**  
 > オープンソース版の AMDGPU ドライバーには AMD AMF (Advanced Media Framework) が含まれていないため、VCEEncC を利用できません。
 
 ```bash
-# Ubuntu 20.04 LTS (2024/09時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/focal/amdgpu-install_6.0.60003-1_all.deb
-# Ubuntu 22.04 LTS (2024/09時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/jammy/amdgpu-install_6.0.60003-1_all.deb
+# Ubuntu 24.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
+curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
+# Ubuntu 22.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
+curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb
 
 # AMDGPU-PRO Driver のインストール
-sudo apt install -y ./amdgpu-install_6.0.60003-1_all.deb
-sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32
+sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb
+sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32
 
 # 再起動
 sudo reboot
 ```
 
-
-以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。
+上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS / Ubuntu 24.04 LTS 向け) 。
 
 #### Linux - rkmppenc
 
@@ -379,7 +381,7 @@ rm rockchip-multimedia-config_1.0.2-1_all.deb
 sudo reboot
 ```
 
-以上のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください。  
+上記のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください。  
 [rkmppenc の公式ドキュメント](https://github.com/tsukumijima/rkmppenc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 ### Tailscale の導入
