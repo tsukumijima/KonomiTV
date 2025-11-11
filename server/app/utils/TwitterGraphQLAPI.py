@@ -58,7 +58,7 @@ class TwitterGraphQLAPI:
     BROWSER_IDLE_TIMEOUT = 60
 
     # Twitter アカウント ID ごとのシングルトンインスタンスを管理する辞書
-    __instances: ClassVar[dict[int, TwitterGraphQLAPI]] = {}
+    __instances: ClassVar[dict[int | None, TwitterGraphQLAPI]] = {}
 
     # 必ず Twitter アカウント ID ごとに1つのインスタンスになるように (Singleton)
     def __new__(cls, twitter_account: TwitterAccount) -> TwitterGraphQLAPI:
@@ -169,6 +169,43 @@ class TwitterGraphQLAPI:
                     logging.error(f'Failed to shutdown browser for Twitter account {twitter_account_id}:', exc_info=ex)
             # レジストリエントリを削除
             del cls.__instances[twitter_account_id]
+
+    @classmethod
+    async def rebindInstance(cls, previous_account_id: int | None, twitter_account: TwitterAccount) -> None:
+        """
+        Temporary アカウントで初期化したシングルトンを実際の Twitter アカウント ID に付け替える。
+
+        Args:
+            previous_account_id (int | None): Temporary 状態の Twitter アカウント ID。
+            twitter_account (TwitterAccount): 永続化済みの Twitter アカウントモデル。
+        """
+
+        # 永続化済みの Twitter アカウント ID が取得できない場合は異常
+        if twitter_account.id is None:
+            logging.error('[TwitterGraphQLAPI][rebindInstance] twitter_account.id is None. Skip rebinding.')
+            return
+
+        # ID の変化が無い場合は情報だけ更新する
+        if previous_account_id == twitter_account.id:
+            instance = cls.__instances.get(twitter_account.id)
+            if instance is not None:
+                instance.twitter_account = twitter_account
+                instance._browser.twitter_account = twitter_account
+            return
+
+        # Temporary なインスタンスが存在しない場合は何もしない
+        if previous_account_id not in cls.__instances:
+            return
+
+        instance = cls.__instances.pop(previous_account_id)
+
+        # 既に同じ ID に紐づくインスタンスが存在していた場合はリソースリークを防ぐため破棄する
+        await cls.removeInstance(twitter_account.id)
+
+        # インスタンスに最新の Twitter アカウント情報を適用し、新しい ID で登録する
+        instance.twitter_account = twitter_account
+        instance._browser.twitter_account = twitter_account
+        cls.__instances[twitter_account.id] = instance
 
     async def __scheduleShutdownTask(self) -> None:
         """

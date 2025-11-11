@@ -1,7 +1,7 @@
 
 import asyncio
 from collections.abc import Coroutine
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 
 import tweepy
 from fastapi import (
@@ -136,7 +136,10 @@ async def TwitterCookieAuthAPI(
         access_token_secret = auth_request.cookies_txt,
     )
 
-    # 現在ログイン中の Twitter アカウント情報を取得
+    # 一時的に作成した TwitterAccount ORM インスタンスの ID (通常 None) を控えておき、後段でシングルトンを付け替える
+    temporary_account_id = twitter_account.id
+
+    # 上記で作成した TwitterAccount ORM インスタンスを使い、現在ログイン中の Twitter アカウント情報を取得
     try:
         viewer_result = await TwitterGraphQLAPI(twitter_account).fetchLoggedViewer()
     except Exception as ex:
@@ -174,9 +177,12 @@ async def TwitterCookieAuthAPI(
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
     existing_accounts = await TwitterAccount.filter(
-        user_id = cast(Any, twitter_account).user_id,
+        user_id = twitter_account.user_id,
         screen_name = twitter_account.screen_name,
     )
+
+    # 永続化後に使う TwitterAccount を示す変数
+    persisted_account: TwitterAccount | None = None
 
     # 既存のアカウントが見つかった場合、最も古いアカウント情報を更新
     if existing_accounts:
@@ -193,13 +199,26 @@ async def TwitterCookieAuthAPI(
         for account in existing_accounts:
             if account.id != oldest_account.id:
                 await account.delete()
+                logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted duplicate account. [id: {account.id}, screen_name: {account.screen_name}]')
 
-        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Updated existing account and removed {len(existing_accounts) - 1} duplicate(s). [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Updated existing account. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
+
+        # 永続化後に使う TwitterAccount を設定
+        persisted_account = oldest_account
 
     # 既存のアカウントが見つからなかった場合、新しいアカウント情報を DB に保存
+    # ここで twitter_account.id が新規に auto-increment で自動採番される
     else:
         await twitter_account.save()
-        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Created new account. [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Created new account. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
+
+        # 永続化後に使う TwitterAccount を設定
+        persisted_account = twitter_account
+
+    # Temporary で立ち上げた GraphQL API インスタンスを永続化後の ID に紐づけ直す
+    if persisted_account is not None:
+        await TwitterGraphQLAPI.rebindInstance(temporary_account_id, persisted_account)
+        twitter_account = persisted_account
 
     # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) を自動削除
     ## これにより、古い OAuth 認証や旧 Cookie 形式のレコードが処理に用いられないようにする
@@ -210,7 +229,7 @@ async def TwitterCookieAuthAPI(
         logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted {deleted_count} old format account(s).')
 
     # 処理完了
-    logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Logged in with cookie. [screen_name: {twitter_account.screen_name}]')
+    logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Logged in with cookie. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
 
 
 @router.delete(
