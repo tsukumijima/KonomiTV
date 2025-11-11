@@ -51,8 +51,10 @@ RUN yarn build
 # --------------------------------------------------------------------------------------------------------------
 
 # Ubuntu 22.04 LTS (with CUDA) をベースイメージとして利用
-# CUDA 付きなのは NVEncC を動かせるようにするため
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04
+## NVEncC の動作には CUDA ライブラリが必要なため、CUDA 付きのイメージを使う
+## RTX 5090 (Blackwell) 世代をサポートする最低バージョンである CUDA 12.8.0 を指定している
+## cuda:x.x.x-runtime 系イメージだと NVEncC で使わない余計なライブラリが付属して重いので、base イメージを使う
+FROM nvidia/cuda:12.8.0-base-ubuntu22.04
 
 # タイムゾーンを東京に設定
 ENV TZ=Asia/Tokyo
@@ -63,6 +65,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # サードパーティーライブラリの依存パッケージをインストール
 ## libfontconfig1, libfreetype6, libfribidi0: フォント関連のライブラリ (なぜ必要だったか忘れたが多分ないと動かない)
 ## QSVEncC: Intel Media VA Driver (non-free 版), Intel 版 OpenCL が必要
+## NVEncC: runtime 版には含まれているが base 版には含まれていない cuda-nvrtc-12-8, libnpp-12-8 をインストールする
 ## VCEEncC: AMDGPU-PRO Driver (proprietary 版) に含まれる AMD AMF (Advanced Media Framework), AMD 版 OpenCL が必要
 ## 実行時イメージなので RUN の最後に掃除する
 ## ref: https://dgpu-docs.intel.com/driver/client/overview.html
@@ -77,6 +80,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     apt-get install -y --no-install-recommends \
         libfontconfig1 libfreetype6 libfribidi0 \
         intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2 ocl-icd-opencl-dev \
+        cuda-nvrtc-12-8 libnpp-12-8 \
         amf-amdgpu-pro libamdenc-amdgpu-pro libdrm2-amdgpu ocl-icd-libopencl1 rocm-opencl-runtime vulkan-amdgpu-pro && \
     apt-get -y autoremove && \
     apt-get -y clean && \

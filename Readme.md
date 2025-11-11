@@ -511,7 +511,8 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 > [!WARNING]  
 > **NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で 、0.12.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
-> 0.13.0 以降のバージョンでは CUDA Docker イメージを `nvidia/cuda:12.2.2-runtime-ubuntu22.04` に変更しています。0.13.0 以降へのアップデートをお願いします。
+> 0.13.0 以降のバージョンでは、RTX 5090 などの Blackwell 世代 GPU の対応も兼ね、CUDA Docker イメージを `nvidia/cuda:12.8.0-base-ubuntu22.04` に変更しています。0.13.0 以降へのアップデートをお願いします。  
+> なお、CUDA 12.8 の動作には  nvidia-driver-570 以上のドライバーがインストールされている必要があります。
 
 > [!WARNING]  
 > **AMD が Docker イメージ内で利用している AMDGPU-PRO ドライバーの旧バージョンの APT リポジトリをサイレントに削除した影響で ([#118](https://github.com/tsukumijima/KonomiTV/issues/118) / [#130](https://github.com/tsukumijima/KonomiTV/issues/130) を参照) 、0.11.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
