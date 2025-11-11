@@ -30,7 +30,6 @@ class TwitterAccount(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'twitter_accounts'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     user: fields.ForeignKeyRelation[User] = \
         fields.ForeignKeyField('models.User', related_name='twitter_accounts', on_delete=fields.CASCADE)

@@ -35,7 +35,6 @@ class Program(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'programs'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.CharField(255, pk=True)
     channel: fields.ForeignKeyRelation[Channel] = \
         fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
