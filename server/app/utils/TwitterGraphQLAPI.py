@@ -908,10 +908,10 @@ class TwitterGraphQLAPI:
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
         if cursor_id is None:
-            ## カーソル ID が指定されていないときは、requestContext:launch になるので20件取得する
+            ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 20
         else:
-            ## カーソル ID が指定されているときは、requestContext:ptr になるので40件取得する
+            ## カーソル ID が指定されているときは40件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 40
         if cursor_id is not None:
             variables['cursor'] = cursor_id
@@ -977,7 +977,6 @@ class TwitterGraphQLAPI:
         search_type: Literal['Top', 'Latest'],
         query: str,
         cursor_id: str | None = None,
-        count: int = 20,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         ツイートを検索する
@@ -986,7 +985,6 @@ class TwitterGraphQLAPI:
             search_type (Literal['Top', 'Latest']): 検索タイプ (Top: トップツイート, Latest: 最新ツイート)
             query (str): 検索クエリ
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
-            count (int, optional): 取得するツイート数 (デフォルトは 20)
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -995,7 +993,15 @@ class TwitterGraphQLAPI:
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
         variables['rawQuery'] = query.strip() + ' exclude:replies lang:ja'
-        variables['count'] = count
+        if cursor_id is None:
+            ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
+            variables['count'] = 20
+        else:
+            ## カーソル ID が指定されているときは40件取得する (Twitter Web App の挙動に合わせる)
+            ## 厳密にはより新しいツイートを取得するためのカーソル ID が指定されているときは40件、
+            ## より古い過去のツイートを取得するためのカーソル ID が指定されているときは20件取得される仕様のようだが、
+            ## 両者を判別する方法がないので一律40件取得する
+            variables['count'] = 40
         if cursor_id is not None:
             variables['cursor'] = cursor_id
         ## Twitter Web App で検索すると typed_query になることが多いのでそれに合わせる
