@@ -28,6 +28,7 @@ from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.JikkyoClient import JikkyoClient
+from app.utils.TSInformation import TSInformation
 
 
 # ルーター
@@ -738,6 +739,53 @@ async def VideoJikkyoCommentsAPI(
     )
 
 
+@router.get(
+    '/{video_id}/available-channels',
+    summary = '録画番組で利用可能なチャンネル一覧 API',
+    response_model = list[dict[str, Any]],
+)
+async def VideoAvailableChannelsAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組ファイルで利用可能な全チャンネルの一覧を取得する。<br>
+    複数のチャンネルが含まれる TS ファイルの場合、選択可能なチャンネル情報を返す。
+    """
+
+    try:
+        import asyncio
+        from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
+
+        # MPEG-TS ファイルではない場合、空のリストを返す
+        if recorded_program.recorded_video.container_format != 'MPEG-TS':
+            return []
+
+        # TSInfoAnalyzer を使って利用可能なチャンネル情報を取得
+        # 同期 I/O をイベントループでブロックしないよう、別スレッドで実行する
+        def collect_channels() -> list[dict[str, Any]]:
+            analyzer = TSInfoAnalyzer(recorded_program.recorded_video)
+            return analyzer._TSInfoAnalyzer__collectAllChannels()
+
+        available_channels = await asyncio.to_thread(collect_channels)
+
+        # チャンネル情報を整形して返す（フロントエンドで使用する情報のみ）
+        result = []
+        for channel in available_channels:
+            result.append({
+                'service_id': channel['service_id'],
+                'channel_name': channel['channel_name'],
+            })
+
+        return result
+
+    except Exception as ex:
+        logging.error(f'[VideoAvailableChannelsAPI] Failed to get available channels for video_id {recorded_program.id}:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to get available channels: {ex!s}',
+        )
+
+
 @router.post(
     '/{video_id}/reanalyze',
     summary = '録画番組メタデータ再解析 API',
@@ -745,6 +793,7 @@ async def VideoJikkyoCommentsAPI(
 )
 async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    selected_service_id: int | None = None,
 ):
     """
     指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報・CM 区間情報など）を再解析する。<br>
@@ -759,6 +808,7 @@ async def VideoReanalyzeAPI(
             await RecordedScanTask().processRecordedFile(
                 file_path = file_path,
                 force_update = True,
+                selected_service_id = selected_service_id,
             )
 
     except Exception as ex:

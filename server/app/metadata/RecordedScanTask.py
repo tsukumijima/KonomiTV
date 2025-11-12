@@ -406,6 +406,7 @@ class RecordedScanTask:
         original_path: anyio.Path | None = None,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] | None = None,
         force_update: bool = False,
+        selected_service_id: int | None = None,
     ) -> None:
         """
         指定された録画ファイルのメタデータを解析し、DB に永続化する
@@ -547,7 +548,7 @@ class RecordedScanTask:
                 ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
                 ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
                 loop = asyncio.get_running_loop()
-                analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
+                analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)), selected_service_id)  # anyio.Path -> pathlib.Path に変換
                 try:
                     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
                         recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
