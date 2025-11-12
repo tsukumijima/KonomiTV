@@ -50,22 +50,34 @@
                             <p>
                                 2023年7月以降、<a class="link" href="https://www.watch.impress.co.jp/docs/news/1475575.html" target="_blank">Twitter のサードパーティー API の有料化（個人向け API の事実上廃止）</a> により、従来の連携方法では KonomiTV から Twitter にアクセスできなくなりました。
                             </p>
-                            <p class="mt-2">
+                            <p class="mt-1">
                                 そこで KonomiTV では、<strong><a class="link" href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Chrome 拡張機能「GET cookies.txt LOCALLY」</a> を使い、ブラウザから Netscape 形式でエクスポートした、<a class="link" href="https://x.com/" target="_blank">Web 版 Twitter</a> の Cookie データによる Twitter 連携に対応しています。</strong>
                             </p>
                             <p class="mt-2">
                                 <strong>ここで入力した Cookie データは、ローカルの KonomiTV サーバーにのみ、暗号化の上で保存されます。</strong><br>
                                 Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
                             </p>
-                            <p class="mt-2">
+                            <p class="mt-1">
                                 <strong>詳しい手順はこちら：<a class="link" href="https://x.com/TVRemotePlus/status/1821283471727493413" target="_blank">Chrome から Web 版 Twitter の Cookie データをエクスポートする手順</a></strong>
                             </p>
                             <blockquote class="mt-3">
                                 ⚠️ 不審判定されないよう様々な技術的対策を施してはいますが、<strong>非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。</strong>自己の責任のもとでご利用ください。<br>
-                                <p class="mt-1">
+                                <p class="mt-2">
                                     <strong>📢 念のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に加入している Twitter アカウントでの利用をおすすめします。</strong><br>
-                                    Basic プランでは X Pro (新 TweetDeck) が使えないため、凍結避け効果は薄いと思われます。<br>
+                                    Basic プランでは <a class="link" href="https://pro.x.com/" target="_blank">X Pro (新 TweetDeck)</a> が使えないため、凍結避け効果は薄いと思われます。<br>
                                     また、万が一の凍結リスクに備え、<strong>実況専用に作成したサブアカウントでの連携をおすすめします。</strong>
+                                </p>
+                            </blockquote>
+                            <blockquote class="mt-3">
+                                📢 v0.13.0 以降では、<strong><a class="link" href="https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterScrapeBrowser.py" target="_blank">ヘッドレスブラウザ（ウインドウが表示されないブラウザ）を使って</a> 、<a class="link" href="https://github.com/tsukumijima/KonomiTV/blob/master/server/static/zendriver_setup.js" target="_blank">Web 版 Twitter からの API コールと全く同じ方法で API リクエストを送る</a> ように改良しました！</strong><br>
+                                <p class="mt-1">
+                                    これまで不審判定されないよう <a class="link" href="https://github.com/tsukumijima/tweepy-authlib" target="_blank">様々な技術的対策</a> を施してきましたが、2025年11月に KonomiTV と同様の方法で Twitter API にアクセスしていた <a class="link" href="https://arkxv.com/blog/x-suspended/" target="_blank">OldTweetDeck のユーザーが一時的に大量凍結される騒動</a> (<a class="link" href="https://github.com/dimdenGD/OldTweetDeck/issues/459#issuecomment-3499066798" target="_blank">詳細</a>) が起きたことを踏まえ、より堅牢で安全なアプローチに切り替えました。<br>
+                                </p>
+                                <p class="mt-2">
+                                    <strong>この関係で、Twitter 実況機能を使うには、KonomiTV サーバー側に <a class="link" href="https://www.google.com/chrome/" target="_blank">Google Chrome</a> または <a class="link" href="https://brave.com/" target="_blank">Brave</a> がインストールされている必要があります。</strong>なお、Linux (Docker) 環境では既に Docker イメージに含まれているため不要です。また、Twitter 実況機能を使わないならインストールする必要はありません。
+                                </p>
+                                <p class="mt-2">
+                                    ヘッドレスブラウザは、視聴画面で Twitter パネル内の各機能を使うときにバックグラウンドで自動的に起動し、使わなくなったら自動終了します。Twitter 実況機能が使われない場合には起動しません。
                                 </p>
                             </blockquote>
                             <v-form class="settings__item" ref="twitter_form" @submit.prevent>
