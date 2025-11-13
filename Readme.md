@@ -662,7 +662,7 @@ Cookie データが Twitter API 以外の外部サービスに送信されるこ
 >
 > これまで不審判定されないよう [様々な技術的対策](https://github.com/tsukumijima/tweepy-authlib) を施してきましたが、2025年11月に KonomiTV と同様の方法で Twitter API にアクセスしていた [OldTweetDeck のユーザーが一時的に大量凍結される騒動](https://arkxv.com/blog/x-suspended/) ([詳細](https://github.com/dimdenGD/OldTweetDeck/issues/459#issuecomment-3499066798)) が起きたことを踏まえ、より堅牢で安全なアプローチに切り替えました。
 >
-> **この関係で、Twitter 実況機能を使うには、KonomiTV サーバー側に [Google Chrome](https://www.google.com/chrome/) または [Brave](https://brave.com/) がインストールされている必要があります。**  
+> **この関係で、Twitter 実況機能を使うには、KonomiTV サーバー側に [Google Chrome](https://www.google.com/chrome/) または [Brave](https://brave.com/ja/) がインストールされている必要があります。**  
 > なお、Linux (Docker) 環境では既に Docker イメージに含まれているため不要です。  
 > また、Twitter 実況機能を使わないならインストールする必要はありません。
 >
