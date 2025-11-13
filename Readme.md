@@ -44,6 +44,11 @@
   - [デスクトップアプリ・スマホアプリとして使う](#デスクトップアプリスマホアプリとして使う)
   - [フィードバックのお願い](#フィードバックのお願い)
 - [付録](#付録)
+  - [Twitter 実況機能について](#twitter-実況機能について)
+    - [1. Chrome 拡張機能「GET cookies.txt LOCALLY」をインストールする](#1-chrome-拡張機能get-cookiestxt-locallyをインストールする)
+    - [2. シークレットウインドウで Web 版 Twitter にログインする](#2-シークレットウインドウで-web-版-twitter-にログインする)
+    - [3. Chrome 拡張機能を起動して Cookie データをエクスポートする](#3-chrome-拡張機能を起動して-cookie-データをエクスポートする)
+    - [4. KonomiTV の設定画面で Cookie データを入力する](#4-konomitv-の設定画面で-cookie-データを入力する)
   - [`https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について](#httpsaa-bb-cc-ddlocalkonomitv7000-の-url-について)
   - [設定ファイルの編集](#設定ファイルの編集)
     - [バックエンドの設定](#バックエンドの設定)
@@ -634,6 +639,85 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 <img width="100%" src="https://github.com/user-attachments/assets/b262e652-bffc-4466-b5bb-005a3ec6db10"><br>
 
 ## 付録
+
+### Twitter 実況機能について
+
+2023年7月以降、[Twitter のサードパーティー API の有料化（個人向け API の事実上廃止）](https://www.watch.impress.co.jp/docs/news/1475575.html) により、従来の連携方法では KonomiTV から Twitter にアクセスできなくなりました。
+
+そこで KonomiTV では、**[Chrome 拡張機能「GET cookies.txt LOCALLY」](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) を使い、ブラウザから Netscape 形式でエクスポートした、[Web 版 Twitter](https://x.com/) の Cookie データによる Twitter 連携に対応しています。**
+
+**ここで入力した Cookie データは、ローカルの KonomiTV サーバーにのみ、暗号化の上で保存されます。**  
+Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
+
+> [!WARNING]
+> 不審判定されないよう様々な技術的対策を施してはいますが、**非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。**  
+> 自己の責任のもとでご利用ください。
+>
+> **📢 念のため、なるべく [X Premium](https://x.com/i/premium_sign_up) に加入している Twitter アカウントでの利用をおすすめします。**  
+> Basic プランでは [X Pro (新 TweetDeck)](https://pro.x.com/) が使えないため、凍結避け効果は薄いと思われます。  
+> また、万が一の凍結リスクに備え、**実況専用に作成したサブアカウントでの連携をおすすめします。**
+
+> [!NOTE]
+> 📢 v0.13.0 以降では、**[ヘッドレスブラウザ（ウインドウが表示されないブラウザ）を使って](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterScrapeBrowser.py) 、[Web 版 Twitter からの API コールと全く同じ方法で API リクエストを送る](https://github.com/tsukumijima/KonomiTV/blob/master/server/static/zendriver_setup.js) ように改良しました！**
+>
+> これまで不審判定されないよう [様々な技術的対策](https://github.com/tsukumijima/tweepy-authlib) を施してきましたが、2025年11月に KonomiTV と同様の方法で Twitter API にアクセスしていた [OldTweetDeck のユーザーが一時的に大量凍結される騒動](https://arkxv.com/blog/x-suspended/) ([詳細](https://github.com/dimdenGD/OldTweetDeck/issues/459#issuecomment-3499066798)) が起きたことを踏まえ、より堅牢で安全なアプローチに切り替えました。
+>
+> **この関係で、Twitter 実況機能を使うには、KonomiTV サーバー側に [Google Chrome](https://www.google.com/chrome/) または [Brave](https://brave.com/) がインストールされている必要があります。**  
+> なお、Linux (Docker) 環境では既に Docker イメージに含まれているため不要です。  
+> また、Twitter 実況機能を使わないならインストールする必要はありません。
+>
+> ヘッドレスブラウザは、視聴画面で Twitter パネル内の各機能を使うときにバックグラウンドで自動的に起動し、使わなくなったら自動終了します。  
+> Twitter 実況機能が使われない場合には起動しません。
+
+KonomiTV で Twitter アカウントを連携するには、以下の手順に従ってください。
+
+#### 1. Chrome 拡張機能「GET cookies.txt LOCALLY」をインストールする
+
+<img width="70%" src="https://github.com/user-attachments/assets/6ed63df2-c007-4f5f-a3b5-54b3d2225afd"><br>
+
+まず、**PC 版 Chrome に [Chrome 拡張機能「GET cookies.txt LOCALLY」](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) をインストールします。**
+
+<img width="30%" src="https://github.com/user-attachments/assets/fa20a726-b85d-4960-bac6-8614e98e6c35"><br>
+
+次に、**拡張機能アイコンを押し、その後 [GET cookies.txt LOCALLY] の右にある `︙` → [拡張機能を管理] を押します。**
+
+<img width="70%" src="https://github.com/user-attachments/assets/90416512-4798-495c-9eee-5488b077251d"><br>
+
+すると Chrome 拡張機能「GET cookies.txt LOCALLY」の設定ページが開くので、**下の方にある [シークレット モードでの実行を許可] をオンにします。**  
+これにより、後述するシークレットウインドウでも、この拡張機能を実行できるようになります。
+
+#### 2. シークレットウインドウで Web 版 Twitter にログインする
+
+<img width="50%" src="https://github.com/user-attachments/assets/1346c834-60ac-4f32-816e-27bb601f336c"><br>
+
+[新しいシークレットウインドウを開く」をクリックし、シークレットウインドウを開きます。  
+次に、**そのシークレットウインドウで [Web 版 Twitter](https://x.com/) にアクセスし、連携したいアカウントにログインします。**
+
+> [!IMPORTANT]
+> **万が一の意図しないアカウントが不審判定される事態を避けるため、必ず連携したいアカウントにのみログインしてください。**  
+> わざわざシークレットウインドウで実行しているのは、複数アカウントでログインしている場合に、同時ログイン中の他アカウントと関連付けが可能な情報を Cookie に含めないようにするためです。
+
+#### 3. Chrome 拡張機能を起動して Cookie データをエクスポートする
+
+<img width="70%" src="https://github.com/user-attachments/assets/a90b8675-e233-454e-8eea-b3f8e1211502"><br>
+
+Web 版 Twitter を開いているタブで、**「GET cookies.txt LOCALLY」のアイコンをクリックし、UI 画面を開きます。**  
+その後、[Export Format:] が [Netscape] になっていることを確認してから [Copy] ボタンを押し、x.com の Cookie データをクリップボードにコピーします。
+
+#### 4. KonomiTV の設定画面で Cookie データを入力する
+
+<img width="70%" src="https://github.com/user-attachments/assets/6edb2afd-002f-47fa-814c-ce5616532eb1"><br>
+
+KonomiTV の [設定] → [Twitter] に移動し、**「連携する Twitter アカウントを追加」ボタンをクリックします。**  
+**表示されたダイアログの Cookie 入力フォームに、先ほどコピーした Cookie データを貼り付けてください。**
+
+入力が完了したら [ログイン] ボタンを押すと、Cookie データが正しい場合は Twitter アカウントとの連携が完了します。  
+
+> [!TIP]
+> **Cookie が正しいのにログインに失敗するときは、何回か再度 [ログイン] ボタンを押してリトライするとうまく行くことがあります。**  
+> [ログイン] ボタンを押すと、前述のヘッドレスブラウザが起動します。  
+> 内部では、指定された Cookie データでログイン中アカウントの情報をヘッドレスブラウザで経由で取得できるかがチェックします。  
+> これらの処理が正常に完了すれば、指定された Cookie データを暗号化の上でデータベースに保存して、ログイン完了となります。
 
 ### `https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について
 
