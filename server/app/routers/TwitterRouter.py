@@ -444,7 +444,6 @@ async def TwitterTimelineAPI(
 
     return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(
         cursor_id = cursor_id,
-        count = 20,
     )
 
 
@@ -470,5 +469,4 @@ async def TwitterSearchAPI(
         search_type = search_type,
         query = query,
         cursor_id = cursor_id,
-        count = 20,
     )
