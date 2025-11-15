@@ -103,7 +103,7 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="reanalyzeVideo" v-ftooltip="'再生時に必要な録画ファイル情報や番組情報などを解析し直します'">
+                        <v-list-item @click="showReanalyzeModal" v-ftooltip="'再生時に必要な録画ファイル情報や番組情報などを解析し直します'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:book-arrow-clockwise-20-regular" width="20px" height="20px" />
                             </template>
@@ -159,10 +159,60 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <!-- メタデータ再解析の確認ダイアログ -->
+    <v-dialog v-model="show_reanalyze_modal" max-width="650px" scrollable>
+        <v-card class="reanalyze-confirmation">
+            <v-card-title class="pt-6 px-6 pb-2">
+                <Icon icon="fluent:book-arrow-clockwise-20-regular" width="22px" height="22px" />
+                <span class="ml-3">メタデータを再解析</span>
+            </v-card-title>
+            <v-card-text class="px-6 pb-3">
+                <div class="text-subtitle-1 font-weight-bold mb-3">{{ program.title }}</div>
+                <div class="reanalyze-confirmation__file-path mb-4">{{ program.recorded_video.file_path }}</div>
+                <div class="mb-4">
+                    再生時に必要な録画ファイル情報や番組情報などを解析し直します。<br>
+                    複数のチャンネルが含まれる録画ファイルの場合、特定のチャンネルを選択して解析できます。
+                </div>
+
+                <div v-if="available_channels && available_channels.length > 1" class="mb-4">
+                    <div class="text-subtitle-2 mb-2">解析するチャンネルを選択してください:</div>
+                    <v-radio-group v-model="selected_service_id" hide-details>
+                        <v-radio label="自動選択（推奨）" :value="null"></v-radio>
+                        <v-radio
+                            v-for="channel in available_channels"
+                            :key="channel.service_id"
+                            :label="`${channel.channel_name} (Service ID: ${channel.service_id})`"
+                            :value="channel.service_id">
+                        </v-radio>
+                    </v-radio-group>
+                </div>
+
+                <div v-else-if="available_channels && available_channels.length === 1" class="mb-4">
+                    <div class="text-subtitle-2">利用可能なチャンネル:</div>
+                    <div>{{ available_channels[0].channel_name }} (Service ID: {{ available_channels[0].service_id }})</div>
+                </div>
+
+                <div v-if="loading_channels" class="mb-4">
+                    <div class="d-flex align-center">
+                        <v-progress-circular indeterminate size="20"></v-progress-circular>
+                        <span class="ml-2">利用可能なチャンネルを取得中...</span>
+                    </div>
+                </div>
+            </v-card-text>
+            <v-card-actions class="pt-4 px-6 pb-6">
+                <v-spacer></v-spacer>
+                <v-btn variant="text" @click="cancelReanalyzeModal">キャンセル</v-btn>
+                <v-btn color="secondary" variant="flat" @click="executeReanalyze" :disabled="loading_channels">
+                    再解析を開始
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 <script lang="ts" setup>
 
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 
 import RecordedFileInfoDialog from '@/components/Videos/Dialogs/RecordedFileInfoDialog.vue';
 import Message from '@/message';
@@ -190,16 +240,70 @@ const emit = defineEmits<{
 const show_video_info = ref(false);
 // 削除確認ダイアログの表示状態
 const show_delete_confirmation = ref(false);
+// メタデータ再解析ダイアログの表示状態
+const show_reanalyze_modal = ref(false);
+// 利用可能なチャンネル一覧
+const available_channels = ref<Array<{service_id: number, channel_name: string}> | null>(null);
+// 選択されたサービス ID
+const selected_service_id = ref<number | null>(null);
+// チャンネル読み込み状態
+const loading_channels = ref(false);
+// チャンネル取得処理を識別するためのリクエスト ID
+let channelFetchRequestId = 0;
 
 // 録画ファイルのダウンロード (location.href を変更し、ダウンロード自体はブラウザに任せる)
 const downloadVideo = () => {
     window.location.href = `${Utils.api_base_url}/videos/${props.program.id}/download`;
 };
 
-// メタデータ再解析
-const reanalyzeVideo = async () => {
+// メタデータ再解析モーダルを表示
+const showReanalyzeModal = async () => {
+    // 既存の取得処理を無効化
+    channelFetchRequestId += 1;
+    const requestId = channelFetchRequestId;
+
+    show_reanalyze_modal.value = true;
+    loading_channels.value = true;
+    available_channels.value = null;
+    selected_service_id.value = null;
+
+    // 利用可能なチャンネル一覧を取得
+    try {
+        const channels = await Videos.fetchVideoAvailableChannels(props.program.id);
+        // 最新のリクエストである場合のみ結果を設定
+        if (requestId === channelFetchRequestId) {
+            available_channels.value = channels;
+        }
+    } catch (error) {
+        console.error('Failed to fetch available channels:', error);
+        // 最新のリクエストである場合のみエラー状態を設定
+        if (requestId === channelFetchRequestId) {
+            available_channels.value = [];
+        }
+    } finally {
+        // 最新のリクエストである場合のみローディング状態を終了
+        if (requestId === channelFetchRequestId) {
+            loading_channels.value = false;
+        }
+    }
+};
+
+// メタデータ再解析モーダルをキャンセル
+const cancelReanalyzeModal = () => {
+    // 現在の取得処理を無効化
+    channelFetchRequestId += 1;
+    // ローディング状態をリセット
+    loading_channels.value = false;
+    // モーダルを閉じる
+    show_reanalyze_modal.value = false;
+};
+
+// メタデータ再解析を実行
+const executeReanalyze = async () => {
+    show_reanalyze_modal.value = false;
     Message.success('メタデータの再解析を開始します。完了までしばらくお待ちください。');
-    const result = await Videos.reanalyzeVideo(props.program.id);
+
+    const result = await Videos.reanalyzeVideo(props.program.id, selected_service_id.value || undefined);
     if (result === true) {
         Message.success('メタデータの再解析が完了しました。');
     }
@@ -279,6 +383,12 @@ const deleteVideo = async () => {
         emit('deleted', props.program.id);
     }
 };
+
+// コンポーネント破棄時の処理
+onBeforeUnmount(() => {
+    // 現在の取得処理を無効化
+    channelFetchRequestId += 1;
+});
 
 </script>
 <style lang="scss" scoped>
@@ -813,6 +923,17 @@ const deleteVideo = async () => {
 }
 
 .delete-confirmation {
+    &__file-path {
+        padding: 12px;
+        background-color: rgb(var(--v-theme-background-lighten-1));
+        border-radius: 4px;
+        font-size: 14px;
+        word-break: break-all;
+        white-space: pre-wrap;
+    }
+}
+
+.reanalyze-confirmation {
     &__file-path {
         padding: 12px;
         background-color: rgb(var(--v-theme-background-lighten-1));

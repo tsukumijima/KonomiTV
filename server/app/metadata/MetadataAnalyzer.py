@@ -201,15 +201,17 @@ class MetadataAnalyzer:
     FFPROBE_ANALYZE_DURATION_US: ClassVar[str] = str(30 * 1_000_000)
     FFPROBE_PROBESIZE: ClassVar[str] = '80M'
 
-    def __init__(self, recorded_file_path: Path) -> None:
+    def __init__(self, recorded_file_path: Path, selected_service_id: int | None = None) -> None:
         """
         録画ファイルのメタデータを解析するクラスを初期化する
 
         Args:
             recorded_file_path (Path): 録画ファイルのパス
+            selected_service_id (int | None): 指定するサービスID（複数チャンネル選択用）
         """
 
         self.recorded_file_path = recorded_file_path
+        self.selected_service_id = selected_service_id
 
 
     def analyze(self) -> schemas.RecordedProgram | None:
@@ -520,7 +522,7 @@ class MetadataAnalyzer:
         recorded_program = None
         if container_format == 'MPEG-TS':
             # TS ファイルに含まれる番組情報・チャンネル情報を解析する
-            analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset)
+            analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset, selected_service_id=self.selected_service_id)
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
@@ -536,7 +538,7 @@ class MetadataAnalyzer:
                     return None
         else:
             # 何らかのメタ情報から番組情報・チャンネル情報を解析する
-            analyzer = TSInfoAnalyzer(recorded_video)
+            analyzer = TSInfoAnalyzer(recorded_video, selected_service_id=self.selected_service_id)
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')

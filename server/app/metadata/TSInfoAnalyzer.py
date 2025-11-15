@@ -35,13 +35,14 @@ class TSInfoAnalyzer:
     ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, recorded_video: schemas.RecordedVideo, end_ts_offset: int | None = None) -> None:
+    def __init__(self, recorded_video: schemas.RecordedVideo, end_ts_offset: int | None = None, selected_service_id: int | None = None) -> None:
         """
         録画 TS ファイルや録画データ関連ファイルに含まれる番組情報を解析するクラスを初期化する
 
         Args:
             recorded_video (schemas.RecordedVideo): 録画ファイル情報を表すモデル
             end_ts_offset (int | None): 有効な TS データの終了位置 (バイト単位、ファイル後半がゼロ埋めされている場合に指定する)
+            selected_service_id (int | None): 指定するサービスID（複数チャンネル選択用）
         """
 
         # 有効な TS データの終了位置 (EIT 解析時に必要)
@@ -52,6 +53,7 @@ class TSInfoAnalyzer:
             self.end_ts_offset = recorded_video.file_size
 
         self.recorded_video = recorded_video
+        self.selected_service_id = selected_service_id
         self.first_tot_timedelta = timedelta()
         self.last_tot_timedelta = timedelta()
 
@@ -325,20 +327,34 @@ class TSInfoAnalyzer:
             transport_stream_id = int(pat.transport_stream_id)
 
             # サービス ID を取得
-            for pat_pid in pat.pids:
-                if pat_pid.program_number:
-                    # program_number は service_id と等しい
-                    # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
-                    service_id = int(pat_pid.program_number)
-                    # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
+            # selected_service_id が指定されている場合は、それに一致する service_id を PAT から探す
+            if self.selected_service_id is not None:
+                for pat_pid in pat.pids:
+                    if pat_pid.program_number == self.selected_service_id:
+                        # 指定された service_id が見つかった
+                        service_id = int(pat_pid.program_number)
+                        break
+                # 指定された service_id が見つかったらループを抜ける
+                if service_id is not None:
+                    break
+            else:
+                # selected_service_id が指定されていない場合は、最初の service_id を使用
+                for pat_pid in pat.pids:
+                    if pat_pid.program_number:
+                        # program_number は service_id と等しい
+                        # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
+                        service_id = int(pat_pid.program_number)
+                        # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
+                        break
+                # service_id が見つかったらループを抜ける
+                if service_id is not None:
                     break
 
-            # service_id が見つかったらループを抜ける
-            if service_id is not None:
-                break
-
         if service_id is None:
-            logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
+            if self.selected_service_id is not None:
+                logging.warning(f'{self.recorded_video.file_path}: Specified service_id {self.selected_service_id} not found in PAT.')
+            else:
+                logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
 
         # TS から SDT (Service Description Table) を抽出
@@ -724,6 +740,79 @@ class TSInfoAnalyzer:
 
         return recorded_program
 
+    def __collectAllChannels(self) -> list[dict[str, Any]]:
+        """
+        TS 内の全ての利用可能なチャンネル情報を収集する
+
+        Returns:
+            list[dict]: チャンネル情報のリスト、各要素は以下の構造:
+            {
+                'service_id': int,
+                'channel_name': str,
+                'network_id': int,
+                'transport_stream_id': int,
+                'channel_type': str,
+            }
+        """
+        from pathlib import Path
+
+        # 誤動作防止のため必ず最初にシークを戻す
+        self.ts.seek(0)
+
+        all_channels = []
+        available_service_ids = []
+        transport_stream_id = None
+
+        # PAT から全ての利用可能な service_id を収集（最初の60秒分のみ）
+        pat_count = 0
+        for pat in self.ts.sections(ProgramAssociationSection):
+            transport_stream_id = int(pat.transport_stream_id)
+            for pat_pid in pat.pids:
+                if pat_pid.program_number:
+                    available_service_ids.append(int(pat_pid.program_number))
+
+            # PAT解析の制限（60秒相当のループ数で制限）
+            pat_count += 1
+            if pat_count > 100:  # EIT解析と同様の制限値
+                break
+
+        if not available_service_ids:
+            return all_channels
+
+        # SDT から各サービスの詳細情報を取得（最初の60秒分のみ）
+        self.ts.seek(0)
+        seen_service_ids = set()  # 重複チェック用のセット
+        sdt_count = 0
+        for sdt in self.ts.sections(ActualStreamServiceDescriptionSection):
+            network_id = int(sdt.original_network_id)
+            network_type = TSInformation.getNetworkType(network_id)
+            if network_type == 'OTHER':
+                continue
+
+            for service in sdt.services:
+                if service.service_id in available_service_ids and service.service_id not in seen_service_ids:
+                    # チャンネル名を取得
+                    channel_name = None
+                    for sd in service.descriptors[ServiceDescriptor]:
+                        channel_name = TSInformation.formatString(sd.service_name)
+                        break
+
+                    if channel_name:
+                        all_channels.append({
+                            'service_id': service.service_id,
+                            'channel_name': channel_name,
+                            'network_id': network_id,
+                            'transport_stream_id': transport_stream_id,
+                            'channel_type': network_type,
+                        })
+                        seen_service_ids.add(service.service_id)  # 重複防止のため追加
+
+            # SDT解析の制限（60秒相当のループ数で制限）
+            sdt_count += 1
+            if sdt_count > 100:  # EIT解析と同様の制限値
+                break
+
+        return all_channels
 
     @staticmethod
     def readPSIData(reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
