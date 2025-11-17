@@ -236,6 +236,26 @@ async def GetThumbnailResponse(
 
         return False
 
+    def CreateDefaultThumbnailResponse() -> FileResponse:
+        """ 録画中またはサムネイル未生成時に返すデフォルトサムネイルレスポンスを構築する """
+
+        default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
+        # キャッシュさせないようにヘッダーを設定
+        headers = {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+        }
+        return FileResponse(
+            path = default_thumbnail_path,
+            media_type = 'image/webp',
+            headers = headers,
+        )
+
+    # 録画中のファイルは常にデフォルトサムネイルを返す
+    if recorded_program.recorded_video.status == 'Recording':
+        return CreateDefaultThumbnailResponse()
+
     # サムネイル画像のパスを生成
     suffix = '_tile' if return_tiled else ''
     base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
@@ -252,18 +272,7 @@ async def GetThumbnailResponse(
 
     # サムネイル画像が存在しない場合はデフォルト画像を返す
     if thumbnail_path is None:
-        default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
-        # キャッシュさせないようにヘッダーを設定
-        headers = {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-        }
-        return FileResponse(
-            path = default_thumbnail_path,
-            media_type = 'image/webp',
-            headers = headers,
-        )
+        return CreateDefaultThumbnailResponse()
 
     # サムネイル画像のファイル情報を取得
     stat_result = await thumbnail_path.stat()
