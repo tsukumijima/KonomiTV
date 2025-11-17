@@ -766,7 +766,10 @@ async def VideoReanalyzeAPI(
             # メタデータ再解析を実行
             await RecordedScanTask().processRecordedFile(
                 file_path = file_path,
+                # 既に DB に登録されている録画ファイルのメタデータを強制的に再解析する
                 force_update = True,
+                # API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝えるため、バックグラウンド解析タスクが完了するまで待つ
+                wait_background_analysis = True,
             )
 
     except Exception as ex:

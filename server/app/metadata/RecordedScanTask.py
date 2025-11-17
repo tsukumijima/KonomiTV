@@ -446,6 +446,7 @@ class RecordedScanTask:
         original_path: anyio.Path | None = None,
         existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] | None = None,
         force_update: bool = False,
+        wait_background_analysis: bool = False,
     ) -> None:
         """
         指定された録画ファイルのメタデータを解析し、DB に永続化する
@@ -456,7 +457,8 @@ class RecordedScanTask:
             original_path (anyio.Path | None): シンボリックリンクなどで取得した元のファイルパス
             existing_db_recorded_videos (dict[anyio.Path, RecordedVideoSummary] | None): 既に DB に永続化されている録画ファイルパスと RecordedVideo のサマリーデータのマッピング
                 (ファイル変更イベントから呼ばれた場合、watchfiles 初期化時に取得した全レコードと今で状態が一致しているとは限らないため、None が入る)
-            force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか
+            force_update (bool): 既に DB に登録されている録画ファイルのメタデータを強制的に再解析するかどうか (デフォルト: False)
+            wait_background_analysis (bool): バックグラウンド解析が完了するまで待つかどうか (デフォルト: False)
         """
 
         # ファイルパスに対応するロックを取得または作成
@@ -656,6 +658,10 @@ class RecordedScanTask:
                     if file_path not in self._background_tasks:
                         task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
                         self._background_tasks[file_path] = task
+                        # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
+                        # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
+                        if wait_background_analysis:
+                            await task
 
                 # DB に永続化
                 # メタデータ解析後の最新のデータベース情報を使う
