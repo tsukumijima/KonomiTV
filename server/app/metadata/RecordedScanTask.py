@@ -93,6 +93,11 @@ class RecordedScanTask:
     # 継続更新を強制的に完了とする時間 (秒)
     CONTINUOUS_UPDATE_MAX_SECONDS: ClassVar[int] = 86400  # 24時間
 
+    # 既知のハッシュ衝突が発生しうる file_hash の集合
+    KNOWN_COLLISION_FILE_HASHES: ClassVar[set[str]] = {
+        'd1dd210d6b1312cb342b56d02bd5e651',
+    }
+
 
     def __new__(cls) -> RecordedScanTask:
         """
@@ -395,6 +400,41 @@ class RecordedScanTask:
                         logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
                 except Exception as ex:
                     logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
+
+        # かつてのバグで RecordedVideo.file_hash が衝突している録画ファイルのメタデータを再解析する
+        ## トランザクション配下に入れることでパフォーマンスが向上する
+        ## ref: https://github.com/tsukumijima/KonomiTV/commit/92e8630f41b6440ebd10defa5fdde1489ac7376a
+        async with transactions.in_transaction():
+            collision_videos = await RecordedVideo.filter(
+                file_hash__in=list(self.KNOWN_COLLISION_FILE_HASHES),
+            ).all()
+            processed_collision_paths: set[str] = set()
+            if len(collision_videos) > 0:
+                logging.info(f'Found {len(collision_videos)} videos affected by known hash collisions. Reanalyzing...')
+                for collision_video in collision_videos:
+                    file_path_str = collision_video.file_path
+                    # 既に処理済みのファイルはスキップ
+                    if file_path_str in processed_collision_paths:
+                        continue
+                    # 録画中のファイルは今後の解析に任せる
+                    if collision_video.status == 'Recording':
+                        continue
+                    file_path = anyio.Path(file_path_str)
+                    # ファイルが存在しない場合はスキップ
+                    if not await self.isFileExists(file_path):
+                        continue
+                    try:
+                        # メタデータ再解析を実行
+                        logging.info(f'{file_path}: Reanalyzing due to known hash collision ({collision_video.file_hash}).')
+                        await self.processRecordedFile(
+                            file_path = file_path,
+                            force_update = True,
+                        )
+                        # 処理済みファイルに追加
+                        processed_collision_paths.add(file_path_str)
+                        logging.info(f'{file_path}: Reanalysis completed.')
+                    except Exception as ex:
+                        logging.error(f'{file_path}: Failed to reanalyze known hash collision file:', exc_info=ex)
 
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
