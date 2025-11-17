@@ -274,7 +274,7 @@ class MetadataAnalyzer:
 
         # FFprobe から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        result = self.analyzeMediaInfo()
+        result = self.__analyzeMediaInfo()
         if result is None:
             return None
         full_probe, sample_probe, end_ts_offset = result
@@ -480,7 +480,7 @@ class MetadataAnalyzer:
 
         # ファイルハッシュを計算
         try:
-            file_hash = self.calculateFileHash(end_ts_offset)
+            file_hash = self.__calculateFileHash(end_ts_offset)
         except ValueError:
             logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
             return None
@@ -598,7 +598,7 @@ class MetadataAnalyzer:
         return recorded_program
 
 
-    def calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
+    def __calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
         """
         録画ファイルのハッシュを計算する
         録画ファイル全体をハッシュ化すると時間がかかるため、ファイルの複数箇所のみをハッシュ化する
@@ -658,7 +658,7 @@ class MetadataAnalyzer:
         return hash_obj.hexdigest()
 
 
-    def calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> tuple[float, int] | None:
+    def __calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> tuple[float, int] | None:
         """
         TS ファイル内の最初と最後の有効な PCR タイムスタンプから再生時間（秒）を算出する (written with o3-mini)
         MediaInfo から再生時間を取得できなかった場合のフォールバックとして利用する
@@ -790,7 +790,7 @@ class MetadataAnalyzer:
             return None
 
 
-    def analyzeMediaInfo(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
+    def __analyzeMediaInfo(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
         """
         録画ファイルのメディア情報を FFprobe を使って解析する
         全体解析と部分解析の2段階で解析を行う
@@ -813,7 +813,7 @@ class MetadataAnalyzer:
             '-of', 'json',
             str(self.recorded_file_path),
         ]
-        full_json = self._runFFprobe(args_full)
+        full_json = self.__runFFprobe(args_full)
         if full_json is None:
             return None
 
@@ -827,7 +827,7 @@ class MetadataAnalyzer:
         duration_result: tuple[float, int] | None = None
         if full_probe.format.duration is None and full_probe.format.format_name == 'mpegts':
             # MPEG-TS 形式の場合のみ、フォールバックとして自前で長さを算出する
-            duration_result = self.calculateTSFileDuration()
+            duration_result = self.__calculateTSFileDuration()
             if duration_result is not None:
                 duration, _ = duration_result
                 # FFprobe の結果を更新
@@ -856,7 +856,7 @@ class MetadataAnalyzer:
                     # サンプルデータが全てゼロ埋めされているかチェック
                     if sample_data and all(byte == 0 for byte in sample_data):
                         # ゼロ埋め領域の境界を取得するため calculateTSFileDuration を実行
-                        duration_result = self.calculateTSFileDuration()
+                        duration_result = self.__calculateTSFileDuration()
                         if duration_result is None:
                             logging.warning(f'{self.recorded_file_path}: Failed to calculate duration.')
                             return None
@@ -880,7 +880,7 @@ class MetadataAnalyzer:
                         '-show_streams',
                         '-of', 'json',
                     ]
-                    sample_json = self._runFFprobe(args_sample, input_bytes=sample_data)
+                    sample_json = self.__runFFprobe(args_sample, input_bytes=sample_data)
             else:
                 # MPEG-TS 形式でない場合は部分解析はせず、全体解析の結果をそのまま設定
                 sample_json = full_json
@@ -907,7 +907,7 @@ class MetadataAnalyzer:
             return (full_probe, sample_probe, None)
 
 
-    def _runFFprobe(self, args: list[str], input_bytes: bytes | None = None) -> dict[str, Any] | None:
+    def __runFFprobe(self, args: list[str], input_bytes: bytes | None = None) -> dict[str, Any] | None:
         """
         FFprobe を実行する
 

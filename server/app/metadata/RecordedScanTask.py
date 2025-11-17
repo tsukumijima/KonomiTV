@@ -660,7 +660,7 @@ class RecordedScanTask:
                         self._background_tasks[file_path] = task
                         # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
                         # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
-                        if wait_background_analysis:
+                        if wait_background_analysis is True:
                             await task
 
                 # DB に永続化
