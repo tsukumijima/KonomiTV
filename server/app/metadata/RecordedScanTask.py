@@ -658,15 +658,16 @@ class RecordedScanTask:
                     if file_path not in self._background_tasks:
                         task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
                         self._background_tasks[file_path] = task
-                        # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
-                        # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
-                        if wait_background_analysis is True:
-                            await task
 
                 # DB に永続化
                 # メタデータ解析後の最新のデータベース情報を使う
                 await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video_after_analyze)
                 logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video_after_analyze else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
+
+                # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
+                # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
+                if wait_background_analysis is True and file_path in self._background_tasks:
+                    await self._background_tasks[file_path]
 
             except Exception as ex:
                 logging.error(f'{file_path}: Error processing file inside lock:', exc_info=ex)
@@ -859,6 +860,7 @@ class RecordedScanTask:
         file_path = anyio.Path(recorded_program.recorded_video.file_path)
 
         try:
+            logging.info(f'{file_path}: Starting background analysis task...')
             # ProcessLimiter で稼働中のバックグラウンドタスクの同時実行数を CPU コア数の 50% に制限
             async with ProcessLimiter.getSemaphore('RecordedScanTask'):
                 # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
@@ -871,10 +873,10 @@ class RecordedScanTask:
                         # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
                         ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(),
                     )
-            logging.info(f'{file_path}: Background analysis completed.')
+            logging.info(f'{file_path}: Background analysis task completed.')
 
         except Exception as ex:
-            logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
+            logging.error(f'{file_path}: Error in background analysis task:', exc_info=ex)
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
