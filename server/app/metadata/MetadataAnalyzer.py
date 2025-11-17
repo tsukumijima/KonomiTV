@@ -480,7 +480,7 @@ class MetadataAnalyzer:
 
         # ファイルハッシュを計算
         try:
-            file_hash = self.calculateFileHash()
+            file_hash = self.calculateFileHash(end_ts_offset)
         except ValueError:
             logging.warning(f'{self.recorded_file_path}: File size is too small. ignored.')
             return None
@@ -598,27 +598,35 @@ class MetadataAnalyzer:
         return recorded_program
 
 
-    def calculateFileHash(self, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
+    def calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
         """
         録画ファイルのハッシュを計算する
-        録画ファイル全体をハッシュ化すると時間がかかるため、ファイルの先頭、中央、末尾の3箇所のみをハッシュ化する
+        録画ファイル全体をハッシュ化すると時間がかかるため、ファイルの複数箇所のみをハッシュ化する
+        MPEG-TS 形式で `end_ts_offset` が指定されている場合は、末尾のゼロ埋め領域を含まない有効 TS データ領域のみを対象とする
 
         Args:
-            chunk_size (int, optional): チャンクのサイズ. Defaults to 1024 * 1024.
-            num_chunks (int, optional): チャンクの数. Defaults to 3.
+            end_ts_offset (int | None): 有効な TS データの終了位置 (バイト単位) (None の場合はファイルサイズ全体を対象とする)
+            chunk_size (int, optional): チャンクのサイズ (デフォルト: 1MB)
+            num_chunks (int, optional): チャンクの数 (デフォルト: 3)
 
         Raises:
-            ValueError: ファイルサイズが小さい場合に発生する
+            ValueError: 有効データ領域が小さく十分な数のチャンクが取得できない場合
 
         Returns:
             str: 録画ファイルのハッシュ
         """
 
-        # ファイルのサイズを取得する
+        # 実際のファイルサイズを取得する
         file_size = self.recorded_file_path.stat().st_size
 
-        # ファイルサイズが`chunk_size * num_chunks`より小さい場合は十分な数のチャンクが取得できないため例外を発生させる
-        if file_size < chunk_size * num_chunks:
+        # end_ts_offset が有効な場合は、有効 TS データ領域のサイズとして優先的に利用する
+        if end_ts_offset is not None and end_ts_offset > 0:
+            effective_size = min(end_ts_offset, file_size)
+        else:
+            effective_size = file_size
+
+        # 有効データ領域が `chunk_size * num_chunks` より小さい場合は十分な数のチャンクが取得できないため例外を発生させる
+        if effective_size < chunk_size * num_chunks:
             raise ValueError(f'File size must be at least {chunk_size * num_chunks} bytes.')
 
         with self.recorded_file_path.open('rb') as file:
@@ -631,11 +639,19 @@ class MetadataAnalyzer:
             for chunk_index in range(num_chunks):
 
                 # 現在のチャンクのバイトオフセットを計算する
-                offset = (file_size // (num_chunks + 1)) * (chunk_index + 1)
+                ## (num_chunks + 1) で分割した位置 (1/4, 2/4, 3/4 など) からチャンクを取得する
+                offset = (effective_size // (num_chunks + 1)) * (chunk_index + 1)
                 file.seek(offset)
 
                 # チャンクを読み込み、ハッシュオブジェクトを更新する
-                chunk = file.read(chunk_size)
+                ## end_ts_offset が指定されている場合でも有効データ領域を超えないように読み込みサイズを制限する
+                remaining = effective_size - offset
+                if remaining <= 0:
+                    break
+                read_size = min(chunk_size, remaining)
+                chunk = file.read(read_size)
+                if not chunk:
+                    break
                 hash_obj.update(chunk)
 
         # ハッシュの16進数表現を返す
