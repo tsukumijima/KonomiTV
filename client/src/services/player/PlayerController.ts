@@ -556,8 +556,10 @@ class PlayerController {
                     ...Hls.DefaultConfig,
                     // Web Worker を有効にする
                     enableWorker: true,
-                    // MediaSource が存在しない場合のみ ManagedMediaSource を利用する
-                    preferManagedMediaSource: false,
+                    // ManagedMediaSource が使える Safari では常に ManagedMediaSource を利用する
+                    // iPadOS Safari や macOS Safari では通常の MediaSource も使えるが、Safari のシェアは iOS ユーザーが圧倒的なので、
+                    // 動作確認上のパターンを iOS に揃えた方がバグなどの把握がしやすくなると考えられることから、ManagedMediaSource に統一する
+                    preferManagedMediaSource: true,
                     // startPosition に視聴履歴などから求めた再生位置を渡し、ロード開始時点で正しい Media Sequence を選択させる
                     // これを指定しないと manifest 解析後に sequence=0 からフラグメント取得が始まってしまう
                     startPosition: seek_seconds,
