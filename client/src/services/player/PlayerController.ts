@@ -1299,24 +1299,32 @@ class PlayerController {
                 // hls.js の初期化時に startPosition を指定したことで、シーク時に常に startPosition に対応する HLS セグメントが
                 // ロードされるようになってしまうため、画質切り替えが完了する前に startPosition をデフォルト値の -1 に無理やり戻す
                 // こうすることで startPosition を指定しつつ、シーク時は従来通りシーク先のセグメントから先読みが開始されるようになる
-                const hls_plugin = this.player.plugins.hls!;  // ビデオ視聴時は常に hls.js が有効
-                const resetStartPosition = () => {
-                    hls_plugin.off(Hls.Events.FRAG_BUFFERED, resetStartPosition);
-                    hls_plugin.config.startPosition = -1;
-                    const internal_hls = hls_plugin as unknown as {
-                        streamController?: {
-                            startPosition?: number;
-                            nextLoadPosition?: number;
+                const hls_plugin = this.player.plugins.hls;
+                if (hls_plugin !== undefined) {
+                    const resetStartPosition = () => {
+                        hls_plugin.off(Hls.Events.FRAG_BUFFERED, resetStartPosition);
+                        hls_plugin.config.startPosition = -1;
+                        const internal_hls = hls_plugin as unknown as {
+                            streamController?: {
+                                startPosition?: number;
+                                nextLoadPosition?: number;
+                            };
                         };
-                    };
-                    if (internal_hls.streamController) {
-                        internal_hls.streamController.startPosition = -1;
-                        if (hls_plugin.media) {
-                            internal_hls.streamController.nextLoadPosition = hls_plugin.media.currentTime;
+                        if (internal_hls.streamController) {
+                            internal_hls.streamController.startPosition = -1;
+                            if (hls_plugin.media) {
+                                internal_hls.streamController.nextLoadPosition = hls_plugin.media.currentTime;
+                            }
                         }
-                    }
-                };
-                hls_plugin.on(Hls.Events.FRAG_BUFFERED, resetStartPosition);
+                    };
+                    hls_plugin.on(Hls.Events.FRAG_BUFFERED, resetStartPosition);
+                } else {
+                    // 実はなぜか hls.js を使わずとも Safari では普通に Native HLS 再生できてしまうようなので、警告を出しつつ何もしない
+                    // DPlayer 側の機能により、Native HLS 再生であっても字幕は表示される
+                    console.warn('\u001b[31m[PlayerController] hls.js plugin not found. (Native HLS playback may be supported on Safari.)');
+                    this.player.notice('お使いの iOS / iPadOS Safari は hls.js での再生に対応していません。代わりに Native HLS での再生を試みますが、正常に再生できない可能性があります。',
+                        undefined, undefined, '#FFA86A');
+                }
 
                 // 必ず最初はローディング状態で、背景写真を表示する
                 player_store.is_loading = true;
