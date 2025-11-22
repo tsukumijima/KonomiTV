@@ -3,10 +3,6 @@ import asyncio
 import json
 import os
 import platform
-import psutil
-import py7zr
-import requests
-import ruamel.yaml
 import shutil
 import subprocess
 import tarfile
@@ -14,28 +10,35 @@ import tempfile
 import urllib.parse
 import zipfile
 from pathlib import Path
+from typing import Any, Literal, cast
+
+import psutil
+import py7zr
+import requests
+import ruamel.yaml
 from rich import print
 from rich.padding import Padding
-from typing import Any, cast, Literal
 
-from Utils import CreateBasicInfiniteProgress
-from Utils import CreateDownloadProgress
-from Utils import CreateDownloadInfiniteProgress
-from Utils import CreateRule
-from Utils import CreateTable
-from Utils import CtrlCmdConnectionCheckUtil
-from Utils import CustomConfirm
-from Utils import CustomPrompt
-from Utils import GetNetworkInterfaceInformation
-from Utils import IsDockerComposeV2
-from Utils import IsDockerInstalled
-from Utils import IsGitInstalled
-from Utils import RemoveEmojiIfLegacyTerminal
-from Utils import RunKonomiTVServiceWaiter
-from Utils import RunSubprocess
-from Utils import RunSubprocessDirectLogOutput
-from Utils import SaveConfig
-from Utils import ShowPanel
+from Utils import (
+    CreateBasicInfiniteProgress,
+    CreateDownloadInfiniteProgress,
+    CreateDownloadProgress,
+    CreateRule,
+    CreateTable,
+    CtrlCmdConnectionCheckUtil,
+    CustomConfirm,
+    CustomPrompt,
+    GetNetworkInterfaceInformation,
+    IsDockerComposeV2,
+    IsDockerInstalled,
+    IsGitInstalled,
+    RemoveEmojiIfLegacyTerminal,
+    RunKonomiTVServiceWaiter,
+    RunSubprocess,
+    RunSubprocessDirectLogOutput,
+    SaveConfig,
+    ShowPanel,
+)
 
 
 def Installer(version: str) -> None:
@@ -335,7 +338,7 @@ def Installer(version: str) -> None:
         # ARM 環境のみ、もし  /proc/device-tree/compatible が存在し、その中に "rockchip" と "rk35" という文字列が含まれていたら、
         # Rockchip SoC 搭載の ARM SBC と判断して rkmppenc を利用可能とする
         if platform_type == 'Linux' and Path('/proc/device-tree/compatible').exists():
-            with open('/proc/device-tree/compatible', mode='r', encoding='utf-8') as compatible_file:
+            with open('/proc/device-tree/compatible', encoding='utf-8') as compatible_file:
                 compatible_data = compatible_file.read()
                 if 'rockchip' in compatible_data and 'rk35' in compatible_data:
                     rkmppenc_available = '✅利用できます'
@@ -579,7 +582,7 @@ def Installer(version: str) -> None:
 
         # config.yaml から既定の設定値を取得
         config_dict: dict[str, dict[str, Any]]
-        with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as file:
+        with open(install_path / 'config.yaml', encoding='utf-8') as file:
             config_dict = dict(ruamel.yaml.YAML().load(file))
 
         # サーバー設定データの一部を事前に取得しておいた値で置き換え
@@ -706,7 +709,7 @@ def Installer(version: str) -> None:
             shutil.copyfile(install_path / 'docker-compose.example.yaml', install_path / 'docker-compose.yaml')
 
             # docker-compose.yaml の内容を読み込む
-            with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
+            with open(install_path / 'docker-compose.yaml', encoding='utf-8') as file:
                 text = file.read()
 
             # GPU が1個も搭載されていない特殊な環境の場合

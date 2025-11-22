@@ -1,27 +1,25 @@
 
 import ctypes
-import distro
-import elevate
 import os
 import platform
 import signal
 import subprocess
 import threading
 import traceback
+from typing import Any
+
+import distro
+import elevate
 from rich import print
 from rich.padding import Padding
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.style import Style
-from typing import Any
 
 from Installer import Installer
 from Uninstaller import Uninstaller
 from Updater import Updater
-from Utils import CreateTable
-from Utils import CustomPrompt
-from Utils import GetNetworkDriveList
-from Utils import ShowPanel
+from Utils import CreateTable, CustomPrompt, GetNetworkDriveList, ShowPanel
 
 
 # インストール or アップデート対象の KonomiTV バージョン
