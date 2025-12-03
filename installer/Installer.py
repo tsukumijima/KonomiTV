@@ -3,10 +3,6 @@ import asyncio
 import json
 import os
 import platform
-import psutil
-import py7zr
-import requests
-import ruamel.yaml
 import shutil
 import subprocess
 import tarfile
@@ -14,28 +10,35 @@ import tempfile
 import urllib.parse
 import zipfile
 from pathlib import Path
+from typing import Any, Literal, cast
+
+import psutil
+import py7zr
+import requests
+import ruamel.yaml
 from rich import print
 from rich.padding import Padding
-from typing import Any, cast, Literal
 
-from Utils import CreateBasicInfiniteProgress
-from Utils import CreateDownloadProgress
-from Utils import CreateDownloadInfiniteProgress
-from Utils import CreateRule
-from Utils import CreateTable
-from Utils import CtrlCmdConnectionCheckUtil
-from Utils import CustomConfirm
-from Utils import CustomPrompt
-from Utils import GetNetworkInterfaceInformation
-from Utils import IsDockerComposeV2
-from Utils import IsDockerInstalled
-from Utils import IsGitInstalled
-from Utils import RemoveEmojiIfLegacyTerminal
-from Utils import RunKonomiTVServiceWaiter
-from Utils import RunSubprocess
-from Utils import RunSubprocessDirectLogOutput
-from Utils import SaveConfig
-from Utils import ShowPanel
+from Utils import (
+    CreateBasicInfiniteProgress,
+    CreateDownloadInfiniteProgress,
+    CreateDownloadProgress,
+    CreateRule,
+    CreateTable,
+    CtrlCmdConnectionCheckUtil,
+    CustomConfirm,
+    CustomPrompt,
+    GetNetworkInterfaceInformation,
+    IsDockerComposeV2,
+    IsDockerInstalled,
+    IsGitInstalled,
+    RemoveEmojiIfLegacyTerminal,
+    RunKonomiTVServiceWaiter,
+    RunSubprocess,
+    RunSubprocessDirectLogOutput,
+    SaveConfig,
+    ShowPanel,
+)
 
 
 def Installer(version: str) -> None:
@@ -335,7 +338,7 @@ def Installer(version: str) -> None:
         # ARM 環境のみ、もし  /proc/device-tree/compatible が存在し、その中に "rockchip" と "rk35" という文字列が含まれていたら、
         # Rockchip SoC 搭載の ARM SBC と判断して rkmppenc を利用可能とする
         if platform_type == 'Linux' and Path('/proc/device-tree/compatible').exists():
-            with open('/proc/device-tree/compatible', mode='r', encoding='utf-8') as compatible_file:
+            with open('/proc/device-tree/compatible', encoding='utf-8') as compatible_file:
                 compatible_data = compatible_file.read()
                 if 'rockchip' in compatible_data and 'rk35' in compatible_data:
                     rkmppenc_available = '✅利用できます'
@@ -579,7 +582,7 @@ def Installer(version: str) -> None:
 
         # config.yaml から既定の設定値を取得
         config_dict: dict[str, dict[str, Any]]
-        with open(install_path / 'config.yaml', mode='r', encoding='utf-8') as file:
+        with open(install_path / 'config.yaml', encoding='utf-8') as file:
             config_dict = dict(ruamel.yaml.YAML().load(file))
 
         # サーバー設定データの一部を事前に取得しておいた値で置き換え
@@ -706,7 +709,7 @@ def Installer(version: str) -> None:
             shutil.copyfile(install_path / 'docker-compose.example.yaml', install_path / 'docker-compose.yaml')
 
             # docker-compose.yaml の内容を読み込む
-            with open(install_path / 'docker-compose.yaml', mode='r', encoding='utf-8') as file:
+            with open(install_path / 'docker-compose.yaml', encoding='utf-8') as file:
                 text = file.read()
 
             # GPU が1個も搭載されていない特殊な環境の場合
@@ -828,10 +831,12 @@ def Installer(version: str) -> None:
                     ])
                     ShowPanel([
                         'Intel Media Driver は以下のコマンドでインストールできます。',
+                        'Ubuntu 24.04 LTS:',
+                        '[cyan]curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu noble unified\' | sudo tee /etc/apt/sources.list.d/intel-gpu-noble.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2[/cyan]',
                         'Ubuntu 22.04 LTS:',
-                        '[cyan]curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu jammy client\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1[/cyan]',
+                        '[cyan]curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified\' | sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2[/cyan]',
                         'Ubuntu 20.04 LTS:',
-                        '[cyan]curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1[/cyan]',
+                        '[cyan]curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg && echo \'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client\' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null && sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2[/cyan]',
                     ], padding=(0, 2, 0, 2))
                     ShowPanel([
                         'QSVEncC (--check-hw) のログ:\n' + result1.stdout.strip(),
@@ -923,14 +928,14 @@ def Installer(version: str) -> None:
                 ])
                 ShowPanel([
                     'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。',
-                    'Ubuntu 20.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/focal/amdgpu-install_6.0.60003-1_all.deb[/cyan]',
-                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/jammy/amdgpu-install_6.0.60003-1_all.deb[/cyan]',
+                    'Ubuntu 24.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
+                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。',
                     '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。',
                     'インストール/アップデート完了後は、システムの再起動が必要です。',
-                    '[cyan]sudo apt install -y ./amdgpu-install_6.0.60003-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32[/cyan]',
+                    '[cyan]sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32[/cyan]',
                 ], padding=(0, 2, 0, 2))
                 ShowPanel([
                     'VCEEncC のログ:\n' + result.stdout.strip(),

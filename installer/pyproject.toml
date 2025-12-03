@@ -6,6 +6,8 @@ package-mode = false
 
 [tool.taskipy.tasks]
 dev = "python KonomiTV-Installer.py"
+lint = "ruff check --fix . ; pyright"
+typecheck = "pyright"
 build-windows = "pyinstaller --onefile --collect-datas=emoji --uac-admin --icon=KonomiTV-Installer.ico KonomiTV-Installer.py"
 build-linux = "pyinstaller --onefile --collect-datas=emoji --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
 
@@ -16,7 +18,7 @@ distro = "^1.8.0"
 elevate = "^0.1.3"
 emoji = "^2.14.0"
 ifaddr = "^0.2.0"
-psutil = "^5.9.8"
+psutil = "^6.0.0"
 py7zr = "^0.22.0"
 # For the Windows version only, to prevent virus detection, when the installer is built by CI,
 # it is forced to replace the PyInstaller with my own build.
@@ -25,9 +27,11 @@ pyinstaller = [
     { platform = "win32", url = "https://github.com/tsukumijima/Pyinstaller-Builds/raw/gh-pages/x86_64/pyinstaller-5.13.0-py3-none-any.whl" },
     { platform = "linux", version = "5.13.0", source = "pypi" },
 ]
+pyright = "^1.1.403"
 requests = "^2.32.4"
 rich = "^13.9.3"
-"ruamel.yaml" = "^0.18.6"
+"ruamel.yaml" = "0.18.12"
+ruff = "^0.9.1"
 taskipy = "^1.14.0"
 tzdata = "^2024.2"
 watchdog = "^5.0.3"
@@ -37,3 +41,59 @@ watchdog = "^5.0.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# インデントの幅を4スペースに設定
+indent-width = 4
+# Python 3.11 を利用する
+target-version = "py311"
+# build/, dist/ ディレクトリは対象から除外する
+extend-exclude = ["build/", "dist/"]
+
+[tool.ruff.lint]
+# flake8, pycodestyle, pyupgrade, isort, Ruff 固有のルールを使う
+select = ["F", "E", "W", "UP", "I", "RUF", "TID251"]
+ignore = [
+    "E501",    # 1行の長さを超えている場合の警告を抑制
+    "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
+    "RUF001",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF012",
+]
+
+[tool.ruff.lint.isort]
+# インポートブロックの後に2行空ける
+lines-after-imports = 2
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Python 3.11 + Pydantic で TypedDict を扱う際は、typing_extensions.TypedDict を使う必要がある
+# ref: https://github.com/langchain-ai/langgraph/pull/2910
+"typing.TypedDict".msg = "Use typing_extensions.TypedDict instead."
+
+[tool.pyright]
+# Python バージョンを指定
+pythonVersion = "3.11"
+# TypeCheckingMode を strict に設定（VSCode の設定と同等）
+typeCheckingMode = "strict"
+# プロジェクトルートを指定
+pythonPlatform = "All"
+# 除外するパス
+exclude = [
+    "**/__pycache__",
+    "**/.venv",
+    "build/",
+    "dist/",
+    "*.spec",
+]
+# VSCode の settings.json の diagnosticSeverityOverrides に対応する設定
+reportConstantRedefinition = "none"
+reportDeprecated = "warning"
+reportMissingTypeStubs = "none"
+reportPrivateImportUsage = "none"
+reportShadowedImports = "none"
+reportUnnecessaryComparison = "none"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnusedFunction = "none"

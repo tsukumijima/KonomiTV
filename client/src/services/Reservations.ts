@@ -72,6 +72,7 @@ export interface IReservationUpdateRequest {
     record_settings: IRecordSettings;
 }
 
+
 /**
  * 即時録画開始リクエスト
  */

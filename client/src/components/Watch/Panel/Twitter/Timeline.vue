@@ -74,6 +74,11 @@ import Utils from '@/utils';
 const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
 
+const props = defineProps<{
+    isTwitterPanelVisible: boolean;
+    isTimelineTabActive: boolean;
+}>();
+
 // タイムラインのアイテムの型定義
 interface ITweetBlock {
     type: 'tweet_block';
@@ -96,6 +101,10 @@ const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
 const scroller = useTemplateRef('scroller');
+const isInitialFetchPending = ref(true);
+
+// タイムラインタブが実際に表示されているかを判定
+const shouldAutoFetchTimeline = computed(() => props.isTwitterPanelVisible === true && props.isTimelineTabActive === true);
 
 // タイムライン更新履歴を管理するための変数
 // ユニークなツイートが得られた更新時の next_cursor_id のみを保持
@@ -147,6 +156,17 @@ const flattenedItems = computed(() => {
     return items;
 });
 
+// タイムラインの自動取得を必要に応じて実行
+const tryAutoFetchTimeline = () => {
+    if (isInitialFetchPending.value === true && shouldAutoFetchTimeline.value === true) {
+        void fetchTimelineTweets();
+    }
+};
+
+watch(shouldAutoFetchTimeline, () => {
+    tryAutoFetchTimeline();
+});
+
 // 仮想スクローラーの描画をリフレッシュする
 // 2025/01 現在の Virtua の Vue バインディングは下方向への無限スクロールのみ考慮しているようで、
 // 上方向の無限スクロールだと更新しても一見して更新内容が反映されていないように見える問題への回避策
@@ -193,6 +213,7 @@ const toggleSettings = () => {
 
 let isFirstFetchCompleted = false;
 const fetchTimelineTweets = async () => {
+    isInitialFetchPending.value = false;
     if (isFetching.value) return;
     isFetching.value = true;
     await useUserStore().fetchUser();
@@ -361,11 +382,14 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 };
 
 // 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
+// (Twitter パネルとタイムラインタブが表示状態のときのみ自動で再取得する)
 // このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
 watch(selected_twitter_account, () => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
-    fetchTimelineTweets();
+    isInitialFetchPending.value = true;
+    isFirstFetchCompleted = false;
+    tryAutoFetchTimeline();
 });
 
 // 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにして再取得
@@ -397,10 +421,9 @@ const checkScrollPosition = () => {
     }
 };
 
-// コンポーネントマウント時のみ自動取得
-// これ以降は原則ボタンが押された時のみ手動取得となる
+// コンポーネントマウント時は、タイムラインタブが表示されている場合のみ自動取得する
 onMounted(() => {
-    fetchTimelineTweets();
+    tryAutoFetchTimeline();
     nextTick(() => {
         if (scroller.value && scroller.value.$el) {
             scroller.value.$el.addEventListener('scroll', checkScrollPosition);

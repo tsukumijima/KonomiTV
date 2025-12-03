@@ -9,7 +9,8 @@
         "dev": "concurrently --raw \"npm:akebi\" \"vite\"",
         "build": "vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
-        "lint": "eslint . --fix --ignore-path .gitignore"
+        "lint": "eslint . --fix --ignore-path .gitignore",
+        "typecheck": "vue-tsc --noEmit"
     },
     "engines": {
         "node": ">=20.16.0"
@@ -24,7 +25,7 @@
         "comlink": "^4.4.1",
         "copy-image-clipboard": "^2.1.2",
         "dayjs": "^1.11.13",
-        "dplayer": "github:tsukumijima/DPlayer#v1.32.6",
+        "dplayer": "github:tsukumijima/DPlayer#v1.32.7",
         "floating-vue": "^5.2.2",
         "hls.js": "^1.6.9",
         "mitt": "^3.0.1",

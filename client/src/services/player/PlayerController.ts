@@ -243,11 +243,6 @@ class PlayerController {
         // KeyboardShortcutManager がこのタイミングで破棄される
         player_store.is_player_initialized = true;
 
-        // mpegts.js と hls.js を window 直下に入れる
-        // こうしないと DPlayer が mpegts.js / hls.js を認識できない
-        (window as any).mpegts = mpegts;
-        (window as any).Hls = Hls;
-
         // ブラウザが H.265 / HEVC の再生に対応していて、かつ通信節約モードが有効なとき、H.265 / HEVC で再生する
         let is_hevc_playback = false;
         if (PlayerUtils.isHEVCVideoSupported() &&
@@ -271,15 +266,20 @@ class PlayerController {
         // seek_seconds はこの後 DPlayer を初期化した後の初回シーク時に参照される
         let seek_seconds = options.seek_seconds;
         if (seek_seconds === null) {
-            const history = settings_store.settings.watched_history.find(
-                history => history.video_id === player_store.recorded_program.id
-            );
-            if (history) {
-                seek_seconds = history.last_playback_position;
-                console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
+            if (this.playback_mode === 'Video') {
+                const history = settings_store.settings.watched_history.find(
+                    history => history.video_id === player_store.recorded_program.id
+                );
+                if (history) {
+                    seek_seconds = history.last_playback_position;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
+                } else {
+                    seek_seconds = player_store.recorded_program.recording_start_margin + 2;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
+                }
             } else {
-                seek_seconds = player_store.recorded_program.recording_start_margin + 2;
-                console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Recording Start Margin + 2)`);
+                // ライブ再生時は使わない値だが、型エラー回避のために 0 を設定
+                seek_seconds = 0;
             }
         }
 
@@ -317,6 +317,11 @@ class PlayerController {
             }
             console.log('\u001b[31m[PlayerController] Added CM section markers:', highlights);
         }
+
+        // mpegts.js と hls.js を window 直下に入れる
+        // こうしないと DPlayer が mpegts.js / hls.js を認識できない
+        (window as any).mpegts = mpegts;
+        (window as any).Hls = Hls;
 
         // DPlayer を初期化
         this.player = new DPlayer({
@@ -612,8 +617,13 @@ class PlayerController {
                     ...Hls.DefaultConfig,
                     // Web Worker を有効にする
                     enableWorker: true,
-                    // MediaSource が存在しない場合のみ ManagedMediaSource を利用する
-                    preferManagedMediaSource: false,
+                    // ManagedMediaSource が使える Safari では常に ManagedMediaSource を利用する
+                    // iPadOS Safari や macOS Safari では通常の MediaSource も使えるが、Safari のシェアは iOS ユーザーが圧倒的なので、
+                    // 動作確認上のパターンを iOS に揃えた方がバグなどの把握がしやすくなると考えられることから、ManagedMediaSource に統一する
+                    preferManagedMediaSource: true,
+                    // startPosition に視聴履歴などから求めた再生位置を渡し、ロード開始時点で正しい Media Sequence を選択させる
+                    // これを指定しないと manifest 解析後に sequence=0 からフラグメント取得が始まってしまう
+                    startPosition: seek_seconds,
                     // カスタムバッファコントローラーを設定
                     // @ts-ignore
                     bufferController: CustomBufferController,
@@ -783,14 +793,25 @@ class PlayerController {
         // ビデオ視聴時のみ、指定されている場合は再生速度をレジュームし、指定秒数シークする
         if (this.playback_mode === 'Video') {
 
-            // 指定されている場合はプレイヤー再起動前の再生速度を復元する
-            if (options.playback_rate !== null) {
-                this.player.speed(options.playback_rate);
-            }
+            // DPlayer の画質切り替え時にも現在の再生位置から HLS セグメントをロードさせるためのモンキーパッチを適用
+            const dplayer_instance = this.player;
+            const originalSwitchQuality = dplayer_instance.switchQuality.bind(dplayer_instance);
+            dplayer_instance.switchQuality = (index: number): void => {
+                if (dplayer_instance.options?.pluginOptions?.hls && dplayer_instance.video && dplayer_instance.options.live !== true) {
+                    // 画質切り替え前の再生位置を hls.js の startPosition に指定して、無駄な HLS セグメントの取得を抑止する
+                    dplayer_instance.options.pluginOptions.hls.startPosition = dplayer_instance.video.currentTime;
+                }
+                originalSwitchQuality(index);
+            };
 
             // 初期化前に算出しておいた秒数分初回シークを実行
             // 録画マージン分シークするケースと、プレイヤー再起動前の再生位置を復元するケースの2通りある
             this.player.seek(seek_seconds);
+
+            // 指定されている場合はプレイヤー再起動前の再生速度を復元する
+            if (options.playback_rate !== null) {
+                this.player.speed(options.playback_rate);
+            }
 
             // 初回シーク時は確実にエンコーダーの起動が発生するため、ロードに若干時間がかかる
             // このため DPlayer.seek() 内部で実行されているシークバーの更新処理は動作せず、再生が開始されるまで再生済み範囲は反映されない
@@ -845,9 +866,14 @@ class PlayerController {
 
             // 現在の再生画質・再生速度・再生位置を取得
             // この情報がプレイヤー再起動後にレジュームされる
-            const current_quality = this.player?.qualityIndex ? this.player.options.video.quality![this.player.qualityIndex] : null;
-            const current_playback_rate = this.player?.video.playbackRate ?? null;
-            const current_time = this.player?.video.currentTime ?? null;
+            const should_resume_quality = event.should_resume_quality !== false;
+            const quality_index = this.player.qualityIndex ?? null;
+            // 画質プロファイルの既定値を優先する場合は直前の画質を引き継がない
+            const current_quality = should_resume_quality === true && this.player.options.video.quality && typeof quality_index === 'number'
+                ? this.player.options.video.quality[quality_index]
+                : null;
+            const current_playback_rate = this.player.video.playbackRate ?? null;
+            const current_time = this.player.video.currentTime ?? null;
 
             // PlayerController 自身を破棄
             await this.destroy();
@@ -1439,6 +1465,36 @@ class PlayerController {
             // ビデオ視聴のみ
             } else {
 
+                // hls.js の初期化時に startPosition を指定したことで、シーク時に常に startPosition に対応する HLS セグメントが
+                // ロードされるようになってしまうため、画質切り替えが完了する前に startPosition をデフォルト値の -1 に無理やり戻す
+                // こうすることで startPosition を指定しつつ、シーク時は従来通りシーク先のセグメントから先読みが開始されるようになる
+                const hls_plugin = this.player.plugins.hls;
+                if (hls_plugin !== undefined) {
+                    const resetStartPosition = () => {
+                        hls_plugin.off(Hls.Events.FRAG_BUFFERED, resetStartPosition);
+                        hls_plugin.config.startPosition = -1;
+                        const internal_hls = hls_plugin as unknown as {
+                            streamController?: {
+                                startPosition?: number;
+                                nextLoadPosition?: number;
+                            };
+                        };
+                        if (internal_hls.streamController) {
+                            internal_hls.streamController.startPosition = -1;
+                            if (hls_plugin.media) {
+                                internal_hls.streamController.nextLoadPosition = hls_plugin.media.currentTime;
+                            }
+                        }
+                    };
+                    hls_plugin.on(Hls.Events.FRAG_BUFFERED, resetStartPosition);
+                } else {
+                    // 実はなぜか hls.js を使わずとも Safari では普通に Native HLS 再生できてしまうようなので、警告を出しつつ何もしない
+                    // DPlayer 側の機能により、Native HLS 再生であっても字幕は表示される
+                    console.warn('\u001b[31m[PlayerController] hls.js plugin not found. (Native HLS playback may be supported on Safari.)');
+                    this.player.notice('お使いの iOS / iPadOS Safari は hls.js での再生に対応していません。代わりに Native HLS での再生を試みますが、正常に再生できない可能性があります。',
+                        undefined, undefined, '#FFA86A');
+                }
+
                 // 必ず最初はローディング状態で、背景写真を表示する
                 player_store.is_loading = true;
                 player_store.is_background_display = true;
@@ -1814,6 +1870,8 @@ class PlayerController {
                     // 他の通知と被らないように、メッセージを遅らせて表示する
                     message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
+                    // モバイル回線プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                    should_resume_quality: false,
                 });
             // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
             } else {
@@ -1823,6 +1881,8 @@ class PlayerController {
                     // 他の通知と被らないように、メッセージを遅らせて表示する
                     message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
                     is_error_message: false,
+                    // Wi-Fi プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                    should_resume_quality: false,
                 });
             }
         });

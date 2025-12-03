@@ -407,8 +407,8 @@ class ThumbnailGenerator:
                 return
 
             logging.info(f'{self.file_path}: Thumbnail generation completed. ({time.time() - start_time_best_frame:.2f} sec / Total: {time.time() - start_time:.2f} sec)')
-            logging.debug_simple(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
-            logging.debug_simple(f'Representative -> {self.representative_thumbnail_path.name}')
+            logging.debug(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
+            logging.debug(f'Representative -> {self.representative_thumbnail_path.name}')
 
         except Exception as ex:
             # 予期せぬエラーのみここでキャッチ
@@ -449,7 +449,7 @@ class ThumbnailGenerator:
         expected_tiles = duration_sec / interval
         base_tiles = (self.BASE_DURATION_MIN * 60) / self.BASE_INTERVAL_SEC
         increase_ratio = expected_tiles / base_tiles
-        logging.debug_simple(
+        logging.debug(
             f'{self.file_path}: Long video ({duration_min} min), '
             f'using dynamic interval of {interval:.1f} sec. '
             f'Expected {expected_tiles:.1f} tiles (x{increase_ratio:.2f} of base).'
@@ -492,7 +492,7 @@ class ThumbnailGenerator:
         try:
             # 動画の長さと tile_interval_sec から候補フレーム数を算出
             # ※ ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
-            num_candidates = int(math.ceil(self.duration_sec / self.tile_interval_sec))
+            num_candidates = math.ceil(self.duration_sec / self.tile_interval_sec)
             if num_candidates < 1:
                 num_candidates = 1
 
@@ -683,7 +683,7 @@ class ThumbnailGenerator:
                             offset, frame = await asyncio.wait_for(frame_queue.get(), timeout=30.0)
                             frames_dict[offset] = frame
                             # 進捗をログ出力
-                            # logging.debug_simple(
+                            # logging.debug(
                             #     f'{self.file_path}: Frame collected {len(frames_dict)}/{expected_frames} '
                             #     f'(offset: {self.__formatTime(offset)})'
                             # )
@@ -714,7 +714,7 @@ class ThumbnailGenerator:
                 png_frames = [
                     frames_dict[offset] for offset in candidate_offsets
                 ]
-                logging.debug_simple(
+                logging.debug(
                     f'{self.file_path}: All frames collected and sorted in chronological order. ({time.time() - start_time:.2f} sec)'
                 )
 
@@ -926,7 +926,7 @@ class ThumbnailGenerator:
                 col = idx % cols
                 y_start = row * tile_h
                 x_start = col * tile_w
-                logging.debug_simple(f'Random frame selected. (row:{row + 1}, col:{col + 1})')
+                logging.debug(f'Random frame selected. (row:{row + 1}, col:{col + 1})')
                 return cast(NDArray[np.uint8], tile_bgr[y_start:y_start+tile_h, x_start:x_start+tile_w])
 
             # 外部プロセスでスコア計算を実行
@@ -944,14 +944,14 @@ class ThumbnailGenerator:
                     best_idx, _, _, best_img = max(face_frames, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame selected. (face found / row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug(f'Best frame selected. (face found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
                 else:
                     # 顔検出無し or 一つも顔が見つからなかった場合
                     best_idx, _, _, best_img = max(frames_info, key=lambda x: x[1])
                     best_row = best_idx // cols
                     best_col = best_idx % cols
-                    logging.debug_simple(f'Best frame selected. (face not found / row:{best_row + 1}, col:{best_col + 1})')
+                    logging.debug(f'Best frame selected. (face not found / row:{best_row + 1}, col:{best_col + 1})')
                     return best_img
 
             # スコアリングで適切な候補が見つからなかった場合は、候補区間内からランダムに1枚を選択
@@ -1465,7 +1465,7 @@ class ThumbnailGenerator:
             # レターボックスが多すぎる場合は最低スコアを返す
             return (-1000.0, False)
         elif letterbox_result != (slice(0, img_bgr.shape[0]), slice(0, img_bgr.shape[1])):
-            logging.debug_simple(f'Letterbox detected. Penalty applied. (row:{row}, col:{col})')
+            logging.debug(f'Letterbox detected. Penalty applied. (row:{row}, col:{col})')
             # レターボックスが検出された場合はペナルティを与える
             letterbox_penalty = self.LETTERBOX_PENALTY
             # レターボックスを除外した有効領域を取得
@@ -1488,13 +1488,13 @@ class ThumbnailGenerator:
             mean_intensity = float(np.mean(valid_region))
             # ログ出力用の色判定（デバッグ時に役立つ）
             if mean_intensity < self.BLACK_THRESHOLD:
-                logging.debug_simple(f'Solid black frame detected. Ignored. (row:{row}, col:{col})')
+                logging.debug(f'Solid black frame detected. Ignored. (row:{row}, col:{col})')
             elif mean_intensity > self.WHITE_THRESHOLD:
-                logging.debug_simple(f'Solid white frame detected. Ignored. (row:{row}, col:{col})')
+                logging.debug(f'Solid white frame detected. Ignored. (row:{row}, col:{col})')
             else:
                 # BGRの平均値から色を推定
                 mean_colors = [float(np.mean(valid_region[:,:,i])) for i in range(3)]
-                logging.debug_simple(f'Solid color frame detected. (BGR: {mean_colors}). Ignored. (row:{row}, col:{col})')
+                logging.debug(f'Solid color frame detected. (BGR: {mean_colors}). Ignored. (row:{row}, col:{col})')
 
             # すべての単色に対して同じ強いペナルティを与える
             solid_color_penalty = self.SOLID_COLOR_PENALTY
@@ -1502,7 +1502,7 @@ class ThumbnailGenerator:
         # 画面端の単色領域を検出（白/黒に限定）
         edge_penalty, edge_reason = self.__detectEdgeBorderIssues(valid_region)
         if edge_penalty > 0:
-            logging.debug_simple(f'{edge_reason} (row:{row}, col:{col})')
+            logging.debug(f'{edge_reason} (row:{row}, col:{col})')
 
         # 顔検出
         if face_cascade is not None:
@@ -1532,12 +1532,12 @@ class ThumbnailGenerator:
                     )
                     # 実写顔が検出された場合はアニメ顔を無効化
                     if len(human_faces) > 0:
-                        logging.debug_simple(f'Human face detected in anime mode. Ignoring anime face. (row:{row}, col:{col})')
+                        logging.debug(f'Human face detected in anime mode. Ignoring anime face. (row:{row}, col:{col})')
                         found_face = False
                         face_size_score = 0.0
                     else:
                         found_face = True
-                        logging.debug_simple(f'Anime face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
+                        logging.debug(f'Anime face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
 
                         # アニメの場合、最適な面積比を超えると緩やかにスコアを低下
                         if face_area_ratio > self.ANIME_FACE_OPTIMAL_RATIO:
@@ -1546,7 +1546,7 @@ class ThumbnailGenerator:
                             reduction_factor = 1.0 - (excess_ratio * self.ANIME_FACE_RATIO_FALLOFF)
                             reduction_factor = max(0.5, reduction_factor)  # 最低でも50%は維持
                             face_area_ratio = self.ANIME_FACE_OPTIMAL_RATIO + (face_area_ratio - self.ANIME_FACE_OPTIMAL_RATIO) * reduction_factor
-                            logging.debug_simple(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}.')
+                            logging.debug(f'Large anime face detected. Score adjusted by factor {reduction_factor:.2f}.')
 
                         # アニメ顔のスコアを計算（アニメ用の重み付けを適用）
                         face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * self.ANIME_FACE_SIZE_WEIGHT
@@ -1554,7 +1554,7 @@ class ThumbnailGenerator:
                 # 実写モードの場合の処理
                 else:
                     found_face = True
-                    logging.debug_simple(f'Face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
+                    logging.debug(f'Face detected. Face area ratio: {face_area_ratio:.2f} (row:{row}, col:{col})')
                     # 実写顔のスコアを計算（実写用の重み付けを適用）
                     face_size_score = self.FACE_SIZE_BASE_SCORE * face_area_ratio * self.HUMAN_FACE_SIZE_WEIGHT
 
@@ -1633,11 +1633,11 @@ class ThumbnailGenerator:
         )
 
         # 各指標のスコアをログ出力
-        logging.debug_simple(f'Score: (row:{row}, col:{col}):')
-        logging.debug_simple(f'  Luminance STD: {std_lum_score:.2f} / Contrast: {contrast_score:.2f} / Sharpness: {sharpness_score:.2f} / Edge Density: {edge_density_weighted:.2f}')
-        logging.debug_simple(f'  Entropy: {entropy_weighted:.2f} / Face Size: {face_size_score:.2f} / Color Balance: {color_balance_score:.2f}')
-        logging.debug_simple(f'  Solid Color Penalty: -{solid_color_penalty:.2f} / Letterbox Penalty: -{letterbox_penalty:.2f} / Edge Penalty: -{edge_penalty:.2f}')
-        logging.debug_simple(f'  = Final Score: {score:.2f}')
+        logging.debug(f'Score: (row:{row}, col:{col}):')
+        logging.debug(f'  Luminance STD: {std_lum_score:.2f} / Contrast: {contrast_score:.2f} / Sharpness: {sharpness_score:.2f} / Edge Density: {edge_density_weighted:.2f}')
+        logging.debug(f'  Entropy: {entropy_weighted:.2f} / Face Size: {face_size_score:.2f} / Color Balance: {color_balance_score:.2f}')
+        logging.debug(f'  Solid Color Penalty: -{solid_color_penalty:.2f} / Letterbox Penalty: -{letterbox_penalty:.2f} / Edge Penalty: -{edge_penalty:.2f}')
+        logging.debug(f'  = Final Score: {score:.2f}')
 
         return (score, found_face)
 

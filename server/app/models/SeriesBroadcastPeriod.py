@@ -21,7 +21,6 @@ class SeriesBroadcastPeriod(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'series_broadcast_periods'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     series: fields.ForeignKeyRelation[Series] = \
         fields.ForeignKeyField('models.Series', related_name='broadcast_periods', on_delete=fields.CASCADE)

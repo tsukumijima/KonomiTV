@@ -1,45 +1,48 @@
 
-import aiofiles
 import asyncio
-import emoji
 import datetime
-import ifaddr
 import os
-import ruamel.yaml
-import ruamel.yaml.scalarstring
-import rich
 import subprocess
 import time
+from collections.abc import Callable
 from enum import IntEnum
 from pathlib import Path
-from rich import box
-from rich import print
+from typing import Any, Literal, TypeVar, cast
+from zoneinfo import ZoneInfo
+
+import aiofiles
+import emoji
+import ifaddr
+import rich
+import ruamel.yaml
+import ruamel.yaml.scalarstring
+from rich import box, print
 from rich.console import Console
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.progress import Progress
 from rich.progress import (
     BarColumn,
     DownloadColumn,
+    Progress,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
-from rich.prompt import Confirm
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from rich.text import TextType
-from typing import Any, Callable, cast, Literal, Optional, TypedDict, TypeVar
-from watchdog.events import DirCreatedEvent
-from watchdog.events import FileCreatedEvent
-from watchdog.events import DirModifiedEvent
-from watchdog.events import FileModifiedEvent
-from watchdog.events import FileSystemEventHandler
+from typing_extensions import TypedDict
+from watchdog.events import (
+    DirCreatedEvent,
+    DirModifiedEvent,
+    FileCreatedEvent,
+    FileModifiedEvent,
+    FileSystemEventHandler,
+)
 from watchdog.observers.polling import PollingObserver
-from zoneinfo import ZoneInfo
 
 
 class CustomPrompt(Prompt):
@@ -49,9 +52,9 @@ class CustomPrompt(Prompt):
         self,
         prompt: TextType = "",
         *,
-        console: Optional[Console] = None,
+        console: Console | None = None,
         password: bool = False,
-        choices: Optional[list[str]] = None,
+        choices: list[str] | None = None,
         case_sensitive: bool = True,
         show_default: bool = True,
         show_choices: bool = True,
@@ -83,9 +86,9 @@ class CustomConfirm(Confirm):
         self,
         prompt: TextType = "",
         *,
-        console: Optional[Console] = None,
+        console: Console | None = None,
         password: bool = False,
-        choices: Optional[list[str]] = None,
+        choices: list[str] | None = None,
         case_sensitive: bool = True,
         show_default: bool = True,
         show_choices: bool = True,
@@ -366,7 +369,8 @@ def GetNetworkDriveList() -> list[dict[str, str]]:
     """
 
     # Windows 以外では実行しない
-    if os.name != 'nt': return []
+    if os.name != 'nt':
+        return []
 
     # winreg (レジストリを操作するための標準ライブラリ (Windows 限定) をインポート)
     import winreg
@@ -436,7 +440,8 @@ def IsDockerComposeV2() -> bool:
     """
 
     # Windows では常に False (サポートしていないため)
-    if os.name == 'nt': return False
+    if os.name == 'nt':
+        return False
 
     try:
         # Docker Compose V2 の存在確認
@@ -466,7 +471,8 @@ def IsDockerInstalled() -> bool:
     """
 
     # Windows では常に False (サポートしていないため)
-    if os.name == 'nt': return False
+    if os.name == 'nt':
+        return False
 
     try:
 
@@ -575,7 +581,7 @@ def SaveConfig(config_yaml_path: Path, config_dict: dict[str, dict[str, Any]]) -
     yaml.width = 20
     yaml.indent(mapping=4, sequence=4, offset=4)
     try:
-        with open(config_yaml_path, mode='r', encoding='utf-8') as file:
+        with open(config_yaml_path, encoding='utf-8') as file:
             config_raw = yaml.load(file)
     except Exception as error:
         # 回復不可能
@@ -717,7 +723,7 @@ def RunKonomiTVServiceWaiter(platform_type: Literal['Windows', 'Linux', 'Linux-D
             is_service_started = True
             # ファイルのみに限定（フォルダの変更も検知されることがあるが、当然フォルダは開けないのでエラーになる）
             if Path(str(event.src_path)).is_file() is True:
-                with open(event.src_path, mode='r', encoding='utf-8') as log:
+                with open(event.src_path, encoding='utf-8') as log:
                     text = log.read()
                     if 'ERROR:' in text or 'Traceback (most recent call last):' in text:
                         # 何らかのエラーが発生したことが想定されるので、エラーフラグを立てる
@@ -766,7 +772,7 @@ def RunKonomiTVServiceWaiter(platform_type: Literal['Windows', 'Linux', 'Linux-D
     with progress:
         while is_server_started is False:
             if is_error_occurred is True:
-                with open(base_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                with open(base_path / 'server/logs/KonomiTV-Server.log', encoding='utf-8') as log:
                     ShowSubProcessErrorLog(
                         error_message = 'KonomiTV サーバーの起動中に予期しないエラーが発生しました。',
                         error_log_name = 'KonomiTV サーバーのログ',
@@ -782,7 +788,7 @@ def RunKonomiTVServiceWaiter(platform_type: Literal['Windows', 'Linux', 'Linux-D
     with progress:
         while is_programs_update_completed is False:
             if is_error_occurred is True:
-                with open(base_path / 'server/logs/KonomiTV-Server.log', mode='r', encoding='utf-8') as log:
+                with open(base_path / 'server/logs/KonomiTV-Server.log', encoding='utf-8') as log:
                     ShowSubProcessErrorLog(
                         error_message = '番組情報の取得中に予期しないエラーが発生しました。',
                         error_log_name = 'KonomiTV サーバーのログ',

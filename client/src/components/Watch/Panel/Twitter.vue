@@ -2,7 +2,8 @@
     <div class="twitter-container">
         <div class="tab-container">
             <TwitterSearch :class="{'tab-content--active': playerStore.twitter_active_tab === 'Search'}" />
-            <TwitterTimeline :class="{'tab-content--active': playerStore.twitter_active_tab === 'Timeline'}" />
+            <TwitterTimeline :class="{'tab-content--active': playerStore.twitter_active_tab === 'Timeline'}"
+                :is-twitter-panel-visible="isTwitterPanelVisible" :is-timeline-tab-active="playerStore.twitter_active_tab === 'Timeline'" />
             <TwitterCaptures :class="{'tab-content--active': playerStore.twitter_active_tab === 'Capture'}" />
         </div>
         <div class="tab-button-container">
@@ -230,6 +231,9 @@ export default defineComponent({
 
             // ツイートを送信中か (API リクエストを実行するまで)
             is_tweet_sending: false,
+
+            // Twitter パネル表示中に Keep-Alive API を叩くための interval ID
+            twitter_keep_alive_interval_id: null as number | null,
         };
     },
     computed: {
@@ -239,6 +243,30 @@ export default defineComponent({
         is_tweet_button_disabled(): boolean {
             return this.twitterStore.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
                 ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.playerStore.twitter_selected_capture_blobs.length === 0);
+        },
+
+        // パネルで Twitter タブが表示されているかどうか
+        isTwitterPanelVisible(): boolean {
+            if (this.playback_mode === 'Live') {
+                return this.playerStore.tv_panel_active_tab === 'Twitter';
+            } else {
+                return this.playerStore.video_panel_active_tab === 'Twitter';
+            }
+        },
+
+        // Keep-Alive API を送るべき状態かどうか
+        shouldTwitterKeepAlive(): boolean {
+            // 選択されている Twitter アカウントが存在しない場合は Keep-Alive を送らない
+            if (this.twitterStore.selected_twitter_account === null) {
+                return false;
+            }
+            // パネルが表示されていない場合は Keep-Alive を送らない
+            if (this.isTwitterPanelVisible === false) {
+                return false;
+            }
+            // 選択されている Twitter アカウントで一度でも API 呼び出しが行われている場合には Keep-Alive を送る
+            const screen_name = this.twitterStore.selected_twitter_account.screen_name;
+            return this.twitterStore.account_api_activity[screen_name] === true;
         },
     },
     watch: {
@@ -284,7 +312,19 @@ export default defineComponent({
             handler() {
                 this.settingsStore.settings.saved_twitter_hashtags = this.saved_twitter_hashtags.map(hashtag => hashtag.text);
             }
-        }
+        },
+
+        // Keep-Alive の対象状態が変化したらタイマーを制御する
+        shouldTwitterKeepAlive: {
+            immediate: true,
+            handler(is_active: boolean) {
+                if (is_active === true) {
+                    this.startTwitterKeepAliveTimer();
+                } else {
+                    this.stopTwitterKeepAliveTimer();
+                }
+            },
+        },
     },
     async created() {
 
@@ -313,6 +353,9 @@ export default defineComponent({
 
         // CaptureManager からキャプチャを受け取るイベントハンドラーを削除
         this.playerStore.event_emitter.off('CaptureCompleted');  // CaptureCompleted イベントの全てのイベントハンドラーを削除
+
+        // Keep-Alive API を叩くタイマーを停止する
+        this.stopTwitterKeepAliveTimer();
     },
     methods: {
 
@@ -388,15 +431,36 @@ export default defineComponent({
         updateSelectedTwitterAccount(twitter_account: ITwitterAccount) {
             this.settingsStore.settings.selected_twitter_account_id = twitter_account.id;
             this.twitterStore.selected_twitter_account = twitter_account;
-
-            // 選択中の Twitter アカウントに対応する Challenge Solver 用 iframe を非同期で初期化する
-            // この関数はどのみち API リクエスト時に実行されるが、事前に実行しておいた方が時間短縮になる
-            // 一方で複数ログインしているアカウント全てに一括でこの処理を行うのは無駄だしリスクもあるので、必要な時のみ行っている
-            // すでに初期化されている場合は何も行われない
-            this.twitterStore.initChallengeSolverIframe(twitter_account.screen_name);
+            // アカウント切り替え時は API アクティビティをリセットして、不要な Keep-Alive を抑止する
+            this.twitterStore.resetAccountAPIActivity(twitter_account.screen_name);
 
             // Twitter アカウントリストのオーバーレイを閉じる (少し待ってから閉じたほうが体感が良い)
             window.setTimeout(() => this.is_twitter_account_list_display = false, 150);
+        },
+
+        // Twitter パネルが表示されている間は一定間隔で Keep-Alive API を叩く
+        startTwitterKeepAliveTimer() {
+            if (this.twitter_keep_alive_interval_id !== null) {
+                return;
+            }
+            void this.pingTwitterKeepAlive();
+            this.twitter_keep_alive_interval_id = window.setInterval(() => {
+                void this.pingTwitterKeepAlive();
+            }, 10 * 1000);
+        },
+
+        // Twitter パネルの Keep-Alive タイマーを停止する
+        stopTwitterKeepAliveTimer() {
+            if (this.twitter_keep_alive_interval_id !== null) {
+                window.clearInterval(this.twitter_keep_alive_interval_id);
+                this.twitter_keep_alive_interval_id = null;
+            }
+        },
+
+        // TwitterScrapeBrowser の Keep-Alive API を呼び出す
+        async pingTwitterKeepAlive() {
+            if (this.twitterStore.selected_twitter_account === null) return;
+            await Twitter.keepAlive(this.twitterStore.selected_twitter_account.screen_name);
         },
 
         // 撮ったキャプチャをキャプチャタブのキャプチャリストに追加する

@@ -26,7 +26,6 @@ class RecordedProgram(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'recorded_programs'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     recorded_video: fields.OneToOneRelation[RecordedVideo]
     recording_start_margin = fields.FloatField()

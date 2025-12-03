@@ -1,35 +1,38 @@
 
 import os
 import platform
-import py7zr
-import requests
-import ruamel.yaml
 import shutil
 import subprocess
 import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any, Literal, cast
+
+import py7zr
+import requests
+import ruamel.yaml
 from rich import print
 from rich.padding import Padding
-from typing import Any, cast, Literal
 
-from Utils import CreateBasicInfiniteProgress
-from Utils import CreateDownloadProgress
-from Utils import CreateDownloadInfiniteProgress
-from Utils import CreateTable
-from Utils import CustomPrompt
-from Utils import GetNetworkInterfaceInformation
-from Utils import IsDockerComposeV2
-from Utils import IsDockerInstalled
-from Utils import IsGitInstalled
-from Utils import RemoveEmojiIfLegacyTerminal
-from Utils import RunKonomiTVServiceWaiter
-from Utils import RunSubprocess
-from Utils import RunSubprocessDirectLogOutput
-from Utils import SaveConfig
-from Utils import ShowPanel
-from Utils import ShowSubProcessErrorLog
+from Utils import (
+    CreateBasicInfiniteProgress,
+    CreateDownloadInfiniteProgress,
+    CreateDownloadProgress,
+    CreateTable,
+    CustomPrompt,
+    GetNetworkInterfaceInformation,
+    IsDockerComposeV2,
+    IsDockerInstalled,
+    IsGitInstalled,
+    RemoveEmojiIfLegacyTerminal,
+    RunKonomiTVServiceWaiter,
+    RunSubprocess,
+    RunSubprocessDirectLogOutput,
+    SaveConfig,
+    ShowPanel,
+    ShowSubProcessErrorLog,
+)
 
 
 def Updater(version: str) -> None:
@@ -317,7 +320,7 @@ def Updater(version: str) -> None:
         # 旧バージョンの config.yaml の設定値を取得
         ## config.yaml の上書き更新前に行うのが重要
         config_dict: dict[str, dict[str, Any]]
-        with open(update_path / 'config.yaml', mode='r', encoding='utf-8') as file:
+        with open(update_path / 'config.yaml', encoding='utf-8') as file:
             config_dict = dict(ruamel.yaml.YAML().load(file))
             # 0.9.0 -> 0.10.0: config_dict['capture']['upload_folder'] (str) を config_dict['capture']['upload_folders'] (list[str]) に移行
             if 'upload_folder' in config_dict['capture']:

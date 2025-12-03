@@ -304,7 +304,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
+                logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
                 live_stream.disconnect(live_stream_client)
                 break
 
@@ -321,7 +321,7 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished.')
+                    logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished.')
                     live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                     break
 
@@ -329,7 +329,7 @@ async def LiveMPEGTSStreamAPI(
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug_simple('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline.')
+                logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline.')
                 live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                 break
 

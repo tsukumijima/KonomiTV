@@ -91,7 +91,7 @@ class LivePSIDataArchiver:
             stderr = asyncio.subprocess.DEVNULL,
         )
         self._psisiarc_processes.append(psisiarc_process)
-        logging.debug_simple(f'[LivePSIDataArchiver] psisiarc started. (PID: {psisiarc_process.pid})')
+        logging.debug(f'[LivePSIDataArchiver] psisiarc started. (PID: {psisiarc_process.pid})')
 
         # 受信した PSI/SI アーカイブデータを yield で返す
         trailer_size: int = 0
@@ -103,7 +103,7 @@ class LivePSIDataArchiver:
                     psisiarc_process.kill()
                 if psisiarc_process in self._psisiarc_processes:
                     self._psisiarc_processes.remove(psisiarc_process)
-                logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated. (Disconnected / PID: {psisiarc_process.pid})')
+                logging.debug(f'[LivePSIDataArchiver] psisiarc terminated. (Disconnected / PID: {psisiarc_process.pid})')
                 break
 
             # PSI/SI アーカイブデータを psisiarc から読み取る
@@ -115,7 +115,7 @@ class LivePSIDataArchiver:
                     psisiarc_process.kill()
                 if psisiarc_process in self._psisiarc_processes:
                     self._psisiarc_processes.remove(psisiarc_process)
-                logging.debug_simple(f'[LivePSIDataArchiver] psisiarc terminated. (Destroyed / PID: {psisiarc_process.pid})')
+                logging.debug(f'[LivePSIDataArchiver] psisiarc terminated. (Destroyed / PID: {psisiarc_process.pid})')
                 break
 
             # PSI/SI アーカイブデータを yield で返す

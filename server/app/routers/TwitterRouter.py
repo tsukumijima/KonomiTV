@@ -1,8 +1,7 @@
 
 import asyncio
-import json
 from collections.abc import Coroutine
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 
 import tweepy
 from fastapi import (
@@ -14,17 +13,16 @@ from fastapi import (
     HTTPException,
     Path,
     Query,
-    Request,
     UploadFile,
     status,
 )
-from tweepy_authlib import CookieSessionUserHandler
 
 from app import logging, schemas
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
+from app.utils.TwitterScrapeBrowser import TwitterScrapeBrowser
 
 
 # ルーター
@@ -55,7 +53,35 @@ async def GetCurrentTwitterAccount(
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
 
-    return twitter_account[0]
+    # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) は利用できない
+    # これが検出された場合、その場で当該レコードを削除する
+    ## 重複レコードの可能性もなくもないため、リスト全体をイテレートしてチェックする
+    is_removed = False
+    valid_accounts: list[TwitterAccount] = []
+    for record in twitter_account:
+        if record.access_token != 'NETSCAPE_COOKIE_FILE':
+            logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] Old cookie format or OAuth session is no longer available. [screen_name: {record.screen_name}, id: {record.id}]')
+            await record.delete()
+            is_removed = True
+        else:
+            valid_accounts.append(record)
+
+    # 古い形式のレコードが削除された場合、エラーを返す
+    if is_removed is True:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Old cookie format or OAuth session is no longer available',
+        )
+
+    # 有効なアカウントが存在しない場合
+    if len(valid_accounts) == 0:
+        logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] No valid TwitterAccount found after cleanup. [screen_name: {screen_name}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'TwitterAccount associated with screen_name does not exist',
+        )
+
+    return valid_accounts[0]
 
 
 @router.post(
@@ -63,121 +89,99 @@ async def GetCurrentTwitterAccount(
     summary = 'Twitter 認証 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
-async def TwitterPasswordAuthAPI(
-    auth_request: Annotated[schemas.TwitterPasswordAuthRequest | schemas.TwitterCookieAuthRequest, Body(description='Twitter 認証リクエスト')],
+async def TwitterCookieAuthAPI(
+    auth_request: Annotated[schemas.TwitterCookieAuthRequest, Body(description='Twitter 認証リクエスト')],
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
-    tweepy-authlib によるパスワードログイン or 指定された Cookie 情報で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
+    指定された Cookie 情報 (Netscape 形式) で Twitter 連携を行い、ログイン中のユーザーアカウントと Twitter アカウントを紐づける。
     """
 
-    # スクリーンネームとパスワードでログインを実行し、Cookie を取得
-    if isinstance(auth_request, schemas.TwitterPasswordAuthRequest):
-
-        # 万が一スクリーンネームに @ が含まれていた場合は事前に削除する
-        auth_request.screen_name = auth_request.screen_name.replace('@', '')
-
-        try:
-            # ログインには数秒かかるため、非同期で実行
-            auth_handler = await asyncio.to_thread(CookieSessionUserHandler,
-                screen_name=auth_request.screen_name,
-                password=auth_request.password,
-            )
-        except tweepy.HTTPException as ex:
-            # パスワードが間違っている、Twitter サーバー側の規制が強化された、Twitter が鯖落ちしているなどの理由で認証に失敗した
-            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to authenticate with password. ({error_message}) [screen_name: {auth_request.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to authenticate with password ({error_message})',
-            )
-        except tweepy.TweepyException as ex:
-            # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
-            error_message = f'Message: {ex}'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Unexpected error occurred while authenticate with password. ({error_message}) [screen_name: {auth_request.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Unexpected error occurred while authenticate with password ({error_message})',
-            )
-
-        # 現在のログインセッションの Cookie を取得
-        cookies: dict[str, str] = auth_handler.get_cookies_as_dict()
-
-    # cookies.txt (Netscape 形式) をパースして Cookie を取得
-    else:
-
-        try:
-            # cookies.txt の内容を行ごとに分割
-            cookies_lines = auth_request.cookies_txt.strip().split('\n')
-            cookies: dict[str, str] = {}
-            for line in cookies_lines:
-                # コメント行やヘッダー行をスキップ
-                if line.startswith('#') or line.startswith('# ') or not line.strip():
-                    continue
-                # タブで分割し、必要な情報を取得
-                parts = line.split('\t')
-                if len(parts) >= 7:
-                    domain, _, _, _, _, name, value = parts[:7]
-                    # ドメインが .twitter.com または .x.com の場合のみ処理
-                    if domain in ['.twitter.com', 'twitter.com', '.x.com', 'x.com']:
-                        cookies[name] = value
-            if not cookies:
-                logging.error('[TwitterRouter][TwitterPasswordAuthAPI] No valid cookies found in the provided cookies.txt.')
-                raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail = 'No valid cookies found in the provided cookies.txt',
-                )
-        except Exception as ex:
-            error_message = f'Failed to parse cookies.txt: {ex!s}'
-            logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] {error_message}')
-            raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail = error_message,
-            )
+    # cookies.txt (Netscape 形式) をパースして Cookie が取得できるかを試す
+    # パースしたデータ自体は使われないが、正しいフォーマットかを検証するために必須
+    try:
+        cookie_params = TwitterScrapeBrowser.parseNetscapeCookieFile(auth_request.cookies_txt)
+        # Twitter 関連の Cookie が存在するかを確認
+        ## CookieParam の domain に 'x.com' が含まれているかチェック
+        twitter_cookies = [
+            param for param in cookie_params
+            if param.domain is not None and 'x.com' in param.domain
+        ]
+    except Exception as ex:
+        error_message = f'Failed to parse cookies.txt: {ex!s}'
+        logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] {error_message}')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = error_message,
+        ) from ex
+    if len(twitter_cookies) == 0:
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] No valid cookies found in the provided cookies.txt.')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'No valid cookies found in the provided cookies.txt',
+        )
 
     # TwitterAccount のレコードを作成
-    ## アクセストークンは今までの OAuth 認証 (廃止) との互換性を保つため "DIRECT_COOKIE_SESSION" または "COOKIE_SESSION" の固定値、
-    ## アクセストークンシークレットとして Cookie を JSON 化した文字列を入れる
-    ## ここでは ORM クラスのみを作成し、Twitter アカウント情報を取得した後に DB に保存する
+    ## アクセストークンは "NETSCAPE_COOKIE_FILE" の固定値、
+    ## アクセストークンシークレットとして Netscape 形式の Cookie ファイルの内容をそのまま保存する
+    ## ここでは ORM インスタンスのみを作成し、実際にログイン中の Twitter アカウント情報を取得できた段階で DB に保存する
     twitter_account = TwitterAccount(
         user = current_user,
         name = 'Temporary',
         screen_name = 'Temporary',
         icon_url = 'Temporary',
-        # Cookie ログインの場合は "DIRECT_COOKIE_SESSION" で、パスワードログインの場合は "COOKIE_SESSION" で固定
-        access_token = 'DIRECT_COOKIE_SESSION' if isinstance(auth_request, schemas.TwitterCookieAuthRequest) else 'COOKIE_SESSION',
-        access_token_secret = json.dumps(cookies, ensure_ascii=False),
+        # Netscape Cookie ファイル形式の場合は "NETSCAPE_COOKIE_FILE" で固定
+        access_token = 'NETSCAPE_COOKIE_FILE',
+        # Netscape 形式の Cookie ファイルの内容をそのまま保存
+        access_token_secret = auth_request.cookies_txt,
     )
 
-    # tweepy の API インスタンスを取得
-    tweepy_api = twitter_account.getTweepyAPI()
+    # 一時的に作成した TwitterAccount ORM インスタンスの ID (通常 None) を控えておき、後段でシングルトンを付け替える
+    temporary_account_id = twitter_account.id
 
-    # 自分の Twitter アカウント情報を取得
+    # 上記で作成した TwitterAccount ORM インスタンスを使い、現在ログイン中の Twitter アカウント情報を取得
     try:
-        verify_credentials = await asyncio.to_thread(tweepy_api.verify_credentials)
-    except tweepy.TweepyException as ex:
-        logging.error(f'[TwitterRouter][TwitterPasswordAuthAPI] Failed to get user information for Twitter account @{twitter_account.screen_name}:', exc_info=ex)
+        viewer_result = await TwitterGraphQLAPI(twitter_account).fetchLoggedViewer()
+    except Exception as ex:
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get user information',
+        ) from ex
+
+    # ユーザー情報の取得に失敗した場合
+    if isinstance(viewer_result, schemas.TwitterAPIResult) and viewer_result.is_success is False:
+        logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information: {viewer_result.detail}')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = viewer_result.detail,  # エラーメッセージをそのまま返す
+        )
+
+    # viewer_result が TweetUser の場合のみ処理を続行
+    if not isinstance(viewer_result, schemas.TweetUser):
+        logging.error('[TwitterRouter][TwitterCookieAuthAPI] Failed to get user information: Invalid response type')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'Failed to get user information',
         )
 
     # アカウント名を設定
-    twitter_account.name = verify_credentials.name
+    twitter_account.name = viewer_result.name
     # スクリーンネームを設定
-    twitter_account.screen_name = verify_credentials.screen_name
+    twitter_account.screen_name = viewer_result.screen_name
     # アイコン URL を設定
-    ## (ランダムな文字列)_normal.jpg だと画像サイズが小さいので、(ランダムな文字列).jpg に置換
-    twitter_account.icon_url = verify_credentials.profile_image_url_https.replace('_normal', '')
+    twitter_account.icon_url = viewer_result.icon_url
+    # Cookie を暗号化して保持
+    twitter_account.access_token_secret = twitter_account.encryptAccessTokenSecret(auth_request.cookies_txt)
 
     # 同じユーザー ID とスクリーンネームを持つアカウント情報の重複チェック
     existing_accounts = await TwitterAccount.filter(
-        user_id = cast(Any, twitter_account).user_id,
+        user_id = twitter_account.user_id,
         screen_name = twitter_account.screen_name,
     )
+
+    # 永続化後に使う TwitterAccount を示す変数
+    persisted_account: TwitterAccount | None = None
 
     # 既存のアカウントが見つかった場合、最も古いアカウント情報を更新
     if existing_accounts:
@@ -194,19 +198,37 @@ async def TwitterPasswordAuthAPI(
         for account in existing_accounts:
             if account.id != oldest_account.id:
                 await account.delete()
+                logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted duplicate account. [id: {account.id}, screen_name: {account.screen_name}]')
 
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Updated existing account and removed {len(existing_accounts) - 1} duplicate(s). [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Updated existing account. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
+
+        # 永続化後に使う TwitterAccount を設定
+        persisted_account = oldest_account
 
     # 既存のアカウントが見つからなかった場合、新しいアカウント情報を DB に保存
+    # ここで twitter_account.id が新規に auto-increment で自動採番される
     else:
         await twitter_account.save()
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Created new account. [screen_name: {twitter_account.screen_name}]')
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Created new account. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
+
+        # 永続化後に使う TwitterAccount を設定
+        persisted_account = twitter_account
+
+    # Temporary で立ち上げた GraphQL API インスタンスを永続化後の ID に紐づけ直す
+    if persisted_account is not None:
+        await TwitterGraphQLAPI.rebindInstance(temporary_account_id, persisted_account)
+        twitter_account = persisted_account
+
+    # 古い形式のレコード (access_token が "NETSCAPE_COOKIE_FILE" でない) を自動削除
+    ## これにより、古い OAuth 認証や旧 Cookie 形式のレコードが処理に用いられないようにする
+    deleted_count = await TwitterAccount.filter(
+        user_id = current_user.id,
+    ).exclude(access_token = 'NETSCAPE_COOKIE_FILE').delete()
+    if deleted_count > 0:
+        logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Deleted {deleted_count} old format account(s).')
 
     # 処理完了
-    if isinstance(auth_request, schemas.TwitterCookieAuthRequest):
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with cookie. [screen_name: {twitter_account.screen_name}]')
-    else:
-        logging.info(f'[TwitterRouter][TwitterPasswordAuthAPI] Logged in with password. [screen_name: {twitter_account.screen_name}]')
+    logging.info(f'[TwitterRouter][TwitterCookieAuthAPI] Logged in with cookie. [id: {twitter_account.id}, screen_name: {twitter_account.screen_name}]')
 
 
 @router.delete(
@@ -222,65 +244,32 @@ async def TwitterAccountDeleteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    assert twitter_account.access_token in ['COOKIE_SESSION', 'DIRECT_COOKIE_SESSION'], 'OAuth session is no longer available.'
-
-    # パスワードログイン (COOKIE_SESSION) の場合は明示的にログアウト処理を行う
-    ## 単に Cookie を削除するだけだと Twitter 側にログインセッションが残り続けてしまう
-    ## Cookie ログイン (DIRECT_COOKIE_SESSION) の場合はここでログアウトするとブラウザ側もログアウトされてしまうので、行わない
-    if twitter_account.access_token == 'COOKIE_SESSION':
-        cookie_session_user_handler = twitter_account.getTweepyAuthHandler()
-        try:
-            await asyncio.to_thread(cookie_session_user_handler.logout)
-            logging.info(f'[TwitterRouter][TwitterAccountDeleteAPI] Logged out with password. [screen_name: {twitter_account.screen_name}]')
-        except tweepy.HTTPException as ex:
-            # サーバーエラーが発生した
-            if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
-                # Code: 32 が返された場合、現在のログインセッションが強制的に無効化 (強制ログアウト) されている
-                ## この場合同時にアカウントごとロックされ (解除には Arkose チャレンジのクリアが必要) 、
-                ## また当該アカウントの Twitter Web App でのログインセッションが全て無効化されるケースが大半
-                ## エラーは送出せず、当該 Twitter アカウントに紐づくレコードを削除して連携解除とする
-                if ex.api_codes[0] == 32:
-                    await twitter_account.delete()
-                    return
-                error_message = f'Code: {ex.api_codes[0]} / Message: {ex.api_messages[0]}'
-            else:
-                error_message = f'Unknown Error (HTTP Error {ex.response.status_code})'
-            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Failed to logout. ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Failed to logout ({error_message})',
-            )
-        except tweepy.TweepyException as ex:
-            # 予期せぬエラーが発生した
-            error_message = f'Message: {ex}'
-            logging.error(f'[TwitterRouter][TwitterAccountDeleteAPI] Unexpected error occurred while logout. ({error_message}) [screen_name: {twitter_account.screen_name}]')
-            raise HTTPException(
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail = f'Unexpected error occurred while logging out ({error_message})',
-            )
+    # Twitter アカウントレコードの ID を取得（削除前に取得する必要がある）
+    # この値は Twitter 側のアカウント ID とは異なるので注意
+    twitter_account_id = twitter_account.id
 
     # 指定された Twitter アカウントのレコードを削除
     ## Cookie 情報などが保持されたレコードを削除することで連携解除とする
     await twitter_account.delete()
 
+    # シングルトンインスタンスを削除してリソースリークを防ぐ
+    await TwitterGraphQLAPI.removeInstance(twitter_account_id)
 
-@router.get(
-    '/accounts/{screen_name}/challenge-data',
-    summary = 'Twitter Web App Challenge 情報取得 API',
-    response_description = 'Twitter Web App の Challenge 情報。',
-    response_model = schemas.TwitterChallengeData | schemas.TwitterAPIResult,
+
+@router.post(
+    '/accounts/{screen_name}/keep-alive',
+    summary = 'Twitter ヘッドレスブラウザ Keep-Alive API',
+    status_code = status.HTTP_204_NO_CONTENT,
 )
-async def TwitterChallengeAPI(
+async def TwitterKeepAliveAPI(
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
 ):
     """
-    Twitter Web App の API リクエスト内の X-Client-Transaction-ID ヘッダーを算出するために必要な Challenge 情報を取得する。<br>
-    この API のレスポンスを元にブラウザ上のフロントエンドで算出した X-Client-Transaction-ID を API リクエスト時に含めてもらう想定。
-
-    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    この API がユーザーが視聴画面の Twitter パネルで操作を継続している間アクセスされ続けることで、起動中のヘッドレスブラウザの自動シャットダウンを抑制する。<br>
+    JWT エンコードされたアクセストークンが Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).fetchChallengeData()
+    await TwitterGraphQLAPI(twitter_account).keepAlive()
 
 
 @router.post(
@@ -290,7 +279,6 @@ async def TwitterChallengeAPI(
     response_model = schemas.PostTweetResult | schemas.TwitterAPIResult,
 )
 async def TwitterTweetAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet: Annotated[str, Form(description='ツイートの本文 (基本的には140文字までだが、プレミアムの加入状態や英数字の量に依存する) 。')] = '',
     images: Annotated[list[UploadFile], File(description='ツイートに添付する画像 (4枚まで) 。')] = [],
@@ -314,17 +302,18 @@ async def TwitterTweetAPI(
     media_ids: list[str] = []
 
     try:
-
-        tweepy_api = twitter_account.getTweepyAPI()
-
         # 画像をアップロードするタスク
+        # TODO: 本来はここもヘッドレスブラウザ経由で送信すべきだが、おそらく画像の受け渡しが面倒なのと、
+        # upload.x.com のみ他の API と異なり v1.1 時代からほぼそのままで Bot 対策も比較的緩そうなので当面これで行く…
+        logging.info(f'[TwitterRouter][TwitterTweetAPI] Uploading {len(images)} images...')
+        tweepy_api = twitter_account.getTweepyAPI()
         image_upload_task: list[Coroutine[Any, Any, Any | None]] = []
         for image in images:
             image_upload_task.append(asyncio.to_thread(tweepy_api.media_upload,
                 filename = image.filename,
                 file = image.file,
                 # Twitter Web App の挙動に合わせて常にチャンク送信方式でアップロードする
-                chunk = True,
+                chunked = True,
                 # Twitter Web App の挙動に合わせる
                 media_category = 'tweet_image',
             ))
@@ -334,6 +323,7 @@ async def TwitterTweetAPI(
         ## ref: https://developer.twitter.com/ja/docs/media/upload-media/api-reference/post-media-upload-init
         for image_upload_result in await asyncio.gather(*image_upload_task):
             if image_upload_result is not None:
+                logging.info(f'[TwitterRouter][TwitterTweetAPI] Uploaded image. [media_id: {image_upload_result.media_id}]')
                 media_ids.append(str(image_upload_result.media_id))
 
     # 画像のアップロードに失敗した
@@ -352,7 +342,7 @@ async def TwitterTweetAPI(
         }
 
     # GraphQL API を使ってツイートを送信し、結果をそのまま返す
-    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids, request.headers.get('x-client-transaction-id'))
+    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids)
 
 
 @router.put(
@@ -362,7 +352,6 @@ async def TwitterTweetAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterRetweetAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='リツイートするツイートの ID。')],
 ):
@@ -373,7 +362,7 @@ async def TwitterRetweetAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).createRetweet(tweet_id, request.headers.get('x-client-transaction-id'))
+    return await TwitterGraphQLAPI(twitter_account).createRetweet(tweet_id)
 
 
 @router.delete(
@@ -383,7 +372,6 @@ async def TwitterRetweetAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterRetweetCancelAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='リツイートを取り消すツイートの ID。')],
 ):
@@ -394,7 +382,7 @@ async def TwitterRetweetCancelAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).deleteRetweet(tweet_id, request.headers.get('x-client-transaction-id'))
+    return await TwitterGraphQLAPI(twitter_account).deleteRetweet(tweet_id)
 
 
 @router.put(
@@ -404,7 +392,6 @@ async def TwitterRetweetCancelAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterFavoriteAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='いいねするツイートの ID。')],
 ):
@@ -415,7 +402,7 @@ async def TwitterFavoriteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).favoriteTweet(tweet_id, request.headers.get('x-client-transaction-id'))
+    return await TwitterGraphQLAPI(twitter_account).favoriteTweet(tweet_id)
 
 
 @router.delete(
@@ -425,7 +412,6 @@ async def TwitterFavoriteAPI(
     response_model = schemas.TwitterAPIResult,
 )
 async def TwitterFavoriteCancelAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet_id: Annotated[str, Path(description='いいねを取り消すツイートの ID。')],
 ):
@@ -436,7 +422,7 @@ async def TwitterFavoriteCancelAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    return await TwitterGraphQLAPI(twitter_account).unfavoriteTweet(tweet_id, request.headers.get('x-client-transaction-id'))
+    return await TwitterGraphQLAPI(twitter_account).unfavoriteTweet(tweet_id)
 
 
 @router.get(
@@ -446,7 +432,6 @@ async def TwitterFavoriteCancelAPI(
     response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
 )
 async def TwitterTimelineAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
 ):
@@ -459,8 +444,6 @@ async def TwitterTimelineAPI(
 
     return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(
         cursor_id = cursor_id,
-        count = 20,
-        x_client_transaction_id = request.headers.get('x-client-transaction-id'),
     )
 
 
@@ -471,7 +454,6 @@ async def TwitterTimelineAPI(
     response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
 )
 async def TwitterSearchAPI(
-    request: Request,
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     query: Annotated[str, Query(description='検索クエリ。')],
     search_type: Annotated[Literal['Top', 'Latest'], Query(description='検索タイプ。Top は話題のツイート、Latest は最新のツイート。')] = 'Latest',
@@ -487,6 +469,4 @@ async def TwitterSearchAPI(
         search_type = search_type,
         query = query,
         cursor_id = cursor_id,
-        count = 20,
-        x_client_transaction_id = request.headers.get('x-client-transaction-id'),
     )

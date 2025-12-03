@@ -15,9 +15,9 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20250723'
+  PYTHON_TAG: '20251031'
   PYTHON_MAJOR_VERSION: '3.11'
-  PYTHON_VERSION: '3.11.13'
+  PYTHON_VERSION: '3.11.14'
   # Poetry のバージョン
   POETRY_VERSION: '1.8.5'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
@@ -26,9 +26,9 @@ env:
   ## FFmpeg-Builds の最新リリースでは FFmpeg 4.4 系がビルドされなくなったため、FFMPEG_HWENCC_* は 4.4 系の最終ビルドで固定されている
   ## (正確には Ubuntu 20.04 LTS で入る FFmpeg は 4.2 系だが、FFmpeg 4.x 系であれば ABI 互換性があるため 4.4 系でも動作する)
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
-  FFMPEG_TAG: 'autobuild-2025-09-30-13-19'
+  FFMPEG_TAG: 'autobuild-2025-10-31-13-40'
   FFMPEG_MAJOR_VERSION: '7.1'
-  FFMPEG_VERSION: '7.1.2-5-g8f77695e65'
+  FFMPEG_VERSION: '7.1.2-7-g24c44c34dc'
   FFMPEG_HWENCC_TAG: 'autobuild-2024-03-31-17-28'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-94-g5d07afd482'
@@ -37,10 +37,10 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '7.94'
-  NVENCC_VERSION: '8.10'
-  VCEENCC_VERSION: '9.01'
-  RKMPPENC_VERSION: '0.16'
+  QSVENCC_VERSION: '8.03'
+  NVENCC_VERSION: '9.07'
+  VCEENCC_VERSION: '9.01'  # ドライバのバージョン要件が上げられているので当面 9.01 で固定
+  RKMPPENC_VERSION: '0.17'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6

@@ -23,7 +23,6 @@ class Series(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'series'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     title = fields.TextField()
     description = fields.TextField()
