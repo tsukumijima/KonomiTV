@@ -22,7 +22,11 @@
                         <Icon icon="fluent:settings-20-regular" width="26px" />
                         <span class="ml-4">設定</span>
                     </v-btn>
-                    <v-btn variant="flat" class="settings-navigation__button mt-3" to="/mylist/">
+                    <v-btn variant="flat" class="settings-navigation__button mt-3" to="/captures/">
+                        <Icon icon="fluent:image-multiple-24-regular" width="26px" />
+                        <span class="ml-4">キャプチャ</span>
+                    </v-btn>
+                    <v-btn variant="flat" class="settings-navigation__button" to="/mylist/">
                         <Icon icon="ic:round-playlist-play" width="26px" />
                         <span class="ml-4">マイリスト</span>
                     </v-btn>
