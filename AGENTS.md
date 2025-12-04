@@ -149,6 +149,8 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - コードを変更する際、既存のコメントは、変更によりコメント内容がコードの記述と合わなくなった場合を除き、コメント量に関わらずそのまま保持する
 - ログメッセージに関しては文字化けを避けるため、必ず英語で記述する
 - それ以外のコーディングスタイルは、原則変更箇所周辺のコードスタイルに合わせる
+- 不要な薄いラッパーや別名関数は作らず、責務のあるコンポーネントだけを追加する。
+- コメントは冗長なくらいでちょうどよい。条件分岐・ループ・例外処理の直前にはその意図を書き、Python では `__init__()` で代入するインスタンス変数には「保持する情報」「参照されるメソッド」「前提条件」を必ずコメントとして記す。クラス Docstring には責務のみを記載し、引数説明は `__init__()` の Docstring に集約する。
 - 通常の Web サービスではないかなり特殊なソフトウェアなので、コンテキストとして分からないことがあれば別途 Readme.md を読むか、私に質問すること
 
 ### Python コード
@@ -156,13 +158,18 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
+- Pydantic モデル定義では必ず Annotated 記法を使う。`= Field()` 型の定義は行わずに全て Annotated 記法で定義すること
 - 変数・インスタンス変数は snake_case で命名する
-- 関数・クラスは UpperCamelCase で命名する
+- 関数・クラス名は UpperCamelCase で命名する (例: `class VideoEncodingTask:`, `def GetClientURL():`)
   - FastAPI で定義するエンドポイントの関数名も UpperCamelCase で命名する必要がある
-  - FastAPI で定義するエンドポイント名は `UserUpdateAPI` のように、名詞 -> 動詞 -> API の順の命名規則を忠実に守ること
-- メソッドは lowerCamelCase で命名する
-- クラス内のメソッドとメソッドの間には2行の空白行を挿入する
+  - FastAPI で定義するエンドポイント名は、文法的に比較的正しくなるようパス名や操作を並び替えた上で、「〇〇API」の形で命名すること
+    - 例: GET `/streams/live/{display_channel_id}/{quality}/mpegts` -> `LiveMPEGTSStreamAPI`
+    - 例: PUT `/users/me` -> `UserUpdateAPI`
+- クラスに生えたメソッド名は lowerCamelCase で命名する (例: `LiveStream.getONAirLiveStreams()`)
 - 複数行のコレクションには末尾カンマを含める
+- `getattr()` で型チェッカーを黙らせるのは禁止。参照する属性は型ヒントやプロパティできちんと公開し、どうしても `getattr()` が必要な場合は「その属性が必ず存在する根拠」を詳細にコメントする
+- すべての Docstring には Args / Returns を明記し、コメントは処理のまとまりごとに必ず加えて「なぜそうするのか」「何を意図した値なのか」を丁寧に説明する。コードを読まなくてもコメントから処理の流れを追えるようにする
+- このプロジェクトでは必ずロギングモジュールとして `import logging` の代わりに `from app import logging` を使うべき
 
 ### Vue / TypeScript コード
 
@@ -171,3 +178,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
   - Vue.js 2 から移行した関係で Options API で書かれているコンポーネントがあるが、それらは Options API のまま維持する
 - TypeScript による型安全性を確保する
 - コンポーネント属性は可能な限り1行に記述 (約100文字まで)
+
+### CSS / SCSS スタイリング
+- このプロジェクトで使用している色 (CSS 変数) などは `client/src/App.vue` や `client/src/plugins/vuetify.ts` に定義しているので、それを参照すること
+- 新規に UI を実装する際は、すでに実装されている他のコンポーネントやページの大まかなデザインの方向性を踏襲すること
