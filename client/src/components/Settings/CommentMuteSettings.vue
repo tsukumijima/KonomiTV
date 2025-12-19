@@ -66,7 +66,7 @@
                     </label>
                     <label class="settings__item-label" for="mute_colored_comments">
                         白以外の色で表示される色付きのコメントを、一括でミュートするかを設定します。<br>
-                        この設定をオンにしておくと、目立つ色のコメントを一掃できます。<br>
+                        オンにしておくと、目立つ色のコメントを一掃できます。<br>
                     </label>
                     <v-switch class="settings__item-switch" color="primary" id="mute_colored_comments" hide-details
                         v-model="settingsStore.settings.mute_colored_comments">
