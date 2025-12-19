@@ -185,7 +185,8 @@
                     解析が完了すると、録画番組一覧から再生できるようになります。<br>
                 </div>
                 <div class="settings__item-label mt-1" style="padding-bottom: 2px;">
-                    複数の保存先フォルダを指定できます。シンボリックリンクには対応していません。<br>
+                    複数の保存先フォルダを指定できます。フォルダやファイルのシンボリックリンクにも対応しています。<br>
+                    シンボリックリンクは実体のパスに変換されるため、同じ録画ファイルが重複してスキャンされることはありません。<br>
                 </div>
                 <div v-for="(folder, index) in server_settings.video.recorded_folders" :key="'recorded-folder-' + index">
                     <div class="d-flex align-center mt-3">
