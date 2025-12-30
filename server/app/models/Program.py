@@ -270,8 +270,8 @@ class Program(TortoiseModel):
                     start_time = MillisecondToDatetime(program_info['startAt'])
                     end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
-                    # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                    if datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=1):
+                    # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
+                    if datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=12):
                         continue
 
                     # ***** ここからは 追加・更新・更新不要 のいずれか *****
@@ -574,8 +574,8 @@ class Program(TortoiseModel):
                         ## 終了時間未定の場合、とりあえず5分とする
                         end_time = start_time + timedelta(seconds=event_info.get('duration_sec', 300))
 
-                        # 番組終了時刻が現在時刻より1時間以上前な番組を弾く
-                        if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=1):
+                        # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
+                        if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=12):
                             continue
 
                         # ***** ここからは 追加・更新・更新不要 のいずれか *****
