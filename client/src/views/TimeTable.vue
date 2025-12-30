@@ -520,8 +520,10 @@ async function onQuickReserve(programId: string, channelData: ITimeTableChannel,
 
         const result = await Reservations.updateReservation(reservation.id, newSettings);
         if (result !== null) {
-            const statusText = newSettings.is_enabled ? '有効' : '無効';
-            Message.success(`録画予約を${statusText}にしました。`);
+            const message = newSettings.is_enabled
+                ? '録画予約を有効にしました。\n番組開始時刻になると自動的に録画が開始されます。'
+                : '録画予約を無効にしました。\n番組開始時刻までに再度予約を有効にしない限り、この番組は録画されません。';
+            Message.success(message);
             // 番組表データを再取得して予約状態を更新
             await timetableStore.fetchTimeTableData();
         }

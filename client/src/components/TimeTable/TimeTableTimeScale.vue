@@ -148,7 +148,7 @@ function getDateLabel(hourTime: Dayjs): string {
         font-weight: bold;
         line-height: 1;
         opacity: 0.9;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         padding: 1px 4px;
         background: rgba(255, 255, 255, 0.15);
         border-radius: 2px;

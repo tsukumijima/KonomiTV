@@ -35,7 +35,7 @@
             <div class="timetable-program-cell__actions" v-if="isExpanded">
                 <v-btn variant="flat" size="small" class="timetable-program-cell__action-button"
                     @click.stop="$emit('show-detail')">
-                    <Icon icon="fluent:info-16-regular" width="16px" />
+                    <Icon icon="fluent:info-12-regular" width="16px" />
                     <span>番組詳細</span>
                 </v-btn>
                 <!-- 録画予約ボタン: 予約なしの場合は追加、予約ありの場合は有効/無効切替 -->
@@ -167,12 +167,12 @@ const reservationIconColor = computed(() => {
  */
 const reservationButtonIcon = computed(() => {
     if (!hasReservation.value) {
-        return 'fluent:timer-16-regular';  // 追加
+        return 'mdi:timer-plus-outline';  // 追加
     }
     if (isReservationDisabled.value) {
-        return 'fluent:timer-off-16-regular';  // 無効 → 有効に切替
+        return 'mdi:timer-play-outline';  // 無効 → 有効に切替
     }
-    return 'fluent:timer-16-filled';  // 有効 → 無効に切替
+    return 'mdi:timer-pause-outline';  // 有効 → 無効に切替
 });
 
 /**
@@ -415,27 +415,27 @@ function onQuickReserve(): void {
 
     // 予約あり
     &--reserved {
-        border: 2px dashed rgb(var(--v-theme-secondary));
+        border: 2.5px dashed rgb(var(--v-theme-secondary));
     }
 
     // 録画中
     &--recording {
-        border: 2px dashed rgb(var(--v-theme-secondary));
+        border: 2.5px dashed rgb(var(--v-theme-secondary));
     }
 
     // 一部のみ録画
     &--partial {
-        border: 2px dashed rgb(var(--v-theme-warning));
+        border: 2.5px dashed rgb(var(--v-theme-warning));
     }
 
     // 録画不可
     &--unavailable {
-        border: 2px dashed rgb(var(--v-theme-error));
+        border: 2.5px dashed rgb(var(--v-theme-error));
     }
 
     // 予約無効
     &--disabled {
-        border: 2px dashed rgb(var(--v-theme-text-darken-2));
+        border: 2.5px dashed rgb(var(--v-theme-text-darken-2));
     }
 
     // ジャンルハイライト縦線 (REGZA 風)
@@ -539,7 +539,7 @@ function onQuickReserve(): void {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 4px;
         }
     }
 }
