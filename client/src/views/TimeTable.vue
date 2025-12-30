@@ -20,7 +20,9 @@
                                     {{ formattedSelectedDate }}
                                 </v-btn>
                             </template>
-                            <v-date-picker v-model="selectedDateForPicker" color="primary" @update:model-value="onDatePickerChange">
+                            <v-date-picker v-model="selectedDateForPicker" color="primary"
+                                :min="datePickerMinDate" :max="datePickerMaxDate"
+                                @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
                         <v-btn variant="flat" icon size="small" :disabled="!canGoNextDay" @click="goToNextDay">
@@ -73,7 +75,9 @@
                                     {{ formattedSelectedDate }}
                                 </v-btn>
                             </template>
-                            <v-date-picker v-model="selectedDateForPicker" color="primary" @update:model-value="onDatePickerChange">
+                            <v-date-picker v-model="selectedDateForPicker" color="primary"
+                                :min="datePickerMinDate" :max="datePickerMaxDate"
+                                @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
                         <v-btn variant="flat" icon size="x-small" :disabled="!canGoNextDay" @click="goToNextDay">
@@ -94,7 +98,12 @@
                     :channels="timetableStore.channels_data"
                     :selectedDate="timetableStore.selected_date"
                     :isLoading="timetableStore.is_loading"
+                    :is36HourDisplay="timetableStore.is_36hour_display"
+                    :canGoPreviousDay="canGoPreviousDay"
+                    :canGoNextDay="canGoNextDay"
                     @scroll-position-change="onScrollPositionChange"
+                    @time-slot-change="onTimeSlotChange"
+                    @date-display-offset-change="onDateDisplayOffsetChange"
                     @program-select="onProgramSelect"
                     @show-program-detail="onShowProgramDetail"
                     @quick-reserve="onQuickReserve"
@@ -125,7 +134,7 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
@@ -133,9 +142,11 @@ import ReservationDetailDrawer from '@/components/Reservations/ReservationDetail
 import TimeTableSettingsDialog from '@/components/Settings/TimeTableSettings.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import TimeTableGrid from '@/components/TimeTable/TimeTableGrid.vue';
+import Message from '@/message';
 import { IChannel, ChannelTypePretty } from '@/services/Channels';
 import { IProgram, ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
-import Reservations, { IReservation } from '@/services/Reservations';
+import Reservations, { IReservation, IRecordSettingsDefault } from '@/services/Reservations';
+import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore, { CHANNEL_TYPE_DISPLAY_ORDER } from '@/stores/TimeTableStore';
 import Utils, { dayjs } from '@/utils';
@@ -148,9 +159,20 @@ const timetableStore = useTimeTableStore();
 // コンポーネント参照
 const timetableGridRef = ref<InstanceType<typeof TimeTableGrid> | null>(null);
 
+// サーバー設定（バックエンド種別の判定用）
+const serverSettings = ref<IServerSettings>(IServerSettingsDefault);
+
+// EDCB バックエンドかどうか
+const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+
 // UI 状態
 const isSettingsDialogOpen = ref(false);
 const isDateMenuOpen = ref(false);
+
+// 日付表示のオフセット
+// 36時間表示モード時にスクロール位置に応じて日付表示を切り替えるために使用
+// 0: 選択日をそのまま表示, 1: 選択日 + 1日 (翌日) を表示
+const dateDisplayOffset = ref(0);
 
 // ドロワー関連の状態
 const isDrawerOpen = ref(false);
@@ -224,8 +246,10 @@ const selectedTimeDisplay = ref(getInitialTimeSlot());
 
 
 // 選択中の日付のフォーマット表示
+// 36時間表示モード時は、スクロール位置に応じてオフセットを加算して表示する
+// これにより、28時間表記オン時は4時ライン、オフ時は0時ラインを超えたら翌日の日付が表示される
 const formattedSelectedDate = computed(() => {
-    const date = timetableStore.selected_date;
+    const date = timetableStore.selected_date.add(dateDisplayOffset.value, 'day');
     const month = date.month() + 1;
     const day = date.date();
     const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.day()];
@@ -258,6 +282,18 @@ const canGoNextDay = computed(() => {
     return next.isSameOrBefore(timetableStore.date_range.latest, 'day');
 });
 
+// v-date-picker 用の日付範囲制限
+// 番組情報が存在する日付範囲のみ選択可能にする
+const datePickerMinDate = computed(() => {
+    if (timetableStore.date_range === null) return undefined;
+    // v-date-picker は Date 型を受け付ける
+    return timetableStore.date_range.earliest.toDate();
+});
+const datePickerMaxDate = computed(() => {
+    if (timetableStore.date_range === null) return undefined;
+    return timetableStore.date_range.latest.toDate();
+});
+
 /**
  * チャンネルタイプ変更時のハンドラ
  */
@@ -285,16 +321,34 @@ function onTimeChange(hour: number | null): void {
 
 /**
  * 前の日へ移動
+ * 日付変更後、番組表の末尾 (翌0時近辺) にスクロールして、時間的に連続した体験を提供
  */
-function goToPreviousDay(): void {
+async function goToPreviousDay(): Promise<void> {
     timetableStore.goToPreviousDay();
+    // データ更新後に DOM が更新されるのを待ってからスクロール
+    await nextTick();
+    // データロード完了を少し待つ (非同期でデータ取得が行われるため)
+    setTimeout(() => {
+        if (timetableGridRef.value !== null) {
+            timetableGridRef.value.scrollToEnd();
+        }
+    }, 100);
 }
 
 /**
  * 次の日へ移動
+ * 日付変更後、番組表の先頭 (4時) にスクロールして、時間的に連続した体験を提供
  */
-function goToNextDay(): void {
+async function goToNextDay(): Promise<void> {
     timetableStore.goToNextDay();
+    // データ更新後に DOM が更新されるのを待ってからスクロール
+    await nextTick();
+    // データロード完了を少し待つ (非同期でデータ取得が行われるため)
+    setTimeout(() => {
+        if (timetableGridRef.value !== null) {
+            timetableGridRef.value.scrollToStart();
+        }
+    }, 100);
 }
 
 /**
@@ -305,7 +359,7 @@ async function goToCurrentTime(): Promise<void> {
     // データロード後に DOM が更新されるのを待ってからスクロール
     await nextTick();
     if (timetableGridRef.value !== null) {
-        timetableGridRef.value.scrollToCurrentTime();
+        timetableGridRef.value.scrollToCurrentTime(true, true);
     }
 }
 
@@ -314,6 +368,29 @@ async function goToCurrentTime(): Promise<void> {
  */
 function onScrollPositionChange(position: { x: number; y: number }): void {
     timetableStore.updateScrollPosition(position.x, position.y);
+}
+
+/**
+ * 表示中の時間帯変更時のハンドラ
+ * スクロール位置から計算された現在表示中の時間帯を受け取り、時刻セレクターを更新
+ * @param hour 現在表示中の時間帯 (4, 8, 12, 16, 20, 24 のいずれか)
+ */
+function onTimeSlotChange(hour: number): void {
+    // 時刻セレクターの値を更新 (4時間ごとのスロットに丸める)
+    const slotHour = Math.floor((hour - 4) / 4) * 4 + 4;
+    // 4〜24 の範囲に収める
+    const clampedSlot = Math.max(4, Math.min(24, slotHour));
+    selectedTimeDisplay.value = clampedSlot;
+}
+
+/**
+ * 日付表示オフセット変更時のハンドラ
+ * 36時間表示モード時に、スクロール位置が日付境界を超えたかどうかに応じて
+ * 日付表示を切り替えるために使用
+ * @param offset オフセット (0: 選択日, 1: 選択日 + 1日)
+ */
+function onDateDisplayOffsetChange(offset: number): void {
+    dateDisplayOffset.value = offset;
 }
 
 /**
@@ -326,6 +403,7 @@ function onProgramSelect(programId: string | null): void {
 /**
  * 番組詳細表示時のハンドラ
  * 番組表から番組詳細ドロワーを開く
+ * 予約がある場合は API から取得し、予約がない場合は mock の IReservation を作成して渡す
  * @param programId 番組 ID
  * @param channelData 番組が属するチャンネルデータ
  * @param program 番組情報
@@ -343,19 +421,42 @@ async function onShowProgramDetail(programId: string, channelData: ITimeTableCha
             drawerProgram.value = null;
             drawerChannel.value = null;
         } else {
-            // 取得失敗時は番組情報のみで表示
-            drawerReservation.value = null;
-            drawerProgram.value = program;
-            drawerChannel.value = channelData.channel;
+            // 取得失敗時は mock の IReservation を作成して渡す
+            drawerReservation.value = createMockReservation(program, channelData.channel);
+            drawerProgram.value = null;
+            drawerChannel.value = null;
         }
     } else {
-        // 予約がない場合は番組情報とチャンネル情報を渡す
-        drawerReservation.value = null;
-        drawerProgram.value = program;
-        drawerChannel.value = channelData.channel;
+        // 予約がない場合は mock の IReservation を作成して渡す
+        // id が -1 の場合は mock と判定され、予約追加ボタンが表示される
+        drawerReservation.value = createMockReservation(program, channelData.channel);
+        drawerProgram.value = null;
+        drawerChannel.value = null;
     }
 
     isDrawerOpen.value = true;
+}
+
+/**
+ * 予約がない番組用に mock の IReservation を作成する
+ * ReservationDetailDrawer で録画設定タブを表示し、設定をカスタマイズしてから予約追加できるようにするため
+ * id が -1 の場合は mock と判定され、予約追加ボタンが表示される
+ * @param program 番組情報
+ * @param channel チャンネル情報
+ * @returns mock の IReservation
+ */
+function createMockReservation(program: ITimeTableProgram, channel: IChannel): IReservation {
+    return {
+        id: -1,  // mock を示す特別な値 (ReservationDetailDrawer で判定に使用)
+        channel: channel,
+        program: program as IProgram,  // ITimeTableProgram は IProgram を継承している
+        is_recording_in_progress: false,
+        recording_availability: 'Full',
+        comment: '',
+        scheduled_recording_file_name: '',
+        estimated_recording_file_size: 0,
+        record_settings: structuredClone(IRecordSettingsDefault),
+    };
 }
 
 /**
@@ -385,7 +486,9 @@ async function onReservationDeleted(): Promise<void> {
 
 /**
  * クイック録画予約時のハンドラ
- * 番組セルの「録画予約」ボタンが押された時に、ドロワーを開いて予約追加できるようにする
+ * 番組セルの「録画予約」ボタンが押された時:
+ * - 予約がない場合: デフォルト設定でワンクリック予約追加
+ * - 既存予約がある場合: 予約の有効/無効を切り替え
  * @param programId 番組 ID
  * @param channelData 番組が属するチャンネルデータ
  * @param program 番組情報
@@ -397,23 +500,51 @@ async function onQuickReserve(programId: string, channelData: ITimeTableChannel,
         return;
     }
 
-    // 予約がない場合のみ処理
-    if (program.reservation !== null) {
-        // 既に予約がある場合は番組詳細ドロワーを開く
-        await onShowProgramDetail(programId, channelData, program);
+    // EDCB バックエンドでない場合はエラー
+    if (isEDCBBackend.value === false) {
+        Message.warning('録画予約機能は EDCB バックエンド利用時のみ使用できます。');
         return;
     }
 
-    // 予約がない場合は番組情報とチャンネル情報を渡してドロワーを開く
-    isDrawerProgramPast.value = false;
-    drawerReservation.value = null;
-    drawerProgram.value = program;
-    drawerChannel.value = channelData.channel;
-    isDrawerOpen.value = true;
+    // 予約がある場合は有効/無効を切り替え
+    if (program.reservation !== null) {
+        // 完全な予約情報を取得
+        const reservation = await Reservations.fetchReservation(program.reservation.id);
+        if (reservation === null) {
+            return;
+        }
+
+        // 有効/無効を切り替え
+        const newSettings = structuredClone(reservation.record_settings);
+        newSettings.is_enabled = !newSettings.is_enabled;
+
+        const result = await Reservations.updateReservation(reservation.id, newSettings);
+        if (result !== null) {
+            const statusText = newSettings.is_enabled ? '有効' : '無効';
+            Message.success(`録画予約を${statusText}にしました。`);
+            // 番組表データを再取得して予約状態を更新
+            await timetableStore.fetchTimeTableData();
+        }
+        return;
+    }
+
+    // 予約がない場合はデフォルト設定でワンクリック予約追加
+    const success = await Reservations.addReservation(programId, structuredClone(IRecordSettingsDefault));
+    if (success) {
+        Message.success('録画予約を追加しました。');
+        // 番組表データを再取得して予約状態を更新
+        await timetableStore.fetchTimeTableData();
+    }
 }
 
 // ライフサイクル
 onMounted(async () => {
+    // サーバー設定を取得（バックエンド種別の判定用）
+    const settings = await Settings.fetchServerSettings();
+    if (settings !== null) {
+        serverSettings.value = settings;
+    }
+
     // 番組表データの初期ロード
     await timetableStore.initialLoad();
 });
@@ -421,6 +552,12 @@ onMounted(async () => {
 onUnmounted(() => {
     // ストアの状態をリセット
     timetableStore.reset();
+});
+
+// 日付が変更されたら、日付表示オフセットをリセット
+// これにより、日付変更後はボタンに選択された日付が表示される
+watch(() => timetableStore.selected_date, () => {
+    dateDisplayOffset.value = 0;
 });
 
 </script>
@@ -486,10 +623,19 @@ onUnmounted(() => {
         align-items: center;
         gap: 4px;
 
-        // 無効状態のアイコンボタンの円形背景を非表示にする
+        // 無効状態のアイコンボタンのスタイル
+        // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
         :deep(.v-btn--disabled) {
             background: transparent !important;
             opacity: 0.38;
+
+            // ホバー時の背景も非表示
+            &::before {
+                display: none !important;
+            }
+            &:hover {
+                background: transparent !important;
+            }
         }
     }
 
@@ -537,10 +683,19 @@ onUnmounted(() => {
         align-items: center;
         gap: 8px;
 
-        // 無効状態のアイコンボタンの円形背景を非表示にする
+        // 無効状態のアイコンボタンのスタイル
+        // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
         :deep(.v-btn--disabled) {
             background: transparent !important;
             opacity: 0.38;
+
+            // ホバー時の背景も非表示
+            &::before {
+                display: none !important;
+            }
+            &:hover {
+                background: transparent !important;
+            }
         }
     }
 

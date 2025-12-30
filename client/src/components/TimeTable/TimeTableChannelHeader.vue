@@ -8,20 +8,40 @@
         <!-- チャンネル情報 -->
         <div class="timetable-channel-header__info">
             <span class="timetable-channel-header__number">{{ channel.channel_number }}</span>
-            <span class="timetable-channel-header__name">{{ channel.name }}</span>
+            <span class="timetable-channel-header__name">{{ truncatedChannelName }}</span>
         </div>
     </router-link>
 </template>
 <script lang="ts" setup>
 
+import { computed } from 'vue';
+
 import { ITimeTableChannel } from '@/services/Programs';
 import Utils from '@/utils';
 
 // Props
-defineProps<{
+const props = defineProps<{
     channel: ITimeTableChannel['channel'];
     width: number;
 }>();
+
+/**
+ * 幅に応じて短縮されたチャンネル名
+ * 狭い幅ではチャンネル名を短くして表示する
+ */
+const truncatedChannelName = computed(() => {
+    const name = props.channel.name;
+    // 幅が狭い場合 (120px 以下) は最大6文字に制限
+    if (props.width <= 120) {
+        return name.length > 6 ? name.slice(0, 6) + '…' : name;
+    }
+    // 幅が中程度 (150px 以下) は最大10文字に制限
+    if (props.width <= 150) {
+        return name.length > 10 ? name.slice(0, 10) + '…' : name;
+    }
+    // それ以上は全文表示
+    return name;
+});
 
 </script>
 <style lang="scss" scoped>
@@ -32,7 +52,8 @@ defineProps<{
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    padding: 4px 8px;
+    gap: 4px;
+    padding: 6px 8px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
     text-decoration: none;
@@ -44,35 +65,48 @@ defineProps<{
         background: rgb(var(--v-theme-background-lighten-2));
     }
 
+    // タッチデバイスでは hover を無効化
+    @media (hover: none) {
+        &:hover {
+            background: rgb(var(--v-theme-background-lighten-1));
+        }
+    }
+
     // チャンネルロゴ
     &__logo {
-        width: 40px;
-        height: 24px;
+        width: 48px;
+        height: 28px;
         object-fit: contain;
-        border-radius: 2px;
+        border-radius: 3px;
     }
 
     // チャンネル情報
     &__info {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
-        margin-top: 2px;
+        gap: 4px;
         min-width: 0;
         max-width: 100%;
     }
 
     // チャンネル番号
     &__number {
+        flex-shrink: 0;
+        padding: 1px 4px;
         font-size: 10px;
         font-weight: bold;
-        color: rgb(var(--v-theme-text-darken-1));
+        line-height: 1;
+        color: rgb(var(--v-theme-text));
+        background: rgb(var(--v-theme-background-lighten-2));
+        border-radius: 3px;
         white-space: nowrap;
     }
 
     // チャンネル名
     &__name {
         font-size: 11px;
+        font-weight: 500;
         color: rgb(var(--v-theme-text));
         white-space: nowrap;
         overflow: hidden;

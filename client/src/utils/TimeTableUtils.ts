@@ -168,10 +168,16 @@ export class TimeTableUtils {
 
     /**
      * 時刻からその時刻の背景色を取得する
-     * @param hour 時刻 (0〜27)
+     * @param hour 時刻 (0〜39)
      * @returns 背景色
      */
     static getTimeScaleColor(hour: number): string {
+        // 28以上の時刻 (翌日4時〜15時) は24を引いて通常の時刻として扱う
+        // 例: 28時 → 4時の色、32時 → 8時の色
+        if (hour >= 28) {
+            const normalized_hour = hour - 24;
+            return this.TIME_SCALE_COLORS[normalized_hour] || this.TIME_SCALE_COLORS[4];
+        }
         // 0〜27 の範囲に正規化
         const normalized_hour = ((hour % 28) + 28) % 28;
         return this.TIME_SCALE_COLORS[normalized_hour] || this.TIME_SCALE_COLORS[0];
@@ -193,14 +199,31 @@ export class TimeTableUtils {
             return this.GENRE_HIGHLIGHT_COLORS.White;
         }
 
-        // ジャンル名の正規化: "ニュース/報道" と "ニュース・報道" の両方に対応
-        const normalized_genre = genre_major.replace('・', '/');
-
         // ユーザー設定から色を取得
-        // normalized_genre がユーザー設定のジャンルキーに存在するかチェック
+        // 設定のキーは「・」(中黒) を使用しているため、API から返されるジャンル名の
+        // 「/」を「・」に置換してマッチングを試みる
+        // 例: API が "ニュース/報道" を返す場合 → "ニュース・報道" に変換して照合
         const genre_colors_map = genre_colors as unknown as Record<string, TimeTableGenreHighlightColor>;
-        const color_key = genre_colors_map[normalized_genre] || 'White';
-        return this.GENRE_HIGHLIGHT_COLORS[color_key];
+
+        // まずそのまま照合を試みる
+        if (genre_colors_map[genre_major] !== undefined) {
+            return this.GENRE_HIGHLIGHT_COLORS[genre_colors_map[genre_major]];
+        }
+
+        // 「/」を「・」に置換して照合を試みる (API が / 区切りで返す場合への対応)
+        const normalized_with_dot = genre_major.replace(/\//g, '・');
+        if (genre_colors_map[normalized_with_dot] !== undefined) {
+            return this.GENRE_HIGHLIGHT_COLORS[genre_colors_map[normalized_with_dot]];
+        }
+
+        // 「・」を「/」に置換して照合を試みる (逆のケースへの対応)
+        const normalized_with_slash = genre_major.replace(/・/g, '/');
+        if (genre_colors_map[normalized_with_slash] !== undefined) {
+            return this.GENRE_HIGHLIGHT_COLORS[genre_colors_map[normalized_with_slash]];
+        }
+
+        // どちらもマッチしない場合は白を返す
+        return this.GENRE_HIGHLIGHT_COLORS.White;
     }
 
 

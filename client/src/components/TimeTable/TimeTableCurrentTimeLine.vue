@@ -15,6 +15,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import type { Dayjs } from 'dayjs';
 
+import useTimeTableStore from '@/stores/TimeTableStore';
 import { dayjs } from '@/utils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
@@ -26,6 +27,9 @@ const props = defineProps<{
     totalWidth: number;
 }>();
 
+// ストア
+const timetableStore = useTimeTableStore();
+
 // 現在時刻 (毎分更新)
 const currentTime = ref(dayjs());
 let updateInterval: ReturnType<typeof setInterval> | null = null;
@@ -33,25 +37,30 @@ let updateInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * 現在時刻バーが表示対象の日付に含まれるか
+ * 36時間表示モード時は表示開始時刻 (16:00) から表示終了時刻 (翌々日4:00) の範囲
  */
 const isVisible = computed(() => {
     const now = currentTime.value;
-    const dayStart = props.selectedDate;
-    const dayEnd = props.selectedDate.add(1, 'day');
+    // 表示開始時刻を取得 (36時間表示時は16:00、通常は4:00)
+    const displayStart = timetableStore.getDisplayStartTime();
+    // 表示終了時刻を取得 (36時間表示時は翌々日4:00、通常は翌日4:00)
+    const displayEnd = timetableStore.getDayEndTime(displayStart, timetableStore.is_36hour_display);
 
-    return now.isSameOrAfter(dayStart) && now.isBefore(dayEnd);
+    return now.isSameOrAfter(displayStart) && now.isBefore(displayEnd);
 });
 
 /**
  * 現在時刻バーの Y 位置
+ * 36時間表示モード時は表示開始時刻 (16:00) を基準に計算する
  */
 const linePosition = computed(() => {
     if (!isVisible.value) return 0;
 
-    const dayStart = props.selectedDate;
+    // 表示開始時刻を取得 (36時間表示時は16:00、通常は4:00)
+    const displayStart = timetableStore.getDisplayStartTime();
     return TimeTableUtils.calculateCurrentTimeY(
         currentTime.value,
-        dayStart,
+        displayStart,
         props.hourHeight,
     ) - TimeTableUtils.CHANNEL_HEADER_HEIGHT;
 });

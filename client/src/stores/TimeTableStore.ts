@@ -70,6 +70,85 @@ const useTimeTableStore = defineStore('timetable', () => {
     // 現在時刻バーの自動追従が有効かどうか
     const is_auto_scroll_enabled = ref<boolean>(true);
 
+    // 36時間表示モードかどうか (現在時刻から翌日4時までが11時間未満の場合)
+    const is_36hour_display = ref<boolean>(false);
+
+    // スクロール上端の制限時刻 (選択日が今日の場合のみ有効、それ以外は null)
+    // 「現在時刻 - 1時間の00分」を表す
+    const scroll_top_limit_time = ref<Dayjs | null>(null);
+
+
+    /**
+     * 36時間表示が必要かどうかを判定する
+     * 選択日が今日で、現在時刻から翌日の4時まで11時間未満の場合に true
+     * @returns 36時間表示が必要な場合は true
+     */
+    function should36HourDisplay(): boolean {
+        const now = dayjs();
+        const today_start = getTodayStartTime();
+
+        // 選択日が今日でない場合は36時間表示しない
+        // isSame('day') で日付部分のみを比較（ミリ秒のずれを回避）
+        if (selected_date.value.isSame(today_start, 'day') === false) {
+            return false;
+        }
+
+        // 28時間表記対応: 0〜3時は前日の24〜27時として扱う
+        let current_hour = now.hour();
+        if (current_hour < 4) {
+            current_hour += 24;
+        }
+
+        // 17時以降 (翌日4時まで11時間未満) なら36時間表示
+        // 4時起点なので、17時は開始から13時間後
+        return current_hour >= 17;
+    }
+
+
+    /**
+     * スクロール上端の制限時刻を計算する
+     * 選択日が今日の場合: 現在時刻 - 1時間を正時に切り捨てた時刻
+     * 選択日が今日でない場合: null (制限なし)
+     * @returns スクロール上端の制限時刻、または null
+     */
+    function calculateScrollTopLimitTime(): Dayjs | null {
+        const now = dayjs();
+        const today_start = getTodayStartTime();
+
+        // 選択日が今日でない場合は制限なし
+        // isSame('day') で日付部分のみを比較（ミリ秒のずれを回避）
+        if (selected_date.value.isSame(today_start, 'day') === false) {
+            return null;
+        }
+
+        // 現在時刻 - 1時間を正時に切り捨て
+        // 例: 23:05 → 22:00, 10:30 → 09:00
+        const limit_time = now.startOf('hour').subtract(1, 'hour');
+
+        // 番組表の開始時刻 (選択日の開始時刻) より前にはならないようにする
+        const display_start = getDisplayStartTime();
+        if (limit_time.isBefore(display_start)) {
+            return display_start;
+        }
+
+        return limit_time;
+    }
+
+
+    /**
+     * 番組表の表示開始時刻を取得する
+     * 36時間表示モードの場合は16:00、通常は4:00を返す
+     * @returns 表示開始時刻
+     */
+    function getDisplayStartTime(): Dayjs {
+        if (is_36hour_display.value) {
+            // 36時間表示: 16:00から開始 (selected_date は4:00を指すため +12時間)
+            return selected_date.value.add(12, 'hour');
+        }
+        // 通常: 4:00から開始 (selected_date は4:00を指している)
+        return selected_date.value;
+    }
+
 
     /**
      * 今日の番組表の開始時刻 (4:00) を取得する
@@ -90,14 +169,51 @@ const useTimeTableStore = defineStore('timetable', () => {
 
 
     /**
-     * 指定した日付の番組表終了時刻 (翌日 4:00) を取得する
+     * 指定した日付の番組表終了時刻を取得する
+     * 36時間表示モードの場合は開始から36時間後、
+     * 通常は開始から24時間後を返す
      * @param start_date 開始日時
-     * @returns 終了時刻 (翌日 4:00)
+     * @param is_extended 36時間表示モードかどうか
+     * @returns 終了時刻
      */
-    function getDayEndTime(start_date: Dayjs): Dayjs {
-        const end = start_date.add(1, 'day');
-        return end;
+    function getDayEndTime(start_date: Dayjs, is_extended: boolean = false): Dayjs {
+        if (is_extended) {
+            // 36時間表示: 開始時刻から 36時間後
+            return start_date.add(36, 'hour');
+        }
+        // 通常: 開始時刻から 24時間後
+        return start_date.add(1, 'day');
     }
+
+
+    /**
+     * 番組表の表示開始時刻 (computed)
+     * 36時間表示モードの場合は selected_date (4:00) の12時間後 (= 16:00)
+     * 通常モードの場合は selected_date (4:00)
+     */
+    const display_start_time = computed<Dayjs>(() => {
+        if (is_36hour_display.value) {
+            // 36時間表示: selected_date の12時間後 = 16:00
+            return selected_date.value.add(12, 'hour');
+        }
+        // 通常: selected_date (4:00)
+        return selected_date.value;
+    });
+
+
+    /**
+     * 番組表の表示終了時刻 (computed)
+     * 36時間表示モードの場合は display_start_time + 36時間
+     * 通常モードの場合は selected_date (4:00) + 24時間 (= 翌日4:00)
+     * - 通常: 4:00 ~ 翌日4:00 (24時間)
+     * - 36時間表示: 16:00 ~ 翌々日4:00 (36時間)
+     */
+    const display_end_time = computed<Dayjs>(() => {
+        if (is_36hour_display.value) {
+            return display_start_time.value.add(36, 'hour');
+        }
+        return selected_date.value.add(24, 'hour');
+    });
 
 
     /**
@@ -207,8 +323,8 @@ const useTimeTableStore = defineStore('timetable', () => {
 
     /**
      * 番組表データを API から取得する
-     * @param start_time 開始日時 (省略時は selected_date)
-     * @param end_time 終了日時 (省略時は start_time の翌日 4:00)
+     * @param start_time 開始日時 (省略時は selected_date、36時間表示時は16:00)
+     * @param end_time 終了日時 (省略時は start_time の翌日 4:00、36時間表示時は start_time + 36時間)
      * @param channel_type チャンネルタイプ (省略時は selected_channel_type)
      * @param pinned_channel_ids チャンネル ID リスト (ピン留め用、省略可)
      * @returns 取得成功時は true、失敗時は false
@@ -220,9 +336,17 @@ const useTimeTableStore = defineStore('timetable', () => {
         pinned_channel_ids?: string[],
     ): Promise<boolean> {
 
+        // 36時間表示が必要かどうかを判定して更新
+        is_36hour_display.value = should36HourDisplay();
+
+        // スクロール上端の制限時刻を更新
+        scroll_top_limit_time.value = calculateScrollTopLimitTime();
+
         // デフォルト値の設定
-        const actual_start_time = start_time ?? selected_date.value;
-        const actual_end_time = end_time ?? getDayEndTime(actual_start_time);
+        // 36時間表示モードの場合は16:00から開始
+        const actual_start_time = start_time ?? getDisplayStartTime();
+        // 36時間表示モードの場合は翌々日4時まで取得 (16:00 + 36時間)
+        const actual_end_time = end_time ?? getDayEndTime(actual_start_time, is_36hour_display.value);
         const actual_channel_type = channel_type ?? selected_channel_type.value ?? '地デジ';
 
         // ピン留めの場合はチャンネル ID リストを使用
@@ -380,7 +504,8 @@ const useTimeTableStore = defineStore('timetable', () => {
         const today_start = getTodayStartTime();
 
         // 現在の日付と異なる場合のみ再取得
-        if (selected_date.value.valueOf() !== today_start.valueOf()) {
+        // isSame('day') で日付部分のみを比較（ミリ秒のずれを回避）
+        if (selected_date.value.isSame(today_start, 'day') === false) {
             await changeDate(today_start);
         }
     }
@@ -434,6 +559,8 @@ const useTimeTableStore = defineStore('timetable', () => {
         is_loading.value = false;
         is_initial_load_completed.value = false;
         is_auto_scroll_enabled.value = true;
+        is_36hour_display.value = false;
+        scroll_top_limit_time.value = null;
         scroll_position.value = { x: 0, y: 0 };
         // selected_channel_type は次回アクセス時に initialLoad() で再設定されるため、
         // あえて null にリセットして、次回は最新の available_channel_types に基づいて決定されるようにする
@@ -492,14 +619,19 @@ const useTimeTableStore = defineStore('timetable', () => {
         is_loading,
         is_initial_load_completed,
         is_auto_scroll_enabled,
+        is_36hour_display,
+        scroll_top_limit_time,
 
         // Getters
         selectable_dates,
         available_channel_types,
+        display_start_time,
+        display_end_time,
 
         // Actions
         getTodayStartTime,
         getDayEndTime,
+        getDisplayStartTime,
         fetchTimeTableData,
         initialLoad,
         changeDate,

@@ -38,12 +38,17 @@
                     <Icon icon="fluent:info-16-regular" width="16px" />
                     <span>番組詳細</span>
                 </v-btn>
-                <v-btn variant="flat" size="small" class="timetable-program-cell__action-button"
+                <!-- 録画予約ボタン: 予約なしの場合は追加、予約ありの場合は有効/無効切替 -->
+                <v-btn variant="flat" size="small"
+                    class="timetable-program-cell__action-button"
+                    :class="{
+                        'timetable-program-cell__action-button--reserved': hasReservation && !isReservationDisabled,
+                        'timetable-program-cell__action-button--disabled-reservation': isReservationDisabled,
+                    }"
                     v-if="!isPast"
-                    :disabled="!canAddReservation"
                     @click.stop="onQuickReserve">
-                    <Icon icon="fluent:timer-16-regular" width="16px" />
-                    <span>録画予約</span>
+                    <Icon :icon="reservationButtonIcon" width="16px" />
+                    <span>{{ reservationButtonLabel }}</span>
                 </v-btn>
             </div>
         </div>
@@ -57,6 +62,7 @@ import type { Dayjs } from 'dayjs';
 
 import { ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
 import useSettingsStore from '@/stores/SettingsStore';
+import useTimeTableStore from '@/stores/TimeTableStore';
 import { dayjs } from '@/utils';
 import { ProgramUtils } from '@/utils/ProgramUtils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
@@ -65,7 +71,7 @@ import { TimeTableUtils } from '@/utils/TimeTableUtils';
 const props = defineProps<{
     program: ITimeTableProgram;
     channel: ITimeTableChannel['channel'];
-    selectedDate: Dayjs;
+    selectedDate: Dayjs;  // 選択された日付 (4:00起点、表示開始時刻とは異なる場合がある)
     hourHeight: number;
     channelWidth: number;
     scrollTop: number;  // スクロール位置 (Y方向)
@@ -73,6 +79,7 @@ const props = defineProps<{
     isSubchannel?: boolean;
     isSelected: boolean;
     isPast: boolean;
+    is36HourDisplay?: boolean;  // 36時間表示モードかどうか
 }>();
 
 // Emits
@@ -84,6 +91,7 @@ const emit = defineEmits<{
 
 // ストア
 const settingsStore = useSettingsStore();
+const timetableStore = useTimeTableStore();
 
 // 状態
 const isHovered = ref(false);
@@ -131,14 +139,6 @@ const isUnavailableRecording = computed(() => {
 });
 
 /**
- * 録画予約を追加できるか (EDCB バックエンドのみ & 過去番組でない)
- */
-const canAddReservation = computed(() => {
-    // TODO: EDCB バックエンドかどうかの判定を追加
-    return !props.isPast && !hasReservation.value;
-});
-
-/**
  * 予約アイコン
  */
 const reservationIcon = computed(() => {
@@ -159,6 +159,34 @@ const reservationIconColor = computed(() => {
         return 'rgb(var(--v-theme-text-darken-2))';
     }
     return 'rgb(var(--v-theme-success))';
+});
+
+/**
+ * 録画予約ボタンのアイコン
+ * 予約なし: 追加アイコン、予約あり有効: チェックアイコン、予約あり無効: オフアイコン
+ */
+const reservationButtonIcon = computed(() => {
+    if (!hasReservation.value) {
+        return 'fluent:timer-16-regular';  // 追加
+    }
+    if (isReservationDisabled.value) {
+        return 'fluent:timer-off-16-regular';  // 無効 → 有効に切替
+    }
+    return 'fluent:timer-16-filled';  // 有効 → 無効に切替
+});
+
+/**
+ * 録画予約ボタンのラベル
+ * 予約なし: 録画予約、予約あり有効: 予約を無効化、予約あり無効: 予約を有効化
+ */
+const reservationButtonLabel = computed(() => {
+    if (!hasReservation.value) {
+        return '録画予約';
+    }
+    if (isReservationDisabled.value) {
+        return '予約を有効化';
+    }
+    return '予約を無効化';
 });
 
 /**
@@ -198,20 +226,37 @@ const cellBackgroundColor = computed(() => {
 
 /**
  * セルの Y 座標 (ヘッダー分を含まない、番組グリッド内の座標)
+ * 36時間表示モード時は表示開始時刻 (16:00) を基準に計算する
  */
 const cellY = computed(() => {
     const startTime = dayjs(props.program.start_time);
-    const dayStart = props.selectedDate;
-    return TimeTableUtils.calculateProgramY(startTime, dayStart, props.hourHeight)
+    // 表示開始時刻を取得 (36時間表示時は16:00、通常は4:00)
+    const displayStart = timetableStore.getDisplayStartTime();
+    return TimeTableUtils.calculateProgramY(startTime, displayStart, props.hourHeight)
         - TimeTableUtils.CHANNEL_HEADER_HEIGHT;
 });
 
 /**
  * セルの高さ
+ * 番組が番組表の下端を超える場合はクリップする
+ * 通常: 28時 (翌4時) でクリップ、36時間表示: 40時 (翌16時) でクリップ
  */
 const cellHeight = computed(() => {
-    const height = TimeTableUtils.calculateProgramHeight(props.program.duration, props.hourHeight);
-    return Math.max(height, 20);  // 最小高さを確保
+    const rawHeight = TimeTableUtils.calculateProgramHeight(props.program.duration, props.hourHeight);
+
+    // 番組表の総高さ (通常24時間分 = 4時〜28時、36時間表示時は36時間分 = 4時〜40時)
+    const totalHours = props.is36HourDisplay ? 36 : 24;
+    const gridTotalHeight = totalHours * props.hourHeight;
+
+    // セルの下端が番組表の下端を超える場合はクリップ
+    const cellBottom = cellY.value + rawHeight;
+    if (cellBottom > gridTotalHeight) {
+        // クリップされた高さを計算 (最小高さは確保)
+        const clippedHeight = gridTotalHeight - cellY.value;
+        return Math.max(clippedHeight, 20);
+    }
+
+    return Math.max(rawHeight, 20);  // 最小高さを確保
 });
 
 /**
@@ -335,6 +380,7 @@ function onQuickReserve(): void {
 
 .timetable-program-cell {
     display: flex;
+    align-items: stretch;
     position: absolute;
     overflow: hidden;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
@@ -395,8 +441,9 @@ function onQuickReserve(): void {
     // ジャンルハイライト縦線 (REGZA 風)
     &__highlight {
         flex-shrink: 0;
-        width: 4px;
-        height: 100%;
+        width: 5px;
+        height: auto;
+        align-self: stretch;
     }
 
     // メインコンテンツ
@@ -452,6 +499,7 @@ function onQuickReserve(): void {
 
     // 説明 (タイトルを全表示した後の残り領域に表示)
     // 領域が足りない場合は overflow: hidden で隠れる
+    // 展開時はボタンを概要直下に表示するため flex-grow を無効化
     &__description {
         flex-grow: 1;
         flex-shrink: 1;  // 説明は縮小可能
@@ -461,29 +509,37 @@ function onQuickReserve(): void {
         line-height: 1.4;
         overflow: hidden;
         min-height: 0;  // flex アイテムがオーバーフローしないように
+
+        // 展開状態ではボタンが概要直下に来るよう flex-grow を無効化
+        // これにより余白はボタンの下に表示される (EMWUI と同様)
+        .timetable-program-cell--expanded & {
+            flex-grow: 0;
+        }
     }
 
-    // アクションボタン
+    // アクションボタン (縦並びに変更、番組概要の直下に配置)
     &__actions {
         display: flex;
-        gap: 4px;
+        flex-direction: column;
+        gap: 6px;
         margin-top: 8px;
         padding-top: 8px;
+        padding-bottom: 6px;
         border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
 
     &__action-button {
-        flex: 1;
-        min-width: 0;
-        height: 28px !important;
-        font-size: 11px;
+        width: 100%;
+        height: 32px !important;
+        font-size: 12px;
         background: rgba(0, 0, 0, 0.1) !important;
         color: rgba(0, 0, 0, 0.8) !important;
 
         :deep(.v-btn__content) {
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
+            gap: 6px;
         }
     }
 }

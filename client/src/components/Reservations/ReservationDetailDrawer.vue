@@ -13,7 +13,7 @@
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'info' }"
                     @click="activeTab = 'info'">
                     <Icon icon="fluent:info-12-regular" width="20px" height="20px" />
-                    <span class="reservation-detail-drawer__tab-text">番組情報</span>
+                    <span class="reservation-detail-drawer__tab-text">番組情報 {{ !showSettingsTab ? '（終了済み）' : '' }}</span>
                 </div>
                 <div v-if="showSettingsTab" v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'settings' }"
@@ -74,22 +74,22 @@
         <!-- フッター -->
         <div class="reservation-detail-drawer__footer" v-if="!isPastProgram">
             <div class="reservation-detail-drawer__actions">
-                <!-- 予約がある場合: 削除ボタン -->
-                <v-btn v-if="hasReservation" class="px-3" variant="text" @click="handleDelete">
+                <!-- 実際の予約がある場合: 削除ボタン -->
+                <v-btn v-if="hasRealReservation" class="px-3" variant="text" @click="handleDelete">
                     <Icon icon="fluent:delete-16-regular" width="20px" height="20px" />
                     <span class="ml-1">予約を削除</span>
                 </v-btn>
-                <!-- 予約がある場合かつ録画設定タブ: 保存ボタン -->
-                <v-btn v-if="hasReservation && activeTab === 'settings'" class="px-3" color="secondary" variant="flat"
+                <!-- 実際の予約がある場合かつ録画設定タブ: 保存ボタン -->
+                <v-btn v-if="hasRealReservation && activeTab === 'settings'" class="px-3" color="secondary" variant="flat"
                     :disabled="!hasChanges" :loading="isSaving" @click="handleSave">
                     <Icon icon="fluent:save-16-regular" width="20px" height="20px" />
                     <span class="ml-1">変更を保存</span>
                 </v-btn>
-                <!-- 予約がない場合: 予約追加ボタン -->
+                <!-- mock の予約 (予約なし) の場合: 予約追加ボタン -->
                 <v-btn v-if="showAddButton" class="px-3" color="secondary" variant="flat"
                     :disabled="!isEDCBBackend" :loading="isAdding" @click="handleAddReservation">
                     <Icon icon="fluent:timer-16-regular" width="20px" height="20px" />
-                    <span class="ml-1">録画予約を追加</span>
+                    <span class="ml-1">予約を追加</span>
                 </v-btn>
             </div>
         </div>
@@ -215,8 +215,16 @@ const currentSettings = ref<IRecordSettings | null>(null);
 // 削除確認ダイアログの表示状態
 const showDeleteDialog = ref(false);
 
-// 予約があるかどうか
+// 予約があるかどうか (null でなければ予約がある)
+// ただし id === -1 の場合は mock の予約なので、実際には予約がない状態
 const hasReservation = computed(() => props.reservation !== null);
+
+// mock の予約かどうか (id === -1 の場合は予約がない番組用の mock)
+// TimeTable.vue から渡される mock の IReservation を判定するために使用
+const isMockReservation = computed(() => props.reservation !== null && props.reservation.id === -1);
+
+// 実際に予約が存在するかどうか (mock でない場合)
+const hasRealReservation = computed(() => hasReservation.value && !isMockReservation.value);
 
 // 表示用の番組情報（予約があればそちらを優先）
 const displayProgram = computed(() => props.reservation?.program ?? props.program ?? null);
@@ -224,11 +232,15 @@ const displayProgram = computed(() => props.reservation?.program ?? props.progra
 // EDCB バックエンドかどうか
 const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
 
-// 録画設定タブを表示するかどうか（予約がある場合、かつ過去番組でない場合）
+// 録画設定タブを表示するかどうか
+// - 実際の予約がある場合: 表示 (既存予約の設定編集)
+// - mock の予約がある場合 (予約なし): 表示 (新規予約前の設定カスタマイズ)
+// - 過去番組の場合: 非表示
 const showSettingsTab = computed(() => hasReservation.value && !props.isPastProgram);
 
-// 予約追加ボタンを表示するかどうか（予約がない場合、かつ過去番組でない場合）
-const showAddButton = computed(() => !hasReservation.value && !props.isPastProgram);
+// 予約追加ボタンを表示するかどうか
+// mock の予約がある場合 (実際には予約なし) かつ過去番組でない場合に表示
+const showAddButton = computed(() => isMockReservation.value && !props.isPastProgram);
 
 // キーワード自動予約かどうか
 const isKeywordAutoReservation = computed(() => {
@@ -339,9 +351,10 @@ const confirmDelete = async () => {
     }
 };
 
-// 予約追加処理（デフォルトプリセットで追加）
+// 予約追加処理
+// mock の予約に含まれる record_settings (ユーザーがカスタマイズ可能) を使用して追加
 const handleAddReservation = async () => {
-    if (isAdding.value || !displayProgram.value) return;
+    if (isAdding.value || !displayProgram.value || !props.reservation) return;
 
     // EDCB バックエンドでない場合はエラー
     if (!isEDCBBackend.value) {
@@ -351,27 +364,19 @@ const handleAddReservation = async () => {
 
     isAdding.value = true;
     try {
-        // デフォルトの録画設定を使用
-        // TODO: デフォルトの録画設定プリセットをサーバー (EDCB) から取得する
-        const defaultRecordSettings: IRecordSettings = {
-            is_enabled: true,
-            priority: 2,
-            recording_folders: [],
-            recording_start_margin: null,
-            recording_end_margin: null,
-            recording_mode: 'SpecifiedService',
-            caption_recording_mode: 'Default',
-            data_broadcasting_recording_mode: 'Default',
-            post_recording_mode: 'Default',
-            post_recording_bat_file_path: null,
-            is_event_relay_follow_enabled: true,
-            is_exact_recording_enabled: false,
-            is_oneseg_separate_output_enabled: false,
-            is_sequential_recording_in_single_file_enabled: false,
-            forced_tuner_id: null,
-        };
+        // バリデーションチェック (保存処理と同じ)
+        const recordSettings = currentSettings.value ?? props.reservation.record_settings;
+        const captionIsDefault = recordSettings.caption_recording_mode === 'Default';
+        const dataBroadcastingIsDefault = recordSettings.data_broadcasting_recording_mode === 'Default';
+        if (captionIsDefault !== dataBroadcastingIsDefault) {
+            Message.warning('字幕データ録画設定・データ放送録画設定を明示的に設定する際は、両方とも「デフォルト設定を使う」以外に設定してください。');
+            isAdding.value = false;
+            return;
+        }
 
-        const success = await Reservations.addReservation(displayProgram.value.id, defaultRecordSettings);
+        // mock の予約に含まれる record_settings を使用
+        // ユーザーが録画設定タブで設定をカスタマイズしていればその設定が使われる
+        const success = await Reservations.addReservation(displayProgram.value.id, recordSettings);
         if (success) {
             Message.success('録画予約を追加しました。');
             emit('added');
@@ -452,11 +457,6 @@ const handleAddReservation = async () => {
         display: flex;
         flex: 1;
         padding-left: 48px;
-
-        // タブが1つだけの場合（録画設定タブが非表示）
-        &--single {
-            padding-left: 0;
-        }
     }
 
     &__tab {
