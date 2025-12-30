@@ -177,8 +177,11 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - 文字列にはシングルクォートを用いる
 - 新規で実装する箇所に関しては Vue 3 Composition API パターンに従う
   - Vue.js 2 から移行した関係で Options API で書かれているコンポーネントがあるが、それらは Options API のまま維持する
+- 新規で実装する Vue 3 Composition API のコンポーネントでは、原則として変数を lowerCamelCase で命名する
+  - FastAPI サーバーでは snake_case で命名している関係で外部 API のフィールドは全てスネークケースになっているが、これはそのまま参照して良い
 - TypeScript による型安全性を確保する
 - コンポーネント属性は可能な限り1行に記述 (約100文字まで)
+- 必ず day.js を utils/index.ts からインポートして使うこと！！！new Date() を絶対に使うな！！！
 
 ### CSS / SCSS スタイリング
 - このプロジェクトで使用している色 (CSS 変数) などは `client/src/App.vue` や `client/src/plugins/vuetify.ts` に定義しているので、それを参照すること
