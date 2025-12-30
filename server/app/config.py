@@ -53,7 +53,7 @@ class ClientSettings(BaseModel):
     timetable_channel_width: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
     timetable_hour_height: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
     timetable_hover_expand: bool = False
-    # 番組表のジャンル別ハイライトカラー
+    # 番組表のジャンル別のハイライト色
     # キーはジャンル名 (大分類)、値はハイライトカラー
     # クライアント側の ILocalClientSettingsDefault.timetable_genre_colors と一致させる必要がある
     timetable_genre_colors: dict[str, Literal['White', 'Yellow', 'Lime', 'Blue', 'Pink', 'Red', 'Orange', 'Brown', 'Teal']] = {

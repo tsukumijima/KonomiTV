@@ -12,6 +12,25 @@ export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', 
 export type VideoStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
 export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
+// 番組表関連の型定義
+export type TimeTableSizeOption = 'Wide' | 'Normal' | 'Narrow';
+export type TimeTableGenreHighlightColor = 'White' | 'Yellow' | 'Lime' | 'Blue' | 'Pink' | 'Red' | 'Orange' | 'Brown' | 'Teal';
+export interface ITimeTableGenreColors {
+    'ニュース・報道': TimeTableGenreHighlightColor;
+    'スポーツ': TimeTableGenreHighlightColor;
+    '情報・ワイドショー': TimeTableGenreHighlightColor;
+    'ドラマ': TimeTableGenreHighlightColor;
+    '音楽': TimeTableGenreHighlightColor;
+    'バラエティ': TimeTableGenreHighlightColor;
+    '映画': TimeTableGenreHighlightColor;
+    'アニメ・特撮': TimeTableGenreHighlightColor;
+    'ドキュメンタリー・教養': TimeTableGenreHighlightColor;
+    '劇場・公演': TimeTableGenreHighlightColor;
+    '趣味・教育': TimeTableGenreHighlightColor;
+    '福祉': TimeTableGenreHighlightColor;
+    'その他': TimeTableGenreHighlightColor;
+}
+
 /**
  * LocalStorage に保存される KonomiTV の設定データ
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
@@ -38,13 +57,17 @@ export interface ILocalClientSettings extends IClientSettings {
     lshaped_screen_crop_y_position: number;
     lshaped_screen_crop_zoom_origin: 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
     pinned_channel_ids: string[];
-    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
-    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    timetable_channel_width: TimeTableSizeOption;
+    timetable_hour_height: TimeTableSizeOption;
+    timetable_hover_expand: boolean;
+    timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
+    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
+    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
+    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
@@ -125,16 +148,38 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // L字画面のクロップの拡大起点 (Default: 右下)
     lshaped_screen_crop_zoom_origin: 'BottomRight',
 
-    // ***** 設定 → 全般 *****
+    // ***** ピン留め中チャンネルの並び替え設定 *****
 
     // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
     pinned_channel_ids: [],
-    // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
-    panel_display_state: 'RestorePreviousState',
-    // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
-    tv_panel_active_tab: 'Program',
-    // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
-    video_panel_active_tab: 'RecordedProgram',
+
+    // ***** 番組表の表示設定 *****
+
+    // 番組表のチャンネル名の表示幅を調整する設定 (Default: 通常)
+    timetable_channel_width: 'Normal',
+    // 番組表の時間軸の表示密度を調整する設定 (Default: 通常)
+    timetable_hour_height: 'Normal',
+    // PC でマウスを番組に重ねた時に、クリックせずに番組詳細を自動表示する設定 (Default: オフ)
+    timetable_hover_expand: false,
+    // 番組表のジャンル別のハイライト色 (Default: 以下の通り)
+    timetable_genre_colors: {
+        'ニュース・報道': 'White',
+        'スポーツ': 'White',
+        '情報・ワイドショー': 'White',
+        'ドラマ': 'White',
+        '音楽': 'White',
+        'バラエティ': 'White',
+        '映画': 'White',
+        'アニメ・特撮': 'White',
+        'ドキュメンタリー・教養': 'White',
+        '劇場・公演': 'White',
+        '趣味・教育': 'White',
+        '福祉': 'White',
+        'その他': 'White',
+    },
+
+    // ***** 設定 → 全般 *****
+
     // プレイヤーの読み込み中に背景写真を表示する (Default: オン)
     show_player_background_image: true,
     // プレイヤー表示領域の背景色を完全な黒にする (Default: オフ)
@@ -143,6 +188,12 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_channel_selection_requires_alt_key: false,
     // 時刻を 28 時間表記で表示する (Default: オフ)
     use_28hour_clock: false,
+    // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
+    panel_display_state: 'RestorePreviousState',
+    // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
+    tv_panel_active_tab: 'Program',
+    // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
+    video_panel_active_tab: 'RecordedProgram',
 
     // ***** 設定 → 画質 *****
 
@@ -268,13 +319,17 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // lshaped_screen_crop_y_position: 同期無効
     // lshaped_screen_crop_zoom_origin: 同期無効
     'pinned_channel_ids',
-    'panel_display_state',
-    'tv_panel_active_tab',
-    'video_panel_active_tab',
+    'timetable_channel_width',
+    'timetable_hour_height',
+    'timetable_hover_expand',
+    'timetable_genre_colors',
     'show_player_background_image',
     'use_pure_black_player_background',
     'tv_channel_selection_requires_alt_key',
     'use_28hour_clock',
+    'panel_display_state',
+    'tv_panel_active_tab',
+    'video_panel_active_tab',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効

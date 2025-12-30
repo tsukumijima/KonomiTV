@@ -206,9 +206,10 @@ class Programs {
     ): Promise<ITimeTable | null> {
 
         // API リクエストのパラメータを構築
+        // toISOString() は UTC で出力されるため、JST タイムゾーン付きの ISO 8601 形式で送信する
         const params = new URLSearchParams();
-        params.set('start_time', start_time.toISOString());
-        params.set('end_time', end_time.toISOString());
+        params.set('start_time', start_time.format('YYYY-MM-DDTHH:mm:ssZ'));
+        params.set('end_time', end_time.format('YYYY-MM-DDTHH:mm:ssZ'));
 
         // channel_type を指定
         if (channel_type !== undefined) {
