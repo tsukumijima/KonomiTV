@@ -1,15 +1,19 @@
 
+import json
 from datetime import datetime, timedelta
-from typing import Annotated, cast
+from typing import Annotated, Any, Literal, cast
 from zoneinfo import ZoneInfo
 
 import ariblib.constants
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
+from pydantic import TypeAdapter
+from tortoise import connections
 
-from app import schemas
+from app import logging, schemas
+from app.config import Config
 from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
-from app.utils.edcb import EventInfo, SearchKeyInfo
+from app.utils.edcb import EventInfo, ReserveDataRequired, SearchKeyInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.TSInformation import TSInformation
@@ -217,3 +221,332 @@ async def ProgramSearchAPI(
     programs = [DecodeEDCBEventInfo(event_info) for event_info in event_info_list]
 
     return schemas.Programs(total=len(programs), programs=programs)
+
+
+@router.get(
+    '/timetable',
+    summary = '番組表 API',
+    response_description = '番組表データ。チャンネルごとの番組リストと日付範囲を含む。',
+    response_model = schemas.TimeTable,
+)
+async def TimeTableAPI(
+    start_time: Annotated[datetime | None, Query(description='取得開始日時 (ISO8601 形式)。省略時は現在時刻。')] = None,
+    end_time: Annotated[datetime | None, Query(description='取得終了日時 (ISO8601 形式)。省略時は DB に存在する最終日時。')] = None,
+    channel_type: Annotated[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'] | None, Query(description='チャンネル種別。省略時は全種別。')] = None,
+    pinned_channel_ids: Annotated[str | None, Query(description='チャンネル ID のカンマ区切りリスト (ピン留めチャンネル用)。指定時は channel_type より優先される。')] = None,
+):
+    """
+    番組表データを取得する。<br>
+    チャンネルごとの番組リストと、番組データの有効日付範囲を含む。<br>
+    EDCB バックエンド時は各番組の予約情報も含む。
+    """
+
+    # 現在時刻
+    now = datetime.now(ZoneInfo('Asia/Tokyo'))
+
+    # 開始時刻のデフォルト値: 現在時刻
+    if start_time is None:
+        start_time = now
+
+    # タイムゾーンが指定されていない場合は JST として扱う
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+
+    # データベースの生のコネクションを取得
+    connection = connections.get('default')
+
+    # 番組データの日付範囲を取得 (日付セレクター用)
+    date_range_result = await connection.execute_query_dict(
+        'SELECT MIN(start_time) AS earliest, MAX(end_time) AS latest FROM programs'
+    )
+    earliest_str = date_range_result[0]['earliest'] if date_range_result else None
+    latest_str = date_range_result[0]['latest'] if date_range_result else None
+
+    # 日付文字列を datetime に変換 (SQLite は文字列で保存されている)
+    if earliest_str:
+        earliest = datetime.fromisoformat(earliest_str.replace(' ', 'T'))
+        if earliest.tzinfo is None:
+            earliest = earliest.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+    else:
+        earliest = now
+
+    if latest_str:
+        latest = datetime.fromisoformat(latest_str.replace(' ', 'T'))
+        if latest.tzinfo is None:
+            latest = latest.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+    else:
+        latest = now + timedelta(days=7)
+
+    # 終了時刻のデフォルト値: DB に存在する最終日時
+    if end_time is None:
+        end_time = latest
+
+    # タイムゾーンが指定されていない場合は JST として扱う
+    if end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+
+    # チャンネル ID リストをパース
+    target_channel_ids: list[str] | None = None
+    if pinned_channel_ids is not None and pinned_channel_ids.strip() != '':
+        target_channel_ids = [cid.strip() for cid in pinned_channel_ids.split(',') if cid.strip()]
+
+    # チャンネル情報を raw SQL で取得 (Tortoise ORM のオーバーヘッドを回避)
+    if target_channel_ids is not None:
+        # 指定されたチャンネル ID のチャンネルのみ取得
+        placeholders = ','.join(['?' for _ in target_channel_ids])
+        channels_query = f"""
+            SELECT
+                id, display_channel_id, network_id, service_id, transport_stream_id,
+                remocon_id, channel_number, type, name, jikkyo_force,
+                is_subchannel, is_radiochannel, is_watchable
+            FROM channels
+            WHERE id IN ({placeholders}) AND is_watchable = 1
+        """
+        channels_result = await connection.execute_query_dict(channels_query, target_channel_ids)
+        # 指定された順序でソート
+        channel_id_order = {cid: idx for idx, cid in enumerate(target_channel_ids)}
+        channels_result.sort(key=lambda c: channel_id_order.get(c['id'], float('inf')))  # type: ignore[arg-type]
+    elif channel_type is not None:
+        # 指定されたチャンネル種別のチャンネルのみ取得
+        channels_query = """
+            SELECT
+                id, display_channel_id, network_id, service_id, transport_stream_id,
+                remocon_id, channel_number, type, name, jikkyo_force,
+                is_subchannel, is_radiochannel, is_watchable
+            FROM channels
+            WHERE type = ? AND is_watchable = 1
+            ORDER BY channel_number, remocon_id
+        """
+        channels_result = await connection.execute_query_dict(channels_query, [channel_type])
+    else:
+        # 全チャンネル取得
+        channels_query = """
+            SELECT
+                id, display_channel_id, network_id, service_id, transport_stream_id,
+                remocon_id, channel_number, type, name, jikkyo_force,
+                is_subchannel, is_radiochannel, is_watchable
+            FROM channels
+            WHERE is_watchable = 1
+            ORDER BY channel_number, remocon_id
+        """
+        channels_result = await connection.execute_query_dict(channels_query)
+
+    # チャンネルがない場合は空のレスポンスを返す
+    if not channels_result:
+        return schemas.TimeTable(
+            channels=[],
+            date_range=schemas.TimeTableDateRange(earliest=earliest, latest=latest),
+        )
+
+    # チャンネル行データの真偽値を変換 (SQLite では 0/1)
+    for channel_row in channels_result:
+        channel_row['is_subchannel'] = bool(channel_row['is_subchannel'])
+        channel_row['is_radiochannel'] = bool(channel_row['is_radiochannel'])
+        channel_row['is_watchable'] = bool(channel_row['is_watchable'])
+
+    # 各 TS (network_id, transport_stream_id) ごとに、サブチャンネルの8時間ルール判定を行う
+    # まず TS ごとにグループ化
+    ts_channels: dict[tuple[int, int | None], list[dict[str, Any]]] = {}
+    for channel_row in channels_result:
+        ts_key = (channel_row['network_id'], channel_row['transport_stream_id'])
+        if ts_key not in ts_channels:
+            ts_channels[ts_key] = []
+        ts_channels[ts_key].append(channel_row)
+
+    # サブチャンネル放送時間の集計を1つのクエリで取得
+    # 全チャンネルの network_id と transport_stream_id の組み合わせに対して一括取得
+    # これにより TS ごとに個別クエリを実行する N+1 問題を回避
+    subchannel_durations_query = """
+        SELECT
+            c.network_id,
+            c.transport_stream_id,
+            p.service_id,
+            DATE(p.start_time, '-4 hours') AS broadcast_date,
+            SUM(p.duration) AS total_duration
+        FROM programs p
+        INNER JOIN channels c ON p.channel_id = c.id
+        WHERE c.is_subchannel = 1
+        GROUP BY c.network_id, c.transport_stream_id, p.service_id, broadcast_date
+    """
+    subchannel_durations_result = await connection.execute_query_dict(subchannel_durations_query)
+
+    # サブチャンネル放送時間を TS キー -> サービス ID -> 日付 -> 放送時間 の形式に整理
+    subchannel_durations_by_ts: dict[tuple[int, int | None], dict[int, dict[str, float]]] = {}
+    for row in subchannel_durations_result:
+        ts_key = (row['network_id'], row['transport_stream_id'])
+        service_id = row['service_id']
+        broadcast_date = row['broadcast_date']
+        total_duration = row['total_duration'] or 0
+
+        if ts_key not in subchannel_durations_by_ts:
+            subchannel_durations_by_ts[ts_key] = {}
+        if service_id not in subchannel_durations_by_ts[ts_key]:
+            subchannel_durations_by_ts[ts_key][service_id] = {}
+        subchannel_durations_by_ts[ts_key][service_id][broadcast_date] = total_duration
+
+    # 8時間ルールに基づいて独立サブチャンネルを判定
+    # 閾値: 8時間 = 28800秒
+    INDEPENDENT_SUBCHANNEL_THRESHOLD = 8 * 3600
+    independent_subchannels_by_ts: dict[tuple[int, int | None], set[int]] = {}
+    for ts_key, durations_by_service in subchannel_durations_by_ts.items():
+        independent_subchannels: set[int] = set()
+        for service_id, daily_durations in durations_by_service.items():
+            # いずれかの日で閾値以上の放送時間があれば独立チャンネルとして判定
+            for duration in daily_durations.values():
+                if duration >= INDEPENDENT_SUBCHANNEL_THRESHOLD:
+                    independent_subchannels.add(service_id)
+                    break
+        independent_subchannels_by_ts[ts_key] = independent_subchannels
+
+    # 番組情報を取得するためのチャンネル ID リストを構築
+    channel_ids_for_query = [c['id'] for c in channels_result]
+
+    # 番組情報を取得
+    programs_placeholders = ','.join(['?' for _ in channel_ids_for_query])
+    programs_query = f"""
+        SELECT *
+        FROM programs
+        WHERE
+            channel_id IN ({programs_placeholders})
+            AND (
+                -- 指定期間内に開始する番組
+                (start_time >= ? AND start_time < ?)
+                OR
+                -- 指定期間内に終了する番組 (開始は期間前でも可)
+                (end_time > ? AND end_time <= ?)
+                OR
+                -- 期間をまたぐ番組 (開始は期間前、終了は期間後)
+                (start_time < ? AND end_time > ?)
+            )
+        ORDER BY channel_id, start_time
+    """
+
+    programs_params: list[Any] = [
+        *channel_ids_for_query,
+        start_time, end_time,  # 期間内に開始
+        start_time, end_time,  # 期間内に終了
+        start_time, end_time,  # 期間をまたぐ
+    ]
+
+    programs_result = await connection.execute_query_dict(programs_query, programs_params)
+
+    # EDCB バックエンドの場合は予約情報を取得
+    reservations_by_program_id: dict[str, dict[str, Any]] = {}
+    if Config().general.backend == 'EDCB':
+        try:
+            edcb = CtrlCmdUtil()
+            reserve_data_list: list[ReserveDataRequired] | None = await edcb.sendEnumReserve()
+            if reserve_data_list is not None:
+                # 録画中判定を行う時間範囲 (現在時刻の2時間前〜2時間後)
+                # 番組延長や繰り上げを考慮して余裕を持たせる
+                recording_check_start = now - timedelta(hours=2)
+                recording_check_end = now + timedelta(hours=2)
+
+                for reserve_data in reserve_data_list:
+                    # 番組 ID を構築
+                    program_id = f'NID{reserve_data["onid"]}-SID{reserve_data["sid"]:03d}-EID{reserve_data["eid"]}'
+
+                    # 予約状態を判定
+                    status: Literal['Reserved', 'Recording', 'Disabled']
+                    rec_mode = reserve_data.get('rec_setting', {}).get('rec_mode', 1)
+                    if rec_mode >= 5:  # 5以上は無効
+                        status = 'Disabled'
+                    else:
+                        # 予約の開始・終了時刻を計算
+                        reserve_start = reserve_data['start_time']
+                        reserve_end = reserve_start + timedelta(seconds=reserve_data['duration_second'])
+
+                        # 現在時刻付近の番組のみ録画中かどうかを判定 (N+1 問題の回避)
+                        # 明らかに録画中でない番組に対して EDCB にクエリを発行しても無駄なので、
+                        # 録画中判定の時間範囲内 (現在時刻の前後2時間) にある番組のみチェックする
+                        if reserve_start <= recording_check_end and reserve_end >= recording_check_start:
+                            is_recording = type(await edcb.sendGetRecFilePath(reserve_data['reserve_id'])) is str
+                            status = 'Recording' if is_recording else 'Reserved'
+                        else:
+                            status = 'Reserved'
+
+                    # 録画可能状態
+                    recording_availability: Literal['Full', 'Partial', 'Unavailable'] = 'Full'
+                    if reserve_data['overlap_mode'] == 1:
+                        recording_availability = 'Partial'
+                    elif reserve_data['overlap_mode'] == 2:
+                        recording_availability = 'Unavailable'
+
+                    reservations_by_program_id[program_id] = {
+                        'id': reserve_data['reserve_id'],
+                        'status': status,
+                        'recording_availability': recording_availability,
+                    }
+        except Exception as ex:
+            # 予約情報の取得に失敗しても番組表自体は返す
+            logging.warning(f'[ProgramsRouter][TimeTableAPI] Failed to get reservations: {ex}')
+
+    # チャンネルごとに番組をグループ化
+    programs_by_channel: dict[str, list[dict[str, Any]]] = {c['id']: [] for c in channels_result}
+    for program_row in programs_result:
+        channel_id = program_row['channel_id']
+        if channel_id in programs_by_channel:
+            # JSON フィールドをデコード
+            program_row['detail'] = json.loads(program_row['detail']) if program_row['detail'] else {}
+            program_row['genres'] = json.loads(program_row['genres']) if program_row['genres'] else []
+
+            # 日時文字列を ISO8601 形式に変換
+            program_row['start_time'] = program_row['start_time'].replace(' ', 'T')
+            program_row['end_time'] = program_row['end_time'].replace(' ', 'T')
+
+            # 真偽値を変換 (SQLite では 0/1)
+            program_row['is_free'] = bool(program_row['is_free'])
+
+            # 予約情報を追加
+            program_id = program_row['id']
+            if program_id in reservations_by_program_id:
+                program_row['reservation'] = reservations_by_program_id[program_id]
+            else:
+                program_row['reservation'] = None
+
+            programs_by_channel[channel_id].append(program_row)
+
+    # レスポンスを構築
+    result_channels: list[dict[str, Any]] = []
+
+    for channel_row in channels_result:
+        ts_key = (channel_row['network_id'], channel_row['transport_stream_id'])
+        independent_subchannels = independent_subchannels_by_ts.get(ts_key, set())
+
+        # このチャンネルがサブチャンネルかつ独立サブチャンネルでない場合はスキップ
+        # (メインチャンネルの subchannel_programs に含める)
+        if channel_row['is_subchannel'] and channel_row['service_id'] not in independent_subchannels:
+            continue
+
+        # 番組リスト
+        programs_list = programs_by_channel.get(channel_row['id'], [])
+
+        # サブチャンネルの番組を収集 (8時間未満のサブチャンネルのみ)
+        subchannel_programs: dict[str, list[dict[str, Any]]] | None = None
+        if not channel_row['is_subchannel']:
+            # メインチャンネルの場合、同一 TS 内のサブチャンネル番組を収集
+            ts_channel_list = ts_channels.get(ts_key, [])
+            for sub_channel_row in ts_channel_list:
+                # サブチャンネルかつ独立サブチャンネルでない場合のみ
+                if sub_channel_row['is_subchannel'] and sub_channel_row['service_id'] not in independent_subchannels:
+                    sub_programs = programs_by_channel.get(sub_channel_row['id'], [])
+                    if sub_programs:
+                        if subchannel_programs is None:
+                            subchannel_programs = {}
+                        # キーはチャンネル ID (NID32736-SID1024 形式) を使用
+                        subchannel_programs[sub_channel_row['id']] = sub_programs
+
+        result_channels.append({
+            'channel': channel_row,
+            'programs': programs_list,
+            'subchannel_programs': subchannel_programs,
+        })
+
+    # Pydantic v2 は Rust バックエンドにより高速化されているため、モデルを直接返す
+    # result_channels のみを TypeAdapter で一括バリデートし、date_range は直接構築する
+    channels_adapter = TypeAdapter(list[schemas.TimeTableChannel])
+    validated_channels = channels_adapter.validate_python(result_channels)
+    return schemas.TimeTable(
+        channels=validated_channels,
+        date_range=schemas.TimeTableDateRange(earliest=earliest, latest=latest),
+    )

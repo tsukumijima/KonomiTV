@@ -84,6 +84,45 @@ class Genre(TypedDict):
     major: str
     middle: str
 
+# ***** 番組表 *****
+
+class TimeTable(BaseModel):
+    # チャンネルごとの番組リスト
+    channels: list[TimeTableChannel]
+    # 番組データの有効範囲 (日付セレクター用)
+    date_range: TimeTableDateRange
+
+class TimeTableDateRange(BaseModel):
+    # 番組データの最も早い日時
+    earliest: datetime
+    # 番組データの最も遅い日時
+    latest: datetime
+
+class TimeTableChannel(BaseModel):
+    # チャンネル情報
+    channel: Channel
+    # 番組リスト
+    programs: list[TimeTableProgram]
+    # サブチャンネルの番組リスト (8時間ルールに該当しないサブチャンネルのみ)
+    ## キーはチャンネル ID (NID32736-SID1024 形式)、値はサブチャンネルの番組リスト
+    ## 8時間ルール: 同一 TS 内のサブチャンネルが1日あたり8時間以上放送されている場合、
+    ## そのサブチャンネルは独立したチャンネル列として表示される (この場合、このフィールドには含まれない)
+    subchannel_programs: dict[str, list[TimeTableProgram]] | None = None
+
+class TimeTableProgram(Program):
+    # 予約情報 (EDCB バックエンド時かつ予約がある場合のみ設定)
+    reservation: TimeTableProgramReservation | None = None
+
+class TimeTableProgramReservation(BaseModel):
+    # 録画予約 ID
+    id: int
+    # 予約状態: 予約済み / 録画中 / 無効
+    status: Literal['Reserved', 'Recording', 'Disabled']
+    # 実際に録画可能かどうか: 全編録画可能 / チューナー不足のため部分的にのみ録画可能 (一部録画できない) / チューナー不足のため全編録画不可能
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
+    recording_availability: Literal['Full', 'Partial', 'Unavailable']
+
 # ***** 録画ファイル *****
 
 class RecordedVideo(PydanticModel):
