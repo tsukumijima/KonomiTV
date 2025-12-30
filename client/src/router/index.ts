@@ -50,6 +50,21 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
+            path: '/timetable/',
+            name: 'TimeTable',
+            component: () => import('@/views/TimeTable.vue'),
+        },
+        {
+            path: '/reservations/',
+            name: 'Reservations',
+            component: () => import('@/views/Reservations/Home.vue'),
+        },
+        {
+            path: '/reservations/all',
+            name: 'Reservations All',
+            component: () => import('@/views/Reservations/Reservations.vue'),
+        },
+        {
             path: '/mylist/',
             name: 'Mylist',
             component: () => import('@/views/Mylist.vue'),
@@ -132,16 +147,6 @@ const router = createRouter({
             path: '/register/',
             name: 'Register',
             component: () => import('@/views/Register.vue'),
-        },
-        {
-            path: '/reservations/',
-            name: 'Reservations',
-            component: () => import('@/views/Reservations/Home.vue'),
-        },
-        {
-            path: '/reservations/all',
-            name: 'Reservations All',
-            component: () => import('@/views/Reservations/Reservations.vue'),
         },
         {
             path: '/:pathMatch(.*)*',

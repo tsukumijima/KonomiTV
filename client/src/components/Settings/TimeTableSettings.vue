@@ -301,7 +301,7 @@ watch(dialogOpen, (value) => {
     flex-shrink: 0;
     font-size: 14px;
     color: rgb(var(--v-theme-text));
-    min-width: 140px;
+    min-width: 155px;
 }
 
 .timetable-settings-dialog__genre-select {

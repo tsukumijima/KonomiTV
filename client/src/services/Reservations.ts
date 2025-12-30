@@ -72,6 +72,28 @@ export interface IReservationUpdateRequest {
     record_settings: IRecordSettings;
 }
 
+/**
+ * 録画設定のデフォルト値
+ * 新規予約追加時に使用する
+ */
+export const IRecordSettingsDefault: IRecordSettings = {
+    is_enabled: true,
+    priority: 2,
+    recording_folders: [],
+    recording_start_margin: null,
+    recording_end_margin: null,
+    recording_mode: 'SpecifiedService',
+    caption_recording_mode: 'Default',
+    data_broadcasting_recording_mode: 'Default',
+    post_recording_mode: 'Default',
+    post_recording_bat_file_path: null,
+    is_event_relay_follow_enabled: true,
+    is_exact_recording_enabled: false,
+    is_oneseg_separate_output_enabled: false,
+    is_sequential_recording_in_single_file_enabled: false,
+    forced_tuner_id: null,
+};
+
 
 /**
  * 録画予約に関する API 操作を提供するクラス

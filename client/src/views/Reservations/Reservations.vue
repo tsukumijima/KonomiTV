@@ -197,7 +197,7 @@ watch(() => route.query, async (newQuery) => {
     updateDisplayData();
 }, { deep: true });
 
-// all_reservations の変更を監視して表示データを更新
+// allReservations の変更を監視して表示データを更新
 watch(() => allReservations.value, () => {
     updateDisplayData();
 }, { deep: true });
