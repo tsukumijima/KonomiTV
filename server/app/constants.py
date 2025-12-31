@@ -1,4 +1,6 @@
 
+import base64
+import hashlib
 import pkgutil
 import secrets
 import sys
@@ -6,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
+from cryptography.fernet import Fernet
 from passlib.context import CryptContext
 from pydantic import BaseModel, PositiveInt
 
@@ -91,43 +94,43 @@ LOGGING_CONFIG: dict[str, Any] = {
         'default': {
             '()': 'uvicorn.logging.DefaultFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(message)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(message)s',
         },
         'default_file': {
             '()': 'uvicorn.logging.DefaultFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(message)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(message)s',
             'use_colors': False,  # ANSI エスケープシーケンスを出力しない
         },
         # サーバーログ (デバッグ) 用のログフォーマッター
         'debug': {
             '()': 'uvicorn.logging.DefaultFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
-                '                                %(message)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
+            '                                %(message)s',
         },
         'debug_file': {
             '()': 'uvicorn.logging.DefaultFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
-                '                                %(message)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(pathname)s:%(lineno)s:\n'
+            '                                %(message)s',
             'use_colors': False,  # ANSI エスケープシーケンスを出力しない
         },
         # アクセスログ用のログフォーマッター
         'access': {
             '()': 'uvicorn.logging.AccessFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
         },
         'access_file': {
             '()': 'uvicorn.logging.AccessFormatter',
             'datefmt': '%Y/%m/%d %H:%M:%S',
-            'format': '[%(asctime)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            'format': '[%(asctime)s.%(msecs)03d] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
             'use_colors': False,  # ANSI エスケープシーケンスを出力しない
         },
     },
     'handlers': {
-        ## サーバーログは標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
+        # サーバーログは標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
         'default': {
             'formatter': 'default',
             'class': 'logging.StreamHandler',
@@ -140,7 +143,7 @@ LOGGING_CONFIG: dict[str, Any] = {
             'mode': 'a',
             'encoding': 'utf-8',
         },
-        ## サーバーログ (デバッグ) は標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
+        # サーバーログ (デバッグ) は標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
         'debug': {
             'formatter': 'debug',
             'class': 'logging.StreamHandler',
@@ -153,7 +156,7 @@ LOGGING_CONFIG: dict[str, Any] = {
             'mode': 'a',
             'encoding': 'utf-8',
         },
-        ## アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
+        # アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
         'access': {
             'formatter': 'access',
             'class': 'logging.StreamHandler',
@@ -365,6 +368,15 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
 ## jwt_secret.dat からシークレットキーをロードする
 with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as file:
     JWT_SECRET_KEY = file.read().strip()
+
+# 暗号化された Cookie の接頭辞
+TWITTER_ACCOUNT_COOKIE_ENCRYPTION_PREFIX = 'enc:'
+# Cookie の暗号化に使う Fernet の暗号化キー
+TWITTER_ACCOUNT_COOKIE_FERNET_KEY = base64.urlsafe_b64encode(
+    hashlib.sha256(JWT_SECRET_KEY.encode('utf-8')).digest(),
+)
+# Cookie の暗号化に使う Fernet のインスタンス
+TWITTER_ACCOUNT_COOKIE_FERNET = Fernet(TWITTER_ACCOUNT_COOKIE_FERNET_KEY)
 
 # パスワードハッシュ化のための設定
 PASSWORD_CONTEXT = CryptContext(

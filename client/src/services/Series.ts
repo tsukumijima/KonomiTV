@@ -29,6 +29,7 @@ export interface ISeriesBroadcastPeriod {
     recorded_programs: IRecordedProgram[];
 }
 
+
 class Series {
 
     /**

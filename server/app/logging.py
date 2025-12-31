@@ -23,21 +23,9 @@ logging.config.dictConfig(LOGGING_CONFIG)
 
 # ロガーを取得
 logger = logging.getLogger('uvicorn')
-logger_debug = logging.getLogger('uvicorn.debug')
 
 
 def debug(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
-    """
-    デバッグログを出力する
-
-    Args:
-        message (Any): ログメッセージ
-    """
-    if Config().general.debug is True:
-        logger_debug.debug(message, *args, exc_info=exc_info, stacklevel=2)
-
-
-def debug_simple(message: Any, *args: Any, exc_info: BaseException | bool | None = None) -> None:
     """
     デバッグログを出力する (スクリプトパス・行番号を出力しない)
 

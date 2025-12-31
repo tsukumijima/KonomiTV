@@ -103,23 +103,17 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルをダウンロード ({{ Utils.formatBytes(program.recorded_video.file_size) }})</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="reanalyzeVideo" v-ftooltip="'再生時に必要な録画ファイル情報や番組情報などを解析し直します'">
+                        <v-list-item @click="reanalyzeVideo" v-ftooltip="'再生時に必要な録画ファイル情報・番組情報・サムネイルなどをすべて再解析・再生成します（数分かかります）'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:book-arrow-clockwise-20-regular" width="20px" height="20px" />
                             </template>
                             <v-list-item-title class="ml-3">メタデータを再解析</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="regenerateThumbnail(true)" v-ftooltip="'既存のシークバー用サムネイルから代表サムネイルを選び直します 変更反映にはブラウザキャッシュの削除が必要です'">
+                        <v-list-item @click="regenerateThumbnail()" v-ftooltip="'サムネイルのみを再生成します（数分かかります） 変更を反映するにはブラウザキャッシュの削除が必要です'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
-                            <v-list-item-title class="ml-3">サムネイルを更新</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item @click="regenerateThumbnail(false)" v-ftooltip="'サムネイルを完全に作り直します（数分かかります） 変更反映にはブラウザキャッシュの削除が必要です'">
-                            <template v-slot:prepend>
-                                <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
-                            </template>
-                            <v-list-item-title class="ml-3">サムネイルを再作成</v-list-item-title>
+                            <v-list-item-title class="ml-3">サムネイルを再生成</v-list-item-title>
                         </v-list-item>
                         <v-divider></v-divider>
                         <v-list-item @click="showDeleteConfirmation" :disabled="program.recorded_video.status === 'Recording'" class="recorded-program__menu-list-item--danger">
@@ -205,12 +199,12 @@ const reanalyzeVideo = async () => {
     }
 };
 
-// サムネイル再作成
-const regenerateThumbnail = async (skip_tile_if_exists: boolean = false) => {
-    Message.success('サムネイルの再作成を開始しました。完了までしばらくお待ちください。');
-    const result = await Videos.regenerateThumbnail(props.program.id, skip_tile_if_exists);
+// サムネイル再生成
+const regenerateThumbnail = async () => {
+    Message.success('サムネイルの再生成を開始しました。完了までしばらくお待ちください。');
+    const result = await Videos.regenerateThumbnail(props.program.id);
     if (result === true) {
-        Message.success('サムネイルの再作成が完了しました。');
+        Message.success('サムネイルの再生成が完了しました。');
     }
 };
 

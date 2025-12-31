@@ -21,7 +21,6 @@ class RecordedVideo(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'recorded_videos'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.IntField(pk=True)
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)

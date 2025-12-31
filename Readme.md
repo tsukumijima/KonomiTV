@@ -44,6 +44,11 @@
   - [デスクトップアプリ・スマホアプリとして使う](#デスクトップアプリスマホアプリとして使う)
   - [フィードバックのお願い](#フィードバックのお願い)
 - [付録](#付録)
+  - [Twitter 実況機能について](#twitter-実況機能について)
+    - [1. Chrome 拡張機能「GET cookies.txt LOCALLY」をインストールする](#1-chrome-拡張機能get-cookiestxt-locallyをインストールする)
+    - [2. シークレットウインドウで Web 版 Twitter にログインする](#2-シークレットウインドウで-web-版-twitter-にログインする)
+    - [3. Chrome 拡張機能を起動して Cookie データをエクスポートする](#3-chrome-拡張機能を起動して-cookie-データをエクスポートする)
+    - [4. KonomiTV の設定画面で Cookie データを入力する](#4-konomitv-の設定画面で-cookie-データを入力する)
   - [`https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について](#httpsaa-bb-cc-ddlocalkonomitv7000-の-url-について)
   - [設定ファイルの編集](#設定ファイルの編集)
     - [バックエンドの設定](#バックエンドの設定)
@@ -131,6 +136,9 @@
     - 240622 以降で実装された Linux 版 EDCB での動作確認は行っていません。私の開発環境では [EDCB-Wine](https://github.com/tsukumijima/EDCB-Wine) で安定稼働しています。
   - **Mirakurun は 3.9.0 以降を推奨します。**
     - 3.8.0 以下のバージョンでも動作しますが、諸問題で推奨しません。
+    - **Mirakurun 4.0.0-beta.5 以下のバージョンでは、KonomiTV の起動時のバージョン情報取得によりドロップが発生する問題があります。**
+      - この問題を回避するには、KonomiTV を 0.13.0 以降に更新するか、Mirakurun を 4.0.0-beta.6 以降に更新する必要があります。
+      - 詳細は [こちらのツイートスレッド](https://x.com/TVRemotePlus/status/1982242605200011590) をご確認ください。
   - **Mirakurun 互換チューナーサーバーである [mirakc](https://github.com/mirakc/mirakc) も利用できます。**
     - 動作確認は最新版のみで行っています。
     - mirakc は局ロゴの収集に対応していないため、局ロゴが同梱されていないチャンネルでは、常にデフォルトの局ロゴが利用されます。
@@ -274,16 +282,17 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 
 #### Windows
 
-- QSVEncC：[Intel Graphics Driver](https://downloadcenter.intel.com/ja/product/80939/Graphics-Drivers)
+- QSVEncC：[Intel Graphics Driver](https://www.intel.co.jp/content/www/jp/ja/support/articles/000005629/graphics/processor-graphics.html)
 - NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx)
-- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support)
+- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support/download/drivers.html)
 
 それぞれのハードウェアエンコーダーを使用するには、対応した GPU ドライバーのインストールが必要です。  
-基本的にすでにインストールされていると思います。
+Windows の場合、基本的にすでにインストール済みのはずです。
 
 > [!NOTE]  
-> 古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。  
-> ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。
+> **古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。**  
+> ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。  
+> KonomiTV をアップデートした後は、ドライバーも最新のドライバーにアップデートしておくことをおすすめします。
 
 #### Linux - QSVEncC
 
@@ -295,18 +304,22 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 > なお、Windows 版の Intel QSV は、Haswell (第4世代) 以下の CPU でも利用できます。
 
 ```bash
+# Ubuntu 24.04 LTS
+curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu noble unified' | sudo tee /etc/apt/sources.list.d/intel-gpu-noble.list > /dev/null
 
 # Ubuntu 22.04 LTS
-curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu jammy client' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
-# Ubuntu 20.04 LTS (対応する GPG 鍵のダウンロード URL が微妙に異なる)
-curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics-keyring.gpg
+curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified' | sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list > /dev/null
+
+# Ubuntu 20.04 LTS
+curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics-keyring.gpg
 echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | sudo tee /etc/apt/sources.list.d/intel-graphics.list > /dev/null
 
-sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libmfxgen1
+sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2
 ```
 
-以上のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
+上記のコマンドを実行して、Intel Media Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
 最新のインストール手順は [QSVEncC の公式ドキュメント](https://github.com/rigaya/QSVEnc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 > [!NOTE]  
@@ -333,29 +346,31 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 #### Linux - VCEEncC
 
-**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/linux-drivers) のインストールが必要です。**  
-古いドライバーがインストールされていると、VCEEncC を利用できないことがあります。最新のドライバーをインストールしてください。
+**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/download/linux-drivers.html) のインストールが必要です。**  
+
+> [!WARNING]  
+> **古いドライバーがインストールされている場合、VCEEncC が動作しない可能性があります。**  
+> KonomiTV をアップデートした後は、AMDGPU-PRO Driver も最新のドライバーにアップデートしてください。
 
 > [!WARNING]  
 > **VCEEncC を使うには AMDGPU-PRO ドライバーが必要です。**  
 > オープンソース版の AMDGPU ドライバーには AMD AMF (Advanced Media Framework) が含まれていないため、VCEEncC を利用できません。
 
 ```bash
-# Ubuntu 20.04 LTS (2024/09時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/focal/amdgpu-install_6.0.60003-1_all.deb
-# Ubuntu 22.04 LTS (2024/09時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/23.40.3/ubuntu/jammy/amdgpu-install_6.0.60003-1_all.deb
+# Ubuntu 24.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
+curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
+# Ubuntu 22.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
+curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb
 
 # AMDGPU-PRO Driver のインストール
-sudo apt install -y ./amdgpu-install_6.0.60003-1_all.deb
-sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr,legacy --no-32
+sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb
+sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32
 
 # 再起動
 sudo reboot
 ```
 
-
-以上のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 20.04 LTS 以降向け) 。
+上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS 以降向け) 。
 
 #### Linux - rkmppenc
 
@@ -379,7 +394,7 @@ rm rockchip-multimedia-config_1.0.2-1_all.deb
 sudo reboot
 ```
 
-以上のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください。  
+上記のコマンドを実行して、Mali GPU Driver と、Rockchip のハードウェアエンコーダーを有効化するための設定パッケージをインストールしてください (Ubuntu 20.04 LTS 以降向け) 。  
 [rkmppenc の公式ドキュメント](https://github.com/tsukumijima/rkmppenc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 ### Tailscale の導入
@@ -501,7 +516,8 @@ Assets の下にある `KonomiTV-Installer.exe` をダウンロードしてく�
 
 > [!WARNING]  
 > **NVIDIA が KonomiTV で利用していたバージョンの CUDA Docker イメージを削除した影響で 、0.12.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
-> 0.13.0 以降のバージョンでは CUDA Docker イメージを `nvidia/cuda:12.2.2-runtime-ubuntu22.04` に変更しています。0.13.0 以降へのアップデートをお願いします。
+> 0.13.0 以降のバージョンでは、RTX 5090 などの Blackwell 世代 GPU の対応も兼ね、CUDA Docker イメージを `nvidia/cuda:12.8.0-base-ubuntu22.04` に変更しています。0.13.0 以降へのアップデートをお願いします。  
+> なお、CUDA 12.8 の動作には  nvidia-driver-570 以上のドライバーがインストールされている必要があります。
 
 > [!WARNING]  
 > **AMD が Docker イメージ内で利用している AMDGPU-PRO ドライバーの旧バージョンの APT リポジトリをサイレントに削除した影響で ([#118](https://github.com/tsukumijima/KonomiTV/issues/118) / [#130](https://github.com/tsukumijima/KonomiTV/issues/130) を参照) 、0.11.0 以下では Docker を使ったインストール方法が動作しなくなりました。**  
@@ -623,6 +639,85 @@ KonomiTV サーバーは Windows サービス (Windows) / PM2 サービス (Linu
 <img width="100%" src="https://github.com/user-attachments/assets/b262e652-bffc-4466-b5bb-005a3ec6db10"><br>
 
 ## 付録
+
+### Twitter 実況機能について
+
+2023年7月以降、[Twitter のサードパーティー API の有料化（個人向け API の事実上廃止）](https://www.watch.impress.co.jp/docs/news/1475575.html) により、従来の連携方法では KonomiTV から Twitter にアクセスできなくなりました。
+
+そこで KonomiTV では、**[Chrome 拡張機能「GET cookies.txt LOCALLY」](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) を使い、ブラウザから Netscape 形式でエクスポートした、[Web 版 Twitter](https://x.com/) の Cookie データによる Twitter 連携に対応しています。**
+
+**ここで入力した Cookie データは、ローカルの KonomiTV サーバーにのみ、暗号化の上で保存されます。**  
+Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
+
+> [!WARNING]
+> 不審判定されないよう様々な技術的対策を施してはいますが、**非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。**  
+> 自己の責任のもとでご利用ください。
+>
+> **📢 念のため、なるべく [X Premium](https://x.com/i/premium_sign_up) に加入している Twitter アカウントでの利用をおすすめします。**  
+> Basic プランでは [X Pro (新 TweetDeck)](https://pro.x.com/) が使えないため、凍結避け効果は薄いと思われます。  
+> また、万が一の凍結リスクに備え、**実況専用に作成したサブアカウントでの連携をおすすめします。**
+
+> [!NOTE]
+> 📢 v0.13.0 以降では、**[ヘッドレスブラウザ（ウインドウが表示されないブラウザ）を使って](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterScrapeBrowser.py) 、[Web 版 Twitter からの API コールと全く同じ方法で API リクエストを送る](https://github.com/tsukumijima/KonomiTV/blob/master/server/static/zendriver_setup.js) ように改良しました！**
+>
+> これまで不審判定されないよう [様々な技術的対策](https://github.com/tsukumijima/tweepy-authlib) を施してきましたが、2025年11月に KonomiTV と同様の方法で Twitter API にアクセスしていた [OldTweetDeck のユーザーが一時的に大量凍結される騒動](https://arkxv.com/blog/x-suspended/) ([詳細](https://github.com/dimdenGD/OldTweetDeck/issues/459#issuecomment-3499066798)) が起きたことを踏まえ、より堅牢で安全なアプローチに切り替えました。
+>
+> **この関係で、Twitter 実況機能を使うには、KonomiTV サーバー側に [Google Chrome](https://www.google.com/chrome/) または [Brave](https://brave.com/ja/) がインストールされている必要があります。**  
+> なお、Linux (Docker) 環境では既に Docker イメージに含まれているため不要です。  
+> また、Twitter 実況機能を使わないならインストールする必要はありません。
+>
+> ヘッドレスブラウザは、視聴画面で Twitter パネル内の各機能を使うときにバックグラウンドで自動的に起動し、使わなくなったら自動終了します。  
+> Twitter 実況機能が使われない場合には起動しません。
+
+KonomiTV で Twitter アカウントを連携するには、以下の手順に従ってください。
+
+#### 1. Chrome 拡張機能「GET cookies.txt LOCALLY」をインストールする
+
+<img width="70%" src="https://github.com/user-attachments/assets/6ed63df2-c007-4f5f-a3b5-54b3d2225afd"><br>
+
+まず、**PC 版 Chrome に [Chrome 拡張機能「GET cookies.txt LOCALLY」](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) をインストールします。**
+
+<img width="30%" src="https://github.com/user-attachments/assets/fa20a726-b85d-4960-bac6-8614e98e6c35"><br>
+
+次に、**拡張機能アイコンを押し、その後 [GET cookies.txt LOCALLY] の右にある `︙` → [拡張機能を管理] を押します。**
+
+<img width="70%" src="https://github.com/user-attachments/assets/90416512-4798-495c-9eee-5488b077251d"><br>
+
+すると Chrome 拡張機能「GET cookies.txt LOCALLY」の設定ページが開くので、**下の方にある [シークレット モードでの実行を許可] をオンにします。**  
+これにより、後述するシークレットウインドウでも、この拡張機能を実行できるようになります。
+
+#### 2. シークレットウインドウで Web 版 Twitter にログインする
+
+<img width="50%" src="https://github.com/user-attachments/assets/1346c834-60ac-4f32-816e-27bb601f336c"><br>
+
+[新しいシークレットウインドウを開く」をクリックし、シークレットウインドウを開きます。  
+次に、**そのシークレットウインドウで [Web 版 Twitter](https://x.com/) にアクセスし、連携したいアカウントにログインします。**
+
+> [!IMPORTANT]
+> **万が一の意図しないアカウントが不審判定される事態を避けるため、必ず連携したいアカウントにのみログインしてください。**  
+> わざわざシークレットウインドウで実行しているのは、複数アカウントでログインしている場合に、同時ログイン中の他アカウントと関連付けが可能な情報を Cookie に含めないようにするためです。
+
+#### 3. Chrome 拡張機能を起動して Cookie データをエクスポートする
+
+<img width="70%" src="https://github.com/user-attachments/assets/a90b8675-e233-454e-8eea-b3f8e1211502"><br>
+
+Web 版 Twitter を開いているタブで、**「GET cookies.txt LOCALLY」のアイコンをクリックし、UI 画面を開きます。**  
+その後、[Export Format:] が [Netscape] になっていることを確認してから [Copy] ボタンを押し、x.com の Cookie データをクリップボードにコピーします。
+
+#### 4. KonomiTV の設定画面で Cookie データを入力する
+
+<img width="70%" src="https://github.com/user-attachments/assets/6edb2afd-002f-47fa-814c-ce5616532eb1"><br>
+
+KonomiTV の [設定] → [Twitter] に移動し、**「連携する Twitter アカウントを追加」ボタンをクリックします。**  
+**表示されたダイアログの Cookie 入力フォームに、先ほどコピーした Cookie データを貼り付けてください。**
+
+入力が完了したら [ログイン] ボタンを押すと、Cookie データが正しい場合は Twitter アカウントとの連携が完了します。  
+
+> [!TIP]
+> **Cookie が正しいのにログインに失敗するときは、何回か再度 [ログイン] ボタンを押してリトライするとうまく行くことがあります。**  
+> [ログイン] ボタンを押すと、前述のヘッドレスブラウザが起動します。  
+> 内部では、指定された Cookie データでログイン中アカウントの情報をヘッドレスブラウザで経由で取得できるかがチェックします。  
+> これらの処理が正常に完了すれば、指定された Cookie データを暗号化の上でデータベースに保存して、ログイン完了となります。
 
 ### `https://aa-bb-cc-dd.local.konomi.tv:7000/` の URL について
 
@@ -937,10 +1032,10 @@ Copy-Item -Force config.example.yaml config.yaml
 cp -a config.example.yaml config.yaml
 nano config.yaml
 
-# 一時的な Poetry 仮想環境の構築 (UpdateThirdparty の実行に必要)
+# 一時的な Poetry 仮想環境の構築 (poetry run task update-thirdparty の実行に必要)
 cd server/
 poetry env use 3.11
-poetry install --no-root
+poetry install --no-root --with dev
 
 # 最新のサードパーティーライブラリを GitHub Actions からダウンロード
 ## 本番環境用のスタンドアローン版 Python もサードパーティーライブラリに含まれている
@@ -957,7 +1052,7 @@ rm -rf .venv/
 poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
 
 # 依存パッケージのインストール
-poetry install --no-root
+poetry install --no-root --with dev
 ```
 
 ### サーバーの起動

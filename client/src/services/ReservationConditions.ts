@@ -38,6 +38,7 @@ export interface IReservationConditionUpdateRequest {
     record_settings: IRecordSettings;
 }
 
+
 /**
  * キーワード自動予約条件に関する API 操作を提供するクラス
  */

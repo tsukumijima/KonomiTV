@@ -340,10 +340,6 @@ class UserUpdateRequestForAdmin(BaseModel):
 class TwitterCookieAuthRequest(BaseModel):
     cookies_txt: str
 
-class TwitterPasswordAuthRequest(BaseModel):
-    screen_name: str
-    password: str
-
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
 
@@ -620,13 +616,6 @@ class TimelineTweetsResult(TwitterAPIResult):
     next_cursor_id: str
     previous_cursor_id: str
     tweets: list[Tweet]
-
-class TwitterChallengeData(TwitterAPIResult):
-    endpoint_infos: dict[str, TwitterGraphQLAPIEndpointInfo]
-    verification_code: str
-    challenge_js_code: str
-    vendor_js_code: str
-    challenge_animation_svg_codes: list[str]
 
 class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']

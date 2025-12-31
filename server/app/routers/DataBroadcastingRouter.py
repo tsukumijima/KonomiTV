@@ -46,7 +46,7 @@ async def BMLBrowserRequestGETProxyAPI(
             detail = 'Request URL must be http or https URL',
         )
 
-    logging.debug_simple(f'Request URL: {request_url}')
+    logging.debug(f'Request URL: {request_url}')
 
     headers = {
         'Accept': '*/*',
@@ -115,8 +115,8 @@ async def BMLBrowserRequestPOSTProxyAPI(
             detail = 'Request URL must be http or https URL',
         )
 
-    logging.debug_simple(f'Request URL: {request_url}')
-    logging.debug_simple(f'Denbun: {Denbun}')
+    logging.debug(f'Request URL: {request_url}')
+    logging.debug(f'Denbun: {Denbun}')
 
     headers = {
         'Accept': '*/*',

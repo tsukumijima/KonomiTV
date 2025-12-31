@@ -39,7 +39,6 @@ class Channel(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'channels'
 
-    # テーブル設計は Notion を参照のこと
     id = fields.CharField(255, pk=True)
     display_channel_id = fields.CharField(255, unique=True)
     network_id = fields.IntField()

@@ -1,23 +1,26 @@
 
 import os
 import platform
-import subprocess
 import shutil
 import stat
+import subprocess
 from pathlib import Path
-from rich import print
-from rich.padding import Padding
 from typing import Any, Literal
 
-from Utils import CreateBasicInfiniteProgress
-from Utils import CreateTable
-from Utils import CustomConfirm
-from Utils import CustomPrompt
-from Utils import IsDockerComposeV2
-from Utils import IsDockerInstalled
-from Utils import RunSubprocess
-from Utils import ShowPanel
-from Utils import ShowSubProcessErrorLog
+from rich import print
+from rich.padding import Padding
+
+from Utils import (
+    CreateBasicInfiniteProgress,
+    CreateTable,
+    CustomConfirm,
+    CustomPrompt,
+    IsDockerComposeV2,
+    IsDockerInstalled,
+    RunSubprocess,
+    ShowPanel,
+    ShowSubProcessErrorLog,
+)
 
 
 def Uninstaller() -> None:

@@ -59,7 +59,7 @@ class CMSectionsDetector:
 
             # 検出結果をログに出力
             for cm_section in cm_sections:
-                logging.debug_simple(f'{self.file_path}: CM section detected: {cm_section["start_time"]} - {cm_section["end_time"]}')
+                logging.debug(f'{self.file_path}: CM section detected: {cm_section["start_time"]} - {cm_section["end_time"]}')
 
             # 検出結果をデータベースに保存
             ## ファイルパスから対応する RecordedVideo レコードを取得

@@ -33,7 +33,6 @@ from app.models.Channel import Channel
 from app.models.Program import Program
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
-from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser, GetCurrentUser
 
@@ -174,7 +173,6 @@ async def UpdateDatabaseAPI():
     await Channel.update()
     await Channel.updateJikkyoStatus()
     await Program.update(multiprocess=True)
-    await TwitterAccount.updateAccountsInformation()
 
 
 @router.post(
@@ -277,7 +275,7 @@ async def BackgroundAnalysisAPI():
                     if db_recorded_program is not None:
                         # RecordedProgram モデルを schemas.RecordedProgram に変換
                         recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
-                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(skip_tile_if_exists=True))
+                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
 
                 # タスクが存在する場合、同時実行
                 if tasks:

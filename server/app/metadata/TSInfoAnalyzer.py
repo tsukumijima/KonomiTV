@@ -110,7 +110,7 @@ class TSInfoAnalyzer:
                         return True
 
                     # PAT, NIT, SDT, TOT, EIT を取り出す
-                    if not TSInfoAnalyzer.readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
+                    if not self.__readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
                         logging.warning(f'{psc_path}: File contents may be invalid.')
                     if last_tot_time_sec is not None:
                         self.last_tot_timedelta = timedelta(seconds = last_time_sec - last_tot_time_sec)
@@ -275,7 +275,7 @@ class TSInfoAnalyzer:
                         pass
 
             except Exception as ex:
-                logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS.', exc_info=ex)
+                logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS:', exc_info=ex)
                 return None
 
             return None
@@ -505,7 +505,7 @@ class TSInfoAnalyzer:
                         # 破損したイベントをスキップ
                         corrupted_events += 1
                         if corrupted_events <= 20:  # 20個までは許容
-                            logging.debug_simple(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}:', exc_info=ex)
+                            logging.debug(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}:', exc_info=ex)
                             continue
                         else:
                             # 破損イベントが多すぎる場合は諦める
@@ -725,8 +725,8 @@ class TSInfoAnalyzer:
         return recorded_program
 
 
-    @staticmethod
-    def readPSIData(reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
+    @classmethod
+    def __readPSIData(cls, reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
         """
         書庫から PSI/SI セクションを取り出す
 

@@ -507,34 +507,38 @@ const useSettingsStore = defineStore('settings', {
 
             // ここから先、設定データの pull 中に syncClientSettingsToServer() が実行されないようロックする
             is_syncing_client_settings_from_server = true;
+            try {
 
-            // サーバーから設定データをダウンロード
-            const settings_server = await Settings.fetchClientSettings();
-            if (settings_server === null) {
-                return;  // 取得できなくても後続の処理には影響しないので、サイレントに失敗する
-            }
-
-            // サーバーから取得した設定データに含まれる最終同期時刻が、このクライアントが保持している最終同期時刻よりも古い場合、
-            // このまま同期を続行するとサーバーに保存されている古い設定データに巻き戻されてしまうため、同期を中断する
-            if (settings_server.last_synced_at < this.settings.last_synced_at) {
-                console.warn('Server has older settings than this client. Skipping sync.');
-                return;
-            } else if (settings_server.last_synced_at > this.settings.last_synced_at) {
-                console.log('Last Synced At Changed (From Server):', settings_server.last_synced_at);
-            }
-
-            // クライアントの設定データをサーバーからの設定データで上書き
-            // 両者の値に変更がある場合のみ上書きする
-            // さもなければ、実際にはサーバー側で値が変更されていない場合でも定義されているストアに紐づく全てのコンポーネントの再描画が発生してしまう (?)
-            for (const [settings_server_key, settings_server_value] of Object.entries(settings_server)) {
-                if (isEqual(this.settings[settings_server_key], settings_server_value) === false) {
-                    this.settings[settings_server_key] = settings_server_value;
+                // サーバーから設定データをダウンロード
+                const settings_server = await Settings.fetchClientSettings();
+                if (settings_server === null) {
+                    console.warn('Failed to fetch client settings from server. Skip syncing.');
+                    return;  // 取得できなくても後続の処理には影響しないので、サイレントに失敗する
                 }
-            }
 
-            // 設定データの pull が完了したので、ロックを解除する
-            await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
-            is_syncing_client_settings_from_server = false;
+                // サーバーから取得した設定データに含まれる最終同期時刻が、このクライアントが保持している最終同期時刻よりも古い場合、
+                // このまま同期を続行するとサーバーに保存されている古い設定データに巻き戻されてしまうため、同期を中断する
+                if (settings_server.last_synced_at < this.settings.last_synced_at) {
+                    console.warn('Server has older settings than this client. Skipping sync.');
+                    return;
+                } else if (settings_server.last_synced_at > this.settings.last_synced_at) {
+                    console.log('Last Synced At Changed (From Server):', settings_server.last_synced_at);
+                }
+
+                // クライアントの設定データをサーバーからの設定データで上書き
+                // 両者の値に変更がある場合のみ上書きする
+                // さもなければ、実際にはサーバー側で値が変更されていない場合でも定義されているストアに紐づく全てのコンポーネントの再描画が発生してしまう (?)
+                for (const [settings_server_key, settings_server_value] of Object.entries(settings_server)) {
+                    if (isEqual(this.settings[settings_server_key], settings_server_value) === false) {
+                        this.settings[settings_server_key] = settings_server_value;
+                    }
+                }
+
+            // 成功・失敗に関わらずロックを解除する
+            } finally {
+                await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
+                is_syncing_client_settings_from_server = false;
+            }
         },
 
         /**
