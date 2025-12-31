@@ -13,15 +13,15 @@
                     <!-- 放送が近い録画予約セクション -->
                     <ReservationList
                         class="reservations-home-container__upcoming-reservations"
-                        :class="{'reservations-home-container__upcoming-reservations--loading': upcoming_reservations.length === 0 && is_loading}"
+                        :class="{'reservations-home-container__upcoming-reservations--loading': upcomingReservations.length === 0 && isLoading}"
                         title="放送が近い録画予約"
-                        :reservations="upcoming_reservations"
-                        :total="total_upcoming_reservations"
+                        :reservations="upcomingReservations"
+                        :total="totalUpcomingReservations"
                         :hideSort="true"
                         :hidePagination="true"
                         :showMoreButton="true"
-                        :isLoading="is_loading"
-                        :showEmptyMessage="!is_loading"
+                        :isLoading="isLoading"
+                        :showEmptyMessage="!isLoading"
                         :emptyIcon="'fluent:timer-20-regular'"
                         :emptyMessage="'まだ録画予約がありません。'"
                         :emptySubMessage="'番組表から録画予約を追加できます。'"
@@ -32,8 +32,8 @@
         </main>
     </div>
 </template>
-
 <script lang="ts" setup>
+
 import { onMounted, ref, onUnmounted } from 'vue';
 
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
@@ -45,10 +45,10 @@ import Reservations, { IReservation } from '@/services/Reservations';
 import { dayjs } from '@/utils';
 
 // 放送が近い録画予約のリスト
-const upcoming_reservations = ref<IReservation[]>([]);
-const total_upcoming_reservations = ref(0);
+const upcomingReservations = ref<IReservation[]>([]);
+const totalUpcomingReservations = ref(0);
 
-const is_loading = ref(true);
+const isLoading = ref(true);
 
 // 自動更新用の interval ID を保持
 const autoRefreshInterval = ref<number | null>(null);
@@ -81,8 +81,8 @@ const fetchUpcomingReservations = async () => {
                 return dayjs(a.program.start_time).valueOf() - dayjs(b.program.start_time).valueOf();
             });
 
-        total_upcoming_reservations.value = upcomingOrRecording.length;
-        upcoming_reservations.value = upcomingOrRecording.slice(0, UPCOMING_DISPLAY_LIMIT);
+        totalUpcomingReservations.value = upcomingOrRecording.length;
+        upcomingReservations.value = upcomingOrRecording.slice(0, UPCOMING_DISPLAY_LIMIT);
     }
 };
 
@@ -96,10 +96,10 @@ const updateAllSections = async () => {
     try {
         // 全セクションの更新関数を実行
         await Promise.all(Object.values(sectionUpdaters).map(updater => updater()));
-        is_loading.value = false;
+        isLoading.value = false;
     } catch (error) {
         console.error('Failed to update reservation sections:', error);
-        is_loading.value = false;
+        isLoading.value = false;
     }
 };
 
@@ -137,9 +137,10 @@ onMounted(() => {
 onUnmounted(() => {
     stopAutoRefresh();
 });
-</script>
 
+</script>
 <style lang="scss" scoped>
+
 .reservations-home-container-wrapper {
     display: flex;
     flex-direction: column;

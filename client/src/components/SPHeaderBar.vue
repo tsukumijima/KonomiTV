@@ -5,7 +5,9 @@
                 <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
             </router-link>
             <v-spacer></v-spacer>
-            <div v-ripple class="search-button" @click="activateSearch">
+            <!-- 番組表コントロール用スロット -->
+            <slot name="timetable-controls"></slot>
+            <div v-if="showSearchButton" v-ripple class="search-button" @click="activateSearch">
                 <Icon icon="fluent:search-20-filled" height="24px" />
             </div>
         </template>
@@ -39,6 +41,13 @@ const isSearchActive = ref(false);
 
 // 検索クエリ
 const searchQuery = ref('');
+
+// 検索ボタンの表示判定
+// 番組表ページでは検索ボタンは表示するが、設定/ログイン/登録/キャプチャページでは非表示
+const showSearchButton = computed(() => {
+    const path = route.path;
+    return !path.startsWith('/captures') && !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
+});
 
 // 検索プレースホルダー
 const searchPlaceholder = computed(() => {

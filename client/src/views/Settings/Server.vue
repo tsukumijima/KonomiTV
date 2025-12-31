@@ -105,8 +105,8 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="debug_encoder">エンコーダーのログを有効にする</label>
                 <label class="settings__item-label" for="debug_encoder">
-                    有効にすると、ライブ視聴時のエンコーダーのログが server/logs/ 以下に保存されます。
-                    さらにデバッグモードが有効のときは、デバッグログとしてリアルタイムにエンコーダーのログが出力されます。<br>
+                    有効にすると、ライブ視聴時のエンコーダーのログが KonomiTV/server/logs/ 以下に保存されます。<br>
+                    さらにデバッグモード有効時は、サーバーログにエンコーダーのログがリアルタイム出力されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="debug_encoder" hide-details
                     v-model="server_settings.general.debug_encoder">
@@ -166,6 +166,8 @@
                 <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを維持する秒数</div>
                 <div class="settings__item-label">
                     10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらエンコードタスク（エンコーダー）を終了します。<br>
+                </div>
+                <div class="settings__item-label mt-1">
                     0 秒に設定すると、ネット回線が瞬断したりリロードしただけでチューナーとエンコーダーの再起動が必要になり、再生復帰までに時間がかかります。余裕をもたせておく事をおすすめします。<br>
                 </div>
                 <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
@@ -185,7 +187,8 @@
                     解析が完了すると、録画番組一覧から再生できるようになります。<br>
                 </div>
                 <div class="settings__item-label mt-1" style="padding-bottom: 2px;">
-                    複数の保存先フォルダを指定できます。シンボリックリンクには対応していません。<br>
+                    複数の保存先フォルダを指定できます。フォルダやファイルのシンボリックリンクにも対応しています。<br>
+                    シンボリックリンクは実体のパスに変換されるため、同じ録画ファイルが重複スキャンされることはありません。<br>
                 </div>
                 <div v-for="(folder, index) in server_settings.video.recorded_folders" :key="'recorded-folder-' + index">
                     <div class="d-flex align-center mt-3">
@@ -227,11 +230,12 @@
             <div class="settings__item">
                 <div class="settings__item-heading">アップロードしたキャプチャ画像の保存先フォルダの絶対パス</div>
                 <div class="settings__item-label">
-                    クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または
+                    <router-link class="link" to="/settings/capture">[キャプチャ]</router-link> → [キャプチャの保存先] で [KonomiTV サーバーにアップロード] または
                     [ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] が選択されているときに利用されます。<br>
                 </div>
                 <div class="settings__item-label mt-1" style="padding-bottom: 2px;">
-                    複数の保存先フォルダを指定できます。先頭から順に利用され、保存先フォルダがいっぱいになったら次の保存先フォルダに保存されます。<br>
+                    複数の保存先フォルダを指定できます。<br>
+                    先頭から順に利用され、保存先フォルダがいっぱいになったら次の保存先フォルダに保存されます。<br>
                 </div>
                 <div v-for="(folder, index) in server_settings.capture.upload_folders" :key="'upload-folder-' + index">
                     <div class="d-flex align-center mt-3">

@@ -50,13 +50,34 @@ class ClientSettings(BaseModel):
     # lshaped_screen_crop_y_position: 同期無効
     # lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: list[str] = []
-    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
-    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
-    video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
+    timetable_channel_width: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
+    timetable_hour_height: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
+    timetable_hover_expand: bool = False
+    # 番組表のジャンル別のハイライト色
+    # キーはジャンル名 (大分類)、値はハイライトカラー
+    # クライアント側の ILocalClientSettingsDefault.timetable_genre_colors と一致させる必要がある
+    timetable_genre_colors: dict[str, Literal['White', 'Yellow', 'Lime', 'Blue', 'Pink', 'Red', 'Orange', 'Brown', 'Teal']] = {
+        'ニュース・報道': 'White',
+        'スポーツ': 'White',
+        '情報・ワイドショー': 'White',
+        'ドラマ': 'White',
+        '音楽': 'White',
+        'バラエティ': 'White',
+        '映画': 'White',
+        'アニメ・特撮': 'White',
+        'ドキュメンタリー・教養': 'White',
+        '劇場・公演': 'White',
+        '趣味・教育': 'White',
+        '福祉': 'White',
+        'その他': 'White',
+    }
     show_player_background_image: bool = True
     use_pure_black_player_background: bool = False
     tv_channel_selection_requires_alt_key: bool = False
     use_28hour_clock: bool = False
+    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
+    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
+    video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効
     # tv_data_saver_mode: 同期無効

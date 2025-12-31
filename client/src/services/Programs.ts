@@ -1,5 +1,7 @@
+import type { Dayjs } from 'dayjs';
 
 import APIClient from '@/services/APIClient';
+import { IChannel } from '@/services/Channels';
 
 
 /** 番組情報を表すインターフェイス */
@@ -114,6 +116,50 @@ export interface IProgramSearchConditionDate {
     end_minute: number; // 0-59
 }
 
+/**
+ * 番組表 API のレスポンス
+ */
+export interface ITimeTable {
+    channels: ITimeTableChannel[];
+    date_range: ITimeTableDateRange;
+}
+
+/**
+ * 番組表の日付範囲
+ */
+export interface ITimeTableDateRange {
+    earliest: string;
+    latest: string;
+}
+
+/**
+ * 番組表向けのチャンネル情報
+ * チャンネル基本情報と、そのチャンネルで放送される番組リストを含む
+ */
+export interface ITimeTableChannel {
+    channel: IChannel;
+    programs: ITimeTableProgram[];
+    // サブチャンネル番組: チャンネル ID (NID32736-SID1024 形式) をキーとしてサブチャンネルの番組リストを保持
+    // 8時間ルールで独立列として表示されないサブチャンネルの番組情報が入る
+    subchannel_programs: { [channel_id: string]: ITimeTableProgram[] } | null;
+}
+
+/**
+ * 番組表向けの番組情報 (IProgram に予約情報を追加したもの)
+ */
+export interface ITimeTableProgram extends IProgram {
+    reservation: ITimeTableProgramReservation | null;
+}
+
+/**
+ * 番組表向けの録画予約情報
+ */
+export interface ITimeTableProgramReservation {
+    id: number;
+    status: 'Reserved' | 'Recording' | 'Disabled';
+    recording_availability: 'Full' | 'Partial' | 'Unavailable';
+}
+
 
 /**
  * 番組情報に関する API 操作を提供するクラス
@@ -137,6 +183,49 @@ class Programs {
                     APIClient.showGenericError(response, '番組情報の検索に失敗しました。');
                     break;
             }
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * 番組表データを取得する
+     * @param start_time 開始日時
+     * @param end_time 終了日時
+     * @param channel_type チャンネルタイプ (省略時は全種別)
+     * @param pinned_channel_ids チャンネル ID リスト (ピン留め用、指定時は channel_type より優先)
+     * @returns 番組表データ、取得失敗時は null
+     */
+    static async fetchTimeTable(
+        start_time: Dayjs,
+        end_time: Dayjs,
+        channel_type?: 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'BS4K',
+        pinned_channel_ids?: string[],
+    ): Promise<ITimeTable | null> {
+
+        // API リクエストのパラメータを構築
+        // toISOString() は UTC で出力されるため、JST タイムゾーン付きの ISO 8601 形式で送信する
+        const params = new URLSearchParams();
+        params.set('start_time', start_time.format('YYYY-MM-DDTHH:mm:ssZ'));
+        params.set('end_time', end_time.format('YYYY-MM-DDTHH:mm:ssZ'));
+
+        // channel_type を指定
+        if (channel_type !== undefined) {
+            params.set('channel_type', channel_type);
+        }
+
+        // pinned_channel_ids を指定 (channel_type より優先される)
+        if (pinned_channel_ids !== undefined && pinned_channel_ids.length > 0) {
+            params.set('pinned_channel_ids', pinned_channel_ids.join(','));
+        }
+
+        // API リクエストを実行
+        const response = await APIClient.get<ITimeTable>(`/programs/timetable?${params.toString()}`);
+
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '番組表データの取得に失敗しました。');
             return null;
         }
 

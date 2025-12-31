@@ -151,6 +151,12 @@ export default defineComponent({
             background-color: rgb(var(--v-theme-background)) !important;
         }
 
+        .v-divider {
+            opacity: 1 !important;
+            border-top-width: 2px !important;
+            border-color: rgb(var(--v-theme-background-lighten-2)) !important;
+        }
+
         .settings__heading {
             display: flex;
             align-items: center;
@@ -321,6 +327,32 @@ export default defineComponent({
                     @include smartphone-horizontal {
                         font-size: 12px;
                         line-height: 1.65;
+                    }
+
+                    // 設定項目の選択肢を箇条書きで表示するリスト
+                    .settings__item-option-list {
+                        margin: 0;
+                        padding-left: 1.2em;
+                        li {
+                            margin-bottom: 4px;
+                            &:last-child {
+                                margin-bottom: 0;
+                            }
+                            strong {
+                                color: rgb(var(--v-theme-text));
+                            }
+                        }
+                    }
+
+                    // 設定項目の補足情報を表示するノート
+                    .settings__item-note {
+                        margin-top: 6px;
+                        margin-bottom: 0;
+                        font-size: 12.5px;
+                        opacity: 0.85;
+                        @include smartphone-horizontal {
+                            font-size: 11.5px;
+                        }
                     }
                 }
                 &-form {

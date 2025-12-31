@@ -11,15 +11,15 @@
                         { name: '録画予約', path: '/reservations/' },
                         { name: '録画予約一覧', path: '/reservations/all', disabled: true },
                     ]" />
-                    <ReservationList ref="reservation_list"
+                    <ReservationList ref="reservationList"
                         title="録画予約一覧"
                         :reservations="reservations"
                         :total="total"
                         :page="page"
-                        :sort-order="sort_order"
-                        :is-loading="is_loading"
+                        :sort-order="sortOrder"
+                        :is-loading="isLoading"
                         :show-back-button="true"
-                        :show-empty-message="!is_loading"
+                        :show-empty-message="!isLoading"
                         @update:page="updatePage"
                         @update:sort-order="updateSortOrder"
                         @delete="handleReservationDeleted">
@@ -51,21 +51,22 @@ const total = ref<number>(0);
 // 現在のページ番号
 const page = ref<number>(1);
 // 並び順
-const sort_order = ref<'desc' | 'asc'>('asc');
+const sortOrder = ref<'desc' | 'asc'>('asc');
 // 読み込み中かどうか
-const is_loading = ref<boolean>(true);
+const isLoading = ref<boolean>(true);
 
 // 全ての予約データ（一度だけ取得）
-const all_reservations = ref<IReservation[]>([]);
+const allReservations = ref<IReservation[]>([]);
 
 // 録画予約リストコンポーネントの参照
-const reservation_list = ref<InstanceType<typeof ReservationList>>();
+const reservationList = ref<InstanceType<typeof ReservationList>>();
 
 // 自動更新用の interval ID を保持
 const autoRefreshInterval = ref<number | null>(null);
 
 // 自動更新の間隔 (ミリ秒)
 const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
+const ITEMS_PER_PAGE = 25;
 
 /**
  * 録画予約一覧を取得する
@@ -73,7 +74,7 @@ const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
 async function fetchAllReservations() {
     const result = await Reservations.fetchReservations();
     if (result) {
-        all_reservations.value = result.reservations;
+        allReservations.value = result.reservations;
     }
 }
 
@@ -81,27 +82,26 @@ async function fetchAllReservations() {
  * 表示用データを計算する（クライアント側ソート・ページング）
  */
 function updateDisplayData() {
-    if (all_reservations.value.length === 0) {
+    if (allReservations.value.length === 0) {
         reservations.value = [];
         total.value = 0;
         return;
     }
 
     // 並び順に応じてソート
-    let sorted_reservations = [...all_reservations.value];
-    if (sort_order.value === 'asc') {
-        sorted_reservations.sort((a, b) => new Date(a.program.start_time).getTime() - new Date(b.program.start_time).getTime());
+    let sortedReservations = [...allReservations.value];
+    if (sortOrder.value === 'asc') {
+        sortedReservations.sort((a, b) => new Date(a.program.start_time).getTime() - new Date(b.program.start_time).getTime());
     } else {
-        sorted_reservations.sort((a, b) => new Date(b.program.start_time).getTime() - new Date(a.program.start_time).getTime());
+        sortedReservations.sort((a, b) => new Date(b.program.start_time).getTime() - new Date(a.program.start_time).getTime());
     }
 
     // ページネーション用の計算
-    const items_per_page = 25;
-    const start_index = (page.value - 1) * items_per_page;
-    const end_index = start_index + items_per_page;
+    const startIndex = (page.value - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
 
-    reservations.value = sorted_reservations.slice(start_index, end_index);
-    total.value = sorted_reservations.length;
+    reservations.value = sortedReservations.slice(startIndex, endIndex);
+    total.value = sortedReservations.length;
 }
 
 /**
@@ -123,7 +123,7 @@ async function updatePage(new_page: number) {
  * 並び順を更新する
  */
 async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
-    sort_order.value = new_sort_order;
+    sortOrder.value = new_sort_order;
     page.value = 1; // ページを1に戻す
     // クエリパラメータを更新（データの再取得はしない）
     await router.replace({
@@ -141,7 +141,7 @@ async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
  */
 function handleReservationDeleted(reservation_id: number) {
     // 削除された予約を all_reservations から除去
-    all_reservations.value = all_reservations.value.filter(reservation => reservation.id !== reservation_id);
+    allReservations.value = allReservations.value.filter(reservation => reservation.id !== reservation_id);
     // 表示データを更新
     updateDisplayData();
     // 削除イベントを受けたらリストを即時更新
@@ -153,10 +153,10 @@ function handleReservationDeleted(reservation_id: number) {
 const updateAllSections = async () => {
     try {
         await fetchAllReservations();
-        is_loading.value = false;
+        isLoading.value = false;
     } catch (error) {
         console.error('Failed to update reservation list:', error);
-        is_loading.value = false;
+        isLoading.value = false;
     }
 };
 
@@ -191,14 +191,14 @@ watch(() => route.query, async (newQuery) => {
     if (newQuery.order) {
         const order = String(newQuery.order);
         if (order === 'asc' || order === 'desc') {
-            sort_order.value = order;
+            sortOrder.value = order;
         }
     }
     updateDisplayData();
 }, { deep: true });
 
-// all_reservations の変更を監視して表示データを更新
-watch(() => all_reservations.value, () => {
+// allReservations の変更を監視して表示データを更新
+watch(() => allReservations.value, () => {
     updateDisplayData();
 }, { deep: true });
 
@@ -209,7 +209,7 @@ onMounted(async () => {
         page.value = parseInt(route.query.page, 10);
     }
     if (route.query.order && typeof route.query.order === 'string') {
-        sort_order.value = route.query.order as 'desc' | 'asc';
+        sortOrder.value = route.query.order as 'desc' | 'asc';
     }
 
     // 自動更新を開始

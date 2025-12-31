@@ -8,14 +8,14 @@
     <div class="reservation-detail-drawer" :class="{ 'reservation-detail-drawer--visible': isVisible }">
         <!-- ヘッダー -->
         <div class="reservation-detail-drawer__header">
-            <div class="reservation-detail-drawer__tabs">
+            <div class="reservation-detail-drawer__tabs" :class="{ 'reservation-detail-drawer__tabs--single': !showSettingsTab }">
                 <div v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'info' }"
                     @click="activeTab = 'info'">
                     <Icon icon="fluent:info-12-regular" width="20px" height="20px" />
-                    <span class="reservation-detail-drawer__tab-text">番組情報</span>
+                    <span class="reservation-detail-drawer__tab-text">番組情報 {{ !showSettingsTab ? '（終了済み）' : '' }}</span>
                 </div>
-                <div v-ripple class="reservation-detail-drawer__tab"
+                <div v-if="showSettingsTab" v-ripple class="reservation-detail-drawer__tab"
                     :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'settings' }"
                     @click="activeTab = 'settings'">
                     <Icon icon="material-symbols:settings-video-camera-outline-rounded" width="20px" height="20px" />
@@ -30,8 +30,35 @@
         <!-- コンテンツ -->
         <div class="reservation-detail-drawer__content">
             <!-- 番組情報タブ -->
-            <div v-if="activeTab === 'info' && reservation" class="reservation-detail-drawer__info">
-                <ReservationProgramInfo :reservation="reservation" />
+            <div v-if="activeTab === 'info'" class="reservation-detail-drawer__info">
+                <!-- チューナー不足警告バナー（一部のみ録画） -->
+                <div v-if="isPartialRecording" class="status-banner status-banner--warning mb-4">
+                    <Icon icon="fluent:warning-16-filled" class="status-banner__icon" />
+                    <span class="status-banner__text">
+                        チューナー不足のため、この番組は一部のみ録画されます。<br>
+                        優先度を上げるか、重複する録画予約を調整してください。
+                    </span>
+                </div>
+                <!-- チューナー不足エラーバナー（録画不可） -->
+                <div v-if="isUnavailableRecording" class="status-banner status-banner--error mb-4">
+                    <Icon icon="fluent:error-circle-16-filled" class="status-banner__icon" />
+                    <span class="status-banner__text">
+                        チューナー不足のため、この番組は録画できません。<br>
+                        優先度を上げるか、重複する録画予約を削除してください。
+                    </span>
+                </div>
+                <!-- Mirakurun バックエンド時の通知 -->
+                <div v-if="!isEDCBBackend && !isPastProgram && !hasReservation" class="status-banner status-banner--info mb-4">
+                    <Icon icon="fluent:info-16-regular" class="status-banner__icon" />
+                    <span class="status-banner__text">
+                        録画予約機能は EDCB バックエンド利用時のみ使用できます。
+                    </span>
+                </div>
+                <!-- 番組情報 -->
+                <ReservationProgramInfo
+                    :reservation="reservation"
+                    :program="program"
+                    :channel="channel" />
             </div>
 
             <!-- 録画設定タブ -->
@@ -45,25 +72,33 @@
         </div>
 
         <!-- フッター -->
-        <div class="reservation-detail-drawer__footer">
+        <div class="reservation-detail-drawer__footer" v-if="!isPastProgram">
             <div class="reservation-detail-drawer__actions">
-                <v-btn
-                    class="px-3"
-                    variant="text"
-                    @click="handleDelete">
+                <!-- 実際の予約がある場合: 削除ボタン -->
+                <v-btn v-if="hasRealReservation" class="px-3" variant="text" @click="handleDelete">
                     <Icon icon="fluent:delete-16-regular" width="20px" height="20px" />
                     <span class="ml-1">予約を削除</span>
                 </v-btn>
-                <v-btn
-                    v-if="activeTab === 'settings'"
-                    class="px-3"
-                    color="secondary"
-                    variant="flat"
-                    :disabled="!hasChanges"
-                    :loading="isSaving"
-                    @click="handleSave">
+                <!-- 実際の予約がある場合かつ録画設定タブ: 保存ボタン -->
+                <v-btn v-if="hasRealReservation && activeTab === 'settings'" class="px-3" color="secondary" variant="flat"
+                    :disabled="!hasChanges" :loading="isSaving" @click="handleSave">
                     <Icon icon="fluent:save-16-regular" width="20px" height="20px" />
                     <span class="ml-1">変更を保存</span>
+                </v-btn>
+                <!-- mock の予約 (予約なし) の場合: 予約追加ボタン -->
+                <v-btn v-if="showAddButton" class="px-3" color="secondary" variant="flat"
+                    :disabled="!isEDCBBackend" :loading="isAdding" @click="handleAddReservation">
+                    <Icon icon="fluent:timer-16-regular" width="20px" height="20px" />
+                    <span class="ml-1">予約を追加</span>
+                </v-btn>
+            </div>
+        </div>
+        <!-- 過去番組の場合は閉じるボタンのみ表示 -->
+        <div class="reservation-detail-drawer__footer" v-else>
+            <div class="reservation-detail-drawer__actions">
+                <v-btn class="px-3" variant="text" @click="handleClose">
+                    <Icon icon="fluent:dismiss-16-regular" width="20px" height="20px" />
+                    <span class="ml-1">閉じる</span>
                 </v-btn>
             </div>
         </div>
@@ -118,19 +153,30 @@
         </v-card>
     </v-dialog>
 </template>
-
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+
+import { ref, computed, watch, onMounted } from 'vue';
 
 import ReservationProgramInfo from '@/components/Reservations/ReservationProgramInfo.vue';
 import ReservationRecordingSettings from '@/components/Reservations/ReservationRecordingSettings.vue';
 import Message from '@/message';
+import { type IChannel } from '@/services/Channels';
+import { type IProgram } from '@/services/Programs';
 import Reservations, { type IReservation, type IRecordSettings } from '@/services/Reservations';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import { ProgramUtils } from '@/utils';
 
 // Props
 const props = defineProps<{
+    // 予約情報（予約がある場合に使用）
     reservation: IReservation | null;
+    // 番組情報（予約がない場合に使用、番組表からの呼び出し用）
+    program?: IProgram | null;
+    // チャンネル情報（予約がない場合に使用、番組表からの呼び出し用）
+    channel?: IChannel | null;
+    // 過去番組かどうか（true の場合、予約関連 UI は非表示）
+    isPastProgram?: boolean;
+    // ドロワーの表示状態
     modelValue: boolean;
 }>();
 
@@ -139,6 +185,7 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean): void;
     (e: 'updated', reservation: IReservation): void;
     (e: 'deleted', reservationId: number): void;
+    (e: 'added'): void;
 }>();
 
 // ドロワーの表示状態
@@ -146,6 +193,10 @@ const isVisible = computed({
     get: () => props.modelValue,
     set: (value) => emit('update:modelValue', value),
 });
+
+// サーバー設定（バックエンド種別の判定用）
+const serverSettingsStore = useServerSettingsStore();
+const serverSettings = computed(() => serverSettingsStore.server_settings);
 
 // アクティブなタブ
 const activeTab = ref<'info' | 'settings'>('info');
@@ -156,11 +207,41 @@ const hasChanges = ref(false);
 // 保存中フラグ
 const isSaving = ref(false);
 
+// 予約追加中フラグ
+const isAdding = ref(false);
+
 // 現在の録画設定
 const currentSettings = ref<IRecordSettings | null>(null);
 
 // 削除確認ダイアログの表示状態
 const showDeleteDialog = ref(false);
+
+// 予約があるかどうか (null でなければ予約がある)
+// ただし id === -1 の場合は mock の予約なので、実際には予約がない状態
+const hasReservation = computed(() => props.reservation !== null);
+
+// mock の予約かどうか (id === -1 の場合は予約がない番組用の mock)
+// TimeTable.vue から渡される mock の IReservation を判定するために使用
+const isMockReservation = computed(() => props.reservation !== null && props.reservation.id === -1);
+
+// 実際に予約が存在するかどうか (mock でない場合)
+const hasRealReservation = computed(() => hasReservation.value && !isMockReservation.value);
+
+// 表示用の番組情報（予約があればそちらを優先）
+const displayProgram = computed(() => props.reservation?.program ?? props.program ?? null);
+
+// EDCB バックエンドかどうか
+const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+
+// 録画設定タブを表示するかどうか
+// - 実際の予約がある場合: 表示 (既存予約の設定編集)
+// - mock の予約がある場合 (予約なし): 表示 (新規予約前の設定カスタマイズ)
+// - 過去番組の場合: 非表示
+const showSettingsTab = computed(() => hasReservation.value && !props.isPastProgram);
+
+// 予約追加ボタンを表示するかどうか
+// mock の予約がある場合 (実際には予約なし) かつ過去番組でない場合に表示
+const showAddButton = computed(() => isMockReservation.value && !props.isPastProgram);
 
 // キーワード自動予約かどうか
 const isKeywordAutoReservation = computed(() => {
@@ -170,6 +251,22 @@ const isKeywordAutoReservation = computed(() => {
 // 録画中かどうか
 const isRecordingInProgress = computed(() => {
     return props.reservation?.is_recording_in_progress ?? false;
+});
+
+// 録画可能性（チューナー不足判定）
+const recordingAvailability = computed(() => {
+    return props.reservation?.recording_availability ?? 'Full';
+});
+
+// チューナー不足（一部のみ録画）
+const isPartialRecording = computed(() => recordingAvailability.value === 'Partial');
+
+// チューナー不足（録画不可）
+const isUnavailableRecording = computed(() => recordingAvailability.value === 'Unavailable');
+
+// サーバー設定を取得
+onMounted(async () => {
+    await serverSettingsStore.fetchServerSettingsOnce();
 });
 
 // ドロワーが開かれた時の処理
@@ -251,9 +348,49 @@ const confirmDelete = async () => {
         console.error('Failed to delete reservation:', error);
     }
 };
-</script>
 
+// 予約追加処理
+// mock の予約に含まれる record_settings (ユーザーがカスタマイズ可能) を使用して追加
+const handleAddReservation = async () => {
+    if (isAdding.value || !displayProgram.value || !props.reservation) return;
+
+    // EDCB バックエンドでない場合はエラー
+    if (!isEDCBBackend.value) {
+        Message.error('録画予約機能は EDCB バックエンド利用時のみ使用できます。');
+        return;
+    }
+
+    isAdding.value = true;
+    try {
+        // バリデーションチェック (保存処理と同じ)
+        const recordSettings = currentSettings.value ?? props.reservation.record_settings;
+        const captionIsDefault = recordSettings.caption_recording_mode === 'Default';
+        const dataBroadcastingIsDefault = recordSettings.data_broadcasting_recording_mode === 'Default';
+        if (captionIsDefault !== dataBroadcastingIsDefault) {
+            Message.warning('字幕データ録画設定・データ放送録画設定を明示的に設定する際は、両方とも「デフォルト設定を使う」以外に設定してください。');
+            isAdding.value = false;
+            return;
+        }
+
+        // mock の予約に含まれる record_settings を使用
+        // ユーザーが録画設定タブで設定をカスタマイズしていればその設定が使われる
+        const success = await Reservations.addReservation(displayProgram.value.id, recordSettings);
+        if (success) {
+            Message.success('録画予約を追加しました。');
+            emit('added');
+            isVisible.value = false;
+        }
+    } catch (error) {
+        console.error('Failed to add reservation:', error);
+        Message.error('録画予約の追加に失敗しました。');
+    } finally {
+        isAdding.value = false;
+    }
+};
+
+</script>
 <style lang="scss" scoped>
+
 // 背景スクリム
 .reservation-detail-drawer__scrim {
     position: fixed;
@@ -486,4 +623,66 @@ const confirmDelete = async () => {
         }
     }
 }
+
+// ステータスバナー（ドロワー内で使用）
+.status-banner {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-radius: 8px;
+
+    &__icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        margin-top: 1px;
+        flex-shrink: 0;
+    }
+
+    &__text {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    // 警告（一部のみ録画）
+    &--warning {
+        background-color: rgb(var(--v-theme-warning-darken-3), 0.4);
+
+        .status-banner__icon {
+            color: rgb(var(--v-theme-warning));
+        }
+
+        .status-banner__text {
+            color: rgb(var(--v-theme-warning-lighten-1));
+        }
+    }
+
+    // エラー（録画不可）
+    &--error {
+        background-color: rgb(var(--v-theme-error-darken-3), 0.4);
+
+        .status-banner__icon {
+            color: rgb(var(--v-theme-error));
+        }
+
+        .status-banner__text {
+            color: rgb(var(--v-theme-error-lighten-1));
+        }
+    }
+
+    // 情報（Mirakurun バックエンド通知など）
+    &--info {
+        background-color: rgb(var(--v-theme-info-darken-3), 0.4);
+
+        .status-banner__icon {
+            color: rgb(var(--v-theme-info));
+        }
+
+        .status-banner__text {
+            color: rgb(var(--v-theme-info-lighten-1));
+        }
+    }
+}
+
 </style>

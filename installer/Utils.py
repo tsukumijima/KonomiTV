@@ -485,7 +485,7 @@ def IsDockerInstalled() -> bool:
         if docker_result.returncode != 0:
             return False  # Docker がインストールされていない
 
-        # Docker Compose V2 の存在確認
+        # Docker Compose V2 以降の存在確認
         docker_compose_v2_result = subprocess.run(
             args = ['docker', 'compose', 'version'],
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
@@ -493,8 +493,8 @@ def IsDockerInstalled() -> bool:
             text = True,  # 出力をテキストとして取得する
         )
         if (docker_compose_v2_result.returncode == 0 and
-            any(x in docker_compose_v2_result.stdout for x in ('Docker Compose version v2', 'Docker Compose version 2'))):
-            return True  # Docker と Docker Compose V2 がインストールされている
+            any(x in docker_compose_v2_result.stdout for x in ('Docker Compose version v', 'Docker Compose version'))):
+            return True  # Docker と Docker Compose V2 以降がインストールされている
 
         # Docker Compose V1 の存在確認
         docker_compose_v1_result = subprocess.run(

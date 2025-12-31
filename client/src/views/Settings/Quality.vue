@@ -25,8 +25,8 @@
             <div class="settings__item settings__item--sync-disabled">
                 <div class="settings__item-heading">テレビのデフォルトのストリーミング画質</div>
                 <div class="settings__item-label">
-                    テレビをライブストリーミングするときのデフォルトの画質を設定します。<br>
-                    ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
+                    ライブ視聴時に最初に適用される、デフォルトの画質を設定します。<br>
+                    視聴中はプレイヤーの設定からいつでも変更できますが、次回視聴時はここで設定した画質に戻ります。<br>
                 </div>
                 <div class="settings__item-label mt-1">
                     画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
@@ -76,7 +76,7 @@
                     また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
                 </label>
                 <div class="settings__item-label mt-1">
-                    映像がカクつきやすくなるため、通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、低遅延ストリーミングをオフにすることをおすすめします。<br>
+                    映像がカクつきやすくなるため、<b>通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、オフにすることをおすすめします。</b><br>
                 </div>
                 <v-switch class="settings__item-switch" color="primary" id="tv_low_latency_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_low_latency_mode">
@@ -92,11 +92,11 @@
             <div class="settings__item settings__item--sync-disabled">
                 <div class="settings__item-heading">ビデオのデフォルトのストリーミング画質</div>
                 <div class="settings__item-label">
-                    ビデオをストリーミング再生するときのデフォルトの画質を設定します。<br>
-                    ストリーミング画質はプレイヤーの設定からいつでも切り替えられます。<br>
+                    録画再生時に最初に適用される、デフォルトの画質を設定します。<br>
+                    再生中はプレイヤーの設定からいつでも変更できますが、次回再生時はここで設定した画質に戻ります。<br>
                 </div>
                 <div class="settings__item-label mt-1">
-                    画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で視聴できます！</b>ドラマやバラエティなどを視聴するときに特におすすめです。<br>
+                    画質を [1080p (60fps)] に設定すると、<b>通常 30fps (60i) の映像を補間し、より滑らか（ぬるぬる）な映像で再生できます！</b>ドラマやバラエティなどを再生するときに特におすすめです。<br>
                 </div>
                 <div class="settings__item-label mt-1" v-if="Utils.isAndroid()">
                     Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。その場合は 720p 以下の画質を選択することをおすすめします。<br>
@@ -113,13 +113,13 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled"
                 :class="{'settings__item--disabled': PlayerUtils.isHEVCVideoSupported() === false}">
                 <label class="settings__item-heading" :for="`video_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
-                    ビデオを通信節約モードで視聴する
+                    ビデオを通信節約モードで再生する
                 </label>
                 <label class="settings__item-label" :for="`video_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
-                    通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して視聴できます！</b> サーバー PC によっては高負荷になることがあります。<br>
+                    通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して再生できます！</b> サーバー PC によっては高負荷になることがあります。<br>
                 </label>
                 <div class="settings__item-label mt-1">
-                    通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
+                    通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から再生するときに特におすすめです。<br>
                     <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                         このデバイスでは通信節約モードがサポートされていません。
                     </p>

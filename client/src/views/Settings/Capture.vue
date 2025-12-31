@@ -12,14 +12,17 @@
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャの保存先</div>
                 <div class="settings__item-label">
-                    <p>
-                        [ブラウザでダウンロード] に設定すると、視聴中のデバイスのダウンロードフォルダに保存されます。<br>
-                        視聴中のデバイスにそのまま保存されるためシンプルですが、保存先のフォルダを変更できないこと、iOS Safari (PWA モード) ではダウンロードするとファイル概要画面が表示されて視聴に支障することがデメリットです (将来的には、iOS / Android アプリ版や拡張機能などで解消される予定) 。<br>
-                    </p>
-                    <p>
-                        [KonomiTV サーバーにアップロード] に設定すると、サーバー設定で指定されたキャプチャ保存フォルダに保存されます。視聴したデバイスにかかわらず、今までに撮ったキャプチャをひとつのフォルダにまとめて保存できます。<br>
-                        他のデバイスでキャプチャを見るにはキャプチャ保存フォルダをネットワークに共有する必要があること、スマホ・タブレットではネットワーク上のフォルダへのアクセスがやや面倒なことがデメリットです。(将来的には、保存フォルダ内のキャプチャを Google フォトのように表示する機能を追加予定)<br>
-                    </p>
+                    <ul class="settings__item-option-list">
+                        <li>
+                            <strong>ブラウザでダウンロード</strong>：お使いのデバイスのダウンロードフォルダに直接保存します。<br>
+                            シンプルですが、保存先フォルダは変更できません。<b>iPhone・iPad でホーム画面に追加したアイコンから起動した場合、ダウンロード時にファイル概要画面が表示され、視聴の妨げになる場合があります。</b>
+                        </li>
+                        <li>
+                            <strong>サーバーにアップロード</strong>：サーバー設定で指定したフォルダに保存します。<br>
+                            どのデバイスから撮っても1つのフォルダにまとめて保存できます。他のデバイスからキャプチャを見るには、保存先フォルダをネットワーク共有するか、サーバー PC に直接アクセスする必要があります。
+                        </li>
+                    </ul>
+                    <p class="settings__item-note">※ 将来的には、サーバー PC に保存されたキャプチャを KonomiTV 上で閲覧できる機能を追加予定です。</p>
                 </div>
                 <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
                     :density="is_form_dense ? 'compact' : 'default'"
@@ -29,9 +32,8 @@
             <div class="settings__item">
                 <div class="settings__item-heading">字幕表示時のキャプチャの保存モード</div>
                 <div class="settings__item-label">
-                    字幕表示時、キャプチャした画像に字幕を合成するかを設定します。<br>
-                    映像のみのキャプチャと、字幕を合成したキャプチャを両方同時に保存することもできます。<br>
-                    なお、字幕非表示時は、常に映像のみ (+コメント付きキャプチャではコメントを合成して) 保存されます。<br>
+                    字幕表示中にキャプチャを撮るとき、映像に字幕を合成するかを設定します。<br>
+                    字幕非表示時は、常に映像 (+コメント付きキャプチャ撮影時はコメント) のみのキャプチャが保存されます。<br>
                 </div>
                 <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
                     :density="is_form_dense ? 'compact' : 'default'"
@@ -41,14 +43,14 @@
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャの保存ファイル名パターン</div>
                 <div class="settings__item-label">
-                    キャプチャの保存ファイル名（拡張子なし）を設定します。デフォルトは Capture_%date%-%time% です。<br>
-                    字幕を合成したキャプチャのファイル名には、自動的に _caption のサフィックスが追加されます。<br>
-                    ファイル名には、下記の TVTest 互換マクロを使用できます。<br>
+                    保存時のファイル名（拡張子なし）を設定します。デフォルトは Capture_%date%-%time% です。<br>
+                    字幕を合成したキャプチャのファイル名には、自動で _caption が追加されます。<br>
+                    ファイル名パターンには、以下の TVTest 互換マクロを利用できます。<br>
                     <v-btn class="settings__save-button mt-3 px-3 py-0" style="height: 36px; font-size: 14px;" variant="flat"
                         @click="is_macro_list_visible = !is_macro_list_visible">
                         <Icon :icon="is_macro_list_visible ? 'fluent:chevron-up-20-filled' : 'fluent:chevron-down-20-filled'"
                             class="mr-1" height="19px" />
-                        {{ is_macro_list_visible ? 'マクロ一覧を非表示' : 'マクロ一覧を表示' }}
+                        {{ is_macro_list_visible ? '利用可能な TVTest 互換マクロ一覧を非表示' : '利用可能な TVTest 互換マクロ一覧を表示' }}
                     </v-btn>
                     <ul class="ml-4 mt-3" v-if="is_macro_list_visible">
                         <li>現在日時
@@ -137,8 +139,8 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="capture_copy_to_clipboard">キャプチャをクリップボードにコピーする</label>
                 <label class="settings__item-label" for="capture_copy_to_clipboard">
-                    この設定をオンにすると、撮ったキャプチャ画像がクリップボードにもコピーされます。<br>
-                    クリップボードの履歴をサポートしていない環境では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
+                    オンにすると、撮ったキャプチャをクリップボードにもコピーできます。<br>
+                    iPhone・iPad などクリップボードの履歴をサポートしていない環境では、この設定をオンにしてキャプチャを撮ると、以前のクリップボードが上書きされます。注意してください。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="capture_copy_to_clipboard" hide-details
                     v-model="settingsStore.settings.capture_copy_to_clipboard">
@@ -195,7 +197,8 @@ export default defineComponent({
     watch: {
         'settingsStore.settings.capture_filename_pattern': {
             handler() {
-                this.capture_filename_pattern_preview = `プレビュー: ${CaptureManager.generateCaptureFilename()}.jpg`;
+                const filename_base = CaptureManager.generateCaptureFilename();
+                this.capture_filename_pattern_preview = `プレビュー: ${filename_base}.jpg / ${filename_base}_caption.jpg`;
             },
             immediate: true,
         },

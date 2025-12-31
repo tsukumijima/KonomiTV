@@ -15,7 +15,7 @@
             </h2>
             <div class="reservation-list__actions">
                 <v-select v-if="!hideSort"
-                    v-model="sort_order"
+                    v-model="sortOrder"
                     :items="[
                         { title: '放送が近い順', value: 'asc' },
                         { title: '放送が遠い順', value: 'desc' },
@@ -62,7 +62,7 @@
         </div>
         <div class="reservation-list__pagination" v-if="!hidePagination && displayTotal > 0">
             <v-pagination
-                v-model="current_page"
+                v-model="currentPage"
                 active-color="primary"
                 density="comfortable"
                 :length="Math.ceil(displayTotal / 30)"
@@ -121,10 +121,10 @@ const props = withDefaults(defineProps<{
 });
 
 // 現在のページ番号
-const current_page = ref(props.page);
+const currentPage = ref(props.page);
 
 // 並び順
-const sort_order = ref<'desc' | 'asc'>(props.sortOrder);
+const sortOrder = ref<'desc' | 'asc'>(props.sortOrder);
 
 // 内部で管理する予約リスト
 const displayReservations = ref<IReservation[]>([...props.reservations]);
@@ -135,14 +135,14 @@ const displayTotal = ref<number>(props.total);
 const drawerOpen = ref(false);
 const selectedReservation = ref<IReservation | null>(null);
 
-// props の page が変更されたら current_page を更新
+// props の page が変更されたら currentPage を更新
 watch(() => props.page, (newPage) => {
-    current_page.value = newPage;
+    currentPage.value = newPage;
 });
 
-// props の sortOrder が変更されたら sort_order を更新
+// props の sortOrder が変更されたら sortOrder を更新
 watch(() => props.sortOrder, (newOrder) => {
-    sort_order.value = newOrder;
+    sortOrder.value = newOrder;
 });
 
 // props の reservations が変更されたら displayReservations を更新

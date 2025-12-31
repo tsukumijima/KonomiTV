@@ -26,7 +26,7 @@
             <div class="settings__item settings__item--switch settings__item--sync-disabled">
                 <label class="settings__item-heading" for="enable_internet_access_from_data_broadcasting">データ放送からのインターネットアクセスを有効にする</label>
                 <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
-                    この設定をオンにすると、データ放送機能を利用する際に、データ放送からインターネットにアクセスできるようになります。<br>
+                    オンにすると、データ放送機能を利用する際に、データ放送からインターネットにアクセスできるようになります。<br>
                     たとえば紅白歌合戦の視聴者投票をはじめとした双方向番組に参加したり、ネット接続時限定のミニゲームが遊べるようになります。<br>
                 </label>
                 <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
