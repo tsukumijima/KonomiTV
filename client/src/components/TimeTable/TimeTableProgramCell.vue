@@ -69,6 +69,7 @@ import useTimeTableStore from '@/stores/TimeTableStore';
 import { dayjs } from '@/utils';
 import { ProgramUtils } from '@/utils/ProgramUtils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
+import Utils from '@/utils/Utils';
 
 type DecoratedProgramInfoCache = {
     raw_title: string;
@@ -156,8 +157,13 @@ const RESERVATION_DISABLED_ICON = 'mdi:timer-pause-outline';
 
 /**
  * 展開状態かどうか (選択中またはホバー展開有効時にホバー中)
+ * タッチデバイス（スマホ・タブレット等）ではホバー操作がクリックと同様の挙動になり誤操作を引き起こすため、
+ * ホバー展開設定に関わらずホバーによる展開を無効化する
  */
 const isExpanded = computed(() => {
+    if (Utils.isTouchDevice()) {
+        return props.isSelected;
+    }
     return props.isSelected || (settingsStore.settings.timetable_hover_expand && isHovered.value);
 });
 
