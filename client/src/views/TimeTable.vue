@@ -55,20 +55,11 @@
                 <SPHeaderBar />
                 <!-- スマホ縦画面用コントロールバー -->
                 <div class="timetable-controls-mobile" v-if="Utils.isSmartphoneVertical()">
-                    <div class="timetable-controls-mobile__row">
-                        <v-select class="timetable-controls-mobile__channel-type" variant="outlined" density="compact" hide-details
-                            :items="channelTypeItems" v-model="selectedChannelTypeDisplay"
-                            @update:model-value="onChannelTypeChange">
-                        </v-select>
-                        <v-btn variant="flat" class="timetable-controls-mobile__settings-button" icon size="small"
-                            @click="isSettingsDialogOpen = true">
-                            <Icon icon="fluent:settings-20-regular" width="20px" />
-                        </v-btn>
-                    </div>
-                    <div class="timetable-controls-mobile__row">
-                        <v-btn variant="flat" icon size="x-small" :disabled="!canGoPreviousDay" @click="goToPreviousDay">
-                            <Icon icon="fluent:chevron-left-20-regular" width="18px" />
-                        </v-btn>
+                    <v-select class="timetable-controls-mobile__channel-type" variant="outlined" density="compact" hide-details
+                        :items="channelTypeItems" v-model="selectedChannelTypeDisplay"
+                        @update:model-value="onChannelTypeChange">
+                    </v-select>
+                    <div class="timetable-controls-mobile__date">
                         <v-menu v-model="isDateMenuOpen" :close-on-content-click="false">
                             <template #activator="{ props }">
                                 <v-btn variant="flat" class="timetable-controls-mobile__date-button" size="small" v-bind="props">
@@ -80,17 +71,18 @@
                                 @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
-                        <v-btn variant="flat" icon size="x-small" :disabled="!canGoNextDay" @click="goToNextDay">
-                            <Icon icon="fluent:chevron-right-20-regular" width="18px" />
-                        </v-btn>
-                        <v-select class="timetable-controls-mobile__time" variant="outlined" density="compact" hide-details
-                            :items="timeItems" v-model="selectedTimeDisplay"
-                            @update:model-value="onTimeChange">
-                        </v-select>
-                        <v-btn variant="flat" icon size="x-small" @click="goToCurrentTime">
-                            <Icon icon="fluent:clock-20-regular" width="18px" />
-                        </v-btn>
                     </div>
+                    <v-select class="timetable-controls-mobile__time" variant="outlined" density="compact" hide-details
+                        :items="timeItems" v-model="selectedTimeDisplay"
+                        @update:model-value="onTimeChange">
+                    </v-select>
+                    <v-btn variant="flat" class="timetable-controls-mobile__now-button" icon size="small" @click="goToCurrentTime">
+                        <Icon icon="fluent:clock-20-regular" width="18px" />
+                    </v-btn>
+                    <v-btn variant="flat" class="timetable-controls-mobile__settings-button" icon size="small"
+                        @click="isSettingsDialogOpen = true">
+                        <Icon icon="fluent:settings-20-regular" width="18px" />
+                    </v-btn>
                 </div>
                 <!-- 番組表グリッド -->
                 <TimeTableGrid
@@ -110,11 +102,6 @@
                     @go-to-next-day="goToNextDay"
                     @go-to-previous-day="goToPreviousDay"
                 />
-                <!-- ローディングオーバーレイ -->
-                <div class="timetable-loading-overlay" v-if="timetableStore.is_loading && !timetableStore.is_initial_load_completed">
-                    <v-progress-circular indeterminate color="secondary" :size="48" :width="4"></v-progress-circular>
-                    <span class="timetable-loading-overlay__text">番組表を読み込んでいます...</span>
-                </div>
             </div>
         </main>
         <!-- 番組表設定ダイアログ -->
@@ -146,7 +133,7 @@ import Message from '@/message';
 import { IChannel, ChannelTypePretty } from '@/services/Channels';
 import { IProgram, ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
 import Reservations, { IReservation, IRecordSettingsDefault } from '@/services/Reservations';
-import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore, { CHANNEL_TYPE_DISPLAY_ORDER } from '@/stores/TimeTableStore';
 import Utils, { dayjs } from '@/utils';
@@ -160,7 +147,8 @@ const timetableStore = useTimeTableStore();
 const timetableGridRef = ref<InstanceType<typeof TimeTableGrid> | null>(null);
 
 // サーバー設定（バックエンド種別の判定用）
-const serverSettings = ref<IServerSettings>(IServerSettingsDefault);
+const serverSettingsStore = useServerSettingsStore();
+const serverSettings = computed(() => serverSettingsStore.server_settings);
 
 // EDCB バックエンドかどうか
 const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
@@ -209,12 +197,11 @@ const selectedChannelTypeDisplay = computed({
 
 // 時間選択の選択肢 (4時間ごと)
 const timeItems = computed(() => {
-    const use28Hour = settingsStore.settings.use_28hour_clock;
     const items: { title: string; value: number }[] = [];
 
     // 4時から28時 (翌4時) まで4時間ごと
     for (let hour = 4; hour <= 24; hour += 4) {
-        const displayHour = use28Hour && hour >= 24 ? hour : (hour === 24 ? 0 : hour);
+        const displayHour = hour;
         items.push({
             title: `${displayHour.toString().padStart(2, '0')}時`,
             value: hour,
@@ -324,15 +311,12 @@ function onTimeChange(hour: number | null): void {
  * 日付変更後、番組表の末尾 (翌0時近辺) にスクロールして、時間的に連続した体験を提供
  */
 async function goToPreviousDay(): Promise<void> {
-    timetableStore.goToPreviousDay();
+    await timetableStore.goToPreviousDay();
     // データ更新後に DOM が更新されるのを待ってからスクロール
     await nextTick();
-    // データロード完了を少し待つ (非同期でデータ取得が行われるため)
-    setTimeout(() => {
-        if (timetableGridRef.value !== null) {
-            timetableGridRef.value.scrollToEnd();
-        }
-    }, 100);
+    if (timetableGridRef.value !== null) {
+        timetableGridRef.value.scrollToEnd();
+    }
 }
 
 /**
@@ -340,15 +324,12 @@ async function goToPreviousDay(): Promise<void> {
  * 日付変更後、番組表の先頭 (4時) にスクロールして、時間的に連続した体験を提供
  */
 async function goToNextDay(): Promise<void> {
-    timetableStore.goToNextDay();
+    await timetableStore.goToNextDay();
     // データ更新後に DOM が更新されるのを待ってからスクロール
     await nextTick();
-    // データロード完了を少し待つ (非同期でデータ取得が行われるため)
-    setTimeout(() => {
-        if (timetableGridRef.value !== null) {
-            timetableGridRef.value.scrollToStart();
-        }
-    }, 100);
+    if (timetableGridRef.value !== null) {
+        timetableGridRef.value.scrollToStart();
+    }
 }
 
 /**
@@ -542,10 +523,7 @@ async function onQuickReserve(programId: string, channelData: ITimeTableChannel,
 // ライフサイクル
 onMounted(async () => {
     // サーバー設定を取得（バックエンド種別の判定用）
-    const settings = await Settings.fetchServerSettings();
-    if (settings !== null) {
-        serverSettings.value = settings;
-    }
+    await serverSettingsStore.fetchServerSettingsOnce();
 
     // 番組表データの初期ロード
     await timetableStore.initialLoad();
@@ -570,6 +548,7 @@ watch(() => timetableStore.selected_date, () => {
     flex-direction: column;
     flex-grow: 1;
     position: relative;
+    min-width: 0;
     min-height: 0;  // flex アイテムがオーバーフローしないように
     // 番組表はビューポート内でスクロールさせるため、高さを明示的に制限する
     // App.vue の main は min-height: 100% で拡大可能なため、ここで高さを制限しないとスクロールが効かない
@@ -628,15 +607,8 @@ watch(() => timetableStore.selected_date, () => {
         // 無効状態のアイコンボタンのスタイル
         // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
         :deep(.v-btn--disabled) {
-            background: transparent !important;
-            opacity: 0.38;
-
-            // ホバー時の背景も非表示
-            &::before {
-                display: none !important;
-            }
-            &:hover {
-                background: transparent !important;
+            .v-btn__overlay {
+                opacity: 0 !important;
             }
         }
     }
@@ -674,37 +646,36 @@ watch(() => timetableStore.selected_date, () => {
 // スマホ版の番組表コントロール
 .timetable-controls-mobile {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px 12px;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 10px 12px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
 
-    &__row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+    @include smartphone-vertical {
+        margin-top: 14px;
+    }
 
-        // 無効状態のアイコンボタンのスタイル
-        // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
-        :deep(.v-btn--disabled) {
+    // 無効状態のアイコンボタンのスタイル
+    // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
+    :deep(.v-btn--disabled) {
+        background: transparent !important;
+        opacity: 0.38;
+
+        // ホバー時の背景も非表示
+        &::before {
+            display: none !important;
+        }
+        &:hover {
             background: transparent !important;
-            opacity: 0.38;
-
-            // ホバー時の背景も非表示
-            &::before {
-                display: none !important;
-            }
-            &:hover {
-                background: transparent !important;
-            }
         }
     }
 
     &__channel-type {
-        flex-grow: 1;
+        width: 96px;
         :deep(.v-field) {
             border-radius: 6px;
+            background: rgb(var(--v-theme-background-lighten-1));
         }
         :deep(.v-field__input) {
             padding-top: 4px;
@@ -715,21 +686,40 @@ watch(() => timetableStore.selected_date, () => {
     }
 
     &__settings-button {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        background: rgb(var(--v-theme-background-lighten-2));
+        border-radius: 6px;
+    }
+
+    &__now-button {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        background: rgb(var(--v-theme-background-lighten-2));
+        border-radius: 6px;
+    }
+
+    &__date {
+        display: flex;
+        align-items: center;
+        gap: 2px;
     }
 
     &__date-button {
-        min-width: 80px;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
         font-size: 13px;
+        background: rgb(var(--v-theme-background-lighten-1));
+        border-radius: 6px;
     }
 
     &__time {
-        flex-grow: 1;
-        max-width: 100px;
+        width: 70px;
         :deep(.v-field) {
             border-radius: 6px;
+            background: rgb(var(--v-theme-background-lighten-1));
         }
         :deep(.v-field__input) {
             padding-top: 4px;
@@ -737,27 +727,6 @@ watch(() => timetableStore.selected_date, () => {
             min-height: 36px;
             font-size: 14px;
         }
-    }
-}
-
-// ローディングオーバーレイ
-.timetable-loading-overlay {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(var(--v-theme-background), 0.9);
-    z-index: 100;
-
-    &__text {
-        font-size: 16px;
-        color: rgb(var(--v-theme-text-darken-1));
     }
 }
 

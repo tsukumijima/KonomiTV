@@ -87,8 +87,8 @@ export class TimeTableUtils {
             background: '#e1f5fe',
         },
         Pink: {
-            highlight: '#e91e63',
-            background: '#fce4ec',
+            highlight: '#b55cd6',
+            background: '#f2e6fb',
         },
         Red: {
             highlight: '#f44336',
@@ -161,9 +161,26 @@ export class TimeTableUtils {
     static readonly TIME_SCALE_WIDTH = 50;
 
     /**
+     * 時刻スケールの幅（スマホ縦画面用、px）
+     */
+    static readonly TIME_SCALE_WIDTH_SMARTPHONE_VERTICAL = 30;
+
+    /**
      * チャンネルヘッダーの高さ (px)
      */
-    static readonly CHANNEL_HEADER_HEIGHT = 60;
+    static readonly CHANNEL_HEADER_HEIGHT = 54;
+
+    /**
+     * チャンネルヘッダーの高さを取得する
+     * @param channel_width チャンネル列の幅 (px)
+     * @returns チャンネルヘッダーの高さ (px)
+     */
+    static getChannelHeaderHeight(channel_width: number): number {
+        const logo_width = Math.round(Math.min(46, Math.max(32, channel_width * 0.3)));
+        const logo_height = Math.round(logo_width * (2 / 3));
+        const header_height = logo_height + 20;
+        return Math.max(50, header_height);
+    }
 
 
     /**
@@ -256,6 +273,23 @@ export class TimeTableUtils {
 
 
     /**
+     * デバイスタイプに応じた時刻スケールの幅を取得する
+     * @param device_type デバイスタイプ (PC/Tablet/Smartphone)
+     * @param is_smartphone_vertical スマホ縦画面かどうか
+     * @returns 時刻スケールの幅 (px)
+     */
+    static getTimeScaleWidth(
+        device_type: DeviceType,
+        is_smartphone_vertical: boolean,
+    ): number {
+        if (device_type === 'Smartphone' && is_smartphone_vertical) {
+            return this.TIME_SCALE_WIDTH_SMARTPHONE_VERTICAL;
+        }
+        return this.TIME_SCALE_WIDTH;
+    }
+
+
+    /**
      * 番組の開始時刻から表示位置 (Y座標) を計算する
      * @param start_time 番組の開始時刻
      * @param day_start_time その日の開始時刻 (4:00)
@@ -266,13 +300,14 @@ export class TimeTableUtils {
         start_time: Dayjs,
         day_start_time: Dayjs,
         hour_height: number,
+        channel_header_height: number = TimeTableUtils.CHANNEL_HEADER_HEIGHT,
     ): number {
         // 開始時刻からその日の開始時刻までの経過秒数を計算
         const elapsed_ms = start_time.valueOf() - day_start_time.valueOf();
         const elapsed_hours = elapsed_ms / (1000 * 60 * 60);
 
         // Y座標を計算 (ヘッダー分を加算)
-        return this.CHANNEL_HEADER_HEIGHT + (elapsed_hours * hour_height);
+        return channel_header_height + (elapsed_hours * hour_height);
     }
 
 
@@ -302,8 +337,9 @@ export class TimeTableUtils {
         current_time: Dayjs,
         day_start_time: Dayjs,
         hour_height: number,
+        channel_header_height: number = TimeTableUtils.CHANNEL_HEADER_HEIGHT,
     ): number {
-        return this.calculateProgramY(current_time, day_start_time, hour_height);
+        return this.calculateProgramY(current_time, day_start_time, hour_height, channel_header_height);
     }
 
 
@@ -328,9 +364,10 @@ export class TimeTableUtils {
         y_position: number,
         day_start_time: Dayjs,
         hour_height: number,
+        channel_header_height: number = TimeTableUtils.CHANNEL_HEADER_HEIGHT,
     ): Dayjs {
         // ヘッダー分を引いてから計算
-        const adjusted_y = y_position - this.CHANNEL_HEADER_HEIGHT;
+        const adjusted_y = y_position - channel_header_height;
         const elapsed_hours = adjusted_y / hour_height;
         const elapsed_ms = elapsed_hours * 60 * 60 * 1000;
 

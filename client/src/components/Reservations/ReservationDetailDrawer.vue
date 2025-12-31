@@ -163,7 +163,7 @@ import Message from '@/message';
 import { type IChannel } from '@/services/Channels';
 import { type IProgram } from '@/services/Programs';
 import Reservations, { type IReservation, type IRecordSettings } from '@/services/Reservations';
-import Settings, { type IServerSettings, IServerSettingsDefault } from '@/services/Settings';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import { ProgramUtils } from '@/utils';
 
 // Props
@@ -195,7 +195,8 @@ const isVisible = computed({
 });
 
 // サーバー設定（バックエンド種別の判定用）
-const serverSettings = ref<IServerSettings>(IServerSettingsDefault);
+const serverSettingsStore = useServerSettingsStore();
+const serverSettings = computed(() => serverSettingsStore.server_settings);
 
 // アクティブなタブ
 const activeTab = ref<'info' | 'settings'>('info');
@@ -265,10 +266,7 @@ const isUnavailableRecording = computed(() => recordingAvailability.value === 'U
 
 // サーバー設定を取得
 onMounted(async () => {
-    const settings = await Settings.fetchServerSettings();
-    if (settings) {
-        serverSettings.value = settings;
-    }
+    await serverSettingsStore.fetchServerSettingsOnce();
 });
 
 // ドロワーが開かれた時の処理
@@ -686,4 +684,5 @@ const handleAddReservation = async () => {
         }
     }
 }
+
 </style>
