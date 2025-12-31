@@ -27,7 +27,7 @@ import Snackbars from '@/components/Snackbars.vue';
     width: 7px;
     height: 7px;
 }
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
     background: rgb(var(--v-theme-background));
 }
 ::-webkit-scrollbar-thumb {
@@ -72,8 +72,8 @@ html {
     // もっと早くに知りたかった…
     // ref: https://ics.media/entry/230206/
     scrollbar-gutter: stable;
-    &:has(.watch-container) {
-        // 視聴画面では全体のスクロールバーが不要なため、スクロールバー分の領域を確保しない
+    &:has(.watch-container), &:has(.timetable-container) {
+        // 視聴画面・番組表では全体のスクロールバーが不要なため、スクロールバー分の領域を確保しない
         scrollbar-gutter: auto;
     }
     @media all and (display-mode: picture-in-picture) {
