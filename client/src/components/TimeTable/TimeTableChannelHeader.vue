@@ -1,14 +1,24 @@
 <template>
     <router-link class="timetable-channel-header" :to="`/tv/watch/${channel.display_channel_id}`"
-        :style="{ width: `${width}px` }">
+        v-ftooltip.top="tooltipText"
+        :style="{
+            width: `${width}px`,
+            height: `${height}px`,
+            '--timetable-channel-logo-width': `${logoWidth}px`,
+            '--timetable-channel-logo-height': `${logoHeight}px`,
+            '--timetable-channel-number-size': `${numberFontSize}px`,
+            '--timetable-channel-name-size': `${nameFontSize}px`,
+        }">
         <!-- チャンネルロゴ -->
-        <img class="timetable-channel-header__logo" loading="lazy" decoding="async"
-            :src="`${Utils.api_base_url}/channels/${channel.id}/logo`"
-            :alt="channel.name">
+        <div class="timetable-channel-header__logo-wrapper">
+            <img class="timetable-channel-header__logo" loading="lazy" decoding="async"
+                :src="`${Utils.api_base_url}/channels/${channel.id}/logo`"
+                :alt="channel.name">
+        </div>
         <!-- チャンネル情報 -->
         <div class="timetable-channel-header__info">
             <span class="timetable-channel-header__number">{{ channel.channel_number }}</span>
-            <span class="timetable-channel-header__name">{{ truncatedChannelName }}</span>
+            <span class="timetable-channel-header__name">{{ channel.name }}</span>
         </div>
     </router-link>
 </template>
@@ -23,24 +33,27 @@ import Utils from '@/utils';
 const props = defineProps<{
     channel: ITimeTableChannel['channel'];
     width: number;
+    height: number;
 }>();
 
-/**
- * 幅に応じて短縮されたチャンネル名
- * 狭い幅ではチャンネル名を短くして表示する
- */
-const truncatedChannelName = computed(() => {
-    const name = props.channel.name;
-    // 幅が狭い場合 (120px 以下) は最大6文字に制限
-    if (props.width <= 120) {
-        return name.length > 6 ? name.slice(0, 6) + '…' : name;
-    }
-    // 幅が中程度 (150px 以下) は最大10文字に制限
-    if (props.width <= 150) {
-        return name.length > 10 ? name.slice(0, 10) + '…' : name;
-    }
-    // それ以上は全文表示
-    return name;
+const logoWidth = computed(() => {
+    return Math.round(Math.min(46, Math.max(32, props.width * 0.3)));
+});
+
+const logoHeight = computed(() => {
+    return Math.round(logoWidth.value * (2 / 3));
+});
+
+const numberFontSize = computed(() => {
+    return Math.round(Math.min(15, Math.max(13, props.width * 0.09)));
+});
+
+const nameFontSize = computed(() => {
+    return Math.round(Math.min(14, Math.max(12, props.width * 0.08)));
+});
+
+const tooltipText = computed(() => {
+    return `${props.channel.name} を視聴`;
 });
 
 </script>
@@ -48,12 +61,13 @@ const truncatedChannelName = computed(() => {
 
 .timetable-channel-header {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex-shrink: 0;
-    gap: 4px;
-    padding: 6px 8px;
+    box-sizing: border-box;
+    gap: 8px;
+    padding: 6px 8px 6px 6px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
     text-decoration: none;
@@ -73,19 +87,30 @@ const truncatedChannelName = computed(() => {
     }
 
     // チャンネルロゴ
+    &__logo-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: var(--timetable-channel-logo-width);
+        height: var(--timetable-channel-logo-height);
+        border-radius: 4px;
+        overflow: hidden;
+        background: rgb(var(--v-theme-background-lighten-2));
+    }
+
     &__logo {
-        width: 48px;
-        height: 28px;
-        object-fit: contain;
-        border-radius: 3px;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
 
     // チャンネル情報
     &__info {
         display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 4px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
         min-width: 0;
         max-width: 100%;
     }
@@ -94,7 +119,7 @@ const truncatedChannelName = computed(() => {
     &__number {
         flex-shrink: 0;
         padding: 1px 4px;
-        font-size: 10px;
+        font-size: var(--timetable-channel-number-size);
         font-weight: bold;
         line-height: 1;
         color: rgb(var(--v-theme-text));
@@ -105,10 +130,12 @@ const truncatedChannelName = computed(() => {
 
     // チャンネル名
     &__name {
-        font-size: 11px;
+        font-size: var(--timetable-channel-name-size);
         font-weight: 500;
         color: rgb(var(--v-theme-text));
-        white-space: nowrap;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 100%;

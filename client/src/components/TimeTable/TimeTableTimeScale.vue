@@ -7,12 +7,14 @@
                 height: `${props.hourHeight}px`,
                 background: getTimeScaleColor(hourTime),
             }">
-            <!-- 日付表示 (特定の時刻に表示) -->
-            <span class="timetable-time-scale__date" v-if="shouldShowDate(hourTime)">
-                {{ getDateLabel(hourTime) }}
-            </span>
-            <span class="timetable-time-scale__hour-number">{{ formatHour(hourTime) }}</span>
-            <span class="timetable-time-scale__hour-label">時</span>
+            <div class="timetable-time-scale__label">
+                <!-- 日付表示 (特定の時刻に表示) -->
+                <span class="timetable-time-scale__date" v-if="shouldShowDate(hourTime)">
+                    {{ getDateLabel(hourTime) }}
+                </span>
+                <span class="timetable-time-scale__hour-number">{{ formatHour(hourTime) }}</span>
+                <span class="timetable-time-scale__hour-label">時</span>
+            </div>
         </div>
     </div>
 </template>
@@ -88,28 +90,25 @@ function formatHour(hourTime: Dayjs): string {
 
 /**
  * 日付表示が必要な時刻かどうかを判定
- * - 通常表示: 4時 (開始) と 0時 (日付境界) に表示
- * - 36時間表示: 16時 (開始)、0時 (日付境界)、4時 (翌日の番組表境界) に表示
+ * - 通常表示: 4/8/12/16/20/24(0) のタイミングで表示
+ * - 36時間表示: 4/8/12/16/20/24(0) のタイミングで表示
  * @param hourTime 時刻を表す Dayjs オブジェクト
  */
 function shouldShowDate(hourTime: Dayjs): boolean {
     const hour = hourTime.hour();
     const displayStart = timetableStore.display_start_time;
 
-    if (props.is36HourDisplay) {
-        // 36時間表示: 16時 (開始)、0時 (日付境界)、4時 (翌日の番組表境界)
-        // 開始時刻 (16時) に表示
-        if (hourTime.isSame(displayStart, 'hour')) return true;
-        // 0時 (日付境界) に表示
-        if (hour === 0) return true;
-        // 4時 (翌日の番組表境界) に表示 - ただし開始時刻が4時の場合は除く
-        if (hour === 4 && hourTime.isAfter(displayStart)) return true;
-    } else {
-        // 通常表示: 4時 (開始) と 0時 (日付境界)
-        if (hour === 4) return true;
-        if (hour === 0) return true;
+    // 4時間単位で日付を表示する
+    if ([0, 4, 8, 12, 16, 20].includes(hour) === false) {
+        return false;
     }
-    return false;
+
+    // 36時間表示の際、表示開始が4時の場合は日付境界の4時表示を抑制する
+    if (props.is36HourDisplay && hour === 4 && displayStart.hour() === 4) {
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -136,20 +135,31 @@ function getDateLabel(hourTime: Dayjs): string {
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        padding-top: 8px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         color: #ffffff;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        z-index: 1;
     }
 
-    // 日付ラベル (4時と24時/0時に表示)
+    &__label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: sticky;
+        top: var(--timetable-channel-header-height);
+        padding-top: 6px;
+        padding-bottom: 4px;
+        background: inherit;
+    }
+
+    // 日付ラベル (4/8/12/16/20/24(0) に表示)
     &__date {
         font-size: 10px;
         font-weight: bold;
         line-height: 1;
         opacity: 0.9;
         margin-bottom: 4px;
-        padding: 1px 4px;
+        padding: 2px 4px;
         background: rgba(255, 255, 255, 0.15);
         border-radius: 2px;
     }
@@ -159,6 +169,9 @@ function getDateLabel(hourTime: Dayjs): string {
         font-size: 20px;
         font-weight: bold;
         line-height: 1;
+        @include smartphone-vertical {
+            font-size: 17px;
+        }
     }
 
     // 「時」ラベル

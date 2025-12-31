@@ -25,6 +25,7 @@ const props = defineProps<{
     selectedDate: Dayjs;
     hourHeight: number;
     totalWidth: number;
+    channelHeaderHeight: number;
 }>();
 
 // ストア
@@ -33,6 +34,7 @@ const timetableStore = useTimeTableStore();
 // 現在時刻 (毎分更新)
 const currentTime = ref(dayjs());
 let updateInterval: ReturnType<typeof setInterval> | null = null;
+let updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
 
 /**
@@ -62,19 +64,30 @@ const linePosition = computed(() => {
         currentTime.value,
         displayStart,
         props.hourHeight,
-    ) - TimeTableUtils.CHANNEL_HEADER_HEIGHT;
+        props.channelHeaderHeight,
+    ) - props.channelHeaderHeight;
 });
 
 
 // ライフサイクル
 onMounted(() => {
-    // 毎分更新
-    updateInterval = setInterval(() => {
+    // 次の分境界に合わせて更新し、その後は毎分更新
+    const now = dayjs();
+    const nextMinute = now.add(1, 'minute').startOf('minute');
+    const delayMs = Math.max(0, nextMinute.valueOf() - now.valueOf());
+
+    updateTimeout = setTimeout(() => {
         currentTime.value = dayjs();
-    }, 60 * 1000);
+        updateInterval = setInterval(() => {
+            currentTime.value = dayjs();
+        }, 60 * 1000);
+    }, delayMs);
 });
 
 onUnmounted(() => {
+    if (updateTimeout !== null) {
+        clearTimeout(updateTimeout);
+    }
     if (updateInterval !== null) {
         clearInterval(updateInterval);
     }

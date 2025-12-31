@@ -1,5 +1,6 @@
 <template>
     <div class="timetable-program-cell"
+        ref="cellRef"
         :class="{
             'timetable-program-cell--selected': isSelected,
             'timetable-program-cell--expanded': isExpanded,
@@ -16,16 +17,18 @@
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave">
         <!-- ジャンルハイライト縦線 (REGZA 風) -->
-        <div class="timetable-program-cell__highlight" :style="{ background: genreHighlightColor }"></div>
+        <div class="timetable-program-cell__highlight" :style="{ background: highlightColor }"></div>
         <!-- メインコンテンツ -->
         <div class="timetable-program-cell__content" :style="contentStickyStyle">
-            <!-- 開始分表示 -->
-            <span class="timetable-program-cell__start-minute">{{ startMinute }}</span>
-            <!-- 予約アイコン -->
-            <div class="timetable-program-cell__reservation-icon" v-if="hasReservation">
-                <Icon :icon="reservationIcon" width="14px" :style="{ color: reservationIconColor }" />
-                <Icon v-if="isPartialRecording" icon="fluent:warning-16-filled" width="12px" class="timetable-program-cell__warning-icon" />
-                <Icon v-if="isUnavailableRecording" icon="fluent:dismiss-circle-16-filled" width="12px" class="timetable-program-cell__error-icon" />
+            <!-- 開始分表示 + 予約アイコン -->
+            <div class="timetable-program-cell__header">
+                <span class="timetable-program-cell__start-minute">{{ startMinute }}</span>
+                <div class="timetable-program-cell__reservation-icon" v-if="hasReservation">
+                    <Icon :icon="reservationIcon" width="14px" :style="{ color: reservationIconColor }" />
+                    <div v-if="isRecording" class="timetable-program-cell__recording-icon"></div>
+                    <Icon v-if="isPartialRecording" icon="fluent:warning-16-filled" width="12px" class="timetable-program-cell__warning-icon" />
+                    <Icon v-if="isUnavailableRecording" icon="fluent:dismiss-circle-16-filled" width="12px" class="timetable-program-cell__error-icon" />
+                </div>
             </div>
             <!-- タイトル -->
             <div class="timetable-program-cell__title" v-html="decoratedTitle"></div>
@@ -56,7 +59,7 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import type { Dayjs } from 'dayjs';
 
@@ -74,9 +77,13 @@ const props = defineProps<{
     selectedDate: Dayjs;  // 選択された日付 (4:00起点、表示開始時刻とは異なる場合がある)
     hourHeight: number;
     channelWidth: number;
+    fullChannelWidth?: number;
     scrollTop: number;  // スクロール位置 (Y方向)
     viewportHeight: number;  // 番組グリッド表示領域の高さ
+    channelHeaderHeight: number;
+    isScrollAtBottom?: boolean;
     isSubchannel?: boolean;
+    isSplit?: boolean;
     isSelected: boolean;
     isPast: boolean;
     is36HourDisplay?: boolean;  // 36時間表示モードかどうか
@@ -95,6 +102,12 @@ const timetableStore = useTimeTableStore();
 
 // 状態
 const isHovered = ref(false);
+const cellRef = ref<HTMLElement | null>(null);
+const expandedHeight = ref<number>(0);
+
+// 定数
+const RESERVATION_ICON = 'fluent:timer-16-filled';
+const RESERVATION_DISABLED_ICON = 'mdi:timer-pause-outline';
 
 /**
  * 展開状態かどうか (選択中またはホバー展開有効時にホバー中)
@@ -139,13 +152,6 @@ const isUnavailableRecording = computed(() => {
 });
 
 /**
- * 予約アイコン
- */
-const reservationIcon = computed(() => {
-    return 'fluent:timer-16-filled';
-});
-
-/**
  * 予約アイコンの色
  */
 const reservationIconColor = computed(() => {
@@ -159,6 +165,16 @@ const reservationIconColor = computed(() => {
         return 'rgb(var(--v-theme-text-darken-2))';
     }
     return 'rgb(var(--v-theme-success))';
+});
+
+/**
+ * 予約アイコン
+ */
+const reservationIcon = computed(() => {
+    if (isReservationDisabled.value) {
+        return RESERVATION_DISABLED_ICON;
+    }
+    return RESERVATION_ICON;
 });
 
 /**
@@ -207,9 +223,22 @@ const genreHighlightColor = computed(() => {
 });
 
 /**
+ * ハイライト色 (過去番組はグレー系に統一)
+ */
+const highlightColor = computed(() => {
+    if (props.isPast) {
+        return '#b0b0b0';
+    }
+    return genreHighlightColor.value;
+});
+
+/**
  * セルの背景色
  */
 const cellBackgroundColor = computed(() => {
+    if (props.isPast) {
+        return '#e6e6e6';
+    }
     // 録画不可の場合は赤背景
     if (isUnavailableRecording.value) {
         return '#f8d7da';
@@ -232,8 +261,12 @@ const cellY = computed(() => {
     const startTime = dayjs(props.program.start_time);
     // 表示開始時刻を取得 (36時間表示時は16:00、通常は4:00)
     const displayStart = timetableStore.getDisplayStartTime();
-    return TimeTableUtils.calculateProgramY(startTime, displayStart, props.hourHeight)
-        - TimeTableUtils.CHANNEL_HEADER_HEIGHT;
+    return TimeTableUtils.calculateProgramY(
+        startTime,
+        displayStart,
+        props.hourHeight,
+        props.channelHeaderHeight,
+    ) - props.channelHeaderHeight;
 });
 
 /**
@@ -241,18 +274,18 @@ const cellY = computed(() => {
  * 番組が番組表の下端を超える場合はクリップする
  * 通常: 28時 (翌4時) でクリップ、36時間表示: 40時 (翌16時) でクリップ
  */
+const gridTotalHeight = computed(() => {
+    return (props.is36HourDisplay ? 36 : 24) * props.hourHeight;
+});
+
 const cellHeight = computed(() => {
     const rawHeight = TimeTableUtils.calculateProgramHeight(props.program.duration, props.hourHeight);
 
-    // 番組表の総高さ (通常24時間分 = 4時〜28時、36時間表示時は36時間分 = 4時〜40時)
-    const totalHours = props.is36HourDisplay ? 36 : 24;
-    const gridTotalHeight = totalHours * props.hourHeight;
-
     // セルの下端が番組表の下端を超える場合はクリップ
     const cellBottom = cellY.value + rawHeight;
-    if (cellBottom > gridTotalHeight) {
+    if (cellBottom > gridTotalHeight.value) {
         // クリップされた高さを計算 (最小高さは確保)
-        const clippedHeight = gridTotalHeight - cellY.value;
+        const clippedHeight = gridTotalHeight.value - cellY.value;
         return Math.max(clippedHeight, 20);
     }
 
@@ -264,15 +297,20 @@ const cellHeight = computed(() => {
  * 展開時は高さを auto にしてコンテンツに応じて伸縮可能にする
  */
 const cellStyle = computed(() => {
+    const fullWidth = props.fullChannelWidth ?? props.channelWidth;
+    const isSplitWidth = props.isSplit === true && props.channelWidth < fullWidth;
+
     // サブチャンネルの場合は右半分に配置
-    const left = props.isSubchannel ? props.channelWidth : 0;
+    const left = props.isSubchannel && isSplitWidth ? props.channelWidth : 0;
+    const resolvedLeft = isExpanded.value && isSplitWidth ? 0 : left;
+    const resolvedWidth = isExpanded.value && isSplitWidth ? fullWidth : props.channelWidth;
 
     // 展開状態かどうかで height の扱いを変える
     // 展開時は minHeight のみ設定し、height は auto (CSS 側で制御) になる
     const style: Record<string, string> = {
         top: `${cellY.value}px`,
-        left: `${left}px`,
-        width: `${props.channelWidth}px`,
+        left: `${resolvedLeft}px`,
+        width: `${resolvedWidth}px`,
         minHeight: `${cellHeight.value}px`,
         background: cellBackgroundColor.value,
     };
@@ -280,6 +318,22 @@ const cellStyle = computed(() => {
     // 非展開時のみ高さを固定
     if (!isExpanded.value) {
         style.height = `${cellHeight.value}px`;
+    }
+
+    // 展開時に下端がはみ出す場合は、表示領域内に収まるよう上方向にずらす
+    if (isExpanded.value && props.viewportHeight > 0 && props.isScrollAtBottom === true) {
+        const effectiveHeight = expandedHeight.value > 0 ? expandedHeight.value : cellHeight.value;
+        const viewportBottom = props.scrollTop + props.viewportHeight;
+        const cellBottom = cellY.value + effectiveHeight;
+        const isLastRow = cellY.value + cellHeight.value >= gridTotalHeight.value - 1;
+        if (cellBottom > viewportBottom && isLastRow) {
+            const overflow = cellBottom - viewportBottom;
+            const maxShift = Math.max(0, cellY.value - props.scrollTop);
+            const shiftY = Math.min(overflow, maxShift);
+            if (shiftY > 0) {
+                style.transform = `translateY(-${shiftY}px)`;
+            }
+        }
     }
 
     return style;
@@ -291,12 +345,6 @@ const cellStyle = computed(() => {
  * 常に見えるようにする
  */
 const contentStickyStyle = computed(() => {
-    // 展開状態 (選択中またはホバー中) の場合はスティッキー処理を無効化
-    // 展開時はセル自体が z-index で前面に来て全体が見えるため
-    if (isExpanded.value) {
-        return {};
-    }
-
     // ビューポートがまだ初期化されていない場合はスキップ
     if (props.viewportHeight <= 0) {
         return {};
@@ -375,6 +423,19 @@ function onQuickReserve(): void {
     emit('quick-reserve');
 }
 
+// 展開時にセルの実高さを取得する
+watch(isExpanded, async (value) => {
+    if (value === false) {
+        expandedHeight.value = 0;
+        return;
+    }
+
+    await nextTick();
+    if (cellRef.value !== null) {
+        expandedHeight.value = Math.max(cellRef.value.getBoundingClientRect().height, cellHeight.value);
+    }
+});
+
 </script>
 <style lang="scss" scoped>
 
@@ -402,15 +463,24 @@ function onQuickReserve(): void {
 
     // 展開状態 (選択またはホバー時): コンテンツがはみ出しても表示
     &--expanded {
-        z-index: 10;
+        z-index: 14;
         overflow: visible;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
 
     // 過去番組 (グレーアウト)
     &--past {
-        opacity: 0.5;
-        filter: grayscale(50%);
+        .timetable-program-cell__start-minute {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .timetable-program-cell__title {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .timetable-program-cell__description {
+            color: rgba(0, 0, 0, 0.55);
+        }
     }
 
     // 予約あり
@@ -461,6 +531,13 @@ function onQuickReserve(): void {
         }
     }
 
+    // 開始分 + 予約アイコンの行
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
     // 開始分
     &__start-minute {
         flex-shrink: 0;
@@ -475,7 +552,18 @@ function onQuickReserve(): void {
         display: flex;
         align-items: center;
         gap: 2px;
-        margin-top: 1px;
+    }
+
+    &__recording-icon {
+        display: block;
+        position: relative;
+        width: 10px;
+        height: 10px;
+        border: 3px solid #515151;
+        border-radius: 50%;
+        background-color: #EF5350;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+        animation: timetable-recording-background-color 2s infinite ease-in-out;
     }
 
     &__warning-icon {
@@ -541,6 +629,18 @@ function onQuickReserve(): void {
             justify-content: center;
             gap: 4px;
         }
+    }
+}
+
+@keyframes timetable-recording-background-color {
+    0% {
+        background-color: #EF5350;
+    }
+    50% {
+        background-color: #FFCDD2;
+    }
+    100% {
+        background-color: #EF5350;
     }
 }
 

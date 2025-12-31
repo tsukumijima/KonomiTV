@@ -1,5 +1,9 @@
 <template>
-    <div class="timetable-grid" ref="gridContainerRef">
+    <div class="timetable-grid" ref="gridContainerRef"
+        :style="{
+            '--timetable-channel-header-height': `${channelHeaderHeight}px`,
+            '--timetable-scroll-left': '0px',
+        }">
         <!-- スクロール可能な領域 -->
         <!-- ドラッグスクロール: ポインターイベントをこの要素で直接処理 -->
         <!-- チルトホイール: wheel イベントは onMounted で passive: false で登録 (Vue 3 のデフォルトは passive: true のため) -->
@@ -11,8 +15,8 @@
             <!-- CSS Grid を使ったレイアウト -->
             <div class="timetable-grid__layout"
                 :style="{
-                    gridTemplateColumns: `${TIME_SCALE_WIDTH}px ${totalWidth}px`,
-                    gridTemplateRows: `${CHANNEL_HEADER_HEIGHT}px ${totalHeight}px`,
+                    gridTemplateColumns: `${timeScaleWidth}px ${totalWidth}px`,
+                    gridTemplateRows: `${channelHeaderHeight}px ${totalHeight}px`,
                 }">
                 <!-- 左上の固定コーナー -->
                 <div class="timetable-grid__corner">
@@ -23,10 +27,11 @@
                         v-for="channelData in channels" :key="channelData.channel.id"
                         :channel="channelData.channel"
                         :width="channelWidth"
+                        :height="channelHeaderHeight"
                     />
                 </div>
                 <!-- 時刻スケール (左側に固定、縦スクロールに追従) -->
-                <div class="timetable-grid__time-scale">
+                <div class="timetable-grid__time-scale" :style="{ width: `${timeScaleWidth}px` }">
                     <TimeTableTimeScale
                         :selectedDate="props.selectedDate"
                         :hourHeight="hourHeight"
@@ -55,9 +60,13 @@
                             :channel="channelData.channel"
                             :selectedDate="props.selectedDate"
                             :hourHeight="hourHeight"
-                            :channelWidth="hasSubchannels(channelData) ? channelWidth / 2 : channelWidth"
+                            :channelWidth="getProgramCellWidth(channelData, program, false)"
+                            :fullChannelWidth="channelWidth"
+                            :isSplit="getSplitState(channelData, program, false)"
                             :scrollTop="scrollTop"
                             :viewportHeight="viewportHeight"
+                            :channelHeaderHeight="channelHeaderHeight"
+                            :isScrollAtBottom="isScrollAtBottom"
                             :isSelected="selectedProgramId === program.id"
                             :isPast="isPastProgram(program)"
                             :is36HourDisplay="props.is36HourDisplay"
@@ -74,9 +83,13 @@
                                 :channel="channelData.channel"
                                 :selectedDate="props.selectedDate"
                                 :hourHeight="hourHeight"
-                                :channelWidth="channelWidth / 2"
+                                :channelWidth="getProgramCellWidth(channelData, program, true)"
+                                :fullChannelWidth="channelWidth"
+                                :isSplit="getSplitState(channelData, program, true)"
                                 :scrollTop="scrollTop"
                                 :viewportHeight="viewportHeight"
+                                :channelHeaderHeight="channelHeaderHeight"
+                                :isScrollAtBottom="isScrollAtBottom"
                                 :isSubchannel="true"
                                 :isSelected="selectedProgramId === program.id"
                                 :isPast="isPastProgram(program)"
@@ -92,13 +105,14 @@
                         :selectedDate="props.selectedDate"
                         :hourHeight="hourHeight"
                         :totalWidth="totalWidth"
+                        :channelHeaderHeight="channelHeaderHeight"
                     />
                 </div>
             </div>
         </div>
         <!-- 日付遷移フロートボタン (次の日へ) -->
         <Transition name="fade">
-            <v-btn class="timetable-grid__next-day-button" variant="elevated" color="secondary"
+            <v-btn class="timetable-grid__next-day-button" variant="elevated" color="background-lighten-1"
                 v-if="showNextDayButton"
                 @click="$emit('go-to-next-day')">
                 <Icon icon="fluent:chevron-down-20-regular" width="20px" />
@@ -107,7 +121,7 @@
         </Transition>
         <!-- 日付遷移フロートボタン (前の日へ) -->
         <Transition name="fade">
-            <v-btn class="timetable-grid__prev-day-button" variant="elevated" color="secondary"
+            <v-btn class="timetable-grid__prev-day-button" variant="elevated" color="background-lighten-1"
                 v-if="showPrevDayButton"
                 @click="$emit('go-to-previous-day')">
                 <Icon icon="fluent:chevron-up-20-regular" width="20px" />
@@ -118,7 +132,7 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import type { Dayjs } from 'dayjs';
 
@@ -129,13 +143,11 @@ import TimeTableTimeScale from '@/components/TimeTable/TimeTableTimeScale.vue';
 import { ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore from '@/stores/TimeTableStore';
-import { dayjs } from '@/utils';
+import Utils, { dayjs } from '@/utils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
 
 // 定数
-const TIME_SCALE_WIDTH = TimeTableUtils.TIME_SCALE_WIDTH;
-const CHANNEL_HEADER_HEIGHT = TimeTableUtils.CHANNEL_HEADER_HEIGHT;
 const EMPTY_CELL_BACKGROUND_COLOR = TimeTableUtils.EMPTY_CELL_BACKGROUND_COLOR;
 
 // Props
@@ -175,6 +187,7 @@ const showPrevDayButton = ref(false);
 const isInitialLoadDone = ref(false);  // 初回ロードが完了したかどうか (日付変更時のスクロール制御用)
 const scrollTop = ref(0);  // 現在のスクロール位置 (Y方向)
 const viewportHeight = ref(0);  // 番組グリッド表示領域の高さ
+const isScrollAtBottom = ref(false);
 
 // ドラッグスクロール用の状態
 const isDragging = ref(false);
@@ -225,6 +238,23 @@ const hourHeight = computed(() => {
 });
 
 /**
+ * チャンネルヘッダーの高さ
+ */
+const channelHeaderHeight = computed(() => {
+    return TimeTableUtils.getChannelHeaderHeight(channelWidth.value);
+});
+
+/**
+ * 時刻スケールの幅
+ */
+const timeScaleWidth = computed(() => {
+    return TimeTableUtils.getTimeScaleWidth(
+        deviceType.value,
+        Utils.isSmartphoneVertical(),
+    );
+});
+
+/**
  * 番組表の総幅 (全チャンネル分)
  */
 const totalWidth = computed(() => {
@@ -254,6 +284,83 @@ function hasSubchannels(channelData: ITimeTableChannel): boolean {
 }
 
 /**
+ * 番組の開始/終了時刻を数値で取得する
+ */
+const programTimeCache = new Map<string, { start: number; end: number }>();
+const splitStateCache = new Map<string, boolean>();
+
+function getProgramTimeRange(program: ITimeTableProgram): { start: number; end: number } {
+    const cached = programTimeCache.get(program.id);
+    if (cached !== undefined) {
+        return cached;
+    }
+    const range = {
+        start: dayjs(program.start_time).valueOf(),
+        end: dayjs(program.end_time).valueOf(),
+    };
+    programTimeCache.set(program.id, range);
+    return range;
+}
+
+/**
+ * 対象番組が指定リストと時間帯で重なっているか
+ */
+function hasOverlappingProgram(target: ITimeTableProgram, other_programs: ITimeTableProgram[]): boolean {
+    const target_range = getProgramTimeRange(target);
+    return other_programs.some((program) => {
+        const other_range = getProgramTimeRange(program);
+        return other_range.start < target_range.end && other_range.end > target_range.start;
+    });
+}
+
+/**
+ * 番組セルが分割表示対象かどうか
+ */
+function getSplitState(
+    channelData: ITimeTableChannel,
+    program: ITimeTableProgram,
+    is_subchannel: boolean,
+): boolean {
+    const cache_key = `${program.id}:${is_subchannel ? 'sub' : 'main'}`;
+    const cached = splitStateCache.get(cache_key);
+    if (cached !== undefined) {
+        return cached;
+    }
+    if (channelData.subchannel_programs === null) {
+        splitStateCache.set(cache_key, false);
+        return false;
+    }
+    const subchannel_programs = Object.values(channelData.subchannel_programs).flat();
+    if (subchannel_programs.length === 0) {
+        splitStateCache.set(cache_key, false);
+        return false;
+    }
+
+    if (is_subchannel) {
+        const is_split = hasOverlappingProgram(program, channelData.programs);
+        splitStateCache.set(cache_key, is_split);
+        return is_split;
+    }
+    const is_split = hasOverlappingProgram(program, subchannel_programs);
+    splitStateCache.set(cache_key, is_split);
+    return is_split;
+}
+
+/**
+ * 番組セルの幅を取得する
+ */
+function getProgramCellWidth(
+    channelData: ITimeTableChannel,
+    program: ITimeTableProgram,
+    is_subchannel: boolean,
+): number {
+    if (getSplitState(channelData, program, is_subchannel)) {
+        return channelWidth.value / 2;
+    }
+    return channelWidth.value;
+}
+
+/**
  * サブチャンネル番組を取得
  */
 function getSubchannelPrograms(channelData: ITimeTableChannel): ITimeTableProgram[] {
@@ -280,18 +387,24 @@ const onScroll = TimeTableUtils.throttle(() => {
 
     const scrollX = scrollAreaRef.value.scrollLeft;
     const scrollY = scrollAreaRef.value.scrollTop;
+    if (gridContainerRef.value !== null) {
+        gridContainerRef.value.style.setProperty('--timetable-scroll-left', `${scrollX}px`);
+    }
 
     // スクロール位置を更新 (TimeTableProgramCell の sticky 処理用)
     scrollTop.value = scrollY;
     // ビューポート高さを更新 (チャンネルヘッダー分を引いた番組グリッドの表示領域)
-    viewportHeight.value = scrollAreaRef.value.clientHeight - CHANNEL_HEADER_HEIGHT;
+    viewportHeight.value = scrollAreaRef.value.clientHeight - channelHeaderHeight.value;
+
+    // スクロール位置が下端に到達しているかを判定
+    const maxScrollY = scrollAreaRef.value.scrollHeight - scrollAreaRef.value.clientHeight;
+    isScrollAtBottom.value = scrollY >= maxScrollY - 1;
 
     // スクロール位置を親に通知
     emit('scroll-position-change', { x: scrollX, y: scrollY });
 
     // 日付遷移ボタンの表示判定
     // スクロール位置が端に近く、かつ前後の日に遷移可能な場合のみ表示
-    const maxScrollY = scrollAreaRef.value.scrollHeight - scrollAreaRef.value.clientHeight;
     showNextDayButton.value = scrollY > maxScrollY - 100 && props.canGoNextDay;
     showPrevDayButton.value = scrollY < 100 && props.canGoPreviousDay;
 
@@ -466,9 +579,8 @@ function onPointerUp(event: PointerEvent): void {
     if (hasMoved.value) {
         startMomentumScroll();
         shouldSuppressClick.value = true;
-        setTimeout(() => {
-            shouldSuppressClick.value = false;
-        }, 0);
+    } else {
+        shouldSuppressClick.value = false;
     }
 }
 
@@ -483,6 +595,7 @@ function onScrollAreaClickCapture(event: MouseEvent): void {
 
     event.preventDefault();
     event.stopPropagation();
+    shouldSuppressClick.value = false;
 }
 
 /**
@@ -690,7 +803,7 @@ onMounted(async () => {
     }, 100);
 });
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
     // wheel イベントリスナーを解除
     if (scrollAreaRef.value !== null) {
         scrollAreaRef.value.removeEventListener('wheel', onWheel);
@@ -702,8 +815,18 @@ onUnmounted(() => {
     }
 });
 
+onUnmounted(() => {
+    // モーメンタムアニメーションをキャンセル (念のため)
+    if (momentumAnimationId.value !== null) {
+        cancelAnimationFrame(momentumAnimationId.value);
+    }
+});
+
 // チャンネルデータが変更されたら（初回ロード完了時など）、現在時刻にスクロール
 watch(() => props.channels, async (newChannels, oldChannels) => {
+    programTimeCache.clear();
+    splitStateCache.clear();
+
     // 初回ロード時（空→データあり）のみスクロール
     if (oldChannels.length === 0 && newChannels.length > 0) {
         await nextTick();
@@ -726,6 +849,7 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
     flex-direction: column;
     position: relative;
     flex-grow: 1;
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
     background: rgb(var(--v-theme-background));
@@ -734,6 +858,7 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
     &__scroll-area {
         flex-grow: 1;
         overflow: auto;
+        min-width: 0;
         // ドラッグスクロールを有効化するため、ブラウザのデフォルトタッチ動作を無効化
         // App.vue の html 要素に設定された touch-action: manipulation をオーバーライドする必要がある
         // これにより、タッチデバイスでの縦横ドラッグスクロールが JavaScript で制御可能になる
@@ -782,11 +907,13 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         grid-column: 1;
         position: sticky;
         top: 0;
-        left: 0;
+        left: auto;
+        transform: translateX(var(--timetable-scroll-left));
+        will-change: transform;
         background: rgb(var(--v-theme-background-lighten-1));
         border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
-        z-index: 30;
+        z-index: 40;
     }
 
     // チャンネルヘッダー (グリッド: 1行目2列目、上部に固定)
@@ -798,7 +925,7 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         top: 0;
         background: rgb(var(--v-theme-background-lighten-1));
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
-        z-index: 20;
+        z-index: 35;
     }
 
     // 時刻スケール (グリッド: 2行目1列目、左側に固定)
@@ -806,9 +933,11 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         grid-row: 2;
         grid-column: 1;
         position: sticky;
-        left: 0;
+        left: auto;
+        transform: translateX(var(--timetable-scroll-left));
+        will-change: transform;
         background: rgb(var(--v-theme-background-lighten-1));
-        z-index: 15;
+        z-index: 30;
     }
 
     // 番組グリッド本体 (グリッド: 2行目2列目)
@@ -853,6 +982,9 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         gap: 4px;
         padding: 8px 16px;
         font-size: 14px;
+        color: rgb(var(--v-theme-text)) !important;
+        background: rgb(var(--v-theme-background-lighten-1)) !important;
+        border: 1px solid rgb(var(--v-theme-background-lighten-2));
     }
 
     &__next-day-button {
@@ -864,15 +996,15 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
     }
 
     &__prev-day-button {
-        // ヘッダー (65px) + チャンネルヘッダー (CHANNEL_HEADER_HEIGHT) + 余白
-        top: calc(65px + 48px + 20px);
+        // ヘッダー (65px) + チャンネルヘッダー + 余白
+        top: calc(65px + var(--timetable-channel-header-height) + 20px);
         @include smartphone-horizontal {
             // スマホ横画面ではヘッダーなし
-            top: calc(48px + 20px);
+            top: calc(48px + var(--timetable-channel-header-height) + 20px);
         }
         @include smartphone-vertical {
             // スマホ縦画面ではヘッダーなし、モバイルコントロールバーの高さを考慮
-            top: calc(48px + 100px + 20px);
+            top: calc(48px + 72px + var(--timetable-channel-header-height) + 24px);
         }
     }
 }
