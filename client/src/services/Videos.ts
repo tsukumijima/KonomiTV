@@ -378,15 +378,40 @@ class Videos {
     /**
      * 録画番組のクリップを書き出す
      * @param video_id 録画番組の ID
-     * @param start_time クリップ開始時刻（秒）
-     * @param end_time クリップ終了時刻（秒）
+     * @param segments クリップセグメントの配列（秒指定またはフレーム指定）
      * @returns クリップ書き出しに成功した場合はタスク ID、失敗した場合は null
      */
     static async exportVideoClip(video_id: number, segments: IClipSegment[]): Promise<string | null> {
 
-        const payload = segments.length === 1
-            ? { start_time: segments[0].start_time, end_time: segments[0].end_time }
-            : { segments };
+        // セグメントが空の場合はエラー
+        if (segments.length === 0) {
+            console.error('Clip export failed: No segments provided');
+            return null;
+        }
+
+        // フレーム指定かどうかを判定
+        const isFrameBased = segments[0].start_frame !== undefined;
+
+        let payload: Record<string, unknown>;
+        if (segments.length === 1) {
+            // 単一セグメントの場合は直接 start_frame/end_frame または start_time/end_time を指定
+            if (isFrameBased) {
+                payload = { start_frame: segments[0].start_frame, end_frame: segments[0].end_frame };
+            } else {
+                payload = { start_time: segments[0].start_time, end_time: segments[0].end_time };
+            }
+        } else {
+            // 複数セグメントの場合は segments 配列を指定
+            // サーバー側の ClipSegment スキーマに合わせて各セグメントを整形
+            const formattedSegments = segments.map(seg => {
+                if (isFrameBased) {
+                    return { start_frame: seg.start_frame, end_frame: seg.end_frame };
+                } else {
+                    return { start_time: seg.start_time, end_time: seg.end_time };
+                }
+            });
+            payload = { segments: formattedSegments };
+        }
 
         const response = await APIClient.post<IVideoClipExportResult>(`/streams/video/${video_id}/clip-export`, payload);
 
@@ -428,6 +453,7 @@ class Videos {
 
     /**
      * 書き出したクリップをダウンロードする
+     * PWA モードでも正常に動作するよう Blob を経由してダウンロードする
      * @param video_id 録画番組の ID
      * @param task_id タスク ID
      * @returns ダウンロードに成功した場合は true
@@ -438,14 +464,42 @@ class Videos {
             // ダウンロード URL を構築
             const download_url = `/api/streams/video/${video_id}/clip-export/${task_id}/download`;
 
-            // 新しいタブでダウンロードを開始
-            // ブラウザのダウンロード機能を使用するため、直接リンクを開く
+            // Blob としてフェッチ (PWA モードでも動作する)
+            const response = await fetch(download_url);
+            if (!response.ok) {
+                console.error('Failed to fetch clip for download:', response.status, response.statusText);
+                return false;
+            }
+
+            // Content-Disposition ヘッダーからファイル名を取得
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'clip.mp4';
+            if (contentDisposition) {
+                // filename*=UTF-8''xxx 形式を優先
+                const filenameStarMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+                if (filenameStarMatch) {
+                    filename = decodeURIComponent(filenameStarMatch[1]);
+                } else {
+                    // filename="xxx" 形式
+                    const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/i);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+            }
+
+            // Blob を作成してダウンロード
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = download_url;
-            link.download = '';  // ファイル名はサーバー側で指定される
+            link.href = blobUrl;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            // Blob URL をクリーンアップ
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
             return true;
         } catch (error) {

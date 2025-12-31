@@ -54,8 +54,10 @@ export interface IClipVideoRecordedProgram {
 
 // クリップ動画情報を表すインターフェイス
 export interface IClipSegment {
-    start_time: number;
-    end_time: number;
+    start_time?: number;  // 秒指定（start_frame と排他）
+    end_time?: number;    // 秒指定（end_frame と排他）
+    start_frame?: number; // フレーム指定（start_time と排他）
+    end_frame?: number;   // フレーム指定（end_time と排他）
 }
 
 export interface IClipVideo {

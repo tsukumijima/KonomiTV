@@ -199,6 +199,12 @@ declare global {
         requestPictureInPicture(): Promise<PictureInPictureWindow>;
         onenterpictureinpicture: PictureInPictureEventListener;
         onleavepictureinpicture: PictureInPictureEventListener;
+        // iOS Safari 用のビデオ要素フルスクリーン API
+        webkitEnterFullscreen?(): void;
+        webkitExitFullscreen?(): void;
+        readonly webkitDisplayingFullscreen?: boolean;
+        onwebkitbeginfullscreen?: ((this: HTMLVideoElement, ev: Event) => any) | null;
+        onwebkitendfullscreen?: ((this: HTMLVideoElement, ev: Event) => any) | null;
     }
     interface Element {
         webkitRequestFullscreen?(): Promise<void>;

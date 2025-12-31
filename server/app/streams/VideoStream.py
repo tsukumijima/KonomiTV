@@ -64,7 +64,7 @@ class VideoStream:
 
     # 録画視聴セッションが再生されていない場合にタイムアウトするまでの時間 (秒)
     # この時間が経過すると、録画視聴セッションのインスタンスは自動的に破棄される
-    SESSION_TIMEOUT: ClassVar[float] = float(10)  # 10 秒
+    SESSION_TIMEOUT: ClassVar[float] = float(60)  # 60 秒
 
     # 一度でも読み取られた HLS セグメントの最大保持数
     MAX_READED_SEGMENTS: ClassVar[int] = 10

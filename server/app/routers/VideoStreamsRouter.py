@@ -29,6 +29,7 @@ from app.models.ClipVideo import ClipVideo
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.schemas import (
+    ClipSegment,
     VideoClipExportRequest,
     VideoClipExportResult,
     VideoClipExportStatus,
@@ -294,30 +295,74 @@ async def VideoClipExportAPI(
         )
 
     # セグメントの正規化とバリデーション
-    raw_segments: list[dict[str, float]]
-    if request.segments:
-        raw_segments = [{'start_time': float(segment.start_time), 'end_time': float(segment.end_time)} for segment in request.segments]
-    else:
-        assert request.start_time is not None and request.end_time is not None
-        raw_segments = [{'start_time': float(request.start_time), 'end_time': float(request.end_time)}]
+    # フレームレートを取得
+    frame_rate = recorded_video.video_frame_rate if recorded_video.video_frame_rate > 0 else 29.97
 
-    normalized_segments: list[dict[str, float]] = []
+    def frame_to_time(frame: int) -> float:
+        """フレーム番号を秒に変換"""
+        return frame / frame_rate
+
+    def time_to_frame(time_sec: float) -> int:
+        """秒をフレーム番号に変換"""
+        return int(time_sec * frame_rate)
+
+    # セグメントをフレーム単位で管理
+    raw_segments: list[dict[str, int | float]]
+    if request.segments:
+        raw_segments = []
+        for segment in request.segments:
+            # フレーム指定の場合はそのまま使用
+            if segment.start_frame is not None and segment.end_frame is not None:
+                raw_segments.append({
+                    'start_frame': segment.start_frame,
+                    'end_frame': segment.end_frame,
+                    'start_time': frame_to_time(segment.start_frame),
+                    'end_time': frame_to_time(segment.end_frame),
+                })
+            else:
+                # 秒指定の場合はフレームに変換
+                raw_segments.append({
+                    'start_frame': time_to_frame(float(segment.start_time)),  # type: ignore
+                    'end_frame': time_to_frame(float(segment.end_time)),  # type: ignore
+                    'start_time': float(segment.start_time),  # type: ignore
+                    'end_time': float(segment.end_time),  # type: ignore
+                })
+    else:
+        # 単一セグメントの場合
+        if request.start_frame is not None and request.end_frame is not None:
+            raw_segments = [{
+                'start_frame': request.start_frame,
+                'end_frame': request.end_frame,
+                'start_time': frame_to_time(request.start_frame),
+                'end_time': frame_to_time(request.end_frame),
+            }]
+        else:
+            assert request.start_time is not None and request.end_time is not None
+            raw_segments = [{
+                'start_frame': time_to_frame(float(request.start_time)),
+                'end_frame': time_to_frame(float(request.end_time)),
+                'start_time': float(request.start_time),
+                'end_time': float(request.end_time),
+            }]
+
+    normalized_segments: list[dict[str, int | float]] = []
+    total_frames = int(recorded_video.duration * frame_rate)
     for segment in raw_segments:
-        start_time = segment['start_time']
         end_time = segment['end_time']
-        if end_time > recorded_video.duration:
+        end_frame = segment['end_frame']
+        if end_time > recorded_video.duration or end_frame > total_frames:
             logging.error(
-                f'[VideoClipExportAPI] Segment end time exceeds video duration. '
-                f'[video_id: {video_id}, end_time: {end_time}, duration: {recorded_video.duration}]'
+                f'[VideoClipExportAPI] Segment end exceeds video duration. '
+                f'[video_id: {video_id}, end_frame: {end_frame}, total_frames: {total_frames}]'
             )
             return VideoClipExportResult(
                 is_success = False,
-                detail = f'End time ({end_time}s) exceeds video duration ({recorded_video.duration}s)',
+                detail = f'End frame ({end_frame}) exceeds video total frames ({total_frames})',
                 task_id = None,
             )
-        normalized_segments.append({'start_time': start_time, 'end_time': end_time})
+        normalized_segments.append(segment)
 
-    normalized_segments.sort(key=lambda s: s['start_time'])
+    normalized_segments.sort(key=lambda s: s['start_frame'])
 
     total_clip_duration = 0.0
     for segment in normalized_segments:
@@ -359,6 +404,16 @@ async def VideoClipExportAPI(
     output_path = output_dir / output_filename
 
     # タスクの初期状態を登録
+    # normalized_segments を ClipSegment のリストに変換
+    clip_segments = [
+        ClipSegment(
+            start_frame=int(seg['start_frame']),
+            end_frame=int(seg['end_frame']),
+            start_time=float(seg['start_time']),
+            end_time=float(seg['end_time']),
+        )
+        for seg in normalized_segments
+    ]
     _clip_export_tasks[task_id] = VideoClipExportStatus(
         task_id = task_id,
         status = 'Processing',
@@ -371,18 +426,21 @@ async def VideoClipExportAPI(
         start_time = overall_start,
         end_time = overall_end,
         duration = total_clip_duration,
-        segments = normalized_segments,
+        segments = clip_segments,
     )
 
     # バックグラウンドでクリップ書き出しを実行
     background_tasks.add_task(
-    ExecuteClipExport,
-    task_id,
-    recorded_video.file_path,
-    str(output_path),
-    normalized_segments,
-    recorded_video.id,
-    recorded_program.title,
+        ExecuteClipExport,
+        task_id,
+        recorded_video.file_path,
+        str(output_path),
+        normalized_segments,
+        recorded_video.id,
+        recorded_program.title,
+        frame_rate,
+        recorded_video.video_resolution_width,
+        recorded_video.video_resolution_height,
     )
 
     logging.info(
@@ -687,7 +745,7 @@ async def VideoClipSaveAPI(
             end_time = task.end_time,
             duration = task.duration,
             segments = [segment.model_dump() for segment in task.segments],
-            container_format = recorded_video.container_format,
+            container_format = 'MPEG-4',  # クリップは常に MP4 形式
             video_codec = recorded_video.video_codec,
             video_codec_profile = recorded_video.video_codec_profile,
             video_scan_type = recorded_video.video_scan_type,
@@ -742,11 +800,14 @@ async def ExecuteClipExport(
     task_id: str,
     input_path: str,
     output_path: str,
-    segments: list[dict[str, float]],
+    segments: list[dict[str, int | float]],
     recorded_video_id: int,
     recorded_program_title: str,
+    frame_rate: float,
+    video_width: int,
+    video_height: int,
 ) -> None:
-    """FFmpeg を用いて複数セグメントのクリップを書き出すバックグラウンド処理。"""
+    """FFmpeg を用いて複数セグメントのクリップをフレーム単位で書き出すバックグラウンド処理。"""
 
     temp_dir: PathLib | None = None
 
@@ -756,28 +817,61 @@ async def ExecuteClipExport(
         if len(segments) == 0:
             raise ValueError('No segments specified for clip export')
 
-        total_clip_duration = sum(max(0.0, segment['end_time'] - segment['start_time']) for segment in segments)
-        if total_clip_duration <= 0:
-            raise ValueError('Calculated clip duration must be positive')
+        # アスペクト比を計算
+        # 日本の放送波は通常 1440x1080 (SAR 4:3) → DAR 16:9
+        # または 1920x1080 (SAR 1:1) → DAR 16:9
+        if video_width == 1440 and video_height == 1080:
+            aspect_ratio = '16:9'
+        elif video_width == 1920 and video_height == 1080:
+            aspect_ratio = '16:9'
+        elif video_width == 720 and video_height == 480:
+            aspect_ratio = '16:9'  # SD放送
+        elif video_width == 720 and video_height == 576:
+            aspect_ratio = '16:9'  # PAL SD
+        elif video_width > 0 and video_height > 0:
+            # その他の解像度はピクセルアスペクト比を使用
+            aspect_ratio = f'{video_width}:{video_height}'
+        else:
+            aspect_ratio = '16:9'  # デフォルト
+
+        # 総フレーム数を計算
+        total_clip_frames = sum(int(segment['end_frame']) - int(segment['start_frame']) for segment in segments)
+        total_clip_duration = total_clip_frames / frame_rate
+        if total_clip_frames <= 0:
+            raise ValueError('Calculated clip frames must be positive')
 
         if len(segments) == 1:
-            start_time = segments[0]['start_time']
-            end_time = segments[0]['end_time']
-            clip_duration = end_time - start_time
+            start_frame = int(segments[0]['start_frame'])
+            end_frame = int(segments[0]['end_frame'])
+            clip_frames = end_frame - start_frame
+            clip_duration = clip_frames / frame_rate
+
+            # フレーム単位で正確に切り出すため、再エンコードを行う
+            # -c copy だとキーフレーム単位でしか切り出せないため、指定したフレームから始まらない場合がある
+            # また、スマホ等でアスペクト比が正しく表示されない問題を解消するため、アスペクト比情報を焼き込む
+            start_time = start_frame / frame_rate
 
             cmd = [
                 ffmpeg_path,
                 '-y',
-                '-ss', str(start_time),
                 '-i', input_path,
-                '-t', str(clip_duration),
-                '-c', 'copy',
+                '-ss', str(start_time),  # -i の後に置くことで正確なシーク
+                '-frames:v', str(clip_frames),
+                '-c:v', 'libx264',  # 正確なカットとアスペクト比反映のため再エンコード
+                '-preset', 'superfast',  # 高速化
+                '-crf', '23',
+                '-c:a', 'aac',  # 音声もAACで再エンコード（MP4互換性を確保）
+                '-b:a', '128k',
+                '-map_metadata', '0',  # 元のメタデータを保持
+                '-aspect', aspect_ratio,  # アスペクト比を明示的に設定
                 '-avoid_negative_ts', 'make_zero',
                 '-movflags', '+faststart',
+                '-f', 'mp4',  # MP4形式を明示的に指定
+                '-progress', 'pipe:1',  # 進捗をstdoutに出力
                 output_path,
             ]
 
-            logging.info(f'[ExecuteClipExport] Starting FFmpeg clip export. [task_id: {task_id}, command: {" ".join(cmd)}]')
+            logging.info(f'[ExecuteClipExport] Starting FFmpeg clip export. [task_id: {task_id}, start_frame: {start_frame}, end_frame: {end_frame}, clip_frames: {clip_frames}, command: {" ".join(cmd)}]')
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -785,25 +879,33 @@ async def ExecuteClipExport(
                 stderr = asyncio.subprocess.PIPE,
             )
 
+            # 進捗を読み取る（-progress pipe:1 の出力をstdoutから読む）
             stderr_output: list[str] = []
-            while True:
-                line = await process.stderr.readline()  # type: ignore[arg-type]
-                if not line:
-                    break
 
-                line_str = line.decode('utf-8', errors='ignore')
-                stderr_output.append(line_str)
+            async def read_progress() -> None:
+                while True:
+                    line = await process.stdout.readline()  # type: ignore
+                    if not line:
+                        break
+                    line_str = line.decode('utf-8', errors='ignore').strip()
+                    if line_str.startswith('frame='):
+                        try:
+                            current_frames = int(line_str.split('=')[1])
+                            progress = min((current_frames / clip_frames) * 100, 99.0)
+                            _clip_export_tasks[task_id].progress = progress
+                            _clip_export_tasks[task_id].detail = f'Processing: {current_frames}/{clip_frames} frames ({progress:.1f}%)'
+                        except Exception:
+                            pass
 
-                if 'time=' in line_str:
-                    try:
-                        time_str = line_str.split('time=')[1].split()[0]
-                        hours, minutes, seconds = time_str.split(':')
-                        current_time = float(hours) * 3600 + float(minutes) * 60 + float(seconds)
-                        progress = min((current_time / clip_duration) * 100, 100.0)
-                        _clip_export_tasks[task_id].progress = progress
-                        _clip_export_tasks[task_id].detail = f'Processing segment 1/1: {progress:.1f}%'
-                    except Exception:
-                        pass
+            async def read_stderr() -> None:
+                while True:
+                    line = await process.stderr.readline()  # type: ignore
+                    if not line:
+                        break
+                    stderr_output.append(line.decode('utf-8', errors='ignore'))
+
+            # 両方を並行して読み取る
+            await asyncio.gather(read_progress(), read_stderr())
 
             await process.wait()
 
@@ -824,27 +926,37 @@ async def ExecuteClipExport(
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             segment_files: list[PathLib] = []
-            processed_duration = 0.0
+            processed_frames = 0
 
             for index, segment in enumerate(segments, start=1):
-                segment_duration = segment['end_time'] - segment['start_time']
+                start_frame = int(segment['start_frame'])
+                end_frame = int(segment['end_frame'])
+                segment_frames = end_frame - start_frame
+                start_time = start_frame / frame_rate
                 segment_file = temp_dir / f'segment_{index:02d}.ts'
                 segment_files.append(segment_file)
 
                 cmd = [
                     ffmpeg_path,
                     '-y',
-                    '-ss', str(segment['start_time']),
                     '-i', input_path,
-                    '-t', str(segment_duration),
-                    '-c', 'copy',
+                    '-ss', str(start_time),  # -i の後に置くことで正確なシーク
+                    '-frames:v', str(segment_frames),
+                    '-c:v', 'libx264',  # 正確なカットとアスペクト比反映のため再エンコード
+                    '-preset', 'superfast',
+                    '-crf', '23',
+                    '-c:a', 'aac',  # 音声もAACで再エンコード
+                    '-b:a', '128k',
+                    '-aspect', aspect_ratio,
                     '-avoid_negative_ts', 'make_zero',
+                    '-f', 'mpegts',  # TS形式で出力（後で結合）
+                    '-progress', 'pipe:1',  # 進捗をstdoutに出力
                     segment_file.as_posix(),
                 ]
 
                 logging.info(
                     f'[ExecuteClipExport] Starting segment extraction. '
-                    f'[task_id: {task_id}, segment_index: {index}, command: {" ".join(cmd)}]'
+                    f'[task_id: {task_id}, segment_index: {index}, start_frame: {start_frame}, end_frame: {end_frame}, command: {" ".join(cmd)}]'
                 )
 
                 process = await asyncio.create_subprocess_exec(
@@ -854,25 +966,31 @@ async def ExecuteClipExport(
                 )
 
                 stderr_output: list[str] = []
-                while True:
-                    line = await process.stderr.readline()  # type: ignore[arg-type]
-                    if not line:
-                        break
 
-                    line_str = line.decode('utf-8', errors='ignore')
-                    stderr_output.append(line_str)
+                async def read_segment_progress() -> None:
+                    while True:
+                        line = await process.stdout.readline()  # type: ignore
+                        if not line:
+                            break
+                        line_str = line.decode('utf-8', errors='ignore').strip()
+                        if line_str.startswith('frame='):
+                            try:
+                                current_frames = int(line_str.split('=')[1])
+                                progress = ((processed_frames + min(current_frames, segment_frames)) / total_clip_frames) * 100
+                                progress = min(progress, 97.0)
+                                _clip_export_tasks[task_id].progress = progress
+                                _clip_export_tasks[task_id].detail = f'Processing segment {index}/{len(segments)}: {progress:.1f}%'
+                            except Exception:
+                                pass
 
-                    if 'time=' in line_str:
-                        try:
-                            time_str = line_str.split('time=')[1].split()[0]
-                            hours, minutes, seconds = time_str.split(':')
-                            current_time = float(hours) * 3600 + float(minutes) * 60 + float(seconds)
-                            progress = ((processed_duration + min(current_time, segment_duration)) / total_clip_duration) * 100
-                            progress = min(progress, 97.0)
-                            _clip_export_tasks[task_id].progress = progress
-                            _clip_export_tasks[task_id].detail = f'Processing segment {index}/{len(segments)}: {progress:.1f}%'
-                        except Exception:
-                            pass
+                async def read_segment_stderr() -> None:
+                    while True:
+                        line = await process.stderr.readline()  # type: ignore
+                        if not line:
+                            break
+                        stderr_output.append(line.decode('utf-8', errors='ignore'))
+
+                await asyncio.gather(read_segment_progress(), read_segment_stderr())
 
                 await process.wait()
 
@@ -886,7 +1004,7 @@ async def ExecuteClipExport(
                     )
                     return
 
-                processed_duration += segment_duration
+                processed_frames += segment_frames
 
             concat_list_path = temp_dir / 'segments.txt'
             with concat_list_path.open('w', encoding='utf-8') as concat_file:
@@ -902,9 +1020,13 @@ async def ExecuteClipExport(
                 '-f', 'concat',
                 '-safe', '0',
                 '-i', concat_list_path.as_posix(),
-                '-c', 'copy',
-                '-bsf:a', 'aac_adtstoasc',
+                '-c:v', 'copy',  # 映像はコピー
+                '-c:a', 'aac',  # 音声はAACに再エンコード
+                '-b:a', '128k',
+                '-map_metadata', '0',  # 元のメタデータを保持
+                '-aspect', aspect_ratio,  # アスペクト比を明示的に設定
                 '-movflags', '+faststart',
+                '-f', 'mp4',  # MP4形式を明示的に指定
                 output_path,
             ]
 

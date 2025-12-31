@@ -25,7 +25,7 @@
                     </v-btn>
                 </div>
                 <div class="text-center text-body-2 current-position">
-                    現在位置: {{ formatTime(current_playback_time) }}
+                    現在位置: {{ currentFrame }}F ({{ formatTime(current_playback_time) }})
                 </div>
             </div>
 
@@ -36,21 +36,21 @@
                         type="range"
                         class="range-slider range-slider-start"
                         :min="0"
-                        :max="playerStore.recorded_program?.recorded_video?.duration || 0"
-                        :step="0.1"
-                        v-model.number="start_time_seconds"
+                        :max="totalFrames"
+                        :step="1"
+                        v-model.number="start_frame"
                         :disabled="currentSegment === null"
-                        @input="onStartTimeSliderChange"
+                        @input="onStartFrameSliderChange"
                     />
                     <input
                         type="range"
                         class="range-slider range-slider-end"
                         :min="0"
-                        :max="playerStore.recorded_program?.recorded_video?.duration || 0"
-                        :step="0.1"
-                        v-model.number="end_time_seconds"
+                        :max="totalFrames"
+                        :step="1"
+                        v-model.number="end_frame"
                         :disabled="currentSegment === null"
-                        @input="onEndTimeSliderChange"
+                        @input="onEndFrameSliderChange"
                     />
                     <div class="range-track">
                         <div class="range-track-selected" :style="selectedRangeStyle"></div>
@@ -81,13 +81,17 @@
                         :class="['segments-list__item', { 'segments-list__item--active': segment.id === selected_segment_id }]"
                     >
                         <v-list-item-title class="segments-list__item-main">
-                            <span class="segments-list__item-label">第{{ index + 1 }}範囲</span>
-                            <span class="segments-list__item-range">
-                                {{ formatTime(segment.start) }} - {{ formatTime(segment.end) }}
-                            </span>
-                            <span class="segments-list__item-duration">
-                                ({{ formatTime(segment.end - segment.start) }})
-                            </span>
+                            <div class="segments-list__item-header">
+                                <span class="segments-list__item-label">第{{ index + 1 }}範囲</span>
+                                <span class="segments-list__item-duration">
+                                    ({{ segment.end_frame - segment.start_frame }}F)
+                                </span>
+                            </div>
+                            <div class="segments-list__item-range">
+                                {{ segment.start_frame }}F ({{ formatTime(frameToTime(segment.start_frame)) }})
+                                <br />
+                                〜 {{ segment.end_frame }}F ({{ formatTime(frameToTime(segment.end_frame)) }})
+                            </div>
                         </v-list-item-title>
                         <template #append>
                             <v-btn
@@ -104,39 +108,57 @@
                 </v-list>
             </div>
 
-            <!-- 時刻入力 -->
+            <!-- フレーム入力 -->
             <div class="time-inputs mb-3">
-                <div class="time-input-row mb-2">
-                    <span class="time-label">開始</span>
-                    <v-text-field
-                        v-model="start_time_display"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        placeholder="00:00:00"
-                        :disabled="currentSegment === null"
-                        @input="onStartTimeInput"
-                        class="time-field"
-                    ></v-text-field>
-                    <v-btn size="small" variant="text" color="primary" @click="setStartTimeFromPlayer" class="time-btn">
-                        現在位置
-                    </v-btn>
+                <div class="time-input-group mb-2">
+                    <div class="time-input-row">
+                        <span class="time-label">開始</span>
+                        <v-text-field
+                            v-model.number="start_frame"
+                            density="compact"
+                            variant="outlined"
+                            hide-details
+                            type="number"
+                            :min="0"
+                            :max="totalFrames"
+                            placeholder="0"
+                            :disabled="currentSegment === null"
+                            @input="onStartFrameInput"
+                            class="time-field"
+                        ></v-text-field>
+                        <span class="frame-unit">F</span>
+                        <v-btn size="small" variant="text" color="primary" @click="setStartFrameFromPlayer" class="time-btn">
+                            現在位置
+                        </v-btn>
+                    </div>
+                    <div class="time-display">
+                        {{ formatTime(frameToTime(start_frame)) }}
+                    </div>
                 </div>
-                <div class="time-input-row mb-3">
-                    <span class="time-label">終了</span>
-                    <v-text-field
-                        v-model="end_time_display"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        placeholder="00:00:00"
-                        :disabled="currentSegment === null"
-                        @input="onEndTimeInput"
-                        class="time-field"
-                    ></v-text-field>
-                    <v-btn size="small" variant="text" color="primary" @click="setEndTimeFromPlayer" class="time-btn">
-                        現在位置
-                    </v-btn>
+                <div class="time-input-group mb-3">
+                    <div class="time-input-row">
+                        <span class="time-label">終了</span>
+                        <v-text-field
+                            v-model.number="end_frame"
+                            density="compact"
+                            variant="outlined"
+                            hide-details
+                            type="number"
+                            :min="0"
+                            :max="totalFrames"
+                            placeholder="0"
+                            :disabled="currentSegment === null"
+                            @input="onEndFrameInput"
+                            class="time-field"
+                        ></v-text-field>
+                        <span class="frame-unit">F</span>
+                        <v-btn size="small" variant="text" color="primary" @click="setEndFrameFromPlayer" class="time-btn">
+                            現在位置
+                        </v-btn>
+                    </div>
+                    <div class="time-display">
+                        {{ formatTime(frameToTime(end_frame)) }}
+                    </div>
                 </div>
             </div>
 
@@ -145,7 +167,7 @@
             </v-alert>
 
             <div class="text-body-2 mb-3">
-                クリップ時間: {{ formatTime(totalClipDuration) }}
+                クリップ長: {{ totalClipFrames }}F ({{ formatTime(totalClipDuration) }})
             </div>
 
             <v-btn color="primary" variant="flat" block @click="startExport" :disabled="!hasValidSegments">
@@ -189,7 +211,7 @@
                 <Icon icon="fluent:save-20-filled" width="20px" class="mr-2" />
                 保存してクリップ一覧に追加
             </v-btn>
-            <v-btn color="text-darken-1" variant="outlined" block @click="downloadClip" class="mb-2">
+            <v-btn color="text-darken-1" variant="outlined" block @click="downloadClip" class="mb-2" :loading="is_downloading">
                 <Icon icon="fluent:arrow-download-20-filled" width="20px" class="mr-2" />
                 ダウンロード
             </v-btn>
@@ -223,13 +245,11 @@ export default defineComponent({
     name: 'ClipExport',
     data() {
         return {
-            segments: [] as { id: number; start: number; end: number; }[],
+            segments: [] as { id: number; start_frame: number; end_frame: number; }[],
             selected_segment_id: null as number | null,
             segment_id_counter: 0,
-            start_time_display: '00:00:00',
-            end_time_display: '00:00:00',
-            start_time_seconds: 0,
-            end_time_seconds: 0,
+            start_frame: 0,
+            end_frame: 0,
             error_message: '',
             export_status: 'idle' as 'idle' | 'processing' | 'completed' | 'failed',
             progress: 0,
@@ -241,11 +261,22 @@ export default defineComponent({
             current_playback_time: 0,
             playback_time_interval: null as number | null,
             is_saving: false,
+            is_downloading: false,
         };
     },
     computed: {
         ...mapStores(usePlayerStore, useSnackbarsStore),
-        currentSegment(): { id: number; start: number; end: number; } | null {
+        frameRate(): number {
+            return this.playerStore.recorded_program?.recorded_video?.video_frame_rate || 29.97;
+        },
+        totalFrames(): number {
+            const duration = this.playerStore.recorded_program?.recorded_video?.duration || 0;
+            return Math.floor(duration * this.frameRate);
+        },
+        currentFrame(): number {
+            return Math.floor(this.current_playback_time * this.frameRate);
+        },
+        currentSegment(): { id: number; start_frame: number; end_frame: number; } | null {
             if (this.selected_segment_id === null) {
                 return null;
             }
@@ -257,8 +288,11 @@ export default defineComponent({
             }
             return this.segments.findIndex(segment => segment.id === this.currentSegment?.id);
         },
+        totalClipFrames(): number {
+            return this.segments.reduce((sum, segment) => sum + Math.max(segment.end_frame - segment.start_frame, 0), 0);
+        },
         totalClipDuration(): number {
-            return this.segments.reduce((sum, segment) => sum + Math.max(segment.end - segment.start, 0), 0);
+            return this.totalClipFrames / this.frameRate;
         },
         hasValidSegments(): boolean {
             return this.error_message === '' && this.segments.length > 0;
@@ -267,10 +301,10 @@ export default defineComponent({
             if (this.currentSegment === null) {
                 return { left: '0%', width: '0%' };
             }
-            const duration = this.playerStore.recorded_program?.recorded_video?.duration || 0;
-            if (duration === 0) return { left: '0%', width: '0%' };
-            const left = (this.start_time_seconds / duration) * 100;
-            const width = ((this.end_time_seconds - this.start_time_seconds) / duration) * 100;
+            const total = this.totalFrames;
+            if (total === 0) return { left: '0%', width: '0%' };
+            const left = (this.start_frame / total) * 100;
+            const width = ((this.end_frame - this.start_frame) / total) * 100;
             return {
                 left: `${left}%`,
                 width: `${width}%`,
@@ -294,69 +328,71 @@ export default defineComponent({
         getVideoDuration(): number {
             return this.playerStore.recorded_program?.recorded_video?.duration || 0;
         },
+        frameToTime(frame: number): number {
+            return frame / this.frameRate;
+        },
+        timeToFrame(time: number): number {
+            return Math.floor(time * this.frameRate);
+        },
         selectSegment(segmentId: number): void {
             const segment = this.segments.find(entry => entry.id === segmentId);
             if (!segment) {
                 return;
             }
             this.selected_segment_id = segmentId;
-            this.start_time_seconds = segment.start;
-            this.end_time_seconds = segment.end;
-            this.start_time_display = this.formatTime(segment.start);
-            this.end_time_display = this.formatTime(segment.end);
+            this.start_frame = segment.start_frame;
+            this.end_frame = segment.end_frame;
             this.validateSegments();
         },
-        applySegmentUpdate(segmentId: number, start: number, end: number): void {
-            const duration = this.getVideoDuration();
-            if (duration <= 0) {
+        applySegmentUpdate(segmentId: number, startFrame: number, endFrame: number): void {
+            const total = this.totalFrames;
+            if (total <= 0) {
                 return;
             }
 
-            let normalizedStart = Math.max(0, Math.min(start, duration));
-            let normalizedEnd = Math.max(0, Math.min(end, duration));
+            let normalizedStart = Math.max(0, Math.min(startFrame, total));
+            let normalizedEnd = Math.max(0, Math.min(endFrame, total));
 
             if (normalizedEnd <= normalizedStart) {
-                const minimumGap = Math.min(1, duration);
-                normalizedEnd = Math.min(normalizedStart + minimumGap, duration);
+                const minimumGap = Math.min(Math.floor(this.frameRate), total);
+                normalizedEnd = Math.min(normalizedStart + minimumGap, total);
                 if (normalizedEnd <= normalizedStart) {
                     normalizedStart = Math.max(normalizedEnd - minimumGap, 0);
                 }
             }
 
-            const updatedSegment = { id: segmentId, start: normalizedStart, end: normalizedEnd };
+            const updatedSegment = { id: segmentId, start_frame: normalizedStart, end_frame: normalizedEnd };
             const nextSegments = this.segments.map(segment => segment.id === segmentId ? updatedSegment : segment);
-            nextSegments.sort((a, b) => a.start - b.start);
+            nextSegments.sort((a, b) => a.start_frame - b.start_frame);
             this.segments = nextSegments;
 
             const refreshed = this.segments.find(segment => segment.id === segmentId);
             if (refreshed) {
                 this.selected_segment_id = refreshed.id;
-                this.start_time_seconds = refreshed.start;
-                this.end_time_seconds = refreshed.end;
-                this.start_time_display = this.formatTime(refreshed.start);
-                this.end_time_display = this.formatTime(refreshed.end);
+                this.start_frame = refreshed.start_frame;
+                this.end_frame = refreshed.end_frame;
             }
 
             this.validateSegments();
         },
         addSegment(): void {
-            const duration = this.getVideoDuration();
-            if (duration <= 0) {
+            const total = this.totalFrames;
+            if (total <= 0) {
                 this.snackbarsStore.show('error', '録画番組の長さを取得できませんでした', 5);
                 return;
             }
 
-            const baseTime = this.main_player ? this.main_player.video.currentTime : this.current_playback_time;
-            const windowLength = Math.min(30, duration);
-            let start = Math.max(Math.min(baseTime, duration), 0);
-            if (start + windowLength > duration) {
-                start = Math.max(duration - windowLength, 0);
+            const baseFrame = this.main_player ? this.timeToFrame(this.main_player.video.currentTime) : this.currentFrame;
+            const windowFrames = Math.min(Math.floor(30 * this.frameRate), total);
+            let startFrame = Math.max(Math.min(baseFrame, total), 0);
+            if (startFrame + windowFrames > total) {
+                startFrame = Math.max(total - windowFrames, 0);
             }
 
             const segmentId = this.generateSegmentId();
-            this.segments = [...this.segments, { id: segmentId, start, end: start + windowLength }]
-                .sort((a, b) => a.start - b.start);
-            this.applySegmentUpdate(segmentId, start, start + windowLength);
+            this.segments = [...this.segments, { id: segmentId, start_frame: startFrame, end_frame: startFrame + windowFrames }]
+                .sort((a, b) => a.start_frame - b.start_frame);
+            this.applySegmentUpdate(segmentId, startFrame, startFrame + windowFrames);
         },
         removeSegment(segmentId: number): void {
             const previousIndex = this.segments.findIndex(segment => segment.id === this.selected_segment_id);
@@ -364,10 +400,8 @@ export default defineComponent({
 
             if (this.segments.length === 0) {
                 this.selected_segment_id = null;
-                this.start_time_seconds = 0;
-                this.end_time_seconds = 0;
-                this.start_time_display = '00:00:00';
-                this.end_time_display = '00:00:00';
+                this.start_frame = 0;
+                this.end_frame = 0;
             } else {
                 const targetIndex = Math.min(Math.max(previousIndex, 0), this.segments.length - 1);
                 const nextSegment = this.segments[targetIndex];
@@ -381,17 +415,17 @@ export default defineComponent({
             if (!current) {
                 return;
             }
-            this.applySegmentUpdate(current.id, this.start_time_seconds, this.end_time_seconds);
+            this.applySegmentUpdate(current.id, this.start_frame, this.end_frame);
         },
         getSegmentsForExport(): IClipSegment[] {
             return this.segments
                 .slice()
-                .sort((a, b) => a.start - b.start)
-                .map(segment => ({ start_time: segment.start, end_time: segment.end }));
+                .sort((a, b) => a.start_frame - b.start_frame)
+                .map(segment => ({ start_frame: segment.start_frame, end_frame: segment.end_frame }));
         },
         validateSegments(): void {
             this.error_message = '';
-            const duration = this.getVideoDuration();
+            const total = this.totalFrames;
 
             if (this.segments.length === 0) {
                 this.error_message = 'クリップ範囲を少なくとも1つ追加してください';
@@ -400,16 +434,16 @@ export default defineComponent({
 
             for (let index = 0; index < this.segments.length; index++) {
                 const segment = this.segments[index];
-                if (segment.start < 0) {
-                    this.error_message = `第${index + 1}範囲の開始時刻は0秒以上にしてください`;
+                if (segment.start_frame < 0) {
+                    this.error_message = `第${index + 1}範囲の開始フレームは0以上にしてください`;
                     return;
                 }
-                if (segment.end <= segment.start) {
-                    this.error_message = `第${index + 1}範囲の終了時刻は開始時刻より後にしてください`;
+                if (segment.end_frame <= segment.start_frame) {
+                    this.error_message = `第${index + 1}範囲の終了フレームは開始フレームより後にしてください`;
                     return;
                 }
-                if (duration > 0 && segment.end > duration) {
-                    this.error_message = `第${index + 1}範囲の終了時刻は動画の長さ（${this.formatTime(duration)}）以下にしてください`;
+                if (total > 0 && segment.end_frame > total) {
+                    this.error_message = `第${index + 1}範囲の終了フレームは動画の長さ（${total}F）以下にしてください`;
                     return;
                 }
             }
@@ -423,12 +457,14 @@ export default defineComponent({
                 }
 
                 this.current_playback_time = this.main_player?.video.currentTime || 0;
-                const duration = this.getVideoDuration();
+                const total = this.totalFrames;
                 this.segment_id_counter = 0;
-                const defaultStart = Math.floor(Math.min(this.current_playback_time, Math.max(duration - 1, 0)));
-                const defaultEndCandidate = duration > 0 ? Math.min(defaultStart + 30, duration) : defaultStart + 30;
+                const currentFrame = this.timeToFrame(this.current_playback_time);
+                const defaultStart = Math.min(currentFrame, Math.max(total - 1, 0));
+                const windowFrames = Math.floor(30 * this.frameRate);
+                const defaultEndCandidate = total > 0 ? Math.min(defaultStart + windowFrames, total) : defaultStart + windowFrames;
                 const segmentId = this.generateSegmentId();
-                this.segments = [{ id: segmentId, start: defaultStart, end: defaultEndCandidate }];
+                this.segments = [{ id: segmentId, start_frame: defaultStart, end_frame: defaultEndCandidate }];
                 this.applySegmentUpdate(segmentId, defaultStart, defaultEndCandidate);
                 this.validateSegments();
 
@@ -473,7 +509,7 @@ export default defineComponent({
         },
         seekForwardFrame() {
             if (this.main_player) {
-                const frameDuration = 1 / 29.97;
+                const frameDuration = 1 / this.frameRate;
                 this.main_player.video.currentTime = Math.min(
                     this.main_player.video.currentTime + frameDuration,
                     this.playerStore.recorded_program?.recorded_video?.duration || 0
@@ -482,42 +518,43 @@ export default defineComponent({
         },
         seekBackwardFrame() {
             if (this.main_player) {
-                const frameDuration = 1 / 29.97;
+                const frameDuration = 1 / this.frameRate;
                 this.main_player.video.currentTime = Math.max(
                     this.main_player.video.currentTime - frameDuration,
                     0
                 );
             }
         },
-        setStartTimeFromPlayer() {
+        setStartFrameFromPlayer() {
             if (!this.main_player) {
                 return;
             }
-            this.start_time_seconds = this.main_player.video.currentTime;
-            this.start_time_display = this.formatTime(this.start_time_seconds);
-            if (this.main_player.video.currentTime > this.end_time_seconds) {
-                this.end_time_seconds = Math.min(this.start_time_seconds + 1, this.getVideoDuration());
-                this.end_time_display = this.formatTime(this.end_time_seconds);
+            this.start_frame = this.timeToFrame(this.main_player.video.currentTime);
+            if (this.start_frame >= this.end_frame) {
+                this.end_frame = Math.min(this.start_frame + Math.floor(this.frameRate), this.totalFrames);
             }
             this.updateCurrentSegment();
         },
-        setEndTimeFromPlayer() {
+        setEndFrameFromPlayer() {
             if (!this.main_player) {
                 return;
             }
-            this.end_time_seconds = this.main_player.video.currentTime;
-            this.end_time_display = this.formatTime(this.end_time_seconds);
+            this.end_frame = this.timeToFrame(this.main_player.video.currentTime);
             this.updateCurrentSegment();
         },
-        onStartTimeSliderChange() {
-            this.start_time_display = this.formatTime(this.start_time_seconds);
+        onStartFrameSliderChange() {
             this.updateCurrentSegment();
             if (this.main_player) {
-                this.main_player.seek(this.start_time_seconds);
+                this.main_player.seek(this.frameToTime(this.start_frame));
             }
         },
-        onEndTimeSliderChange() {
-            this.end_time_display = this.formatTime(this.end_time_seconds);
+        onEndFrameSliderChange() {
+            this.updateCurrentSegment();
+        },
+        onStartFrameInput() {
+            this.updateCurrentSegment();
+        },
+        onEndFrameInput() {
             this.updateCurrentSegment();
         },
         formatTime(seconds: number): string {
@@ -525,21 +562,6 @@ export default defineComponent({
             const m = Math.floor((seconds % 3600) / 60);
             const s = Math.floor(seconds % 60);
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        },
-        parseTime(timeStr: string): number {
-            const parts = timeStr.split(':').map(p => parseInt(p) || 0);
-            if (parts.length === 3) {
-                return parts[0] * 3600 + parts[1] * 60 + parts[2];
-            }
-            return 0;
-        },
-        onStartTimeInput(event: Event) {
-            this.start_time_seconds = this.parseTime((event.target as HTMLInputElement).value);
-            this.updateCurrentSegment();
-        },
-        onEndTimeInput(event: Event) {
-            this.end_time_seconds = this.parseTime((event.target as HTMLInputElement).value);
-            this.updateCurrentSegment();
         },
         async startExport() {
             if (!this.hasValidSegments) return;
@@ -568,11 +590,17 @@ export default defineComponent({
 
             this.task_id = task_id;
 
+            // ポーリング失敗回数をカウント
+            let polling_error_count = 0;
+            const max_polling_errors = 5;
+
             this.polling_interval = window.setInterval(async () => {
                 if (!this.task_id) return;
                 
                 const status = await Videos.fetchVideoClipExportStatus(video_id, this.task_id);
                 if (status) {
+                    // 成功したらエラーカウントをリセット
+                    polling_error_count = 0;
                     this.progress = status.progress;
                     this.status_detail = status.detail;
 
@@ -591,6 +619,19 @@ export default defineComponent({
                         }
                         this.snackbarsStore.show('error', 'クリップの書き出しに失敗しました', 5);
                     }
+                } else {
+                    // ステータス取得に失敗した場合
+                    polling_error_count++;
+                    if (polling_error_count >= max_polling_errors) {
+                        // 連続して失敗した場合は失敗として扱う
+                        this.export_status = 'failed';
+                        this.status_detail = '進捗状況の取得に失敗しました。ネットワーク接続を確認してください。';
+                        if (this.polling_interval) {
+                            clearInterval(this.polling_interval);
+                            this.polling_interval = null;
+                        }
+                        this.snackbarsStore.show('error', '進捗状況の取得に失敗しました', 5);
+                    }
                 }
             }, 2000);
         },
@@ -600,9 +641,14 @@ export default defineComponent({
             const video_id = this.playerStore.recorded_program?.id;
             if (!video_id) return;
 
+            this.is_downloading = true;
             const success = await Videos.downloadVideoClip(video_id, this.task_id);
+            this.is_downloading = false;
+
             if (success) {
                 this.snackbarsStore.show('success', 'ダウンロードを開始しました', 5);
+            } else {
+                this.snackbarsStore.show('error', 'ダウンロードに失敗しました', 5);
             }
         },
         async previewClip() {
@@ -611,9 +657,18 @@ export default defineComponent({
             const video_id = this.playerStore.recorded_program?.id;
             if (!video_id) return;
 
-            // プレビュー用URLを開いてブラウザでプレビュー
+            // プレビュー用URLを開く
+            // PWA モードでも動作するよう、ポップアップブロック時のフォールバックを用意
             const preview_url = `/api/streams/video/${video_id}/clip-export/${this.task_id}/preview`;
-            window.open(preview_url, '_blank');
+            
+            // 新しいタブで開くことを試みる（通常ブラウザ向け）
+            // PWA モードの場合はフォールバックとして同じウィンドウで開く
+            const newWindow = window.open(preview_url, '_blank', 'noopener,noreferrer');
+            if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                // ポップアップがブロックされた場合や PWA モードの場合
+                // 同じウィンドウで開く
+                window.location.href = preview_url;
+            }
         },
         async saveClip() {
             if (!this.task_id) return;
@@ -642,6 +697,7 @@ export default defineComponent({
             this.output_file_size = null;
             this.error_message = '';
             this.is_saving = false;
+            this.is_downloading = false;
             this.validateSegments();
         },
         formatFileSize(bytes: number | null): string {
@@ -820,7 +876,13 @@ export default defineComponent({
 
 .segments-list__item-main {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.segments-list__item-header {
+    display: flex;
     align-items: center;
     gap: 8px;
 }
@@ -832,6 +894,9 @@ export default defineComponent({
 
 .segments-list__item-range {
     font-feature-settings: "palt" 1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: rgb(var(--v-theme-text-darken-1));
 }
 
 .segments-list__item-duration {
@@ -944,6 +1009,12 @@ export default defineComponent({
 }
 
 .time-inputs {
+    .time-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
     .time-input-row {
         display: flex;
         align-items: center;
@@ -979,6 +1050,23 @@ export default defineComponent({
         min-width: 0;
     }
 
+    .frame-unit {
+        flex-shrink: 0;
+        font-size: 0.9rem;
+        color: rgb(var(--v-theme-text-darken-1));
+        min-width: 20px;
+
+        @include smartphone-horizontal {
+            font-size: 0.875rem;
+            min-width: 16px;
+        }
+
+        @include smartphone-vertical {
+            font-size: 0.875rem;
+            min-width: 16px;
+        }
+    }
+
     .time-btn {
         flex-shrink: 0;
         padding: 0 8px;
@@ -993,6 +1081,22 @@ export default defineComponent({
         @include smartphone-vertical {
             padding: 0 6px;
             font-size: 0.75rem;
+        }
+    }
+
+    .time-display {
+        margin-left: 45px;
+        font-size: 0.85rem;
+        color: rgb(var(--v-theme-text-darken-1));
+
+        @include smartphone-horizontal {
+            margin-left: 38px;
+            font-size: 0.8rem;
+        }
+
+        @include smartphone-vertical {
+            margin-left: 38px;
+            font-size: 0.8rem;
         }
     }
 }

@@ -173,16 +173,24 @@ class RecordedPrograms(BaseModel):
 # ***** クリップ動画 *****
 
 class ClipSegment(BaseModel):
-    start_time: Annotated[float, Field(ge=0, description='セグメントの開始時刻（秒）。')]
-    end_time: Annotated[float, Field(gt=0, description='セグメントの終了時刻（秒）。')]
+    start_time: Annotated[float | None, Field(default=None, ge=0, description='セグメントの開始時刻（秒）。start_frame と排他。')]
+    end_time: Annotated[float | None, Field(default=None, gt=0, description='セグメントの終了時刻（秒）。end_frame と排他。')]
+    start_frame: Annotated[int | None, Field(default=None, ge=0, description='セグメントの開始フレーム番号。start_time と排他。')]
+    end_frame: Annotated[int | None, Field(default=None, gt=0, description='セグメントの終了フレーム番号。end_time と排他。')]
 
-    @field_validator('end_time')
-    @classmethod
-    def validate_end_time(cls, end_time: float, info: ValidationInfo) -> float:
-        start_time = info.data.get('start_time')
-        if start_time is not None and end_time <= start_time:
+    @model_validator(mode='after')
+    def validate_segment(self) -> 'ClipSegment':
+        # 秒指定かフレーム指定のどちらかが必要
+        has_time = self.start_time is not None and self.end_time is not None
+        has_frame = self.start_frame is not None and self.end_frame is not None
+        if not has_time and not has_frame:
+            raise ValueError('Either start_time/end_time or start_frame/end_frame must be provided')
+        # 終了が開始より後であることを検証
+        if has_time and self.end_time <= self.start_time:  # type: ignore
             raise ValueError('end_time must be greater than start_time')
-        return end_time
+        if has_frame and self.end_frame <= self.start_frame:  # type: ignore
+            raise ValueError('end_frame must be greater than start_frame')
+        return self
 
 
 class ClipVideo(PydanticModel):
@@ -642,6 +650,8 @@ class UserAccessToken(BaseModel):
 class VideoClipExportRequest(BaseModel):
     start_time: float | None = Field(default=None, ge=0, description='クリップ開始時刻（秒）')
     end_time: float | None = Field(default=None, gt=0, description='クリップ終了時刻（秒）')
+    start_frame: int | None = Field(default=None, ge=0, description='クリップ開始フレーム番号')
+    end_frame: int | None = Field(default=None, gt=0, description='クリップ終了フレーム番号')
     segments: list[ClipSegment] | None = Field(default=None, min_length=1, description='複数セグメントを指定する場合のリスト。')
 
     @field_validator('end_time')
@@ -654,14 +664,27 @@ class VideoClipExportRequest(BaseModel):
             raise ValueError('end_time must be greater than start_time')
         return end_time
 
+    @field_validator('end_frame')
+    @classmethod
+    def validate_end_frame(cls, end_frame: int | None, info: ValidationInfo) -> int | None:
+        if end_frame is None:
+            return None
+        start_frame = info.data.get('start_frame')
+        if start_frame is not None and end_frame <= start_frame:
+            raise ValueError('end_frame must be greater than start_frame')
+        return end_frame
+
     @model_validator(mode='after')
-    def validate_request(cls, values: 'VideoClipExportRequest') -> 'VideoClipExportRequest':
-        segments = values.segments or []
+    def validate_request(self) -> 'VideoClipExportRequest':
+        segments = self.segments or []
         if segments:
-            return values
-        if values.start_time is None or values.end_time is None:
-            raise ValueError('Either segments or start/end must be provided')
-        return values
+            return self
+        # 秒指定またはフレーム指定のどちらかが必要
+        has_time = self.start_time is not None and self.end_time is not None
+        has_frame = self.start_frame is not None and self.end_frame is not None
+        if not has_time and not has_frame:
+            raise ValueError('Either segments, start_time/end_time, or start_frame/end_frame must be provided')
+        return self
 
 class VideoClipExportResult(BaseModel):
     is_success: bool

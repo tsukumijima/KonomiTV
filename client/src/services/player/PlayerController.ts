@@ -292,8 +292,9 @@ class PlayerController {
         // CM 区間からハイライトマーカーを作成する
         // TODO: DPlayer のマーカー機能はまともに実装されていないため、将来的にはレコーダーのように CM 区間のシークバーを
         // 暗くした上で CM 区間を自動スキップできるようにしたい
+        // クリップ再生時は CM マーカーは不要なため追加しない
         const highlights: Array<{text: string, time: number}> = [];
-        if (this.playback_mode === 'Video' && player_store.recorded_program?.recorded_video?.cm_sections) {
+        if (this.playback_mode === 'Video' && player_store.clip_video === null && player_store.recorded_program?.recorded_video?.cm_sections) {
             const cm_sections = player_store.recorded_program.recorded_video.cm_sections;
             const videoDuration = player_store.recorded_program.recorded_video.duration;
             const endThreshold = videoDuration - 2;
@@ -1575,14 +1576,16 @@ class PlayerController {
                         } else {
                             if (this.clip_end_reached === false) {
                                 this.clip_end_reached = true;
-                                video_element.currentTime = current_segment.end;
-                                video_element.pause();
-                                player_store.event_emitter.emit('SendNotification', {
-                                    message: 'クリップの再生が終了しました。',
-                                    duration: 2500,
-                                });
+                                // クリップの最後に到達したら、最初のセグメントに戻ってリピート再生
+                                const first_segment = this.clip_segments[0];
+                                video_element.currentTime = first_segment.start;
+                                this.clip_current_segment_index = 0;
+                                playback_position = first_segment.start;
+                                // 短い遅延後にフラグをリセットして連続ループを可能にする
+                                setTimeout(() => {
+                                    this.clip_end_reached = false;
+                                }, 100);
                             }
-                            playback_position = current_segment.end;
                         }
                     } else {
                         this.clip_end_reached = false;
@@ -1708,8 +1711,20 @@ class PlayerController {
         // フルスクリーンにするコンテナ要素 (ページ全体)
         const fullscreen_container = document.body;
 
+        // iOS Safari かどうかを判定 (iPadOS は Fullscreen API をサポートしているため除外)
+        // iOS Safari では Fullscreen API がサポートされていないが、ビデオ要素のネイティブ全画面機能は使える
+        const isIOSSafari = (): boolean => {
+            const ua = navigator.userAgent;
+            // iPhone または iPod で、かつ Safari (Chrome や Firefox ではない) の場合
+            return /iPhone|iPod/.test(ua) && /Safari/.test(ua) && !/Chrome|CriOS|FxiOS/.test(ua);
+        };
+
         // フルスクリーンかどうか
         this.player.fullScreen.isFullScreen = (type?: DPlayerType.FullscreenType) => {
+            // iOS Safari の場合はビデオ要素のフルスクリーン状態を確認
+            if (isIOSSafari() && this.player?.video?.webkitDisplayingFullscreen !== undefined) {
+                return this.player.video.webkitDisplayingFullscreen;
+            }
             return !!(document.fullscreenElement || document.webkitFullscreenElement);
         };
 
@@ -1721,6 +1736,15 @@ class PlayerController {
                 this.player.fullScreen.cancel();
                 return;
             }
+
+            // iOS Safari の場合はビデオ要素のネイティブ全画面機能を使用
+            if (isIOSSafari()) {
+                if (this.player.video?.webkitEnterFullscreen) {
+                    this.player.video.webkitEnterFullscreen();
+                    return;
+                }
+            }
+
             // フルスクリーンをリクエスト
             // Safari は webkit のベンダープレフィックスが必要
             fullscreen_container.requestFullscreen = fullscreen_container.requestFullscreen || fullscreen_container.webkitRequestFullscreen;
@@ -1728,7 +1752,7 @@ class PlayerController {
                 fullscreen_container.requestFullscreen();
             } else {
                 // フルスクリーンがサポートされていない場合はエラーを表示
-                this.player.notice('iPhone Safari は動画のフルスクリーン表示に対応していません。', undefined, undefined, '#FF6F6A');
+                this.player.notice('お使いのブラウザはフルスクリーン表示に対応していません。', undefined, undefined, '#FF6F6A');
                 return;
             }
             // 画面の向きを横に固定 (Screen Orientation API がサポートされている場合)
@@ -1739,6 +1763,14 @@ class PlayerController {
 
         // フルスクリーンをキャンセル
         this.player.fullScreen.cancel = (type?: DPlayerType.FullscreenType) => {
+            // iOS Safari の場合はビデオ要素のネイティブ全画面機能を使用
+            if (isIOSSafari()) {
+                if (this.player?.video?.webkitExitFullscreen) {
+                    this.player.video.webkitExitFullscreen();
+                    return;
+                }
+            }
+
             // フルスクリーンを終了
             // Safari は webkit のベンダープレフィックスが必要
             document.exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
@@ -1761,6 +1793,12 @@ class PlayerController {
             fullscreen_container.onfullscreenchange = fullscreen_handler;
         } else if (fullscreen_container.onwebkitfullscreenchange !== undefined) {
             fullscreen_container.onwebkitfullscreenchange = fullscreen_handler;
+        }
+
+        // iOS Safari 用: ビデオ要素のフルスクリーン状態変化イベントを登録
+        if (isIOSSafari() && this.player.video) {
+            this.player.video.onwebkitbeginfullscreen = fullscreen_handler;
+            this.player.video.onwebkitendfullscreen = fullscreen_handler;
         }
     }
 
