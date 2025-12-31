@@ -19,7 +19,7 @@
         <!-- ジャンルハイライト縦線 (REGZA 風) -->
         <div class="timetable-program-cell__highlight" :style="{ background: highlightColor }"></div>
         <!-- メインコンテンツ -->
-        <div class="timetable-program-cell__content" :style="contentStickyStyle">
+        <div class="timetable-program-cell__content">
             <!-- 開始分表示 + 予約アイコン -->
             <div class="timetable-program-cell__header">
                 <span class="timetable-program-cell__start-minute">{{ startMinute }}</span>
@@ -70,6 +70,52 @@ import { dayjs } from '@/utils';
 import { ProgramUtils } from '@/utils/ProgramUtils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
+type DecoratedProgramInfoCache = {
+    raw_title: string;
+    raw_description: string;
+    title: string;
+    description: string;
+};
+
+// 番組情報の装飾結果をキャッシュして、スクロール時の再計算を抑える
+const decorated_program_info_cache = new Map<string, DecoratedProgramInfoCache>();
+
+/**
+ * 装飾済みの番組情報をキャッシュから取得する
+ * @param program 番組情報
+ * @param key 取得するフィールド
+ * @returns 装飾済み文字列
+ */
+function getDecoratedProgramInfo(program: ITimeTableProgram, key: 'title' | 'description'): string {
+    const raw_title = program.title;
+    const raw_description = program.description;
+
+    // 番組情報が空の場合は時刻依存のためキャッシュしない
+    if (raw_title === null || raw_description === null) {
+        return ProgramUtils.decorateProgramInfo(program, key);
+    }
+
+    const cache = decorated_program_info_cache.get(program.id);
+    if (cache === undefined ||
+        cache.raw_title !== raw_title ||
+        cache.raw_description !== raw_description) {
+        const decorated_title = ProgramUtils.decorateProgramInfo(program, 'title');
+        const decorated_description = ProgramUtils.decorateProgramInfo(program, 'description');
+        decorated_program_info_cache.set(program.id, {
+            raw_title,
+            raw_description,
+            title: decorated_title,
+            description: decorated_description,
+        });
+    }
+
+    const resolved = decorated_program_info_cache.get(program.id);
+    if (resolved === undefined) {
+        return ProgramUtils.decorateProgramInfo(program, key);
+    }
+    return key === 'title' ? resolved.title : resolved.description;
+}
+
 // Props
 const props = defineProps<{
     program: ITimeTableProgram;
@@ -78,7 +124,6 @@ const props = defineProps<{
     hourHeight: number;
     channelWidth: number;
     fullChannelWidth?: number;
-    scrollTop: number;  // スクロール位置 (Y方向)
     viewportHeight: number;  // 番組グリッド表示領域の高さ
     channelHeaderHeight: number;
     isScrollAtBottom?: boolean;
@@ -299,6 +344,7 @@ const cellHeight = computed(() => {
 const cellStyle = computed(() => {
     const fullWidth = props.fullChannelWidth ?? props.channelWidth;
     const isSplitWidth = props.isSplit === true && props.channelWidth < fullWidth;
+    const effectiveHeight = isExpanded.value && expandedHeight.value > 0 ? expandedHeight.value : cellHeight.value;
 
     // サブチャンネルの場合は右半分に配置
     const left = props.isSubchannel && isSplitWidth ? props.channelWidth : 0;
@@ -313,6 +359,7 @@ const cellStyle = computed(() => {
         width: `${resolvedWidth}px`,
         minHeight: `${cellHeight.value}px`,
         background: cellBackgroundColor.value,
+        '--timetable-cell-height': `${effectiveHeight}px`,
     };
 
     // 非展開時のみ高さを固定
@@ -323,12 +370,13 @@ const cellStyle = computed(() => {
     // 展開時に下端がはみ出す場合は、表示領域内に収まるよう上方向にずらす
     if (isExpanded.value && props.viewportHeight > 0 && props.isScrollAtBottom === true) {
         const effectiveHeight = expandedHeight.value > 0 ? expandedHeight.value : cellHeight.value;
-        const viewportBottom = props.scrollTop + props.viewportHeight;
+        const scrollTopAtBottom = Math.max(0, gridTotalHeight.value - props.viewportHeight);
+        const viewportBottom = scrollTopAtBottom + props.viewportHeight;
         const cellBottom = cellY.value + effectiveHeight;
         const isLastRow = cellY.value + cellHeight.value >= gridTotalHeight.value - 1;
         if (cellBottom > viewportBottom && isLastRow) {
             const overflow = cellBottom - viewportBottom;
-            const maxShift = Math.max(0, cellY.value - props.scrollTop);
+            const maxShift = Math.max(0, cellY.value - scrollTopAtBottom);
             const shiftY = Math.min(overflow, maxShift);
             if (shiftY > 0) {
                 style.transform = `translateY(-${shiftY}px)`;
@@ -339,60 +387,20 @@ const cellStyle = computed(() => {
     return style;
 });
 
-/**
- * コンテンツの sticky オフセット (EMWUI 風スティッキー処理)
- * セルがビューポートの上端を超えている場合、コンテンツを下にオフセットして
- * 常に見えるようにする
- */
-const contentStickyStyle = computed(() => {
-    // ビューポートがまだ初期化されていない場合はスキップ
-    if (props.viewportHeight <= 0) {
-        return {};
-    }
-
-    const y = cellY.value;
-    const height = cellHeight.value;
-    const scrollY = props.scrollTop;
-
-    // セルの上端がビューポートより上にある場合 (上にはみ出ている)
-    // かつ、セルの下端がビューポート内にある場合
-    if (y < scrollY && y + height > scrollY) {
-        // オフセット量 = スクロール位置 - セルの上端
-        // ただし、セルの下端がビューポート内に収まるようにオフセットを制限
-        // (コンテンツが見切れないように最低限の余白を確保)
-        const offset = scrollY - y;
-        const maxOffset = height - 60;  // 最低60pxはセル内に残す (タイトル分)
-
-        if (offset > 0 && offset < maxOffset) {
-            return {
-                paddingTop: `${offset}px`,
-            };
-        } else if (offset >= maxOffset) {
-            return {
-                paddingTop: `${maxOffset}px`,
-            };
-        }
-    }
-
-    // セルの下端がビューポートより下にある場合 (下にはみ出ている)
-    // かつ、セルの上端がビューポート内にある場合
-    // → この場合は特別な処理は不要 (通常通り上から表示すればよい)
-
-    return {};
-});
+// コンテンツの sticky オフセットは CSS の clamp() で処理する
 
 /**
  * 装飾されたタイトル (囲み文字ハイライト)
  */
 const decoratedTitle = computed(() => {
-    return ProgramUtils.decorateProgramInfo(props.program, 'title');
+    return getDecoratedProgramInfo(props.program, 'title');
 });
 
 /**
  * 装飾された説明 (囲み文字ハイライト)
  */
 const decoratedDescription = computed(() => {
-    return ProgramUtils.decorateProgramInfo(props.program, 'description');
+    return getDecoratedProgramInfo(props.program, 'description');
 });
 
 /**
@@ -449,6 +457,17 @@ watch(isExpanded, async (value) => {
     transition: box-shadow 0.15s ease, z-index 0s;
     user-select: none;
     z-index: 1;  // チャンネル背景 (z-index: 0) より上に表示
+    contain: layout paint;
+
+    // スマホはスクロール量が大きく、描画負荷が高いので自動で描画を省略する
+    @include smartphone-horizontal {
+        content-visibility: auto;
+        contain-intrinsic-size: 0 var(--timetable-cell-height, 60px);
+    }
+    @include smartphone-vertical {
+        content-visibility: auto;
+        contain-intrinsic-size: 0 var(--timetable-cell-height, 60px);
+    }
 
     &:hover {
         z-index: 5;
@@ -466,6 +485,7 @@ watch(isExpanded, async (value) => {
         z-index: 14;
         overflow: visible;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        content-visibility: visible;
     }
 
     // 過去番組 (グレーアウト)

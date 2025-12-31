@@ -1,5 +1,5 @@
 <template>
-    <div class="timetable-grid" ref="gridContainerRef"
+    <div class="timetable-grid"
         :style="{
             '--timetable-channel-header-height': `${channelHeaderHeight}px`,
         }">
@@ -68,7 +68,6 @@
                                 :channelWidth="getProgramCellWidth(channelData, program, false)"
                                 :fullChannelWidth="channelWidth"
                                 :isSplit="getSplitState(channelData, program, false)"
-                                :scrollTop="scrollTop"
                                 :viewportHeight="viewportHeight"
                                 :channelHeaderHeight="channelHeaderHeight"
                                 :isScrollAtBottom="isScrollAtBottom"
@@ -93,7 +92,6 @@
                                     :channelWidth="getProgramCellWidth(channelData, program, true)"
                                     :fullChannelWidth="channelWidth"
                                     :isSplit="getSplitState(channelData, program, true)"
-                                    :scrollTop="scrollTop"
                                     :viewportHeight="viewportHeight"
                                     :channelHeaderHeight="channelHeaderHeight"
                                     :isScrollAtBottom="isScrollAtBottom"
@@ -186,7 +184,6 @@ const settingsStore = useSettingsStore();
 const timetableStore = useTimeTableStore();
 
 // DOM 参照
-const gridContainerRef = ref<HTMLElement | null>(null);
 const scrollAreaRef = ref<HTMLElement | null>(null);
 
 // 状態
@@ -194,12 +191,30 @@ const selectedProgramId = ref<string | null>(null);
 const showNextDayButton = ref(false);
 const showPrevDayButton = ref(false);
 const isInitialLoadDone = ref(false);  // 初回ロードが完了したかどうか (日付変更時のスクロール制御用)
-const scrollTop = ref(0);  // 現在のスクロール位置 (Y方向)
+let currentScrollTop = 0;  // 現在のスクロール位置 (Y方向)
 const viewportHeight = ref(0);  // 番組グリッド表示領域の高さ
 const isScrollAtBottom = ref(false);
 const visibleRangeTop = ref(0);
 const visibleRangeBottom = ref(0);
-const VISIBLE_BUFFER_HOURS = 2;
+const VISIBLE_BUFFER_HOURS_DESKTOP = 2;
+const VISIBLE_BUFFER_HOURS_SMARTPHONE = 3;
+const VISIBLE_RANGE_UPDATE_RATIO = 0.5;
+const pendingScrollLeft = ref(0);
+const pendingScrollTop = ref(0);
+const scrollUpdateAnimationId = ref<number | null>(null);
+let lastEmittedScrollX = 0;
+let lastEmittedScrollY = 0;
+let lastEmittedTimeSlot: number | null = null;
+let lastEmittedDateOffset: number | null = null;
+const SCROLL_POSITION_EMIT_THRESHOLD = 1;
+const displayStartMs = ref(0);
+const displayStartHour = ref(0);
+const stickyProgramCells = new Set<HTMLElement>();
+let stickyObserver: IntersectionObserver | null = null;
+let stickyUpdateAnimationId: number | null = null;
+let stickyObserveAnimationId: number | null = null;
+const STICKY_MIN_VISIBLE_HEIGHT = 60;
+const STICKY_BASE_PADDING = 2;
 
 // ドラッグスクロール用の状態
 const isDragging = ref(false);
@@ -212,6 +227,8 @@ const scrollStartX = ref(0);
 const scrollStartY = ref(0);
 const hasMoved = ref(false);  // ドラッグ中に移動したかどうか
 const shouldSuppressClick = ref(false);
+const lastDragEndTime = ref(0);
+const CLICK_SUPPRESS_THRESHOLD = 120;
 
 // モーメンタムスクロール用の状態
 const velocityX = ref(0);
@@ -247,6 +264,13 @@ const hourHeight = computed(() => {
         settingsStore.settings.timetable_hour_height,
         deviceType.value,
     );
+});
+
+/**
+ * 表示範囲のバッファ (時間)
+ */
+const visibleBufferHours = computed(() => {
+    return deviceType.value === 'Smartphone' ? VISIBLE_BUFFER_HOURS_SMARTPHONE : VISIBLE_BUFFER_HOURS_DESKTOP;
 });
 
 /**
@@ -378,20 +402,46 @@ function getProgramCellWidth(
 /**
  * 表示範囲を更新する
  */
-function updateVisibleRange(): void {
-    const buffer = hourHeight.value * VISIBLE_BUFFER_HOURS;
-    visibleRangeTop.value = Math.max(0, scrollTop.value - buffer);
-    visibleRangeBottom.value = scrollTop.value + viewportHeight.value + buffer;
+function updateVisibleRange(current_scroll_top: number): void {
+    const buffer = hourHeight.value * visibleBufferHours.value;
+    visibleRangeTop.value = Math.max(0, current_scroll_top - buffer);
+    visibleRangeBottom.value = current_scroll_top + viewportHeight.value + buffer;
+}
+
+/**
+ * 表示範囲を必要なタイミングだけ更新する
+ * バッファ領域の端に近づいた場合のみ再計算することで、更新頻度を抑える
+ */
+function updateVisibleRangeIfNeeded(current_scroll_top: number): boolean {
+    const buffer = hourHeight.value * visibleBufferHours.value;
+    const threshold = buffer * VISIBLE_RANGE_UPDATE_RATIO;
+    const viewport_bottom = current_scroll_top + viewportHeight.value;
+
+    if (viewportHeight.value <= 0 || visibleRangeBottom.value === 0) {
+        updateVisibleRange(current_scroll_top);
+        return true;
+    }
+
+    if (current_scroll_top < visibleRangeTop.value + threshold) {
+        updateVisibleRange(current_scroll_top);
+        return true;
+    }
+
+    if (viewport_bottom > visibleRangeBottom.value - threshold) {
+        updateVisibleRange(current_scroll_top);
+        return true;
+    }
+
+    return false;
 }
 
 /**
  * 番組セルが現在の表示範囲に含まれるかどうか
  */
 function isProgramVisible(program: ITimeTableProgram): boolean {
-    const displayStartMs = timetableStore.display_start_time.valueOf();
     const program_range = getProgramTimeRange(program);
-    const startY = ((program_range.start - displayStartMs) / (1000 * 60 * 60)) * hourHeight.value;
-    const endY = ((program_range.end - displayStartMs) / (1000 * 60 * 60)) * hourHeight.value;
+    const startY = ((program_range.start - displayStartMs.value) / (1000 * 60 * 60)) * hourHeight.value;
+    const endY = ((program_range.end - displayStartMs.value) / (1000 * 60 * 60)) * hourHeight.value;
     return endY >= visibleRangeTop.value && startY <= visibleRangeBottom.value;
 }
 
@@ -418,42 +468,64 @@ function isPastProgram(program: ITimeTableProgram): boolean {
 }
 
 /**
- * スクロールイベントハンドラ
+ * スクロール位置の更新処理
+ * requestAnimationFrame でまとめて処理し、DOM 更新回数を抑える
  */
-const onScroll = TimeTableUtils.throttle(() => {
+function applyScrollUpdate(): void {
     if (scrollAreaRef.value === null) return;
 
-    const scrollX = scrollAreaRef.value.scrollLeft;
-    const scrollY = scrollAreaRef.value.scrollTop;
+    const scrollX = pendingScrollLeft.value;
+    const scrollY = pendingScrollTop.value;
 
     // スクロール位置を更新 (TimeTableProgramCell の sticky 処理用)
-    scrollTop.value = scrollY;
+    currentScrollTop = scrollY;
     // ビューポート高さを更新 (チャンネルヘッダー分を引いた番組グリッドの表示領域)
-    viewportHeight.value = scrollAreaRef.value.clientHeight - channelHeaderHeight.value;
+    const nextViewportHeight = scrollAreaRef.value.clientHeight - channelHeaderHeight.value;
+    if (viewportHeight.value !== nextViewportHeight) {
+        viewportHeight.value = nextViewportHeight;
+    }
 
     // スクロール位置が下端に到達しているかを判定
     const maxScrollY = scrollAreaRef.value.scrollHeight - scrollAreaRef.value.clientHeight;
-    isScrollAtBottom.value = scrollY >= maxScrollY - 1;
-    updateVisibleRange();
+    const isAtBottom = scrollY >= maxScrollY - 1;
+    if (isScrollAtBottom.value !== isAtBottom) {
+        isScrollAtBottom.value = isAtBottom;
+    }
+    const isRangeUpdated = updateVisibleRangeIfNeeded(scrollY);
+    if (isRangeUpdated) {
+        scheduleStickyObserveUpdate();
+    }
 
     // スクロール位置を親に通知
-    emit('scroll-position-change', { x: scrollX, y: scrollY });
+    if (Math.abs(scrollX - lastEmittedScrollX) >= SCROLL_POSITION_EMIT_THRESHOLD ||
+        Math.abs(scrollY - lastEmittedScrollY) >= SCROLL_POSITION_EMIT_THRESHOLD) {
+        emit('scroll-position-change', { x: scrollX, y: scrollY });
+        lastEmittedScrollX = scrollX;
+        lastEmittedScrollY = scrollY;
+    }
 
     // 日付遷移ボタンの表示判定
     // スクロール位置が端に近く、かつ前後の日に遷移可能な場合のみ表示
-    showNextDayButton.value = scrollY > maxScrollY - 100 && props.canGoNextDay;
-    showPrevDayButton.value = scrollY < 100 && props.canGoPreviousDay;
+    const shouldShowNextDay = scrollY > maxScrollY - 100 && props.canGoNextDay;
+    const shouldShowPrevDay = scrollY < 100 && props.canGoPreviousDay;
+    if (showNextDayButton.value !== shouldShowNextDay) {
+        showNextDayButton.value = shouldShowNextDay;
+    }
+    if (showPrevDayButton.value !== shouldShowPrevDay) {
+        showPrevDayButton.value = shouldShowPrevDay;
+    }
 
     // 現在表示中の時刻スロットを計算して親に通知
     // 表示開始時刻を基準にスクロール位置から現在表示されている時刻を算出
-    const displayStart = timetableStore.getDisplayStartTime();
-    const displayStartHour = displayStart.hour();
-    const currentHour = Math.floor(scrollY / hourHeight.value) + displayStartHour;
+    const currentHour = Math.floor(scrollY / hourHeight.value) + displayStartHour.value;
     // 4時間単位のスロットに丸める
     const slotHour = Math.floor((currentHour - 4) / 4) * 4 + 4;
     // 4〜24 の範囲にクランプ
     const clampedSlot = Math.max(4, Math.min(24, slotHour));
-    emit('time-slot-change', clampedSlot);
+    if (lastEmittedTimeSlot !== clampedSlot) {
+        emit('time-slot-change', clampedSlot);
+        lastEmittedTimeSlot = clampedSlot;
+    }
 
     // 日付表示の切り替え判定
     // 36時間表示モード時のみ、スクロール位置に応じて日付表示を切り替える
@@ -467,12 +539,146 @@ const onScroll = TimeTableUtils.throttle(() => {
             ? 12 * hourHeight.value  // 28時間表記: 翌日4時 (16時+12時間)
             : 8 * hourHeight.value;  // 通常表記: 翌日0時 (16時+8時間)
         const dateOffset = scrollY >= dateBoundaryY ? 1 : 0;
-        emit('date-display-offset-change', dateOffset);
+        if (lastEmittedDateOffset !== dateOffset) {
+            emit('date-display-offset-change', dateOffset);
+            lastEmittedDateOffset = dateOffset;
+        }
     } else {
         // 通常表示モードではオフセットなし
-        emit('date-display-offset-change', 0);
+        if (lastEmittedDateOffset !== 0) {
+            emit('date-display-offset-change', 0);
+            lastEmittedDateOffset = 0;
+        }
     }
-}, 16);
+
+    scheduleStickyContentUpdate();
+}
+
+/**
+ * スクロール更新を requestAnimationFrame にまとめる
+ */
+function scheduleScrollUpdate(): void {
+    if (scrollUpdateAnimationId.value !== null) {
+        return;
+    }
+    scrollUpdateAnimationId.value = requestAnimationFrame(() => {
+        scrollUpdateAnimationId.value = null;
+        applyScrollUpdate();
+    });
+}
+
+/**
+ * スティッキー対象の更新 (IntersectionObserver)
+ */
+function scheduleStickyObserveUpdate(): void {
+    if (stickyObserveAnimationId !== null) {
+        return;
+    }
+    stickyObserveAnimationId = requestAnimationFrame(() => {
+        stickyObserveAnimationId = null;
+        setupStickyObserver();
+    });
+}
+
+/**
+ * スティッキー対象のオフセット更新
+ */
+function scheduleStickyContentUpdate(): void {
+    if (stickyUpdateAnimationId !== null) {
+        return;
+    }
+    stickyUpdateAnimationId = requestAnimationFrame(() => {
+        stickyUpdateAnimationId = null;
+        updateStickyContentOffset();
+    });
+}
+
+/**
+ * IntersectionObserver を初期化する
+ */
+function setupStickyObserver(): void {
+    if (scrollAreaRef.value === null) return;
+
+    if (stickyObserver !== null) {
+        stickyObserver.disconnect();
+        stickyProgramCells.clear();
+    }
+
+    stickyObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            const cell = entry.target as HTMLElement;
+            const rootBounds = entry.rootBounds;
+            if (rootBounds === null) continue;
+
+            const isIntersectingTop = entry.intersectionRect.top <= rootBounds.top;
+            const isPartial = entry.intersectionRect.height < entry.boundingClientRect.height;
+            const isRootSmaller = rootBounds.height < entry.boundingClientRect.height;
+            const shouldFix = entry.isIntersecting && isIntersectingTop && (isPartial || isRootSmaller);
+
+            if (shouldFix) {
+                stickyProgramCells.add(cell);
+                cell.classList.add('timetable-program-cell--fixed');
+            } else {
+                stickyProgramCells.delete(cell);
+                cell.classList.remove('timetable-program-cell--fixed');
+                const content = cell.querySelector<HTMLElement>('.timetable-program-cell__content');
+                if (content !== null) {
+                    content.style.paddingTop = '';
+                }
+            }
+        }
+
+        scheduleStickyContentUpdate();
+    }, {
+        root: scrollAreaRef.value,
+        rootMargin: `-${channelHeaderHeight.value}px 0px 0px 0px`,
+        threshold: [0, 1],
+    });
+
+    scrollAreaRef.value.querySelectorAll<HTMLElement>('.timetable-program-cell').forEach((cell) => {
+        stickyObserver?.observe(cell);
+    });
+}
+
+/**
+ * スティッキー中の番組セルの表示位置を調整する
+ */
+function updateStickyContentOffset(): void {
+    if (scrollAreaRef.value === null) return;
+    if (stickyProgramCells.size === 0) return;
+
+    const topEdge = scrollAreaRef.value.getBoundingClientRect().top + channelHeaderHeight.value;
+
+    stickyProgramCells.forEach((cell) => {
+        const content = cell.querySelector<HTMLElement>('.timetable-program-cell__content');
+        if (content === null) return;
+
+        const cellTop = cell.getBoundingClientRect().top;
+        const base = topEdge - cellTop;
+        if (base <= 0) {
+            content.style.paddingTop = '';
+            return;
+        }
+
+        const rawHeight = cell.style.getPropertyValue('--timetable-cell-height');
+        const cellHeight = rawHeight ? Number.parseFloat(rawHeight) : cell.getBoundingClientRect().height;
+        const maxOffset = Math.max(0, cellHeight - STICKY_MIN_VISIBLE_HEIGHT);
+        const reserveOffset = cell.classList.contains('timetable-program-cell--reserved') ? 3 : 0;
+        const resolvedOffset = Math.min(base, maxOffset);
+        content.style.paddingTop = `${STICKY_BASE_PADDING + Math.max(resolvedOffset - reserveOffset, 0)}px`;
+    });
+}
+
+/**
+ * スクロールイベントハンドラ
+ */
+function onScroll(): void {
+    if (scrollAreaRef.value === null) return;
+
+    pendingScrollLeft.value = scrollAreaRef.value.scrollLeft;
+    pendingScrollTop.value = scrollAreaRef.value.scrollTop;
+    scheduleScrollUpdate();
+}
 
 /**
  * ホイールイベントハンドラ (チルトホイール・Shift+ホイールによる横スクロール対応)
@@ -508,6 +714,7 @@ function onWheel(event: WheelEvent): void {
  * ポインターダウンイベントハンドラ (ドラッグスクロール開始)
  */
 function onPointerDown(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
     // scrollAreaRef がない場合は何もしない
     if (scrollAreaRef.value === null) return;
 
@@ -545,6 +752,7 @@ function onPointerDown(event: PointerEvent): void {
  * ポインタームーブイベントハンドラ (ドラッグスクロール中)
  */
 function onPointerMove(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
     if (isPointerDown.value === false || scrollAreaRef.value === null) return;
 
     const deltaX = dragStartX.value - event.clientX;
@@ -595,6 +803,7 @@ function onPointerMove(event: PointerEvent): void {
  * ポインターアップイベントハンドラ (ドラッグスクロール終了)
  */
 function onPointerUp(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
     if (isPointerDown.value === false) return;
 
     isPointerDown.value = false;
@@ -615,8 +824,10 @@ function onPointerUp(event: PointerEvent): void {
     if (hasMoved.value) {
         startMomentumScroll();
         shouldSuppressClick.value = true;
+        lastDragEndTime.value = performance.now();
     } else {
         shouldSuppressClick.value = false;
+        lastDragEndTime.value = 0;
     }
 }
 
@@ -629,8 +840,11 @@ function onScrollAreaClickCapture(event: MouseEvent): void {
         return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
+    const elapsed = performance.now() - lastDragEndTime.value;
+    if (elapsed <= CLICK_SUPPRESS_THRESHOLD) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     shouldSuppressClick.value = false;
 }
 
@@ -833,10 +1047,16 @@ onMounted(async () => {
 
     // データロード完了後に初期スクロール位置を設定
     await nextTick();
+    if (scrollAreaRef.value !== null) {
+        pendingScrollLeft.value = scrollAreaRef.value.scrollLeft;
+        pendingScrollTop.value = scrollAreaRef.value.scrollTop;
+        applyScrollUpdate();
+        setupStickyObserver();
+    }
     // 少し遅延を入れて DOM が完全にレンダリングされるのを待つ
     setTimeout(() => {
         scrollToCurrentTime();
-        updateVisibleRange();
+        updateVisibleRange(currentScrollTop);
     }, 100);
 });
 
@@ -846,6 +1066,20 @@ onBeforeUnmount(() => {
         scrollAreaRef.value.removeEventListener('wheel', onWheel);
     }
 
+    if (scrollUpdateAnimationId.value !== null) {
+        cancelAnimationFrame(scrollUpdateAnimationId.value);
+    }
+    if (stickyUpdateAnimationId !== null) {
+        cancelAnimationFrame(stickyUpdateAnimationId);
+    }
+    if (stickyObserveAnimationId !== null) {
+        cancelAnimationFrame(stickyObserveAnimationId);
+    }
+    if (stickyObserver !== null) {
+        stickyObserver.disconnect();
+        stickyObserver = null;
+        stickyProgramCells.clear();
+    }
     // モーメンタムアニメーションをキャンセル
     if (momentumAnimationId.value !== null) {
         cancelAnimationFrame(momentumAnimationId.value);
@@ -863,7 +1097,8 @@ onUnmounted(() => {
 watch(() => props.channels, async (newChannels, oldChannels) => {
     programTimeCache.clear();
     splitStateCache.clear();
-    updateVisibleRange();
+    updateVisibleRange(currentScrollTop);
+    scheduleStickyObserveUpdate();
 
     // 初回ロード時（空→データあり）のみスクロール
     if (oldChannels.length === 0 && newChannels.length > 0) {
@@ -872,13 +1107,24 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
             scrollToCurrentTime();
             // 初回ロード完了フラグを立てる (日付変更時のスクロールリセットを有効化)
             isInitialLoadDone.value = true;
+            scheduleStickyObserveUpdate();
         }, 100);
     }
 }, { deep: false });
 
 watch([hourHeight, viewportHeight], () => {
-    updateVisibleRange();
+    updateVisibleRange(currentScrollTop);
+    scheduleStickyObserveUpdate();
 });
+
+watch(channelHeaderHeight, () => {
+    scheduleStickyObserveUpdate();
+});
+
+watch(() => timetableStore.display_start_time, (value) => {
+    displayStartMs.value = value.valueOf();
+    displayStartHour.value = value.hour();
+}, { immediate: true });
 
 // 日付変更時のスクロール処理は親コンポーネント (TimeTable.vue) で制御する
 // 「次の日を見る」→ 先頭 (4:00) へ、「前の日を見る」→ 末尾 (28時) へスクロール
@@ -921,20 +1167,12 @@ watch([hourHeight, viewportHeight], () => {
             }
         }
 
-        // スクロールバーのスタイル
-        &::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+        // スマホではネイティブスクロールを優先し、ドラッグ処理を行わない
+        @include smartphone-horizontal {
+            touch-action: pan-x pan-y !important;
         }
-        &::-webkit-scrollbar-track {
-            background: rgb(var(--v-theme-background-lighten-1));
-        }
-        &::-webkit-scrollbar-thumb {
-            background: rgb(var(--v-theme-background-lighten-2));
-            border-radius: 5px;
-        }
-        &::-webkit-scrollbar-corner {
-            background: rgb(var(--v-theme-background-lighten-1));
+        @include smartphone-vertical {
+            touch-action: pan-x pan-y !important;
         }
     }
 
