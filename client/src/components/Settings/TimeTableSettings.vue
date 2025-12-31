@@ -112,12 +112,11 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore();
 
 // ダイアログの開閉状態
-const dialogOpen = ref(false);
-watch(() => props.isOpen, (value) => {
-    dialogOpen.value = value;
-});
-watch(dialogOpen, (value) => {
-    emit('update:isOpen', value);
+const dialogOpen = computed({
+    get: () => props.isOpen,
+    set: (value: boolean) => {
+        emit('update:isOpen', value);
+    },
 });
 
 

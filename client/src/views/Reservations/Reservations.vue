@@ -66,6 +66,7 @@ const autoRefreshInterval = ref<number | null>(null);
 
 // 自動更新の間隔 (ミリ秒)
 const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
+const ITEMS_PER_PAGE = 25;
 
 /**
  * 録画予約一覧を取得する
@@ -96,9 +97,8 @@ function updateDisplayData() {
     }
 
     // ページネーション用の計算
-    const itemsPerPage = 25;
-    const startIndex = (page.value - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
+    const startIndex = (page.value - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
 
     reservations.value = sortedReservations.slice(startIndex, endIndex);
     total.value = sortedReservations.length;

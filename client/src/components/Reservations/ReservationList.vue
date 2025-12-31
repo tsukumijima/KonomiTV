@@ -135,12 +135,12 @@ const displayTotal = ref<number>(props.total);
 const drawerOpen = ref(false);
 const selectedReservation = ref<IReservation | null>(null);
 
-// props の page が変更されたら current_page を更新
+// props の page が変更されたら currentPage を更新
 watch(() => props.page, (newPage) => {
     currentPage.value = newPage;
 });
 
-// props の sortOrder が変更されたら sort_order を更新
+// props の sortOrder が変更されたら sortOrder を更新
 watch(() => props.sortOrder, (newOrder) => {
     sortOrder.value = newOrder;
 });

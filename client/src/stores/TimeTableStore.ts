@@ -1,6 +1,7 @@
 
+import { isEqual } from 'ohash';
 import { defineStore } from 'pinia';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 
 import type { Dayjs } from 'dayjs';
 
@@ -8,7 +9,7 @@ import { ChannelType, ChannelTypePretty } from '@/services/Channels';
 import Programs, { ITimeTableChannel } from '@/services/Programs';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { dayjs } from '@/utils';
+import { dayjs } from '@/utils';
 
 
 /**
@@ -53,7 +54,7 @@ const useTimeTableStore = defineStore('timetable', () => {
     const scroll_position = ref<{ x: number; y: number }>({ x: 0, y: 0 });
 
     // 番組表データ
-    const channels_data = ref<ITimeTableChannel[]>([]);
+    const channels_data = shallowRef<ITimeTableChannel[]>([]);
 
     // 番組表の日付範囲 (API から取得した earliest/latest)
     const date_range = ref<{ earliest: Dayjs; latest: Dayjs } | null>(null);
@@ -372,8 +373,8 @@ const useTimeTableStore = defineStore('timetable', () => {
         }
 
         // 番組表データを更新
-        // Object.freeze() でリアクティブ化による高負荷を回避
-        channels_data.value = Utils.deepObjectFreeze(response.channels);
+        // shallowRef でリアクティブ化の負荷を抑えつつ差し替えのみ検知する
+        channels_data.value = response.channels;
 
         // 日付範囲を更新 (API から返される文字列を Dayjs に変換)
         date_range.value = {
@@ -581,7 +582,7 @@ const useTimeTableStore = defineStore('timetable', () => {
                 return;
             }
             // ピン留めチャンネルが変更された場合は再取得
-            if (JSON.stringify(new_ids) !== JSON.stringify(old_ids)) {
+            if (isEqual(new_ids, old_ids) === false) {
                 await fetchTimeTableData();
             }
         },
