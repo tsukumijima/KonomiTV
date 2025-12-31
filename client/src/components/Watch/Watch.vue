@@ -215,7 +215,7 @@ export default defineComponent({
         }
     }
 }
-// フルスクリーン時
+// フルスクリーン時 
 .watch-container.watch-container--fullscreen {
     .watch-player__dplayer {
         .dplayer-controller {
