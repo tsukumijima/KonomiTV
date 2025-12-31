@@ -2,7 +2,6 @@
     <div class="timetable-grid" ref="gridContainerRef"
         :style="{
             '--timetable-channel-header-height': `${channelHeaderHeight}px`,
-            '--timetable-scroll-left': '0px',
         }">
         <!-- スクロール可能な領域 -->
         <!-- ドラッグスクロール: ポインターイベントをこの要素で直接処理 -->
@@ -15,31 +14,36 @@
             <!-- CSS Grid を使ったレイアウト -->
             <div class="timetable-grid__layout"
                 :style="{
-                    gridTemplateColumns: `${timeScaleWidth}px ${totalWidth}px`,
-                    gridTemplateRows: `${channelHeaderHeight}px ${totalHeight}px`,
+                    width: `${timeScaleWidth + totalWidth}px`,
+                    height: `${channelHeaderHeight + totalHeight}px`,
                 }">
-                <!-- 左上の固定コーナー -->
-                <div class="timetable-grid__corner">
-                </div>
-                <!-- チャンネルヘッダー (上部に固定、横スクロールに追従) -->
-                <div class="timetable-grid__channel-headers">
+                <!-- ヘッダー行 -->
+                <div class="timetable-grid__header-row" :style="{ height: `${channelHeaderHeight}px` }">
+                    <!-- 左上の固定コーナー -->
+                    <div class="timetable-grid__corner" :style="{ width: `${timeScaleWidth}px` }">
+                    </div>
+                    <!-- チャンネルヘッダー (上部に固定、横スクロールに追従) -->
+                    <div class="timetable-grid__channel-headers">
                     <TimeTableChannelHeader
                         v-for="channelData in channels" :key="channelData.channel.id"
                         :channel="channelData.channel"
                         :width="channelWidth"
                         :height="channelHeaderHeight"
                     />
+                    </div>
                 </div>
-                <!-- 時刻スケール (左側に固定、縦スクロールに追従) -->
-                <div class="timetable-grid__time-scale" :style="{ width: `${timeScaleWidth}px` }">
-                    <TimeTableTimeScale
-                        :selectedDate="props.selectedDate"
-                        :hourHeight="hourHeight"
-                        :is36HourDisplay="props.is36HourDisplay"
-                    />
-                </div>
-                <!-- 番組グリッド本体 -->
-                <div class="timetable-grid__content">
+                <!-- 本体行 -->
+                <div class="timetable-grid__body-row" :style="{ height: `${totalHeight}px` }">
+                    <!-- 時刻スケール (左側に固定、縦スクロールに追従) -->
+                    <div class="timetable-grid__time-scale" :style="{ width: `${timeScaleWidth}px` }">
+                        <TimeTableTimeScale
+                            :selectedDate="props.selectedDate"
+                            :hourHeight="hourHeight"
+                            :is36HourDisplay="props.is36HourDisplay"
+                        />
+                    </div>
+                    <!-- 番組グリッド本体 -->
+                    <div class="timetable-grid__content">
                     <!-- 各チャンネルの番組列 -->
                     <div class="timetable-grid__channel-column"
                         v-for="(channelData, channelIndex) in channels" :key="channelData.channel.id"
@@ -54,43 +58,20 @@
                         </div>
                         <!-- 番組セル -->
                         <!-- サブチャンネルが存在するチャンネルでは、メインチャンネルも半分の幅で左半分に配置 -->
-                        <TimeTableProgramCell
-                            v-for="program in channelData.programs" :key="program.id"
-                            :program="program"
-                            :channel="channelData.channel"
-                            :selectedDate="props.selectedDate"
-                            :hourHeight="hourHeight"
-                            :channelWidth="getProgramCellWidth(channelData, program, false)"
-                            :fullChannelWidth="channelWidth"
-                            :isSplit="getSplitState(channelData, program, false)"
-                            :scrollTop="scrollTop"
-                            :viewportHeight="viewportHeight"
-                            :channelHeaderHeight="channelHeaderHeight"
-                            :isScrollAtBottom="isScrollAtBottom"
-                            :isSelected="selectedProgramId === program.id"
-                            :isPast="isPastProgram(program)"
-                            :is36HourDisplay="props.is36HourDisplay"
-                            @click="onProgramClick(program)"
-                            @show-detail="$emit('show-program-detail', program.id, channelData, program)"
-                            @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
-                        />
-                        <!-- サブチャンネル番組 (マルチ編成) -->
-                        <!-- サブチャンネルは右半分に配置 -->
-                        <template v-if="hasSubchannels(channelData)">
+                        <template v-for="program in channelData.programs" :key="program.id">
                             <TimeTableProgramCell
-                                v-for="program in getSubchannelPrograms(channelData)" :key="program.id"
+                                v-if="isProgramVisible(program)"
                                 :program="program"
                                 :channel="channelData.channel"
                                 :selectedDate="props.selectedDate"
                                 :hourHeight="hourHeight"
-                                :channelWidth="getProgramCellWidth(channelData, program, true)"
+                                :channelWidth="getProgramCellWidth(channelData, program, false)"
                                 :fullChannelWidth="channelWidth"
-                                :isSplit="getSplitState(channelData, program, true)"
+                                :isSplit="getSplitState(channelData, program, false)"
                                 :scrollTop="scrollTop"
                                 :viewportHeight="viewportHeight"
                                 :channelHeaderHeight="channelHeaderHeight"
                                 :isScrollAtBottom="isScrollAtBottom"
-                                :isSubchannel="true"
                                 :isSelected="selectedProgramId === program.id"
                                 :isPast="isPastProgram(program)"
                                 :is36HourDisplay="props.is36HourDisplay"
@@ -98,6 +79,33 @@
                                 @show-detail="$emit('show-program-detail', program.id, channelData, program)"
                                 @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
                             />
+                        </template>
+                        <!-- サブチャンネル番組 (マルチ編成) -->
+                        <!-- サブチャンネルは右半分に配置 -->
+                        <template v-if="hasSubchannels(channelData)">
+                            <template v-for="program in getSubchannelPrograms(channelData)" :key="program.id">
+                                <TimeTableProgramCell
+                                    v-if="isProgramVisible(program)"
+                                    :program="program"
+                                    :channel="channelData.channel"
+                                    :selectedDate="props.selectedDate"
+                                    :hourHeight="hourHeight"
+                                    :channelWidth="getProgramCellWidth(channelData, program, true)"
+                                    :fullChannelWidth="channelWidth"
+                                    :isSplit="getSplitState(channelData, program, true)"
+                                    :scrollTop="scrollTop"
+                                    :viewportHeight="viewportHeight"
+                                    :channelHeaderHeight="channelHeaderHeight"
+                                    :isScrollAtBottom="isScrollAtBottom"
+                                    :isSubchannel="true"
+                                    :isSelected="selectedProgramId === program.id"
+                                    :isPast="isPastProgram(program)"
+                                    :is36HourDisplay="props.is36HourDisplay"
+                                    @click="onProgramClick(program)"
+                                    @show-detail="$emit('show-program-detail', program.id, channelData, program)"
+                                    @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
+                                />
+                            </template>
                         </template>
                     </div>
                     <!-- 現在時刻バー -->
@@ -107,6 +115,7 @@
                         :totalWidth="totalWidth"
                         :channelHeaderHeight="channelHeaderHeight"
                     />
+                    </div>
                 </div>
             </div>
         </div>
@@ -188,6 +197,9 @@ const isInitialLoadDone = ref(false);  // 初回ロードが完了したかど�
 const scrollTop = ref(0);  // 現在のスクロール位置 (Y方向)
 const viewportHeight = ref(0);  // 番組グリッド表示領域の高さ
 const isScrollAtBottom = ref(false);
+const visibleRangeTop = ref(0);
+const visibleRangeBottom = ref(0);
+const VISIBLE_BUFFER_HOURS = 2;
 
 // ドラッグスクロール用の状態
 const isDragging = ref(false);
@@ -290,6 +302,9 @@ const programTimeCache = new Map<string, { start: number; end: number }>();
 const splitStateCache = new Map<string, boolean>();
 
 function getProgramTimeRange(program: ITimeTableProgram): { start: number; end: number } {
+    if (program === undefined || program === null) {
+        return { start: 0, end: 0 };
+    }
     const cached = programTimeCache.get(program.id);
     if (cached !== undefined) {
         return cached;
@@ -361,6 +376,29 @@ function getProgramCellWidth(
 }
 
 /**
+ * 表示範囲を更新する
+ */
+function updateVisibleRange(): void {
+    const buffer = hourHeight.value * VISIBLE_BUFFER_HOURS;
+    visibleRangeTop.value = Math.max(0, scrollTop.value - buffer);
+    visibleRangeBottom.value = scrollTop.value + viewportHeight.value + buffer;
+}
+
+/**
+ * 番組セルが現在の表示範囲に含まれるかどうか
+ */
+function isProgramVisible(program: ITimeTableProgram): boolean {
+    const displayStartMs = timetableStore.display_start_time.valueOf();
+    const program_range = getProgramTimeRange(program);
+    const startY = ((program_range.start - displayStartMs) / (1000 * 60 * 60)) * hourHeight.value;
+    const endY = ((program_range.end - displayStartMs) / (1000 * 60 * 60)) * hourHeight.value;
+    return endY >= visibleRangeTop.value && startY <= visibleRangeBottom.value;
+}
+
+/**
+ * 横スクロール位置を即時反映して左カラムを固定する
+ */
+/**
  * サブチャンネル番組を取得
  */
 function getSubchannelPrograms(channelData: ITimeTableChannel): ITimeTableProgram[] {
@@ -387,9 +425,6 @@ const onScroll = TimeTableUtils.throttle(() => {
 
     const scrollX = scrollAreaRef.value.scrollLeft;
     const scrollY = scrollAreaRef.value.scrollTop;
-    if (gridContainerRef.value !== null) {
-        gridContainerRef.value.style.setProperty('--timetable-scroll-left', `${scrollX}px`);
-    }
 
     // スクロール位置を更新 (TimeTableProgramCell の sticky 処理用)
     scrollTop.value = scrollY;
@@ -399,6 +434,7 @@ const onScroll = TimeTableUtils.throttle(() => {
     // スクロール位置が下端に到達しているかを判定
     const maxScrollY = scrollAreaRef.value.scrollHeight - scrollAreaRef.value.clientHeight;
     isScrollAtBottom.value = scrollY >= maxScrollY - 1;
+    updateVisibleRange();
 
     // スクロール位置を親に通知
     emit('scroll-position-change', { x: scrollX, y: scrollY });
@@ -800,6 +836,7 @@ onMounted(async () => {
     // 少し遅延を入れて DOM が完全にレンダリングされるのを待つ
     setTimeout(() => {
         scrollToCurrentTime();
+        updateVisibleRange();
     }, 100);
 });
 
@@ -826,6 +863,7 @@ onUnmounted(() => {
 watch(() => props.channels, async (newChannels, oldChannels) => {
     programTimeCache.clear();
     splitStateCache.clear();
+    updateVisibleRange();
 
     // 初回ロード時（空→データあり）のみスクロール
     if (oldChannels.length === 0 && newChannels.length > 0) {
@@ -837,6 +875,10 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         }, 100);
     }
 }, { deep: false });
+
+watch([hourHeight, viewportHeight], () => {
+    updateVisibleRange();
+});
 
 // 日付変更時のスクロール処理は親コンポーネント (TimeTable.vue) で制御する
 // 「次の日を見る」→ 先頭 (4:00) へ、「前の日を見る」→ 末尾 (28時) へスクロール
@@ -896,54 +938,57 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         }
     }
 
-    // CSS Grid を使ったレイアウト
+    // レイアウト
     &__layout {
-        display: grid;
+        display: flex;
+        flex-direction: column;
     }
 
-    // 左上の固定コーナー (グリッド: 1行目1列目)
-    &__corner {
-        grid-row: 1;
-        grid-column: 1;
+    // ヘッダー行
+    &__header-row {
+        display: flex;
         position: sticky;
         top: 0;
-        left: auto;
-        transform: translateX(var(--timetable-scroll-left));
-        will-change: transform;
+        left: 0;
+        z-index: 35;
+        background: rgb(var(--v-theme-background-lighten-1));
+    }
+
+    // 本体行
+    &__body-row {
+        display: flex;
+        position: relative;
+    }
+
+    // 左上の固定コーナー
+    &__corner {
+        position: sticky;
+        top: 0;
+        left: 0;
         background: rgb(var(--v-theme-background-lighten-1));
         border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         z-index: 40;
     }
 
-    // チャンネルヘッダー (グリッド: 1行目2列目、上部に固定)
+    // チャンネルヘッダー (上部に固定、横スクロールに追従)
     &__channel-headers {
-        grid-row: 1;
-        grid-column: 2;
         display: flex;
-        position: sticky;
-        top: 0;
         background: rgb(var(--v-theme-background-lighten-1));
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         z-index: 35;
     }
 
-    // 時刻スケール (グリッド: 2行目1列目、左側に固定)
+    // 時刻スケール (左側に固定、縦スクロールに追従)
     &__time-scale {
-        grid-row: 2;
-        grid-column: 1;
         position: sticky;
-        left: auto;
-        transform: translateX(var(--timetable-scroll-left));
-        will-change: transform;
+        left: 0;
         background: rgb(var(--v-theme-background-lighten-1));
         z-index: 30;
     }
 
-    // 番組グリッド本体 (グリッド: 2行目2列目)
+    // 番組グリッド本体
     &__content {
-        grid-row: 2;
-        grid-column: 2;
         position: relative;
         width: 100%;
         height: 100%;
