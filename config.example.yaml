@@ -100,3 +100,28 @@ capture:
     upload_folders: [
         'E:\TV-Capture',
     ]
+
+# ============================== Discord連携の設定 ==============================
+discord:
+
+    # Discord連携を有効にするか
+    enabled: false
+
+    # Discord Bot のトークン
+    # Discord Bot を作成し、そのトークンをここに入力してください。
+    token: 'YOUR_DISCORD_BOT_TOKEN'
+
+    # 通知を送信する Discord チャンネルの ID
+    # 通知を送信したいチャンネルで右クリックし、「IDをコピー」で取得した ID を入力してください。
+    channel_id: ''
+
+    # サーバーの起動/終了時に通知を送信するか
+    notify_server: true
+
+    # 録画予約の開始/完了時に通知を送信するか
+    notify_recording: true
+
+    # メンテナンスコマンドを許可するユーザーのID
+    maintenance_user_ids: [
+        ''
+    ]

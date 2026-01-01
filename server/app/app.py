@@ -3,6 +3,7 @@ import asyncio
 import atexit
 import mimetypes
 from pathlib import Path
+from typing import Any
 
 import tortoise.contrib.fastapi
 import tortoise.log
@@ -11,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import logging
+from app import logging, schemas
 from app.config import Config, LoadConfig
 from app.constants import (
     CLIENT_DIR,
@@ -26,6 +27,7 @@ from app.routers import (
     CapturesRouter,
     ChannelsRouter,
     DataBroadcastingRouter,
+    DiscordRouter,
     LiveStreamsRouter,
     MaintenanceRouter,
     NiconicoRouter,
@@ -54,6 +56,10 @@ except AssertionError:
     # バリデーションは既にサーバー起動時に行われているためスキップする
     CONFIG = LoadConfig(bypass_validation=True)
 
+import discord_main
+from discord_main import start_discord_bot, stop_discord_bot
+
+
 # FastAPI を初期化
 app = FastAPI(
     title = 'KonomiTV',
@@ -75,6 +81,7 @@ app.include_router(ReservationsRouter.router)
 app.include_router(ReservationConditionsRouter.router)
 app.include_router(CapturesRouter.router)
 app.include_router(DataBroadcastingRouter.router)
+app.include_router(DiscordRouter.router)
 app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
 app.include_router(UsersRouter.router)
@@ -175,11 +182,136 @@ tortoise.contrib.fastapi.register_tortoise(
     add_exception_handlers = True,
 )
 
+# 予約通知チェック用のグローバル変数
+previously_recording: set[int] = set()
+# 前回の予約情報を保持（録画終了時の通知に必要）
+previous_reservations: dict[int, 'schemas.Reservation'] = {}
+
+
+async def check_and_notify_reservations():
+    """予約の開始時刻と終了時刻をチェックし、通知が必要な場合はDiscordに通知を送信する"""
+    try:
+        # 予約通知をサポートするバックエンド / レコーダー構成かを確認
+        from app.config import Config
+        config = Config()
+
+        # Discord 連携が有効かつ、予約通知が有効かどうかを確認
+        if not config.discord.enabled or not config.discord.notify_recording:
+            return
+
+        # ReservationsAPI を呼び出して予約情報を取得
+        from app.routers.ReservationsRouter import GetCtrlCmdUtil, ReservationsAPI
+        edcb = GetCtrlCmdUtil()
+        reservations_data = await ReservationsAPI(edcb=edcb)
+
+
+        # 現在時刻を取得 (JST)
+        import datetime
+        JST = datetime.timezone(datetime.timedelta(hours=9))
+        current_time = datetime.datetime.now(JST)
+
+        # 通知済みの予約IDをdiscord_main.pyから取得
+        discord_notified_start = discord_main.notified_reservations_start
+        discord_notified_end = discord_main.notified_reservations_end
+
+        # 現在録画中の予約IDを保持するセット（終了検知用）
+        global previously_recording, previous_reservations
+        currently_recording = set()
+        current_reservations = {}
+
+        for reservation in reservations_data.reservations:
+            # 予約が有効でない場合はスキップ
+            if not reservation.record_settings.is_enabled:
+                continue
+
+            # 録画予約番組の番組開始時刻と終了時刻をJSTに変換
+            start_time_jst = reservation.program.start_time.astimezone(JST)
+            end_time_jst = reservation.program.end_time.astimezone(JST)
+
+            # 現在録画中の予約を記録し、予約情報も保存
+            if reservation.is_recording_in_progress:
+                currently_recording.add(reservation.id)
+            current_reservations[reservation.id] = reservation
+
+            # 予約開始時刻の通知
+            if (reservation.is_recording_in_progress and
+                reservation.id not in previously_recording and
+                reservation.id not in discord_notified_start):
+
+                if await discord_main.send_reservation_notification(reservation, "start"):
+                    # 通知済みIDに追加
+                    discord_notified_start.add(reservation.id)
+                    logging.info(f'[ReservationNotification] Sent start notification for reservation ID {reservation.id} - {reservation.program.title}')
+
+            # 予約終了時刻の通知
+            if (reservation.id in previously_recording and
+                not reservation.is_recording_in_progress and
+                reservation.id not in discord_notified_end):
+
+                if await discord_main.send_reservation_notification(reservation, "end"):
+                    # 通知済みIDに追加
+                    discord_notified_end.add(reservation.id)
+                    logging.info(f'[ReservationNotification] Sent end notification for reservation ID {reservation.id} - {reservation.program.title}')
+
+        # 録画終了を検知して通知を送信
+        if previously_recording != currently_recording:
+            # 終了した録画を特定
+            ended_recordings = previously_recording - currently_recording
+            if ended_recordings:
+                # 終了した録画について、前回保存していた予約情報を使って通知を送信
+                for ended_reservation_id in ended_recordings:
+                    if (ended_reservation_id not in discord_notified_end and
+                        ended_reservation_id in previous_reservations):
+                        previous_reservation = previous_reservations[ended_reservation_id]
+
+                        if await discord_main.send_reservation_notification(previous_reservation, "end"):
+                            # 通知済みIDに追加
+                            discord_notified_end.add(ended_reservation_id)
+                            logging.info(f'[ReservationNotification] Sent end notification for reservation ID {ended_reservation_id} - {previous_reservation.program.title}')
+
+        # 前回の録画状態と予約情報を更新
+        previously_recording = currently_recording.copy()
+        previous_reservations = current_reservations.copy()
+
+        # 過去の通知済みIDと予約情報をクリアする（番組終了時刻から1時間後）
+        # 現在の予約と前回保存した予約の両方をチェック
+        all_reservations = list(reservations_data.reservations) + list(previous_reservations.values())
+        cleaned_reservation_ids = set()
+
+        for reservation in all_reservations:
+            if not reservation.record_settings.is_enabled:
+                continue
+
+            # 重複チェック（同じ予約IDが複数回処理されないように）
+            if reservation.id in cleaned_reservation_ids:
+                continue
+            cleaned_reservation_ids.add(reservation.id)
+
+            start_time_jst = reservation.program.start_time.astimezone(JST)
+            end_time_jst = reservation.program.end_time.astimezone(JST)
+
+            # 開始時刻から1時間以上経過し、通知済みの場合、通知済みセットから削除
+            if start_time_jst + datetime.timedelta(hours=1) < current_time and reservation.id in discord_notified_start:
+                discord_notified_start.discard(reservation.id)
+            # 終了時刻から1時間以上経過し、通知済みの場合、通知済みセットと予約情報から削除
+            if end_time_jst + datetime.timedelta(hours=1) < current_time:
+                if reservation.id in discord_notified_end:
+                    discord_notified_end.discard(reservation.id)
+                # 古い予約情報も削除してメモリリークを防ぐ
+                if reservation.id in previous_reservations:
+                    del previous_reservations[reservation.id]
+
+    except Exception as e:
+        logging.error(f'[ReservationNotification] Error checking reservations: {e}')
+
 # サーバーの起動時に実行する
 recorded_scan_task: RecordedScanTask | None = None
+discord_bot_task: asyncio.Task[Any] | None = None
+reservation_checker_task: asyncio.Task[Any] | None = None
+
 @app.on_event('startup')
 async def Startup():
-    global recorded_scan_task
+    global recorded_scan_task, discord_bot_task, reservation_checker_task
 
     # チャンネル情報を更新
     await Channel.update()
@@ -200,6 +332,16 @@ async def Startup():
     # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
     recorded_scan_task = RecordedScanTask()
     await recorded_scan_task.start()
+
+    # Discord Bot をバックグラウンドタスクとして起動する
+    if CONFIG.discord.enabled and CONFIG.discord.token:
+        logging.info('Discord Bot starting...')
+        discord_bot_task = asyncio.create_task(start_discord_bot())
+
+    # 予約通知チェックをバックグラウンドタスクとして起動する
+    if CONFIG.discord.enabled and CONFIG.discord.notify_recording:
+        logging.info('Reservation Notification Checker starting...')
+        reservation_checker_task = asyncio.create_task(repeat_every(seconds=30, wait_first=30, logger=logging.logger)(check_and_notify_reservations)())
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
@@ -245,6 +387,12 @@ async def Shutdown():
     if recorded_scan_task is not None:
         await recorded_scan_task.stop()
         recorded_scan_task = None
+
+    # Discord Bot を停止する
+    ## Discord 連携が有効な場合のみ停止処理を行う
+    if CONFIG.discord.enabled and CONFIG.discord.token:
+        logging.info('Discord Bot stopping...')
+        await stop_discord_bot()
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
 # atexit は同期関数しか実行できないので、asyncio.run() でくるむ

@@ -586,6 +586,11 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
     def path(self) -> str:
         return f'/i/api/graphql/{self.query_id}/{self.endpoint}'
 
+# ***** Discord *****
+
+class DiscordStatus(BaseModel):
+    connected: bool
+
 # ***** ユーザー *****
 
 class UserAccessToken(BaseModel):

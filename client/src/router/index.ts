@@ -153,6 +153,11 @@ const router = createRouter({
             name: 'NotFound',
             component: () => import('@/views/NotFound.vue'),
         },
+        {
+            path: '/settings/discord',
+            name: 'Settings Discord',
+            component: () => import('@/views/Settings/Discord.vue'),
+        },
     ],
 
     // ページ遷移時のスクロールの挙動の設定

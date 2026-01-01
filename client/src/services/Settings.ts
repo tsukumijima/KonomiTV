@@ -89,6 +89,13 @@ export interface IClientSettings {
     twitter_active_tab: 'Search' | 'Timeline' | 'Capture';
     tweet_hashtag_position: 'Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak';
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+    discord: {
+        enabled: boolean;
+        token: string | null;
+        channel_id: string | null;
+        notify_server: boolean;
+        notify_recording: boolean;
+    };
 }
 
 /**
@@ -121,6 +128,13 @@ export interface IServerSettings {
     capture: {
         upload_folders: string[];
     };
+    discord: {
+        enabled: boolean;
+        token: string | null;
+        channel_id: string | null;
+        notify_server: boolean;
+        notify_recording: boolean;
+    };
 }
 
 /* サーバー設定を表すインターフェースのデフォルト値 */
@@ -149,6 +163,13 @@ export const IServerSettingsDefault: IServerSettings = {
     },
     capture: {
         upload_folders: [],
+    },
+    discord: {
+        enabled: false,
+        token: null,
+        channel_id: null,
+        notify_server: true,
+        notify_recording: true,
     },
 };
 
@@ -218,7 +239,14 @@ class Settings {
             return null;
         }
 
-        return response.data;
+        const settings = response.data;
+
+        // channel_id を確実に文字列として扱う（数値精度問題の回避）
+        if (settings.discord.channel_id !== null) {
+            settings.discord.channel_id = String(settings.discord.channel_id);
+        }
+
+        return settings;
     }
 
     /**
@@ -242,6 +270,23 @@ class Settings {
         }
 
         return true;
+    }
+    /**
+     * Discord の接続状態を取得する
+     * @returns Discord の接続状態
+     */
+    static async fetchDiscordStatus(): Promise<{connected: boolean}> {
+        try {
+            const response = await APIClient.get<{connected: boolean}>('/discord/status');
+            if (response.type === 'success') {
+                return response.data;
+            }
+            console.error('Discord status check failed:', response.data.detail);
+            return { connected: false };
+        } catch (error) {
+            console.error('Discord status check failed:', error);
+            return { connected: false };
+        }
     }
 }
 
