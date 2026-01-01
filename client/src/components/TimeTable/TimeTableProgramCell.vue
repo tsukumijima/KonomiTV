@@ -583,8 +583,8 @@ watch(isExpanded, async (value) => {
     &__recording-icon {
         display: block;
         position: relative;
-        width: 10px;
-        height: 10px;
+        width: 11px;
+        height: 11px;
         border: 3px solid #515151;
         border-radius: 50%;
         background-color: #EF5350;

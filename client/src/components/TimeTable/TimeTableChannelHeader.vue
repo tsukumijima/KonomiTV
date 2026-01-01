@@ -49,7 +49,7 @@ const numberFontSize = computed(() => {
 });
 
 const nameFontSize = computed(() => {
-    return Math.min(13.5, Math.max(12, props.width * 0.08));
+    return Math.min(13.5, Math.max(Utils.isSmartphoneVertical() ? 10 : 12, props.width * 0.08));
 });
 
 const tooltipText = computed(() => {
