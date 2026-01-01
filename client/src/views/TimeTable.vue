@@ -603,6 +603,13 @@ watch(() => timetableStore.selected_date, () => {
         display: flex;
         align-items: center;
         gap: 4px;
+        margin-left: -4px;
+        margin-right: -4px;
+
+        .v-btn {
+            width: calc(var(--v-btn-height) + 8px) !important;
+            height: calc(var(--v-btn-height) + 8px) !important;
+        }
 
         // 無効状態のアイコンボタンのスタイル
         // 背景やホバー効果を完全に無効化し、アイコンのみを薄く表示
@@ -614,11 +621,39 @@ watch(() => timetableStore.selected_date, () => {
     }
 
     &__date-button {
-        min-width: 100px;
+        position: relative;
+        min-width: 90px;
         height: 40px;
+        min-height: 40px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        padding-left: 6px;
+        padding-right: 6px;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         font-size: 14px;
+        line-height: 21px;
+        --timetable-date-border-opacity: 0.26;
+        --timetable-date-border-width: 1px;
+        box-shadow: inset 0 0 0 var(--timetable-date-border-width) rgba(var(--v-theme-on-surface), var(--timetable-date-border-opacity));
+        transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+        @media (hover: hover) {
+            &:hover {
+                --timetable-date-border-opacity: 0.55;
+            }
+        }
+
+        &:focus-visible,
+        &[aria-expanded='true'] {
+            --timetable-date-border-opacity: 1;
+            --timetable-date-border-width: 2px;
+        }
+
+        :deep(.v-btn__overlay) {
+            background: transparent !important;
+            opacity: 0 !important;
+        }
     }
 
     &__time {
@@ -672,13 +707,17 @@ watch(() => timetableStore.selected_date, () => {
     }
 
     &__channel-type {
-        width: 96px;
+        width: 88px;
         :deep(.v-field) {
             border-radius: 6px;
             background: rgb(var(--v-theme-background-lighten-1));
         }
+        :deep(.v-field) {
+            padding-right: 5px;
+        }
         :deep(.v-field__input) {
             padding-top: 4px;
+            padding-left: 12px;
             padding-bottom: 4px;
             min-height: 36px;
             font-size: 14px;
@@ -708,21 +747,52 @@ watch(() => timetableStore.selected_date, () => {
     }
 
     &__date-button {
-        padding-left: 2px !important;
-        padding-right: 2px !important;
-        font-size: 13px;
+        position: relative;
+        min-height: 36px;
+        height: 36px;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        font-size: 14px;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 6px;
+        line-height: 20px;
+        --timetable-date-border-opacity: 0.26;
+        --timetable-date-border-width: 1px;
+        box-shadow: inset 0 0 0 var(--timetable-date-border-width) rgba(var(--v-theme-on-surface), var(--timetable-date-border-opacity));
+        transition: box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+        @media (hover: hover) {
+            &:hover {
+                --timetable-date-border-opacity: 0.55;
+            }
+        }
+
+        &:focus-visible,
+        &[aria-expanded='true'] {
+            --timetable-date-border-opacity: 1;
+            --timetable-date-border-width: 2px;
+        }
+
+        :deep(.v-btn__overlay) {
+            background: transparent !important;
+            opacity: 0 !important;
+        }
     }
 
     &__time {
-        width: 70px;
+        width: 64px;
         :deep(.v-field) {
             border-radius: 6px;
             background: rgb(var(--v-theme-background-lighten-1));
         }
+        :deep(.v-field) {
+            padding-right: 5px;
+        }
         :deep(.v-field__input) {
             padding-top: 4px;
+            padding-left: 12px;
             padding-bottom: 4px;
             min-height: 36px;
             font-size: 14px;
