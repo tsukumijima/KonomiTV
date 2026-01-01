@@ -222,6 +222,16 @@ class SeriesBroadcastPeriod(PydanticModel):
     end_date: date
     recorded_programs: list[RecordedProgram]
 
+# ***** キャプチャ *****
+
+class Capture(BaseModel):
+    name: str
+    size: int
+    url: str
+    time: datetime | None
+    program_title: str | None
+    channel_name: str | None
+
 # ***** ユーザー *****
 
 class User(PydanticModel):
