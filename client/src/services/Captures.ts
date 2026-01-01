@@ -6,7 +6,6 @@ import APIClient from '@/services/APIClient';
 import Utils, { Semaphore } from '@/utils';
 
 export interface ICapture {
-    path: string;
     name: string;
     size: number;
     url: string;
@@ -123,11 +122,14 @@ export class Captures {
 
     /**
      * キャプチャをサーバーから削除する
-     * @param capture_name 削除するキャプチャのファイル名
+     * @param capture_url 削除するキャプチャの URL
      * @returns 成否
      */
-    static async deleteCapture(capture_name: string): Promise<boolean> {
-        const response = await APIClient.delete(`/captures/${capture_name}`);
+    public static async deleteCapture(capture_url: string): Promise<boolean> {
+        const url_parts = capture_url.split('/');
+        const capture_name = url_parts.pop();
+        const folder_id = url_parts.pop();
+        const response = await APIClient.delete(`/captures/${folder_id}/${capture_name}`);
         if (response.type === 'error') {
             APIClient.showGenericError(response, 'キャプチャの削除に失敗しました。');
             return false;
