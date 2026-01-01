@@ -57,7 +57,7 @@ except AssertionError:
     CONFIG = LoadConfig(bypass_validation=True)
 
 import discord_main
-from discord_main import start_discord_bot, stop_discord_bot
+from discord_main import StartDiscordBot, StopDiscordBot
 
 
 # FastAPI を初期化
@@ -238,7 +238,7 @@ async def check_and_notify_reservations():
                 reservation.id not in previously_recording and
                 reservation.id not in discord_notified_start):
 
-                if await discord_main.send_reservation_notification(reservation, "start"):
+                if await discord_main.SendReservationNotification(reservation, "start"):
                     # 通知済みIDに追加
                     discord_notified_start.add(reservation.id)
                     logging.info(f'[ReservationNotification] Sent start notification for reservation ID {reservation.id} - {reservation.program.title}')
@@ -248,7 +248,7 @@ async def check_and_notify_reservations():
                 not reservation.is_recording_in_progress and
                 reservation.id not in discord_notified_end):
 
-                if await discord_main.send_reservation_notification(reservation, "end"):
+                if await discord_main.SendReservationNotification(reservation, "end"):
                     # 通知済みIDに追加
                     discord_notified_end.add(reservation.id)
                     logging.info(f'[ReservationNotification] Sent end notification for reservation ID {reservation.id} - {reservation.program.title}')
@@ -264,7 +264,7 @@ async def check_and_notify_reservations():
                         ended_reservation_id in previous_reservations):
                         previous_reservation = previous_reservations[ended_reservation_id]
 
-                        if await discord_main.send_reservation_notification(previous_reservation, "end"):
+                        if await discord_main.SendReservationNotification(previous_reservation, "end"):
                             # 通知済みIDに追加
                             discord_notified_end.add(ended_reservation_id)
                             logging.info(f'[ReservationNotification] Sent end notification for reservation ID {ended_reservation_id} - {previous_reservation.program.title}')
@@ -336,7 +336,7 @@ async def Startup():
     # Discord Bot をバックグラウンドタスクとして起動する
     if CONFIG.discord.enabled and CONFIG.discord.token:
         logging.info('Discord Bot starting...')
-        discord_bot_task = asyncio.create_task(start_discord_bot())
+        discord_bot_task = asyncio.create_task(StartDiscordBot())
 
     # 予約通知チェックをバックグラウンドタスクとして起動する
     if CONFIG.discord.enabled and CONFIG.discord.notify_recording:
@@ -392,7 +392,7 @@ async def Shutdown():
     ## Discord 連携が有効な場合のみ停止処理を行う
     if CONFIG.discord.enabled and CONFIG.discord.token:
         logging.info('Discord Bot stopping...')
-        await stop_discord_bot()
+        await StopDiscordBot()
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
 # atexit は同期関数しか実行できないので、asyncio.run() でくるむ

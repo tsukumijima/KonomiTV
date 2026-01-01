@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import Literal
 
@@ -17,15 +18,92 @@ from app.routers.ReservationsRouter import (
     GetCtrlCmdUtil,
     ReservationsAPI,
 )
+from app.routers.VideosRouter import PAGE_SIZE as RECORDED_PROGRAMS_PAGE_SIZE
 from app.routers.VideosRouter import VideosAPI
 
 
 # Botが実行中かどうかを示すグローバル変数
 is_bot_running: bool = False
 
+# Bot が Ready になったことを示すイベント
+## Discord への接続が確立していない状態で wait_until_ready() を呼ぶと、シャットダウン処理などが詰まる可能性がある
+bot_ready_event = asyncio.Event()
+
+# 通知チャンネルのキャッシュ
+## fetch_channel() の連続呼び出しはレート制限や遅延の原因になるため、可能な限りキャッシュを利用する
+_notification_channel_cache: tuple[int, discord.TextChannel] | None = None
+
 
 # 日本のタイムゾーンを定数として定義
 JST = datetime.timezone(datetime.timedelta(hours=9))
+
+# 1ページあたりの表示件数
+ITEMS_PER_PAGE = 10
+
+
+async def WaitUntilBotReady(timeout_seconds: float = 10.0) -> bool:
+    """Bot が Ready になるまで待機する。
+
+    Args:
+        timeout_seconds (float, optional): タイムアウト秒数. Defaults to 10.0.
+
+    Returns:
+        bool: Ready になった場合は True
+    """
+
+    try:
+        await asyncio.wait_for(bot_ready_event.wait(), timeout=timeout_seconds)
+        return True
+    except TimeoutError:
+        return False
+
+
+async def GetNotificationTextChannel() -> discord.TextChannel | None:
+    """設定された通知チャンネル (TextChannel) を取得する。
+
+    Returns:
+        discord.TextChannel | None: 通知チャンネル (TextChannel) 。取得できない場合は None
+    """
+
+    global _notification_channel_cache
+
+    channel_id = Config().discord.channel_id
+    if not channel_id:
+        return None
+
+    try:
+        channel_id_int = int(channel_id)
+    except Exception as ex:
+        logging.error(f'[DiscordBot] Invalid notification channel_id configured. [channel_id: {channel_id}]', exc_info=ex)
+        return None
+
+    # キャッシュが有効な場合はそれを返す
+    if _notification_channel_cache is not None:
+        cached_id, cached_channel = _notification_channel_cache
+        if cached_id == channel_id_int:
+            return cached_channel
+
+    # まずはキャッシュから取得
+    channel = bot.get_channel(channel_id_int)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(channel_id_int)
+        except discord.NotFound:
+            logging.warning(f'[DiscordBot] Notification channel not found. [channel_id: {channel_id_int}]')
+            return None
+        except discord.Forbidden:
+            logging.warning(f'[DiscordBot] Permission denied while fetching notification channel. [channel_id: {channel_id_int}]')
+            return None
+        except Exception as ex:
+            logging.error(f'[DiscordBot] Failed to fetch notification channel. [channel_id: {channel_id_int}]', exc_info=ex)
+            return None
+
+    if isinstance(channel, discord.TextChannel):
+        _notification_channel_cache = (channel_id_int, channel)
+        return channel
+
+    logging.warning(f'[DiscordBot] Configured notification channel is not a TextChannel. [channel_id: {channel_id_int}]')
+    return None
 
 # ボットの初期化
 bot = commands.Bot(
@@ -39,31 +117,33 @@ async def on_ready():
     """起動時に実行されるイベントハンドラ"""
     global is_bot_running
     is_bot_running = True
+    bot_ready_event.set()
     if bot.user:
-        logging.info(f'[DiscordBot] ✅ Login successful! (User: {bot.user} (ID: {bot.user.id})')
+        logging.info(f'[DiscordBot] Login successful. [user: {bot.user}][user_id: {bot.user.id}]')
     else:
-        logging.info('[DiscordBot] ✅ Login successful! (User info unavailable)')
+        logging.info('[DiscordBot] Login successful. [user: unavailable]')
 
     # コマンドツリーを同期
     try:
         await bot.tree.sync()
-        logging.info('[DiscordBot] 🔄 Slash commands synchronized.')
+        logging.info('[DiscordBot] Slash commands synchronized.')
     except Exception as e:
         logging.error(f'[DiscordBot] Error synchronizing command tree: {e}')
 
-     # 起動時にログチャンネルにメッセージを送信
+    # 起動時にログチャンネルにメッセージを送信
     if Config().discord.notify_server:
-        await send_bot_status_message("startup")
+        await SendBotStatusMessage("startup")
 
 @bot.event
 async def on_disconnect():
     """切断時に実行されるイベントハンドラ"""
     global is_bot_running
     is_bot_running = False
-    logging.info('[DiscordBot] 🔌 Disconnected from Discord.')
+    bot_ready_event.clear()
+    logging.info('[DiscordBot] Disconnected from Discord.')
 
 async def setup():
-    """"ボットの初期設定を行う"""
+    """ボットの初期設定を行う"""
     # コグの登録
     await bot.add_cog(UtilityCog(bot))
     await bot.add_cog(SettingCog(bot))
@@ -176,20 +256,20 @@ class ViewCog(commands.Cog):
         description="チャンネル情報などを確認する"
     )
 
-    #チャンネル一覧を表示するサブコマンド
+    # チャンネル一覧を表示するサブコマンド
     @view.command(name="channel_list", description="指定タイプのチャンネル一覧を表示 (地デジ(GR), BS, CS)")
     @app_commands.describe(channel_type="表示したいチャンネルタイプ (地デジ(GR), BS, CS)")
-    async def channel_list(self, interaction: discord.Interaction,channel_type: str):
+    async def channelList(self, interaction: discord.Interaction, channel_type: str):
         """チャンネル一覧を表示"""
         await interaction.response.defer(ephemeral=True)
         try:
-            #チャンネルタイプが正しいかをフィルタ
+            # チャンネルタイプが正しいかをフィルタ
             if channel_type in ['GR', 'BS', 'CS', 'all']:
                 if channel_type == 'all':
                     channel_types_to_fetch = ['GR', 'BS', 'CS']
                 else:
                     channel_types_to_fetch = [channel_type]
-                channels_data = await get_specific_channels(channel_types_to_fetch)
+                channels_data = await GetSpecificChannels(channel_types_to_fetch)
             else:
                 await interaction.followup.send("チャンネルタイプが正しくありません。GR、BS、CS、またはallを指定してください。", ephemeral=True)
                 return
@@ -218,7 +298,7 @@ class ViewCog(commands.Cog):
 
     @view.command(name="channel_now", description="指定されたチャンネルの現在と次の番組情報を表示")
     @app_commands.describe(channel_id="表示したいチャンネルのID (例: gr011)")
-    async def channel_now(self, interaction: discord.Interaction, channel_id: str):
+    async def channelNow(self, interaction: discord.Interaction, channel_id: str):
         """指定されたチャンネルの現在の番組情報を表示"""
         try:
             channel_instance = await Channel.get_or_none(display_channel_id=channel_id)
@@ -236,16 +316,16 @@ class ViewCog(commands.Cog):
                 color=0x0091ff
             )
 
-             # 共通関数を使用して番組情報をフォーマット
+            # 共通関数を使用して番組情報をフォーマット
             embed.add_field(
                 name="📺 現在の番組",
-                value=format_program_info(program_present),
+                value=FormatProgramInfo(program_present),
                 inline=False
             )
 
             embed.add_field(
                 name="▶️ 次の番組",
-                value=format_program_info(program_following),
+                value=FormatProgramInfo(program_following),
                 inline=False
             )
             embed.set_footer(text=datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
@@ -257,7 +337,7 @@ class ViewCog(commands.Cog):
 
     @view.command(name="recorded_info", description="録画済み番組一覧を表示")
     @app_commands.describe(page="表示したいページ番号 (デフォルト: 1)")
-    async def recorded_info(self, interaction: discord.Interaction, page: int = 1):
+    async def recordedInfo(self, interaction: discord.Interaction, page: int = 1):
         """録画済み番組一覧を表示"""
         await interaction.response.defer()
         try:
@@ -274,44 +354,27 @@ class ViewCog(commands.Cog):
                 await interaction.followup.send(f"❌ 録画番組が見つかりません。(ページ: {page})", ephemeral=True)
                 return
 
-            # 1ページあたりの録画番組数
-            items_per_page = 10
+            # VideosAPI は PAGE_SIZE (=30) 件ずつページング済みの結果を返す
+            page_size = RECORDED_PROGRAMS_PAGE_SIZE
             total_items = recorded_programs_data.total
-            total_pages = (total_items + items_per_page - 1) // items_per_page if items_per_page > 0 else 1
+            total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
 
             # 現在のページが総ページ数を超えている場合
             if page > total_pages and total_items > 0:
                 await interaction.followup.send(f"❌ 指定されたページ番号（{page}）は総ページ数（{total_pages}）を超えています。", ephemeral=True)
                 return
 
-             # Embed を作成
-            embed = discord.Embed(
-                title=f"録画済み番組一覧 (ページ {page})",
-                color=0x0091ff
+            # Embed を作成
+            embed = CreateRecordedProgramsEmbed(
+                recorded_programs=recorded_programs_data.recorded_programs,
+                page=page,
+                total_pages=total_pages,
+                total_items=total_items,
+                page_size=page_size,
             )
-            # 現在のページに表示する番組を取得
-            start_index = (page - 1) * items_per_page
-            end_index = start_index + items_per_page
-            current_page_programs = recorded_programs_data.recorded_programs[start_index:end_index]
-
-            for i, recorded in enumerate(current_page_programs, start_index + 1):
-                start_time_jst = recorded.start_time.astimezone(JST)
-                end_time_jst = recorded.end_time.astimezone(JST)
-
-                embed.add_field(
-                    name=f"🔵録画 {i}: {recorded.title}",
-                    value=(
-                        f"チャンネル: {recorded.channel.name if recorded.channel else 'なし'}\n"
-                        f"放送時間: {start_time_jst.strftime('%m/%d %H:%M')} - {end_time_jst.strftime('%H:%M')}\n"
-                    ),
-                    inline=False
-                )
-
-            # ページ情報とタイムスタンプ
-            embed.set_footer(text=f"ページ {page} / {total_pages}・全 {total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
 
             # View (ボタン) を作成
-            view = RecordedProgramsView(recorded_programs_data, page, total_pages, total_items, items_per_page)
+            view = RecordedProgramsView(page, total_pages, total_items, 'desc')
 
             # メッセージを送信
             await interaction.followup.send(embed=embed, view=view)
@@ -328,7 +391,7 @@ class ViewCog(commands.Cog):
 
     @view.command(name="search_programs", description="番組検索を実行")
     @app_commands.describe(keyword="検索キーワード (番組名の一部を入力)")
-    async def search_programs(self, interaction: discord.Interaction, keyword: str):
+    async def searchPrograms(self, interaction: discord.Interaction, keyword: str):
         """番組検索を実行"""
         await interaction.response.defer()
         try:
@@ -374,7 +437,7 @@ class ViewCog(commands.Cog):
             search_results.total = len(future_programs)
 
             # 1ページあたりの番組数
-            items_per_page = 10
+            items_per_page = ITEMS_PER_PAGE
             total_items = search_results.total
             total_pages = (total_items + items_per_page - 1) // items_per_page if items_per_page > 0 else 1
 
@@ -429,7 +492,7 @@ class ViewCog(commands.Cog):
 
     @view.command(name="reservation_list", description="録画予約一覧を表示")
     @app_commands.describe(page="表示したいページ番号 (デフォルト: 1)")
-    async def reservation_list(self, interaction: discord.Interaction, page: int = 1):
+    async def reservationList(self, interaction: discord.Interaction, page: int = 1):
         """録画予約一覧を表示"""
         await interaction.response.defer()
         try:
@@ -449,7 +512,7 @@ class ViewCog(commands.Cog):
                 return
 
             # 1ページあたりの予約件数
-            items_per_page = 10
+            items_per_page = ITEMS_PER_PAGE
             total_items = len(reservations_data.reservations)
             total_pages = (total_items + items_per_page - 1) // items_per_page if items_per_page > 0 else 1
 
@@ -534,7 +597,7 @@ class MaintenanceCog(commands.Cog):
         """サーバーを再起動する"""
         try:
             # 許可されているか確認
-            if not await self.is_allowed(interaction.user):
+            if not await self.isAllowed(interaction.user):
                 await interaction.response.send_message("❌ 許可されていないユーザーです。", ephemeral=True)
                 return
 
@@ -555,7 +618,7 @@ class MaintenanceCog(commands.Cog):
         """サーバーを終了する"""
         try:
             # 許可されているか確認
-            if not await self.is_allowed(interaction.user):
+            if not await self.isAllowed(interaction.user):
                 await interaction.response.send_message("❌ 許可されていないユーザーです。", ephemeral=True)
                 return
 
@@ -572,11 +635,11 @@ class MaintenanceCog(commands.Cog):
                 await interaction.followup.send("❌ コマンドの実行中にエラーが発生しました。", ephemeral=True)
 
     @maintenance.command(name="epg_acquire", description="EPG 獲得を開始する")
-    async def epg_acquire(self, interaction: discord.Interaction):
+    async def epgAcquire(self, interaction: discord.Interaction):
         """EPG 獲得を開始する"""
         try:
             # 許可されているか確認
-            if not await self.is_allowed(interaction.user):
+            if not await self.isAllowed(interaction.user):
                 await interaction.response.send_message("❌ 許可されていないユーザーです。", ephemeral=True)
                 return
 
@@ -623,7 +686,7 @@ class MaintenanceCog(commands.Cog):
             except Exception:
                 logging.error('[DiscordBot] Failed to send error message to Discord')
 
-    async def is_allowed(self, user: discord.User) -> bool:
+    async def isAllowed(self, user: discord.User) -> bool:
         """ユーザーが許可されているかを確認する"""
         try:
             # Config().discord.maintenance_user_ids にユーザーIDが含まれているか確認
@@ -637,12 +700,16 @@ class MaintenanceCog(commands.Cog):
             logging.error(f'[DiscordBot] Error checking user permissions: {e}')
             return False
 
+    # 旧名との互換性維持
+    async def is_allowed(self, user: discord.User) -> bool:
+        return await self.isAllowed(user)
+
     @maintenance.command(name="epg_reload", description="EPG を再読み込みする")
-    async def epg_reload(self, interaction: discord.Interaction):
+    async def epgReload(self, interaction: discord.Interaction):
         """EPG を再読み込みする"""
         try:
             # 許可されているか確認
-            if not await self.is_allowed(interaction.user):
+            if not await self.isAllowed(interaction.user):
                 await interaction.response.send_message("❌ 許可されていないユーザーです。", ephemeral=True)
                 return
 
@@ -700,12 +767,17 @@ class SettingCog(commands.Cog):
         description="各種設定を行う"
     )
 
-    #通知チャンネルの設定をするサブコマンド
+    # 通知チャンネルの設定をするサブコマンド
     @setting.command(name="channel", description="通知チャンネルを設定")
     async def channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
         """通知チャンネルを設定"""
         try:
-            #引数からチャンネルIDを変更
+            # 通知チャンネルのキャッシュをクリア
+            ## 変更直後に古いチャンネルへ送信してしまうのを防ぐ
+            global _notification_channel_cache
+            _notification_channel_cache = None
+
+            # 引数からチャンネルIDを変更
             Config().discord.channel_id = channel.id
 
             # 設定ファイルを保存
@@ -717,7 +789,7 @@ class SettingCog(commands.Cog):
             )
             logging.info(f'[DiscordBot] Notification channel set to {channel.name} (ID: {channel.id})')
 
-        #エラー時の処理
+        # エラー時の処理
         except Exception as e:
             logging.error(f'[DiscordBot] Error setting notification channel: {e}')
             await interaction.response.send_message(
@@ -725,12 +797,12 @@ class SettingCog(commands.Cog):
                   ephemeral=True
             )
 
-    #予約通知の有効/無効を切り替えるサブコマンド
+    # 予約通知の有効/無効を切り替えるサブコマンド
     @setting.command(name="notify", description="予約通知の有効/無効を切り替え")
     async def notify(self, interaction: discord.Interaction, enabled: bool):
         """予約通知の有効/無効を切り替え"""
         try:
-            #設定を変更
+            # 設定を変更
             Config().discord.notify_recording = enabled
 
             # 設定ファイルを保存
@@ -744,7 +816,7 @@ class SettingCog(commands.Cog):
             )
             logging.info(f'[DiscordBot] Reservation notifications set to {status_text}')
 
-        #エラー時の処理
+        # エラー時の処理
         except Exception as e:
             logging.error(f'[DiscordBot] Error setting reservation notifications: {e}')
             await interaction.response.send_message(
@@ -752,7 +824,7 @@ class SettingCog(commands.Cog):
                   ephemeral=True
             )
 
-async def start_discord_bot():
+async def StartDiscordBot():
     """Discord ボットを起動する"""
 
     # Discord トークンが設定されているか確認
@@ -764,27 +836,27 @@ async def start_discord_bot():
         # コグの登録など、ボット起動前の非同期セットアップ
         await setup()
         # ボットを非同期で起動
-        logging.info("Discord Bot starting...")
+        logging.info('[DiscordBot] Discord bot starting...')
         await bot.start(Config().discord.token)
 
-    #ログインに失敗した際の処理
+    # ログインに失敗した際の処理
     except discord.LoginFailure:
         logging.error("[Discord Bot] Discord Bot login failed, please check the token setting in config.yaml.")
     #内部エラーが発生した際の処理
     except Exception as e:
         logging.error(f"[Discord Bot] An internal error occurred. Error details: {e}")
 
-async def stop_discord_bot():
+async def StopDiscordBot():
     """Discord ボットを停止する"""
     global is_bot_running
     try:
         # 停止メッセージを送信
         if Config().discord.notify_server:
-            await send_bot_status_message("shutdown")
+            await SendBotStatusMessage("shutdown")
         # ボットを停止
         await bot.close()
         is_bot_running = False
-        logging.info("[DiscordBot] Discord Bot stopped successfully.")
+        logging.info('[DiscordBot] Discord bot stopped successfully.')
     except Exception as e:
         logging.error(f"[Discord Bot] An internal error occurred while stopping the bot. Error details: {e}")
 
@@ -793,21 +865,17 @@ async def stop_discord_bot():
 notified_reservations_start = set()
 notified_reservations_end = set()
 
-async def send_bot_status_message(status:str):
+async def SendBotStatusMessage(status:str):
     """ボットの状態を通知チャンネルに送信する共通関数"""
     try:
-        channel_id = Config().discord.channel_id
-
-        if not channel_id:
+        # Bot が Ready になるまで待機
+        if await WaitUntilBotReady(timeout_seconds=10.0) is False:
+            logging.warning('[DiscordBot] Skipped sending status message because bot is not ready.')
             return
 
-        # Botが準備完了するまで待機
-        await bot.wait_until_ready()
-
-        channel = await bot.fetch_channel(int(channel_id))
-        # チャンネルが存在しているかを確認
-        if channel and isinstance(channel, discord.TextChannel):
-            time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        channel = await GetNotificationTextChannel()
+        if channel is not None:
+            time = datetime.datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')
             embed = discord.Embed(colour=0x0091ff)
 
             if status == "startup":
@@ -817,44 +885,21 @@ async def send_bot_status_message(status:str):
 
             embed.set_footer(text=time)
             await channel.send(embed=embed)
-            logging.info(f'[DiscordBot] Sent {status} message to #{channel.name} (ID: {channel.id})')
-        elif channel:
-            # テキストチャンネル以外が見つかった場合
-            logging.warning(f'[DiscordBot] Configured notification channel (ID: {channel_id}) is not a TextChannel.')
-        else:
-            # チャンネルが見つからなかった場合
-            logging.warning(f'[DiscordBot] Notification channel (ID: {channel_id}) not found.')
+            logging.info(f'[DiscordBot] Sent status message. [status: {status}][channel_id: {channel.id}]')
     except Exception as e:
         logging.error(f'[DiscordBot] Error sending {status} message: {e}')
 
-async def send_reservation_notification(reservation: 'schemas.Reservation', notification_type: Literal["start", "end"]) -> bool:
+async def SendReservationNotification(reservation: 'schemas.Reservation', notification_type: Literal["start", "end"]) -> bool:
     """予約の開始/終了通知をDiscordに送信する"""
-    global is_bot_running
-
-    # Botが起動するまで最大60秒待機
-    import asyncio
-    timeout = 60
-    while not is_bot_running and timeout > 0:
-        await asyncio.sleep(1)
-        timeout -= 1
-
-    if not is_bot_running:
-        logging.error("[DiscordBot] Client has not been properly initialised. (Timeout waiting for bot to start)")
+    # Bot が起動するまで最大60秒待機
+    if await WaitUntilBotReady(timeout_seconds=60.0) is False:
+        logging.error('[DiscordBot] Client has not been properly initialized. (Timeout waiting for bot ready)')
         return False
 
     try:
-        channel_id = Config().discord.channel_id
-
-        if not channel_id:
-            return False
-
-        # Botが準備完了するまで待機
-        await bot.wait_until_ready()
-
-        channel = await bot.fetch_channel(int(channel_id))
-        # チャンネルが存在しているかを確認
-        if channel and isinstance(channel, discord.TextChannel):
-            time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        channel = await GetNotificationTextChannel()
+        if channel is not None:
+            time = datetime.datetime.now(JST).strftime('%Y/%m/%d %H:%M:%S')
             embed = discord.Embed(colour=0x0091ff)
 
             start_time_jst = reservation.program.start_time.astimezone(JST)
@@ -872,21 +917,14 @@ async def send_reservation_notification(reservation: 'schemas.Reservation', noti
                 embed.set_footer(text=f"予約ID: {reservation.id} | {time}")
 
             await channel.send(embed=embed)
-            logging.info(f'[ReservationNotification] Sent {notification_type} notification for reservation ID {reservation.id} to #{channel.name} (ID: {channel.id})')
+            logging.info(f'[ReservationNotification] Sent notification. [type: {notification_type}][reservation_id: {reservation.id}][channel_id: {channel.id}]')
             return True
-        elif channel:
-            # テキストチャンネル以外が見つかった場合
-            logging.warning(f'[DiscordBot] Configured notification channel (ID: {channel_id}) is not a TextChannel.')
-            return False
-        else:
-            # チャンネルが見つからなかった場合
-            logging.warning(f'[DiscordBot] Notification channel (ID: {channel_id}) not found.')
-            return False
+        return False
     except Exception as e:
         logging.error(f'[DiscordBot] Error sending {notification_type} notification for reservation ID {reservation.id}: {e}')
         return False
 
-def format_program_info(program: Program | None):
+def FormatProgramInfo(program: Program | None):
     """番組情報をフォーマットする"""
     if not program:
         return "情報なし"
@@ -902,10 +940,12 @@ def format_program_info(program: Program | None):
         return "番組情報のフォーマット中にエラーが発生しました"
 
 # チャンネル情報取得
-async def get_specific_channels(channel_types: list[str] = ['GR', 'BS', 'CS']) -> dict[str, list[tuple[str, str]]]:
+async def GetSpecificChannels(channel_types: list[str] | None = None) -> dict[str, list[tuple[str, str]]]:
     """
     指定されたチャンネルタイプのチャンネルID(display_channel_id)と名前のリストを取得する。
     """
+    if channel_types is None:
+        channel_types = ['GR', 'BS', 'CS']
     channels_data: dict[str, list[tuple[str, str]]] = {ch_type: [] for ch_type in channel_types}
     try:
         # 視聴可能なチャンネルをデータベースから取得 (タイプ、チャンネル番号、リモコンID順)
@@ -921,110 +961,123 @@ async def get_specific_channels(channel_types: list[str] = ['GR', 'BS', 'CS']) -
         return {ch_type: [] for ch_type in channel_types}
     return channels_data
 
-class RecordedProgramsView(View):
-    """録画番組一覧表示用のViewクラス"""
-    def __init__(self, recorded_programs_data: schemas.RecordedPrograms, page: int, total_pages: int, total_items: int, items_per_page: int):
-        super().__init__(timeout=60)  # 60秒でタイムアウト
-        self.recorded_programs_data = recorded_programs_data
+
+class PaginationView(View):
+    """ページネーション機能を持つ基底Viewクラス"""
+    def __init__(self, page: int, total_pages: int, total_items: int, items_per_page: int):
+        super().__init__(timeout=60)
         self.page = page
         self.total_pages = total_pages
         self.total_items = total_items
         self.items_per_page = items_per_page
+        self.updateButtons()
 
-        # 前のページボタンを追加（1ページ目でない場合）
-        if page > 1:
+    def updateButtons(self):
+        # 前のページボタン
+        if self.page > 1:
             previous_button = Button(label="前のページ", style=discord.ButtonStyle.secondary, custom_id="previous_page")
-            previous_button.callback = self.previous_page
+            previous_button.callback = self.previousPage
             self.add_item(previous_button)
 
-        # 次のページボタンを追加（最後のページでない場合）
-        if page < total_pages:
+        # 次のページボタン
+        if self.page < self.total_pages:
             next_button = Button(label="次のページ", style=discord.ButtonStyle.primary, custom_id="next_page")
-            next_button.callback = self.next_page
+            next_button.callback = self.nextPage
             self.add_item(next_button)
 
-    async def previous_page(self, interaction: discord.Interaction):
-        """前のページを表示する"""
-        # 前のページ番号を計算
-        previous_page = self.page - 1
+    async def previousPage(self, interaction: discord.Interaction):
+        await self.updatePage(interaction, self.page - 1)
 
-        # ページ番号が1未満にならないようにする
-        if previous_page < 1:
-            await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
-            return
+    async def nextPage(self, interaction: discord.Interaction):
+        await self.updatePage(interaction, self.page + 1)
 
-        # 現在のページに表示する予約を取得
-        start_index = (previous_page - 1) * self.items_per_page
-        end_index = start_index + self.items_per_page
-        current_page_recorded = self.recorded_programs_data.recorded_programs[start_index:end_index]
+    async def updatePage(self, interaction: discord.Interaction, new_page: int):
+        """
+        ページネーション用のコンテンツを更新する抽象メソッド。
 
-        embed = discord.Embed(
-            title=f"録画済み番組一覧 (ページ {previous_page})",
-            color=0x0091ff
+        「前のページ」「次のページ」ボタンが押されたときに呼び出される。
+        サブクラスでは少なくとも次のような処理を行うことを想定している:
+
+        - `new_page` を検証し、ページ範囲外（1 未満や `self.total_pages` を超える）の値を防ぐこと
+        - 有効な値であれば `self.page` に反映すること
+        - `new_page` に対応したメッセージ内容（Embed やコンポーネントなど）を再生成すること
+        - 必要に応じて `updateButtons()` を呼び出し、ページに応じたボタン状態に更新すること
+        - `interaction.response.edit_message(...)` などを用いてメッセージを更新すること
+
+        Args:
+            interaction: ボタン操作が行われた :class:`discord.Interaction` オブジェクト。
+            new_page: 遷移先のページ番号（1 始まり）。
+        """
+        raise NotImplementedError
+
+
+def CreateRecordedProgramsEmbed(
+    recorded_programs: list[schemas.RecordedProgram],
+    page: int,
+    total_pages: int,
+    total_items: int,
+    page_size: int,
+) -> discord.Embed:
+    """録画済み番組一覧の Embed を生成する。
+
+    Args:
+        recorded_programs (list[schemas.RecordedProgram]): 現在ページ分の録画番組
+        page (int): 現在ページ
+        total_pages (int): 総ページ数
+        total_items (int): 総件数
+        page_size (int): 1ページあたりの件数
+
+    Returns:
+        discord.Embed: Embed
+    """
+
+    embed = discord.Embed(
+        title=f'録画済み番組一覧 (ページ {page})',
+        color=0x0091ff,
+    )
+
+    start_number = (page - 1) * page_size + 1
+    for index, recorded in enumerate(recorded_programs, start_number):
+        start_time_jst = recorded.start_time.astimezone(JST)
+        end_time_jst = recorded.end_time.astimezone(JST)
+
+        embed.add_field(
+            name=f'🔵録画 {index}: {recorded.title}',
+            value=(
+                f'チャンネル: {recorded.channel.name if recorded.channel else "なし"}\n'
+                f'放送時間: {start_time_jst.strftime("%m/%d %H:%M")} - {end_time_jst.strftime("%H:%M")}\n'
+            ),
+            inline=False,
         )
 
-        for i, recorded in enumerate(current_page_recorded, start_index + 1):
-            start_time_jst = recorded.start_time.astimezone(JST)
-            end_time_jst = recorded.end_time.astimezone(JST)
+    embed.set_footer(text=f'ページ {page} / {total_pages}・全 {total_items} 件・{datetime.datetime.now(JST).strftime("%Y/%m/%d %H:%M:%S")}')
+    return embed
 
-            # チャンネル情報と番組情報をフィールドとして追加
-            embed.add_field(
-                name=f"🔵録画 {i}: {recorded.title}",
-                value=(
-                    f"チャンネル: {recorded.channel.name if recorded.channel else 'なし'}\n"
-                    f"放送時間: {start_time_jst.strftime('%m/%d %H:%M')} - {end_time_jst.strftime('%H:%M')}\n"
-                ),
-                inline=False
-            )
+class RecordedProgramsView(PaginationView):
+    """録画番組一覧表示用のViewクラス"""
+    def __init__(self, page: int, total_pages: int, total_items: int, order: Literal['desc', 'asc'] = 'desc'):
+        self.order: Literal['desc', 'asc'] = order
+        super().__init__(page, total_pages, total_items, RECORDED_PROGRAMS_PAGE_SIZE)
 
-        # ページ情報とタイムスタンプ
-        embed.set_footer(text=f"ページ {previous_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+    async def updatePage(self, interaction: discord.Interaction, new_page: int):
+        """ページを更新する"""
+        # ページ番号チェック
+        if new_page < 1 or (new_page > self.total_pages and self.total_items > 0):
+             await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
+             return
 
-        # 新しいView（ボタン）を作成
-        view = RecordedProgramsView(self.recorded_programs_data, previous_page, self.total_pages, self.total_items, self.items_per_page)
-
-        # メッセージを更新
-        await interaction.response.edit_message(embed=embed, view=view)
-
-    async def next_page(self, interaction: discord.Interaction):
-        """次のページを表示する"""
-        # 次のページ番号を計算
-        next_page = self.page + 1
-
-        # 現在のページが総ページ数を超えている場合
-        if next_page > self.total_pages and self.total_items > 0:
-            await interaction.response.send_message("❌ 指定されたページ番号は総ページ数を超えています。", ephemeral=True)
-            return
-
-        # 現在のページに表示する予約を取得
-        start_index = (next_page - 1) * self.items_per_page
-        end_index = start_index + self.items_per_page
-        current_page_recorded = self.recorded_programs_data.recorded_programs[start_index:end_index]
-
-        embed = discord.Embed(
-            title=f"録画済み番組一覧 (ページ {next_page})",
-            color=0x0091ff
+        # VideosAPI はページング済みの結果を返す
+        recorded_programs_data: schemas.RecordedPrograms = await VideosAPI(order=self.order, page=new_page)
+        embed = CreateRecordedProgramsEmbed(
+            recorded_programs=recorded_programs_data.recorded_programs,
+            page=new_page,
+            total_pages=self.total_pages,
+            total_items=self.total_items,
+            page_size=self.items_per_page,
         )
 
-        for i, recorded in enumerate(current_page_recorded, start_index + 1):
-            start_time_jst = recorded.start_time.astimezone(JST)
-            end_time_jst = recorded.end_time.astimezone(JST)
-
-            # チャンネル情報と番組情報をフィールドとして追加
-            embed.add_field(
-                name=f"🔵録画 {i}: {recorded.title}",
-                value=(
-                    f"チャンネル: {recorded.channel.name if recorded.channel else 'なし'}\n"
-                    f"放送時間: {start_time_jst.strftime('%m/%d %H:%M')} - {end_time_jst.strftime('%H:%M')}\n"
-                ),
-                inline=False
-            )
-
-        # ページ情報とタイムスタンプ
-        embed.set_footer(text=f"ページ {next_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
-
         # 新しいView（ボタン）を作成
-        view = RecordedProgramsView(self.recorded_programs_data, next_page, self.total_pages, self.total_items, self.items_per_page)
+        view = RecordedProgramsView(new_page, self.total_pages, self.total_items, self.order)
 
         # メッセージを更新
         await interaction.response.edit_message(embed=embed, view=view)
@@ -1147,16 +1200,12 @@ class ProgramSelectMenu(Select):
             logging.error(f'[DiscordBot] Error adding recording reservation for program {selected_program.id}: {e}')
             await interaction.followup.send(f"❌ 録画予約の追加中に予期せぬエラーが発生しました。\nエラー詳細: {e}", ephemeral=True)
 
-class ProgramSearchResultView(View):
+class ProgramSearchResultView(PaginationView):
     """番組検索結果表示用のViewクラス"""
     def __init__(self, programs: list[schemas.Program], search_keyword: str, page: int, total_pages: int, total_items: int, items_per_page: int):
-        super().__init__(timeout=60)  # 60秒でタイムアウト
         self.programs = programs
         self.search_keyword = search_keyword
-        self.page = page
-        self.total_pages = total_pages
-        self.total_items = total_items
-        self.items_per_page = items_per_page
+        super().__init__(page, total_pages, total_items, items_per_page)
 
         # 現在のページに表示する番組を取得
         start_index = (page - 1) * items_per_page
@@ -1168,30 +1217,15 @@ class ProgramSearchResultView(View):
             select_menu = ProgramSelectMenu(current_page_programs, start_index)
             self.add_item(select_menu)
 
-        # 前のページボタンを追加（1ページ目でない場合）
-        if page > 1:
-            previous_button = Button(label="前のページ", style=discord.ButtonStyle.secondary, custom_id="previous_page")
-            previous_button.callback = self.previous_page
-            self.add_item(previous_button)
-
-        # 次のページボタンを追加（最後のページでない場合）
-        if page < total_pages:
-            next_button = Button(label="次のページ", style=discord.ButtonStyle.primary, custom_id="next_page")
-            next_button.callback = self.next_page
-            self.add_item(next_button)
-
-    async def previous_page(self, interaction: discord.Interaction):
-        """前のページを表示する"""
-        # 前のページ番号を計算
-        previous_page = self.page - 1
-
-        # ページ番号が1未満にならないようにする
-        if previous_page < 1:
-            await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
-            return
+    async def updatePage(self, interaction: discord.Interaction, new_page: int):
+        """ページを更新する"""
+        # ページ番号チェック
+        if new_page < 1 or (new_page > self.total_pages and self.total_items > 0):
+             await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
+             return
 
         # 現在のページに表示する番組を取得
-        start_index = (previous_page - 1) * self.items_per_page
+        start_index = (new_page - 1) * self.items_per_page
         end_index = start_index + self.items_per_page
         current_page_programs = self.programs[start_index:end_index]
 
@@ -1222,104 +1256,35 @@ class ProgramSearchResultView(View):
             )
 
         # ページ情報とタイムスタンプを追加
-        embed.set_footer(text=f"ページ {previous_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+        embed.set_footer(text=f"ページ {new_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
 
         # 新しいView（ボタン）を作成
-        view = ProgramSearchResultView(self.programs, self.search_keyword, previous_page, self.total_pages, self.total_items, self.items_per_page)
+        view = ProgramSearchResultView(self.programs, self.search_keyword, new_page, self.total_pages, self.total_items, self.items_per_page)
 
         # メッセージを更新
         await interaction.response.edit_message(embed=embed, view=view)
 
-    async def next_page(self, interaction: discord.Interaction):
-        """次のページを表示する"""
-        # 次のページ番号を計算
-        next_page = self.page + 1
-
-        # 現在のページが総ページ数を超えている場合
-        if next_page > self.total_pages and self.total_items > 0:
-            await interaction.response.send_message("❌ 指定されたページ番号は総ページ数を超えています。", ephemeral=True)
-            return
-
-        # 現在のページに表示する番組を取得
-        start_index = (next_page - 1) * self.items_per_page
-        end_index = start_index + self.items_per_page
-        current_page_programs = self.programs[start_index:end_index]
-
-        embed = discord.Embed(
-            title=f"📺 番組検索結果: 「{self.search_keyword}」",
-            description=f"検索結果: {len(current_page_programs)} / {self.total_items} 件",
-            color=0x0091ff
-        )
-
-        # 各番組を個別のフィールドとして追加
-        for i, program in enumerate(current_page_programs, start_index + 1):
-            start_time_jst = program.start_time.astimezone(JST)
-            end_time_jst = program.end_time.astimezone(JST)
-
-            # チャンネル情報を取得
-            channel = await Channel.get_or_none(id=program.channel_id)
-            channel_name = channel.name if channel else '不明'
-
-            # 番組情報をフィールドとして追加
-            embed.add_field(
-                name=f"🎬 {i}: {program.title}",
-                value=(
-                    f"チャンネル: {channel_name}\n"
-                    f"放送時間: {start_time_jst.strftime('%m/%d %H:%M')} - {end_time_jst.strftime('%H:%M')}\n"
-                    f"概要: {program.description[:100]}{'...' if len(program.description) > 100 else ''}"
-                ),
-                inline=False
-            )
-
-        # ページ情報とタイムスタンプを追加
-        embed.set_footer(text=f"ページ {next_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
-
-        # 新しいView（ボタン）を作成
-        view = ProgramSearchResultView(self.programs, self.search_keyword, next_page, self.total_pages, self.total_items, self.items_per_page)
-
-        # メッセージを更新
-        await interaction.response.edit_message(embed=embed, view=view)
-
-class ReservationListView(View):
+class ReservationListView(PaginationView):
     """録画予約一覧表示用のViewクラス"""
     def __init__(self, reservations_data: schemas.Reservations, page: int, total_pages: int, total_items: int, items_per_page: int):
-        super().__init__(timeout=60)  # 60秒でタイムアウト
         self.reservations_data = reservations_data
-        self.page = page
-        self.total_pages = total_pages
-        self.total_items = total_items
-        self.items_per_page = items_per_page
+        super().__init__(page, total_pages, total_items, items_per_page)
 
-        # 前のページボタンを追加（1ページ目でない場合）
-        if page > 1:
-            previous_button = Button(label="前のページ", style=discord.ButtonStyle.secondary, custom_id="previous_page")
-            previous_button.callback = self.previous_page
-            self.add_item(previous_button)
-
-        # 次のページボタンを追加（最後のページでない場合）
-        if page < total_pages:
-            next_button = Button(label="次のページ", style=discord.ButtonStyle.primary, custom_id="next_page")
-            next_button.callback = self.next_page
-            self.add_item(next_button)
-
-    async def previous_page(self, interaction: discord.Interaction):
-        """前のページを表示する"""
-        # 前のページ番号を計算
-        previous_page = self.page - 1
-
-        # ページ番号が1未満にならないようにする
-        if previous_page < 1:
-            await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
-            return
+    async def updatePage(self, interaction: discord.Interaction, new_page: int):
+        """ページを更新する"""
+        # ページ番号チェック
+        if new_page < 1 or (new_page > self.total_pages and self.total_items > 0):
+             await interaction.response.send_message("❌ ページ番号が不正です。", ephemeral=True)
+             return
 
         # 現在のページに表示する予約を取得
-        start_index = (previous_page - 1) * self.items_per_page
+        start_index = (new_page - 1) * self.items_per_page
         end_index = start_index + self.items_per_page
         current_page_reservations = self.reservations_data.reservations[start_index:end_index]
 
         # Embed を作成
         embed = discord.Embed(
-            title=f"録画予約一覧 (ページ {previous_page})",
+            title=f"録画予約一覧 (ページ {new_page})",
             color=0x0091ff
         )
 
@@ -1357,73 +1322,44 @@ class ReservationListView(View):
             )
 
         # ページ情報とタイムスタンプ
-        embed.set_footer(text=f"ページ {previous_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+        embed.set_footer(text=f"ページ {new_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
 
         # 新しいViewを作成
-        view = ReservationListView(self.reservations_data, previous_page, self.total_pages, self.total_items, self.items_per_page)
+        view = ReservationListView(self.reservations_data, new_page, self.total_pages, self.total_items, self.items_per_page)
 
         # メッセージを更新
         await interaction.response.edit_message(embed=embed, view=view)
 
-    async def next_page(self, interaction: discord.Interaction):
-        """次のページを表示する"""
-        # 次のページ番号を計算
-        next_page = self.page + 1
 
-        # 現在のページが総ページ数を超えている場合
-        if next_page > self.total_pages and self.total_items > 0:
-            await interaction.response.send_message("❌ 指定されたページ番号は総ページ数を超えています。", ephemeral=True)
-            return
+# --------------------------------------------------------------------------------------
+# 互換性維持のための旧 API 名エイリアス
+#
+# app/app.py など外部モジュールから import されている関数名は snake_case のまま維持する。
+#
+# 注意: このファイルは FastAPI の pyright 対象 (include=app/) から外れているため、
+#       実行時互換性が壊れやすい。外部参照される名前は安易に変更しない。
+# --------------------------------------------------------------------------------------
 
-        # 現在のページに表示する予約を取得
-        start_index = (next_page - 1) * self.items_per_page
-        end_index = start_index + self.items_per_page
-        current_page_reservations = self.reservations_data.reservations[start_index:end_index]
 
-        # Embed を作成
-        embed = discord.Embed(
-            title=f"録画予約一覧 (ページ {next_page})",
-            color=0x0091ff
-        )
+async def start_discord_bot():
+    return await StartDiscordBot()
 
-        # 各予約を個別のフィールドとして追加
-        for i, reservation in enumerate(current_page_reservations, start_index + 1):
-            start_time_jst = reservation.program.start_time.astimezone(JST)
-            end_time_jst = reservation.program.end_time.astimezone(JST)
 
-            # 予約状況を表す絵文字とテキスト
-            if not reservation.record_settings.is_enabled:
-                status_emoji = "⚪"  # 予約無効
-                status_text = "予約無効"
-            elif reservation.recording_availability == "Unavailable":
-                status_emoji = "🔴"  # 録画不可
-                status_text = "録画不可"
-            elif reservation.recording_availability == "Partial":
-                status_emoji = "🟠"  # 一部録画不可
-                status_text = "一部録画不可"
-            elif reservation.is_recording_in_progress:
-                status_emoji = "🔵"  # 録画中
-                status_text = "録画中"
-            else:
-                status_emoji = "🟡"  # 録画予定
-                status_text = "録画予定"
+async def stop_discord_bot():
+    return await StopDiscordBot()
 
-            # チャンネル情報と番組情報をフィールドとして追加
-            embed.add_field(
-                name=f"{status_emoji} 予約 {i}: {reservation.program.title}",
-                value=(
-                    f"チャンネル: {reservation.channel.name}\n"
-                    f"放送時間: {start_time_jst.strftime('%m/%d %H:%M')} - {end_time_jst.strftime('%H:%M')}\n"
-                    f"録画状況: {status_text}"
-                ),
-                inline=False
-            )
 
-        # ページ情報とタイムスタンプ
-        embed.set_footer(text=f"ページ {next_page} / {self.total_pages}・全 {self.total_items} 件・{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}")
+async def send_bot_status_message(status: str):
+    return await SendBotStatusMessage(status)
 
-        # 新しいViewを作成
-        view = ReservationListView(self.reservations_data, next_page, self.total_pages, self.total_items, self.items_per_page)
 
-        # メッセージを更新
-        await interaction.response.edit_message(embed=embed, view=view)
+async def send_reservation_notification(reservation: 'schemas.Reservation', notification_type: Literal['start', 'end']) -> bool:
+    return await SendReservationNotification(reservation, notification_type)
+
+
+def format_program_info(program: Program | None):
+    return FormatProgramInfo(program)
+
+
+async def get_specific_channels(channel_types: list[str] | None = None) -> dict[str, list[tuple[str, str]]]:
+    return await GetSpecificChannels(channel_types)
