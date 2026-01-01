@@ -1,6 +1,6 @@
 <template>
     <router-link class="timetable-channel-header" :to="`/tv/watch/${channel.display_channel_id}`"
-        v-ftooltip.top="tooltipText"
+        v-ftooltip.bottom="tooltipText"
         :style="{
             width: `${width}px`,
             height: `${height}px`,
@@ -37,19 +37,19 @@ const props = defineProps<{
 }>();
 
 const logoWidth = computed(() => {
-    return Math.round(Math.min(46, Math.max(32, props.width * 0.3)));
+    return Math.round(Math.min(46, Math.max(32, props.width * 0.27)));
 });
 
 const logoHeight = computed(() => {
-    return Math.round(logoWidth.value * (2 / 3));
+    return Math.round(logoWidth.value * (3 / 4));
 });
 
 const numberFontSize = computed(() => {
-    return Math.round(Math.min(15, Math.max(13, props.width * 0.09)));
+    return Math.min(14, Math.max(13, props.width * 0.06));
 });
 
 const nameFontSize = computed(() => {
-    return Math.round(Math.min(14, Math.max(12, props.width * 0.08)));
+    return Math.min(13.5, Math.max(12, props.width * 0.08));
 });
 
 const tooltipText = computed(() => {
@@ -66,8 +66,8 @@ const tooltipText = computed(() => {
     justify-content: flex-start;
     flex-shrink: 0;
     box-sizing: border-box;
-    gap: 8px;
-    padding: 6px 8px 6px 6px;
+    gap: 6px;
+    padding: 0px 4px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
     text-decoration: none;
@@ -118,12 +118,11 @@ const tooltipText = computed(() => {
     // チャンネル番号
     &__number {
         flex-shrink: 0;
-        padding: 1px 4px;
+        padding: 0px 1px;
         font-size: var(--timetable-channel-number-size);
         font-weight: bold;
         line-height: 1;
         color: rgb(var(--v-theme-text));
-        background: rgb(var(--v-theme-background-lighten-2));
         border-radius: 3px;
         white-space: nowrap;
     }
@@ -134,7 +133,7 @@ const tooltipText = computed(() => {
         font-weight: 500;
         color: rgb(var(--v-theme-text));
         display: -webkit-box;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 1;
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
