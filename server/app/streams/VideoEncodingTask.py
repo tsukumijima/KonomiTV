@@ -56,6 +56,9 @@ class VideoEncodingTask:
         self._tsreadex_process: asyncio.subprocess.Process | None = None
         self._encoder_process: asyncio.subprocess.Process | None = None
 
+        # tsreadex に入力を供給する際のタスク
+        self._tsreadex_feed_task: asyncio.Task[None] | None = None
+
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
 
@@ -456,7 +459,7 @@ class VideoEncodingTask:
                 else:
                     # ファイルポインタを移動
                     assert file is not None
-                    file.seek(self._current_segment.start_file_position)
+                    file.seek(current_segment.start_file_position)
 
                 # tsreadex のオプション
                 ## 放送波の前処理を行い、エンコードを安定させるツール

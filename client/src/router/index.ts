@@ -30,6 +30,11 @@ const router = createRouter({
             component: () => import('@/views/TV/Watch.vue'),
         },
         {
+            path: '/timetable/',
+            name: 'TimeTable',
+            component: () => import('@/views/TimeTable.vue'),
+        },
+        {
             path: '/videos/',
             name: 'Videos Home',
             component: () => import('@/views/Videos/Home.vue'),
@@ -58,6 +63,16 @@ const router = createRouter({
             path: '/clip-videos/watch/:clip_video_id',
             name: 'Clip Videos Watch',
             component: () => import('@/views/ClipVideos/Watch.vue'),
+        },
+        {
+            path: '/reservations/',
+            name: 'Reservations Home',
+            component: () => import('@/views/Reservations/Home.vue'),
+        },
+        {
+            path: '/reservations/all',
+            name: 'Reservations All',
+            component: () => import('@/views/Reservations/Reservations.vue'),
         },
         {
             path: '/mylist/',

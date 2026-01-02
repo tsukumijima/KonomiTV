@@ -22,9 +22,13 @@
                         <span v-if="!iconOnly" class="navigation__link-text">ビデオをみる</span>
                     </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/clip-videos/"
-                        :class="{'navigation__link--active': $route.path.startsWith('/clip-videos')}">
+                        :class="{
+                            'navigation__link--active': $route.path.startsWith('/clip-videos'),
+                            'navigation__link--icon-only': iconOnly,
+                        }"
+                        v-ftooltip.right="iconOnly ? 'クリップ動画' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:video-clip-20-regular" width="26px" />
-                        <span class="navigation__link-text">クリップ動画</span>
+                        <span v-if="!iconOnly" class="navigation__link-text">クリップ動画</span>
                     </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/timetable/"
                         :class="{
