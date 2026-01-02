@@ -37,6 +37,10 @@ export interface IClientSettings {
     // lshaped_screen_crop_y_position: 同期無効
     // lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: string[];
+    timetable_channel_width: TimeTableSizeOption;
+    timetable_hour_height: TimeTableSizeOption;
+    timetable_hover_expand: boolean;
+    timetable_genre_colors: ITimeTableGenreColors;
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter' | 'ClipExport';
@@ -44,9 +48,6 @@ export interface IClientSettings {
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
-    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
-    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効

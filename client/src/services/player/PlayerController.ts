@@ -1740,13 +1740,17 @@ class PlayerController {
             if (player_store.clip_video !== null) {
                 const clip_video = player_store.clip_video;
                 const segments = clip_video.segments && clip_video.segments.length > 0
-                    ? clip_video.segments.map(segment => ({
-                        start: segment.start_time,
-                        end: segment.end_time,
-                    }))
+                    ? clip_video.segments
+                        .map(segment => ({
+                            start: segment.start_time,
+                            end: segment.end_time,
+                        }))
+                        .filter((segment): segment is { start: number; end: number } => {
+                            return segment.start !== undefined && segment.end !== undefined;
+                        })
                     : [{
-                        start: clip_video.start_time,
-                        end: clip_video.end_time,
+                        start: clip_video.start_time ?? 0,
+                        end: clip_video.end_time ?? 0,
                     }];
                 this.setupClipPlaybackUI(segments);
             } else {

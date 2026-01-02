@@ -69,7 +69,7 @@ const listTitle = computed(() => {
 });
 
 const breadcrumbs = computed(() => {
-    const items = [
+    const items: { name: string; path: string; disabled?: boolean }[] = [
         { name: 'ホーム', path: '/' },
         { name: 'ビデオをみる', path: '/videos/' },
     ];

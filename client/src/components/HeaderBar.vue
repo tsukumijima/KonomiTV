@@ -42,13 +42,13 @@ const resolveQueryValue = (value: unknown): string | undefined => {
     return undefined;
 };
 
-const initialize_search_query = () => {
+const initializeSearchQuery = () => {
     if (route.path.startsWith('/clip-videos')) {
-        search_query.value = resolveQueryValue(route.query.keyword) ?? '';
+        searchQuery.value = resolveQueryValue(route.query.keyword) ?? '';
         return;
     }
     if (route.path.endsWith('/search') && route.query.query) {
-        search_query.value = decodeURIComponent(route.query.query as string);
+        searchQuery.value = decodeURIComponent(route.query.query as string);
         return;
     }
 };
@@ -63,7 +63,7 @@ onMounted(() => {
 // ルートの変更を監視して検索クエリを更新
 watch(() => route.fullPath, initializeSearchQuery);
 
-const search_placeholder = computed(() => {
+const searchPlaceholder = computed(() => {
     const path = route.path;
     if (path.startsWith('/clip-videos')) {
         return 'クリップ動画を検索...';
@@ -91,7 +91,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const doSearch = async () => {
-    const trimmed = search_query.value.trim();
+    const trimmed = searchQuery.value.trim();
     const path = route.path;
 
     if (path.startsWith('/clip-videos')) {
