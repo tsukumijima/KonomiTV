@@ -208,7 +208,6 @@ let lastEmittedTimeSlot: number | null = null;
 let lastEmittedDateOffset: number | null = null;
 const SCROLL_POSITION_EMIT_THRESHOLD = 1;
 const displayStartMs = ref(0);
-const displayStartHour = ref(0);
 const stickyProgramCells = new Set<HTMLElement>();
 let stickyObserver: IntersectionObserver | null = null;
 let stickyUpdateAnimationId: number | null = null;
@@ -517,7 +516,14 @@ function applyScrollUpdate(): void {
 
     // 現在表示中の時刻スロットを計算して親に通知
     // 表示開始時刻を基準にスクロール位置から現在表示されている時刻を算出
-    const currentHour = Math.floor(scrollY / hourHeight.value) + displayStartHour.value;
+    const displayStartTime = timetableStore.getDisplayStartTime();
+    const elapsedHours = Math.floor(scrollY / hourHeight.value);
+    const currentTime = displayStartTime.add(elapsedHours, 'hour');
+    let currentHour = currentTime.hour();
+    // 0〜3時は 24〜27時として扱う
+    if (currentHour < 4) {
+        currentHour += 24;
+    }
     // 4時間単位のスロットに丸める
     const slotHour = Math.floor((currentHour - 4) / 4) * 4 + 4;
     // 4〜24 の範囲にクランプ
@@ -534,10 +540,14 @@ function applyScrollUpdate(): void {
     if (props.is36HourDisplay) {
         const use28HourClock = settingsStore.settings.use_28hour_clock;
         // 日付切り替えラインの Y 座標を計算
-        // 表示開始が16時なので、24時までは 8時間、28時までは 12時間
-        const dateBoundaryY = use28HourClock
-            ? 12 * hourHeight.value  // 28時間表記: 翌日4時 (16時+12時間)
-            : 8 * hourHeight.value;  // 通常表記: 翌日0時 (16時+8時間)
+        // 28時間表記: 翌日4時、通常表記: 翌日0時
+        const dateBoundaryHour = use28HourClock ? 4 : 0;
+        let dateBoundaryTime = displayStartTime.hour(dateBoundaryHour).minute(0).second(0).millisecond(0);
+        if (dateBoundaryTime.isSameOrBefore(displayStartTime)) {
+            dateBoundaryTime = dateBoundaryTime.add(1, 'day');
+        }
+        const dateBoundaryElapsedHours = (dateBoundaryTime.valueOf() - displayStartTime.valueOf()) / (1000 * 60 * 60);
+        const dateBoundaryY = dateBoundaryElapsedHours * hourHeight.value;
         const dateOffset = scrollY >= dateBoundaryY ? 1 : 0;
         if (lastEmittedDateOffset !== dateOffset) {
             emit('date-display-offset-change', dateOffset);
@@ -902,8 +912,14 @@ function onProgramClick(program: ITimeTableProgram): void {
 function scrollToHour(hour: number): void {
     if (scrollAreaRef.value === null) return;
 
-    // 4時起点からの時間を計算
-    const hoursFromStart = hour >= 4 ? hour - 4 : hour + 20;
+    // 表示開始時刻からの時間を計算
+    const displayStart = timetableStore.getDisplayStartTime();
+    const displayStartHour = displayStart.hour();
+    const normalizedHour = hour === 24 ? 0 : hour;
+    let hoursFromStart = normalizedHour - displayStartHour;
+    if (hoursFromStart < 0) {
+        hoursFromStart += 24;
+    }
     const scrollY = hoursFromStart * hourHeight.value;
 
     scrollAreaRef.value.scrollTo({
@@ -1123,7 +1139,6 @@ watch(channelHeaderHeight, () => {
 
 watch(() => timetableStore.display_start_time, (value) => {
     displayStartMs.value = value.valueOf();
-    displayStartHour.value = value.hour();
 }, { immediate: true });
 
 // 日付変更時のスクロール処理は親コンポーネント (TimeTable.vue) で制御する

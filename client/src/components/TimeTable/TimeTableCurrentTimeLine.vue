@@ -102,7 +102,7 @@ onUnmounted(() => {
     position: absolute;
     left: 0;
     height: 2px;
-    z-index: 15;
+    z-index: 32;
     pointer-events: none;
 
     // 左端のインジケーター

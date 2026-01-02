@@ -4027,10 +4027,10 @@ p-locate@^5.0.0:
   dependencies:
     p-limit "^3.0.2"
 
-pako@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/pako/-/pako-2.1.0.tgz#266cc37f98c7d883545d11335c00fbd4062c9a86"
-  integrity sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==
+pako@~1.0.11:
+  version "1.0.11"
+  resolved "https://registry.yarnpkg.com/pako/-/pako-1.0.11.tgz#6c9599d340d54dfd3946380252a35705a6b992bf"
+  integrity sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==
 
 parent-module@^1.0.0:
   version "1.0.1"
@@ -4175,9 +4175,9 @@ pwa-install-handler@^2.6.0:
   integrity sha512-F6/Q4emNJyh/kHLYF0fn5NTKQszvpEJh2oWQLtQED8q46+c23dfppSB3nRF1O99/5cxmc3FRVpLSZ7NE5l0DoA==
 
 qs@^6.5.2:
-  version "6.14.0"
-  resolved "https://registry.yarnpkg.com/qs/-/qs-6.14.0.tgz#c63fa40680d2c5c941412a0e899c89af60c0a930"
-  integrity sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==
+  version "6.14.1"
+  resolved "https://registry.yarnpkg.com/qs/-/qs-6.14.1.tgz#a41d85b9d3902f31d27861790506294881871159"
+  integrity sha512-4EK3+xJl8Ts67nLYNwqw/dsFVnCf+qR7RgXSK9jEEm9unao3njwMDdmsdvoKBKHzxd7tCYz5e5M+SnMjdtXGQQ==
   dependencies:
     side-channel "^1.1.0"
 
@@ -5206,9 +5206,9 @@ vuetify@~3.7.1:
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.7.19.tgz#386ab39900400e9aa811fa0569e10db650f54b84"
   integrity sha512-RrUpdBOGWGcT2oNLqXBiqYRudKTFqxTfr8lISl51Cuo80cfgRmbyDnlQQRWxE4QSNxcqXk6ZzBoJRUEXpW9C/w==
 
-"web-bml@github:tsukumijima/web-bml#34af8bc86577a84cb328f66639b28887dd0cef24":
+"web-bml@github:tsukumijima/web-bml#9101efb87052b6f63c6b58c7206df0893c81f9da":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/34af8bc86577a84cb328f66639b28887dd0cef24"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/9101efb87052b6f63c6b58c7206df0893c81f9da"
   dependencies:
     "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
     arib-subtitle-timedmetadater "^4.0.10"
@@ -5226,7 +5226,7 @@ vuetify@~3.7.1:
     koa-logger "^3.2.1"
     koa-router "^10.1.1"
     mpegts.js "^1.7.3"
-    pako "^2.1.0"
+    pako "~1.0.11"
     react "^18.2.0"
     react-dom "^18.2.0"
 
