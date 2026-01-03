@@ -13,8 +13,6 @@
 
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-import type { Dayjs } from 'dayjs';
-
 import useTimeTableStore from '@/stores/TimeTableStore';
 import { dayjs } from '@/utils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
@@ -22,7 +20,6 @@ import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
 // Props
 const props = defineProps<{
-    selectedDate: Dayjs;
     hourHeight: number;
     totalWidth: number;
     channelHeaderHeight: number;

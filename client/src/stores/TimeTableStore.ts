@@ -50,26 +50,17 @@ const useTimeTableStore = defineStore('timetable', () => {
     // デフォルトは現在日時から算出した今日の 4:00
     const selected_date = ref<Dayjs>(getTodayStartTime());
 
-    // スクロール位置
-    const scroll_position = ref<{ x: number; y: number }>({ x: 0, y: 0 });
-
     // 番組表データ
     const channels_data = shallowRef<ITimeTableChannel[]>([]);
 
     // 番組表の日付範囲 (API から取得した earliest/latest)
     const date_range = ref<{ earliest: Dayjs; latest: Dayjs } | null>(null);
 
-    // 現在選択中 (クリック/ホバーで展開中) の番組 ID
-    const selected_program_id = ref<string | null>(null);
-
     // ローディング状態
     const is_loading = ref<boolean>(false);
 
     // 初回の番組表データ取得が完了したかどうか
     const is_initial_load_completed = ref<boolean>(false);
-
-    // 現在時刻バーの自動追従が有効かどうか
-    const is_auto_scroll_enabled = ref<boolean>(true);
 
     // 36時間表示モードかどうか (現在時刻から翌日4時までが11時間未満の場合)
     const is_36hour_display = ref<boolean>(false);
@@ -199,50 +190,6 @@ const useTimeTableStore = defineStore('timetable', () => {
         }
         // 通常: selected_date (4:00)
         return selected_date.value;
-    });
-
-
-    /**
-     * 番組表の表示終了時刻 (computed)
-     * 36時間表示モードの場合は display_start_time + 36時間
-     * 通常モードの場合は selected_date (4:00) + 24時間 (= 翌日4:00)
-     * - 通常: 4:00 ~ 翌日4:00 (24時間)
-     * - 36時間表示: 16:00 ~ 翌々日4:00 (36時間)
-     */
-    const display_end_time = computed<Dayjs>(() => {
-        if (is_36hour_display.value) {
-            return display_start_time.value.add(36, 'hour');
-        }
-        return selected_date.value.add(24, 'hour');
-    });
-
-
-    /**
-     * 選択可能な日付のリストを取得する computed
-     * date_range から計算した日付リストを返す
-     */
-    const selectable_dates = computed<Dayjs[]>(() => {
-        if (date_range.value === null) {
-            return [];
-        }
-
-        const dates: Dayjs[] = [];
-        let current = date_range.value.earliest.hour(4).minute(0).second(0).millisecond(0);
-
-        // 0:00〜3:59 の場合は前日に調整
-        if (date_range.value.earliest.hour() < 4) {
-            current = current.subtract(1, 'day');
-        }
-
-        const latest = date_range.value.latest;
-
-        // earliest から latest まで1日ずつ追加
-        while (current.isSameOrBefore(latest)) {
-            dates.push(current);
-            current = current.add(1, 'day');
-        }
-
-        return dates;
     });
 
 
@@ -393,7 +340,6 @@ const useTimeTableStore = defineStore('timetable', () => {
     async function initialLoad(): Promise<void> {
         is_loading.value = true;
         is_initial_load_completed.value = false;
-        selected_program_id.value = null;
 
         try {
             // ChannelsStore の初期化が完了するまで待機
@@ -430,7 +376,6 @@ const useTimeTableStore = defineStore('timetable', () => {
      */
     async function changeDate(new_date: Dayjs): Promise<void> {
         is_loading.value = true;
-        selected_program_id.value = null;
 
         try {
             selected_date.value = new_date;
@@ -447,7 +392,6 @@ const useTimeTableStore = defineStore('timetable', () => {
      */
     async function changeChannelType(new_channel_type: ChannelTypePretty): Promise<void> {
         is_loading.value = true;
-        selected_program_id.value = null;
 
         try {
             selected_channel_type.value = new_channel_type;
@@ -501,7 +445,6 @@ const useTimeTableStore = defineStore('timetable', () => {
      * 自動追従を再開し、現在時刻が含まれる日付の番組表を表示する
      */
     async function goToCurrentTime(): Promise<void> {
-        is_auto_scroll_enabled.value = true;
         const today_start = getTodayStartTime();
 
         // 現在の日付と異なる場合のみ再取得
@@ -513,56 +456,16 @@ const useTimeTableStore = defineStore('timetable', () => {
 
 
     /**
-     * 番組を選択する
-     * @param program_id 番組 ID (null で選択解除)
-     */
-    function selectProgram(program_id: string | null): void {
-        selected_program_id.value = program_id;
-    }
-
-
-    /**
-     * スクロール位置を更新する
-     * @param x X座標
-     * @param y Y座標
-     */
-    function updateScrollPosition(x: number, y: number): void {
-        scroll_position.value = { x, y };
-    }
-
-
-    /**
-     * 自動追従を無効化する
-     * ユーザーがスクロール操作を行った際に呼び出される
-     */
-    function disableAutoScroll(): void {
-        is_auto_scroll_enabled.value = false;
-    }
-
-
-    /**
-     * 自動追従を有効化する
-     * 現在時刻バーがビューポート内に戻った際に呼び出される
-     */
-    function enableAutoScroll(): void {
-        is_auto_scroll_enabled.value = true;
-    }
-
-
-    /**
      * ストアの状態をリセットする
      * 番組表ページから離れる際に呼び出される
      */
     function reset(): void {
         channels_data.value = [];
         date_range.value = null;
-        selected_program_id.value = null;
         is_loading.value = false;
         is_initial_load_completed.value = false;
-        is_auto_scroll_enabled.value = true;
         is_36hour_display.value = false;
         scroll_top_limit_time.value = null;
-        scroll_position.value = { x: 0, y: 0 };
         // selected_channel_type は次回アクセス時に initialLoad() で再設定されるため、
         // あえて null にリセットして、次回は最新の available_channel_types に基づいて決定されるようにする
         selected_channel_type.value = null;
@@ -613,21 +516,16 @@ const useTimeTableStore = defineStore('timetable', () => {
         // State
         selected_channel_type,
         selected_date,
-        scroll_position,
         channels_data,
         date_range,
-        selected_program_id,
         is_loading,
         is_initial_load_completed,
-        is_auto_scroll_enabled,
         is_36hour_display,
         scroll_top_limit_time,
 
         // Getters
-        selectable_dates,
         available_channel_types,
         display_start_time,
-        display_end_time,
 
         // Actions
         getTodayStartTime,
@@ -640,10 +538,6 @@ const useTimeTableStore = defineStore('timetable', () => {
         goToPreviousDay,
         goToNextDay,
         goToCurrentTime,
-        selectProgram,
-        updateScrollPosition,
-        disableAutoScroll,
-        enableAutoScroll,
         reset,
     };
 });

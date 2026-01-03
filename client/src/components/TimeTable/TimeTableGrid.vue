@@ -37,7 +37,6 @@
                     <!-- 時刻スケール (左側に固定、縦スクロールに追従) -->
                     <div class="timetable-grid__time-scale" :style="{ width: `${timeScaleWidth}px` }">
                         <TimeTableTimeScale
-                            :selectedDate="props.selectedDate"
                             :hourHeight="hourHeight"
                             :is36HourDisplay="props.is36HourDisplay"
                         />
@@ -54,7 +53,7 @@
                         }">
                         <!-- チャンネル背景 (番組がない領域は灰色) -->
                         <div class="timetable-grid__channel-background"
-                            :style="{ height: `${totalHeight}px`, background: EMPTY_CELL_BACKGROUND_COLOR }">
+                            :style="{ height: `${totalHeight}px` }">
                         </div>
                         <!-- 番組セル -->
                         <!-- サブチャンネルが存在するチャンネルでは、メインチャンネルも半分の幅で左半分に配置 -->
@@ -63,7 +62,6 @@
                                 v-if="isProgramVisible(program)"
                                 :program="program"
                                 :channel="channelData.channel"
-                                :selectedDate="props.selectedDate"
                                 :hourHeight="hourHeight"
                                 :channelWidth="getProgramCellWidth(channelData, program, false)"
                                 :fullChannelWidth="channelWidth"
@@ -84,14 +82,13 @@
                         <template v-if="hasSubchannels(channelData)">
                             <template v-for="program in getSubchannelPrograms(channelData)" :key="program.id">
                                 <TimeTableProgramCell
-                                    v-if="isProgramVisible(program)"
-                                    :program="program"
-                                    :channel="channelData.channel"
-                                    :selectedDate="props.selectedDate"
-                                    :hourHeight="hourHeight"
-                                    :channelWidth="getProgramCellWidth(channelData, program, true)"
-                                    :fullChannelWidth="channelWidth"
-                                    :isSplit="getSplitState(channelData, program, true)"
+                                v-if="isProgramVisible(program)"
+                                :program="program"
+                                :channel="channelData.channel"
+                                :hourHeight="hourHeight"
+                                :channelWidth="getProgramCellWidth(channelData, program, true)"
+                                :fullChannelWidth="channelWidth"
+                                :isSplit="getSplitState(channelData, program, true)"
                                     :viewportHeight="viewportHeight"
                                     :channelHeaderHeight="channelHeaderHeight"
                                     :isScrollAtBottom="isScrollAtBottom"
@@ -108,7 +105,6 @@
                     </div>
                     <!-- 現在時刻バー -->
                     <TimeTableCurrentTimeLine
-                        :selectedDate="props.selectedDate"
                         :hourHeight="hourHeight"
                         :totalWidth="totalWidth"
                         :channelHeaderHeight="channelHeaderHeight"
@@ -141,8 +137,6 @@
 
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 
-import type { Dayjs } from 'dayjs';
-
 import TimeTableChannelHeader from '@/components/TimeTable/TimeTableChannelHeader.vue';
 import TimeTableCurrentTimeLine from '@/components/TimeTable/TimeTableCurrentTimeLine.vue';
 import TimeTableProgramCell from '@/components/TimeTable/TimeTableProgramCell.vue';
@@ -153,15 +147,9 @@ import useTimeTableStore from '@/stores/TimeTableStore';
 import Utils, { dayjs } from '@/utils';
 import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
-
-// 定数
-const EMPTY_CELL_BACKGROUND_COLOR = TimeTableUtils.EMPTY_CELL_BACKGROUND_COLOR;
-
 // Props
 const props = defineProps<{
     channels: ITimeTableChannel[];
-    selectedDate: Dayjs;
-    isLoading: boolean;
     is36HourDisplay: boolean;
     canGoPreviousDay: boolean;
     canGoNextDay: boolean;
@@ -169,10 +157,8 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-    (e: 'scroll-position-change', position: { x: number; y: number }): void;
     (e: 'time-slot-change', hour: number): void;
     (e: 'date-display-offset-change', offset: number): void;  // 日付表示のオフセット変更 (0: 選択日, 1: 翌日)
-    (e: 'program-select', program_id: string | null): void;
     (e: 'show-program-detail', program_id: string, channel_data: ITimeTableChannel, program: ITimeTableProgram): void;
     (e: 'quick-reserve', program_id: string, channel_data: ITimeTableChannel, program: ITimeTableProgram): void;
     (e: 'go-to-next-day'): void;
@@ -190,7 +176,6 @@ const scrollAreaRef = ref<HTMLElement | null>(null);
 const selectedProgramId = ref<string | null>(null);
 const showNextDayButton = ref(false);
 const showPrevDayButton = ref(false);
-const isInitialLoadDone = ref(false);  // 初回ロードが完了したかどうか (日付変更時のスクロール制御用)
 let currentScrollTop = 0;  // 現在のスクロール位置 (Y方向)
 const viewportHeight = ref(0);  // 番組グリッド表示領域の高さ
 const isScrollAtBottom = ref(false);
@@ -202,11 +187,8 @@ const VISIBLE_RANGE_UPDATE_RATIO = 0.5;
 const pendingScrollLeft = ref(0);
 const pendingScrollTop = ref(0);
 const scrollUpdateAnimationId = ref<number | null>(null);
-let lastEmittedScrollX = 0;
-let lastEmittedScrollY = 0;
 let lastEmittedTimeSlot: number | null = null;
 let lastEmittedDateOffset: number | null = null;
-const SCROLL_POSITION_EMIT_THRESHOLD = 1;
 const displayStartMs = ref(0);
 const stickyProgramCells = new Set<HTMLElement>();
 let stickyObserver: IntersectionObserver | null = null;
@@ -493,14 +475,6 @@ function applyScrollUpdate(): void {
     const isRangeUpdated = updateVisibleRangeIfNeeded(scrollY);
     if (isRangeUpdated) {
         scheduleStickyObserveUpdate();
-    }
-
-    // スクロール位置を親に通知
-    if (Math.abs(scrollX - lastEmittedScrollX) >= SCROLL_POSITION_EMIT_THRESHOLD ||
-        Math.abs(scrollY - lastEmittedScrollY) >= SCROLL_POSITION_EMIT_THRESHOLD) {
-        emit('scroll-position-change', { x: scrollX, y: scrollY });
-        lastEmittedScrollX = scrollX;
-        lastEmittedScrollY = scrollY;
     }
 
     // 日付遷移ボタンの表示判定
@@ -899,10 +873,8 @@ function onProgramClick(program: ITimeTableProgram): void {
     // 同じ番組をクリックした場合は選択解除
     if (selectedProgramId.value === program.id) {
         selectedProgramId.value = null;
-        emit('program-select', null);
     } else {
         selectedProgramId.value = program.id;
-        emit('program-select', program.id);
     }
 }
 
@@ -1121,8 +1093,6 @@ watch(() => props.channels, async (newChannels, oldChannels) => {
         await nextTick();
         setTimeout(() => {
             scrollToCurrentTime();
-            // 初回ロード完了フラグを立てる (日付変更時のスクロールリセットを有効化)
-            isInitialLoadDone.value = true;
             scheduleStickyObserveUpdate();
         }, 100);
     }
@@ -1237,6 +1207,7 @@ watch(() => timetableStore.display_start_time, (value) => {
         position: sticky;
         left: 0;
         background: rgb(var(--v-theme-background-lighten-1));
+        flex-shrink: 0;
         z-index: 30;
     }
 
@@ -1264,6 +1235,7 @@ watch(() => timetableStore.display_start_time, (value) => {
         left: 0;
         right: 0;
         z-index: 0;
+        background: var(--timetable-empty-cell-background);
     }
 
     // 日付遷移ボタン

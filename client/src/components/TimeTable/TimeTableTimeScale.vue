@@ -5,8 +5,8 @@
             v-for="hourTime in hourTimes" :key="hourTime.valueOf()"
             :style="{
                 height: `${props.hourHeight}px`,
-                background: getTimeScaleColor(hourTime),
-            }">
+            }"
+            :data-hour="hourTime.hour()">
             <div class="timetable-time-scale__label">
                 <!-- 日付表示 (特定の時刻に表示) -->
                 <span class="timetable-time-scale__date" v-if="shouldShowDate(hourTime)">
@@ -26,11 +26,9 @@ import type { Dayjs } from 'dayjs';
 
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore from '@/stores/TimeTableStore';
-import { TimeTableUtils } from '@/utils/TimeTableUtils';
 
 // Props
 const props = defineProps<{
-    selectedDate: Dayjs;
     hourHeight: number;
     is36HourDisplay?: boolean;  // 36時間表示モードかどうか
 }>();
@@ -56,16 +54,6 @@ const hourTimes = computed<Dayjs[]>(() => {
     }
     return result;
 });
-
-/**
- * 時刻の背景色を取得
- * @param hourTime 時刻を表す Dayjs オブジェクト
- */
-function getTimeScaleColor(hourTime: Dayjs): string {
-    // TimeTableUtils は時刻数値 (0-23) を期待するので、hour() で取得
-    // 28時間表記用の仮想時刻ではなく、実際の時刻を渡す
-    return TimeTableUtils.getTimeScaleColor(hourTime.hour());
-}
 
 /**
  * 時刻を表示用にフォーマット
@@ -140,6 +128,32 @@ function getDateLabel(hourTime: Dayjs): string {
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         z-index: 1;
     }
+
+    // 時刻ごとの背景色 (REGZA 風)
+    &__hour[data-hour='0'] { background: var(--timetable-time-scale-color-00); }
+    &__hour[data-hour='1'] { background: var(--timetable-time-scale-color-01); }
+    &__hour[data-hour='2'] { background: var(--timetable-time-scale-color-02); }
+    &__hour[data-hour='3'] { background: var(--timetable-time-scale-color-03); }
+    &__hour[data-hour='4'] { background: var(--timetable-time-scale-color-04); }
+    &__hour[data-hour='5'] { background: var(--timetable-time-scale-color-05); }
+    &__hour[data-hour='6'] { background: var(--timetable-time-scale-color-06); }
+    &__hour[data-hour='7'] { background: var(--timetable-time-scale-color-07); }
+    &__hour[data-hour='8'] { background: var(--timetable-time-scale-color-08); }
+    &__hour[data-hour='9'] { background: var(--timetable-time-scale-color-09); }
+    &__hour[data-hour='10'] { background: var(--timetable-time-scale-color-10); }
+    &__hour[data-hour='11'] { background: var(--timetable-time-scale-color-11); }
+    &__hour[data-hour='12'] { background: var(--timetable-time-scale-color-12); }
+    &__hour[data-hour='13'] { background: var(--timetable-time-scale-color-13); }
+    &__hour[data-hour='14'] { background: var(--timetable-time-scale-color-14); }
+    &__hour[data-hour='15'] { background: var(--timetable-time-scale-color-15); }
+    &__hour[data-hour='16'] { background: var(--timetable-time-scale-color-16); }
+    &__hour[data-hour='17'] { background: var(--timetable-time-scale-color-17); }
+    &__hour[data-hour='18'] { background: var(--timetable-time-scale-color-18); }
+    &__hour[data-hour='19'] { background: var(--timetable-time-scale-color-19); }
+    &__hour[data-hour='20'] { background: var(--timetable-time-scale-color-20); }
+    &__hour[data-hour='21'] { background: var(--timetable-time-scale-color-21); }
+    &__hour[data-hour='22'] { background: var(--timetable-time-scale-color-22); }
+    &__hour[data-hour='23'] { background: var(--timetable-time-scale-color-23); }
 
     &__label {
         display: flex;
