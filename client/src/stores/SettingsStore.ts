@@ -105,6 +105,14 @@ export interface ILocalClientSettings extends IClientSettings {
     twitter_active_tab: 'Search' | 'Timeline' | 'Capture';
     tweet_hashtag_position: 'Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak';
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+
+    // ***** iOS アプリ専用設定 *****
+
+    // iOS アプリの初回起動セットアップが完了したかどうか (同期無効)
+    ios_app_initial_setup_completed: boolean;
+    // iOS アプリで使用する KonomiTV サーバーの URL (同期無効)
+    // 例: "https://192-168-1-100.local.konomi.tv:7000" または "https://100-125-18-21.local.konomi.tv:7000"
+    ios_app_server_url: string | null;
 }
 
 /**
@@ -298,6 +306,13 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tweet_hashtag_position: 'Append',
     // ツイートするキャプチャに番組名の透かしを描画する (Default: 透かしを描画しない)
     tweet_capture_watermark_position: 'None',
+
+    // ***** iOS アプリ専用設定 *****
+
+    // iOS アプリの初回起動セットアップが完了したかどうか (同期無効)
+    ios_app_initial_setup_completed: false,
+    // iOS アプリで使用する KonomiTV サーバーの URL (同期無効)
+    ios_app_server_url: null,
 };
 
 // 同期対象の設定データのキーのみを列挙した配列
@@ -367,6 +382,8 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'twitter_active_tab',
     'tweet_hashtag_position',
     'tweet_capture_watermark_position',
+    // ios_app_initial_setup_completed: 同期無効
+    // ios_app_server_url: 同期無効
 ];
 
 

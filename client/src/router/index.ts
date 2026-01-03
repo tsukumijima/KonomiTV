@@ -2,6 +2,7 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
 
+import { getLocalStorageSettings } from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 
@@ -18,6 +19,11 @@ const router = createRouter({
         {
             path: '/',
             redirect: '/tv/',
+        },
+        {
+            path: '/ios-app-setup/',
+            name: 'IOS App Setup',
+            component: () => import('@/views/IOSAppSetup.vue'),
         },
         {
             path: '/tv/',
@@ -175,6 +181,25 @@ const router = createRouter({
             return {top: 0, left: 0};
         }
     }
+});
+
+// iOS アプリの初回起動時にサーバー URL 設定画面へリダイレクト
+router.beforeEach((to, from, next) => {
+    // Capacitor iOS アプリとして動作している場合のみチェック
+    if (Utils.isCapacitorIOS()) {
+        const settings = getLocalStorageSettings();
+        // 初回セットアップが完了していない場合、設定画面へリダイレクト
+        if (!settings.ios_app_initial_setup_completed && to.path !== '/ios-app-setup/') {
+            next('/ios-app-setup/');
+            return;
+        }
+        // 初回セットアップ完了後に設定画面にアクセスしようとした場合、ホームへリダイレクト
+        if (settings.ios_app_initial_setup_completed && to.path === '/ios-app-setup/') {
+            next('/');
+            return;
+        }
+    }
+    next();
 });
 
 // ルーティングの変更時に View Transitions API を適用する

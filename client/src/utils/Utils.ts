@@ -1,5 +1,6 @@
 
 import { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
+import { Capacitor } from '@capacitor/core';
 
 import useSettingsStore from '@/stores/SettingsStore';
 
@@ -16,6 +17,16 @@ export default class Utils {
     // バックエンドの API のベース URL
     // Worker からも参照できるように self.location を使う
     static readonly api_base_url = (() => {
+        // Capacitor iOS アプリの場合、SettingsStore から動的に取得
+        if (Utils.isCapacitorIOS()) {
+            const settings_store = useSettingsStore();
+            if (settings_store.settings.ios_app_server_url) {
+                return `${settings_store.settings.ios_app_server_url}/api`;
+            }
+            // サーバー URL 未設定時はエラーを投げる（初回起動時は router のガードで設定画面へリダイレクト）
+            throw new Error('Server URL is not configured. Please configure it in settings.');
+        }
+        // Web ブラウザの場合（既存の実装）
         if (import.meta.env.DEV === true) {
             // デバッグ時はポートを 7000 に強制する
             return `${self.location.protocol}//${self.location.hostname}:7000/api`;
@@ -348,6 +359,15 @@ export default class Utils {
     static isMacOS(): boolean {
         // iPhone・iPad で純正キーボードを接続した場合も一応想定して、iPhone・iPad も含める
         return /iPhone|iPad|Macintosh/i.test(navigator.userAgent);
+    }
+
+
+    /**
+     * Capacitor iOS アプリとして動作しているかどうか
+     * @returns Capacitor iOS アプリとして動作している場合は true を返す
+     */
+    static isCapacitorIOS(): boolean {
+        return Capacitor.getPlatform() === 'ios';
     }
 
 

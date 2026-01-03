@@ -126,6 +126,10 @@ export default defineConfig({
                 navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
+                // iOS アプリモードでは自動更新を無効化（skipWaiting/clientsClaim を false に設定）
+                // 通常の PWA モードでは Workbox のデフォルト設定（true）が適用される
+                skipWaiting: process.env.IOS_APP_BUILD !== 'true',
+                clientsClaim: process.env.IOS_APP_BUILD !== 'true',
             }
         }),
     ],

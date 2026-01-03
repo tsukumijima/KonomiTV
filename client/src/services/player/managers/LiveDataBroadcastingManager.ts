@@ -86,6 +86,12 @@ class LiveDataBroadcastingManager implements PlayerManager {
      * ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-230212/ini/HttpPublic/legacy/util.lua#L444-L497
      */
     public async init(): Promise<void> {
+        // iOS アプリでは データ放送機能を無効化
+        if (Utils.isCapacitorIOS()) {
+            console.log('[LiveDataBroadcastingManager] Data broadcasting disabled on iOS');
+            return;
+        }
+
         const channels_store = useChannelsStore();
 
         const is_data_broadcasting_enabled = useSettingsStore().settings.tv_show_data_broadcasting;

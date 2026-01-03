@@ -76,6 +76,12 @@ const { updateServiceWorker } = useRegisterSW({
     },
     // PWA の更新が必要なとき
     async onNeedRefresh() {
+        // iOS アプリモードでは自動更新を無効化（App Store 更新が主）
+        if (Utils.isCapacitorIOS()) {
+            console.log('iOS App mode: Service Worker auto-update disabled.');
+            return;
+        }
+
         console.log('New content is available; please refresh.');
         // リロードするまでトーストを表示し続ける
         Message.show('クライアントが新しいバージョンに更新されました。5秒後にリロードします。', 10);  // 10秒間表示

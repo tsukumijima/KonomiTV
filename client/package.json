@@ -8,14 +8,20 @@
         "akebi:nix": "../server/thirdparty/Akebi/akebi-https-server.elf --listen-address 0.0.0.0:7001 --proxy-pass-url http://127.0.0.77:7011/ --keyless-server-url https://akebi.konomi.tv/ > /dev/null",
         "dev": "concurrently --raw \"npm:akebi\" \"vite\"",
         "build": "vue-tsc --noEmit && vite build",
+        "build:ios": "vue-tsc --noEmit && vite build --mode ios-app",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
         "lint": "eslint . --fix --ignore-path .gitignore",
-        "typecheck": "vue-tsc --noEmit"
+        "typecheck": "vue-tsc --noEmit",
+        "cap:sync": "cap sync",
+        "cap:open:ios": "cap open ios",
+        "cap:build": "npm run build:ios && npm run cap:sync"
     },
     "engines": {
         "node": ">=20.16.0"
     },
     "dependencies": {
+        "@capacitor/core": "^8.0.0",
+        "@capacitor/ios": "^8.0.0",
         "@github/mini-throttle": "^2.1.1",
         "@microsoft/fetch-event-source": "^2.0.1",
         "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.2",
@@ -48,6 +54,7 @@
     },
     "devDependencies": {
         "@babel/types": "^7.25.4",
+        "@capacitor/cli": "^6.2.0",
         "@iconify/vue": "^4.1.2",
         "@types/node": "20.16.0",
         "@types/offscreencanvas": "^2019.7.3",

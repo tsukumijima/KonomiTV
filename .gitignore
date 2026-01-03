@@ -158,5 +158,9 @@ server/static/interlaced_*
 # thirdparty
 server/thirdparty/*
 
+# iOS / Android Capacitor プロジェクト
+client/ios/
+client/android/
+
 # ignore .gitkeep
 !.gitkeep
