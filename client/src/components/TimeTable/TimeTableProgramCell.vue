@@ -224,7 +224,7 @@ const reservationIconColor = computed(() => {
     if (isReservationDisabled.value) {
         return 'rgb(var(--v-theme-text-darken-2))';
     }
-    return 'rgb(var(--v-theme-success))';
+    return 'rgb(var(--v-theme-secondary))';
 });
 
 /**
