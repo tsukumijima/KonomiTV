@@ -21,15 +21,15 @@
             <div class="program-info__description"
                 v-html="ProgramUtils.decorateProgramInfo(displayProgram, 'description')">
             </div>
-            <div class="program-info__genre-container">
+            <div class="program-info__genre-container" v-if="displayProgram.genres && displayProgram.genres.length > 0">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in displayProgram.genres ?? []">
+                    v-for="(genre, genre_index) in displayProgram.genres">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
             <div class="mt-5">
                 <!-- 映像・音声情報 -->
-                <div class="program-info__status">
+                <div class="program-info__status" v-if="displayProgram.video_codec && displayProgram.video_resolution">
                     <Icon icon="fluent:video-16-filled" height="17px" style="margin-left: -2px; margin-right: -1.7px; margin-bottom: -3px;" />
                     <span class="ml-2">映像: {{displayProgram.video_codec}} / {{displayProgram.video_resolution}}</span>
                 </div>

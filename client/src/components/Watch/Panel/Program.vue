@@ -15,9 +15,9 @@
             <div class="program-info__description"
                 v-html="ProgramUtils.decorateProgramInfo(channelsStore.channel.current.program_present, 'description')">
             </div>
-            <div class="program-info__genre-container">
+            <div class="program-info__genre-container" v-if="channelsStore.channel.current.program_present?.genres && channelsStore.channel.current.program_present.genres.length > 0">
                 <div class="program-info__genre" :key="genre_index"
-                    v-for="(genre, genre_index) in channelsStore.channel.current.program_present?.genres ?? []">
+                    v-for="(genre, genre_index) in channelsStore.channel.current.program_present.genres">
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
