@@ -14,10 +14,10 @@
                 <div class="settings__item" style="margin-top: 16px;">
                     <label class="settings__item-heading">
                         <Icon icon="fluent:arrow-autofit-width-20-regular" width="20px" />
-                        <span class="ml-2">チャンネル名の表示幅を調整</span>
+                        <span class="ml-2">各チャンネルの表示幅を調整</span>
                     </label>
                     <label class="settings__item-label">
-                        各チャンネルの列幅を調整します。広めにすると番組名が見やすくなります。<br>
+                        各チャンネルの横方向の表示を調整します。広めにすると番組名が読みやすくなります。<br>
                     </label>
                     <v-btn-toggle class="settings__item-form timetable-settings-dialog__toggle" v-model="channelWidth" mandatory density="comfortable">
                         <v-btn value="Wide">広め</v-btn>
@@ -33,7 +33,7 @@
                         <span class="ml-2">時間軸の表示密度を調整</span>
                     </label>
                     <label class="settings__item-label">
-                        番組表の縦方向の表示密度を調整します。広めにすると番組詳細が見やすくなります。<br>
+                        番組表の縦方向の表示密度を調整します。広めにすると番組詳細が読みやすくなります。<br>
                     </label>
                     <v-btn-toggle class="settings__item-form timetable-settings-dialog__toggle" v-model="hourHeight" mandatory density="comfortable">
                         <v-btn value="Wide">広め</v-btn>

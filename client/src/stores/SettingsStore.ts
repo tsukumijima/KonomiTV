@@ -157,7 +157,7 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 番組表の表示設定 *****
 
-    // チャンネル名の表示幅を調整 (Default: 通常)
+    // 各チャンネルの表示幅を調整 (Default: 通常)
     timetable_channel_width: 'Normal',
     // 時間軸の表示密度を調整 (Default: 通常)
     timetable_hour_height: 'Normal',
