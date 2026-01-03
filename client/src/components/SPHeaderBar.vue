@@ -1,5 +1,5 @@
 <template>
-    <header class="header" :class="{ 'search-active': isSearchActive }">
+    <header class="header" :class="{ 'search-active': isSearchActive, 'header--hide-on-sp-vertical': hideOnSmartphoneVertical }">
         <template v-if="!isSearchActive">
             <router-link v-ripple class="konomitv-logo" to="/tv/">
                 <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
@@ -29,6 +29,13 @@
 
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+
+// Props の定義
+const { hideOnSmartphoneVertical = false } = defineProps<{
+    // スマホ縦画面で非表示にするかどうか
+    // スマホ縦画面で従来 SPHeaderBar がなかったページ（設定ページ経由のページなど）で使用
+    hideOnSmartphoneVertical?: boolean;
+}>();
 
 const router = useRouter();
 const route = useRoute();
@@ -127,8 +134,40 @@ onMounted(() => {
         display: flex;
     }
 
+    // スマホ縦画面で非表示にするクラス
+    // スマホ縦画面で従来 SPHeaderBar がなかったページで使用
+    &--hide-on-sp-vertical {
+        @include smartphone-vertical {
+            display: none;
+        }
+    }
+
+    // スマホ横画面では左上隅に固定表示
+    @include smartphone-horizontal {
+        display: flex;
+        gap: 8px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 210px;
+        padding: 0 12px;
+        padding-top: 0;
+        box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 20%),
+                    0px 8px 10px 1px rgb(0 0 0 / 14%),
+                    0px 3px 14px 2px rgb(0 0 0 / 12%);
+        z-index: 10;
+    }
+    @include smartphone-horizontal-short {
+        width: 190px;
+    }
+
     &.search-active {
         padding: 0;
+        // スマホ横画面で検索アクティブ時は全幅に展開
+        @include smartphone-horizontal {
+            width: 100%;
+            padding: 0 8px;
+        }
     }
 
     .konomitv-logo {
@@ -137,9 +176,22 @@ onMounted(() => {
         margin-left: -6px;
         border-radius: 8px;
         user-select: none;
+        @include smartphone-horizontal {
+            margin-left: 0;
+            padding: 8px 6px;
+        }
 
         &__image {
             display: block;
+            @include smartphone-horizontal {
+                height: 19px;
+            }
+        }
+    }
+
+    .v-spacer {
+        @include smartphone-horizontal {
+            display: none;
         }
     }
 
@@ -152,6 +204,11 @@ onMounted(() => {
         padding: 2px;
         border-radius: 8px;
         cursor: pointer;
+
+        @include smartphone-horizontal {
+            width: 24px;
+            height: 24px;
+        }
     }
 
     .search-box {
@@ -162,12 +219,20 @@ onMounted(() => {
         padding: 0 16px;
         padding-top: 14px;
 
+        @include smartphone-horizontal {
+            padding-top: 0px;
+        }
+
         &__icon {
             display: flex;
             align-items: center;
             justify-content: center;
             margin-right: 8px;
             color: rgb(var(--v-theme-text-darken-1));
+
+            @include smartphone-horizontal {
+                margin-right: 16px;
+            }
         }
 
         input {
@@ -180,6 +245,10 @@ onMounted(() => {
             // type="search" のデフォルトスタイルを無効化
             -webkit-appearance: none;
             appearance: none;
+
+            @include smartphone-horizontal {
+                font-size: 14px;
+            }
 
             &:focus {
                 outline: none;
@@ -204,6 +273,11 @@ onMounted(() => {
             padding: 2px;
             border-radius: 8px;
             cursor: pointer;
+
+            @include smartphone-horizontal {
+                width: 24px;
+                height: 24px;
+            }
         }
     }
 }

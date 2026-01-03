@@ -187,6 +187,7 @@ export default defineComponent({
             flex-direction: column;
             height: 100%;
             padding: 22px 12px;
+            overflow-x: hidden;
             overflow-y: auto;
             @include smartphone-horizontal {
                 padding: 10px 12px;

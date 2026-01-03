@@ -3,6 +3,7 @@
         <HeaderBar />
         <main>
             <Navigation />
+            <SPHeaderBar :hide-on-smartphone-vertical="true" />
             <div class="settings-container d-flex px-5 py-5 mx-auto" width="100%" max-width="1000">
                 <nav class="settings-navigation">
                     <h1 class="mt-2 ml-4" style="font-size: 24px;">設定</h1>
@@ -59,6 +60,7 @@ import { defineComponent } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 
 // 設定のベース画面なので、ロジックは基本置かない
 export default defineComponent({
@@ -66,6 +68,7 @@ export default defineComponent({
     components: {
         HeaderBar,
         Navigation,
+        SPHeaderBar,
     }
 });
 

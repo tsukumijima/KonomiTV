@@ -3,6 +3,7 @@
         <HeaderBar />
         <main>
             <Navigation />
+            <SPHeaderBar :hide-on-smartphone-vertical="true" />
             <div class="register-container-wrapper d-flex align-center w-100 mb-13">
                 <v-card class="register-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
@@ -47,6 +48,7 @@ import { VForm } from 'vuetify/components';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
@@ -55,6 +57,7 @@ export default defineComponent({
     components: {
         HeaderBar,
         Navigation,
+        SPHeaderBar,
     },
     data() {
         return {

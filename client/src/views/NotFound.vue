@@ -3,6 +3,7 @@
         <HeaderBar />
         <main>
             <Navigation />
+            <SPHeaderBar :hide-on-smartphone-vertical="true" />
             <div class="d-flex justify-center align-center w-100">
                 <div class="d-flex justify-center align-center flex-column">
                     <h1>Not Found, or Under Development...</h1>
@@ -16,6 +17,7 @@
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 
 </script>
 <style lang="scss" scoped>

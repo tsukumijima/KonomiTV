@@ -3,6 +3,7 @@
         <HeaderBar />
         <main>
             <Navigation />
+            <SPHeaderBar :hide-on-smartphone-vertical="true" />
             <v-card class="settings-container d-flex px-5 py-5 mx-auto" elevation="0" width="100%" max-width="1000">
                 <nav class="settings-navigation">
                     <h1 class="mt-2" style="font-size: 24px;">マイページ</h1>
@@ -49,6 +50,7 @@ import { onMounted } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import useUserStore from '@/stores/UserStore';
 import useVersionStore from '@/stores/VersionStore';
 

@@ -91,18 +91,11 @@ const showSearchInput = computed(() => {
     box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 20%),
                 0px 8px 10px 1px rgb(0 0 0 / 14%),
                 0px 3px 14px 2px rgb(0 0 0 / 12%);
-    z-index: 10;
+    z-index: 40;
 
+    // スマホ横・縦画面では SPHeaderBar を使用するため非表示
     @include smartphone-horizontal {
-        width: 210px;
-        height: 48px;
-        justify-content: center;
-        .v-spacer {
-            display: none;
-        }
-    }
-    @include smartphone-horizontal-short {
-        width: 190px;
+        display: none;
     }
     @include smartphone-vertical {
         display: none;
