@@ -1268,7 +1268,11 @@ watch(() => timetableStore.display_start_time, (value) => {
 
     &__prev-day-button {
         // ヘッダー (65px) + チャンネルヘッダー + 余白
-        top: calc(65px + var(--timetable-channel-header-height) + 12px);
+        top: calc(65px + var(--timetable-channel-header-height) + 8px);
+        @include tablet-vertical {
+            // タブレット縦画面ではヘッダー + コントロール系ヘッダー + チャンネルヘッダー + 余白
+            top: calc(65px + 56px + var(--timetable-channel-header-height) + 8px);
+        }
         @include smartphone-horizontal {
             // スマホ横画面ではヘッダーなし
             top: calc(48px + var(--timetable-channel-header-height) + 8px);
