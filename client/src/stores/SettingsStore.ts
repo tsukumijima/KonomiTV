@@ -14,17 +14,17 @@ export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps'
 
 // 番組表関連の型定義
 export type TimeTableSizeOption = 'Wide' | 'Normal' | 'Narrow';
-export type TimeTableGenreHighlightColor = 'White' | 'Yellow' | 'Lime' | 'Blue' | 'Pink' | 'Red' | 'Orange' | 'Brown' | 'Teal';
+export type TimeTableGenreHighlightColor = 'White' | 'Pink' | 'Red' | 'Orange' | 'Yellow' | 'Lime' | 'Teal' | 'Cyan' | 'Blue' | 'Ochre' | 'Brown';
 export interface ITimeTableGenreColors {
     'ニュース・報道': TimeTableGenreHighlightColor;
-    'スポーツ': TimeTableGenreHighlightColor;
     '情報・ワイドショー': TimeTableGenreHighlightColor;
-    'ドラマ': TimeTableGenreHighlightColor;
-    '音楽': TimeTableGenreHighlightColor;
-    'バラエティ': TimeTableGenreHighlightColor;
-    '映画': TimeTableGenreHighlightColor;
-    'アニメ・特撮': TimeTableGenreHighlightColor;
     'ドキュメンタリー・教養': TimeTableGenreHighlightColor;
+    'スポーツ': TimeTableGenreHighlightColor;
+    'ドラマ': TimeTableGenreHighlightColor;
+    'アニメ・特撮': TimeTableGenreHighlightColor;
+    'バラエティ': TimeTableGenreHighlightColor;
+    '音楽': TimeTableGenreHighlightColor;
+    '映画': TimeTableGenreHighlightColor;
     '劇場・公演': TimeTableGenreHighlightColor;
     '趣味・教育': TimeTableGenreHighlightColor;
     '福祉': TimeTableGenreHighlightColor;
@@ -60,6 +60,7 @@ export interface ILocalClientSettings extends IClientSettings {
     timetable_channel_width: TimeTableSizeOption;
     timetable_hour_height: TimeTableSizeOption;
     timetable_hover_expand: boolean;
+    timetable_dim_shopping_programs: boolean;
     timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
@@ -114,6 +115,7 @@ export interface ILocalClientSettings extends IClientSettings {
 /**
  * LocalStorage に保存される KonomiTV の設定データのデフォルト値
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
+ * 以下の設定は、必ず UI 上の表示順序通りに記述しなければならない
  */
 export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
@@ -155,25 +157,27 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 番組表の表示設定 *****
 
-    // 番組表のチャンネル名の表示幅を調整する設定 (Default: 通常)
+    // チャンネル名の表示幅を調整 (Default: 通常)
     timetable_channel_width: 'Normal',
-    // 番組表の時間軸の表示密度を調整する設定 (Default: 通常)
+    // 時間軸の表示密度を調整 (Default: 通常)
     timetable_hour_height: 'Normal',
-    // PC でマウスを番組に重ねた時に、クリックせずに番組詳細を自動表示する設定 (Default: オフ)
+    // カーソルを重ねた時に番組詳細を自動表示する (Default: オフ)
     timetable_hover_expand: false,
+    // ショッピング・通販番組を控えめに表示する (Default: オン)
+    timetable_dim_shopping_programs: true,
     // 番組表のジャンル別のハイライト色 (Default: 以下の通り)
     timetable_genre_colors: {
         'ニュース・報道': 'White',
-        'スポーツ': 'White',
         '情報・ワイドショー': 'White',
-        'ドラマ': 'White',
-        '音楽': 'White',
-        'バラエティ': 'White',
-        '映画': 'White',
-        'アニメ・特撮': 'White',
-        'ドキュメンタリー・教養': 'White',
-        '劇場・公演': 'White',
-        '趣味・教育': 'White',
+        'ドキュメンタリー・教養': 'Blue',
+        'スポーツ': 'Cyan',
+        'ドラマ': 'Pink',
+        'アニメ・特撮': 'Yellow',
+        'バラエティ': 'Lime',
+        '音楽': 'Orange',
+        '映画': 'Brown',
+        '劇場・公演': 'Ochre',
+        '趣味・教育': 'Teal',
         '福祉': 'White',
         'その他': 'White',
     },
@@ -322,6 +326,7 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'timetable_channel_width',
     'timetable_hour_height',
     'timetable_hover_expand',
+    'timetable_dim_shopping_programs',
     'timetable_genre_colors',
     'show_player_background_image',
     'use_pure_black_player_background',

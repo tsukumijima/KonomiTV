@@ -587,7 +587,7 @@ timetable_channel_width: 'Wide' | 'Normal' | 'Narrow';
 timetable_hour_height: 'Wide' | 'Normal' | 'Narrow';
 timetable_hover_expand: boolean;
 timetable_genre_colors: {
-  [genre: string]: 'White' | 'Yellow' | 'Lime' | 'Blue' | 'Pink' | 'Red' | 'Orange' | 'Brown' | 'Teal';
+  [genre: string]: 'White' | 'Pink' | 'Red' | 'Orange' | 'Yellow' | 'Lime' | 'Teal' | 'Blue' | 'Ochre' | 'Brown';
 };
 // 注: 28時間表記は既存の use_28hour_clock を使用
 ```

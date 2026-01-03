@@ -42,17 +42,31 @@
                     </v-btn-toggle>
                 </div>
 
-                <!-- ホバー時に番組を展開 (PC のみ) -->
+                <!-- カーソルを重ねた時に番組詳細を自動表示する (PC のみ) -->
                 <div class="settings__item settings__item--switch">
                     <label class="settings__item-heading" for="timetable_hover_expand">
                         <Icon icon="fluent:cursor-hover-20-regular" width="20px" />
-                        <span class="ml-2">マウスを重ねた時に番組詳細を自動表示</span>
+                        <span class="ml-2">カーソルを重ねた時に番組詳細を自動表示する</span>
                     </label>
                     <label class="settings__item-label" for="timetable_hover_expand">
-                        PC でマウスを番組に重ねた時に、クリックせずに番組情報を展開表示します。<br>
+                        PC でカーソルを番組に重ねた時に、クリックせずに番組情報を展開表示します。<br>
                     </label>
                     <v-switch class="settings__item-switch" color="primary" id="timetable_hover_expand" hide-details
                         v-model="hoverExpand">
+                    </v-switch>
+                </div>
+
+                <!-- ショッピング・通販番組を控えめに表示する -->
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="timetable_dim_shopping_programs">
+                        <Icon icon="fluent:shopping-bag-20-regular" width="20px" />
+                        <span class="ml-2">ショッピング・通販番組を控えめに表示する</span>
+                    </label>
+                    <label class="settings__item-label" for="timetable_dim_shopping_programs">
+                        「ショッピング・通販」ジャンルの番組を落ち着いた色合いで表示し、番組表の視認性を高めます。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" color="primary" id="timetable_dim_shopping_programs" hide-details
+                        v-model="dimShoppingPrograms">
                     </v-switch>
                 </div>
 
@@ -142,19 +156,27 @@ const hoverExpand = computed({
     },
 });
 
+const dimShoppingPrograms = computed({
+    get: () => settingsStore.settings.timetable_dim_shopping_programs,
+    set: (value: boolean) => {
+        settingsStore.settings.timetable_dim_shopping_programs = value;
+    },
+});
+
 const genreColors = ref<ITimeTableGenreColors>({ ...settingsStore.settings.timetable_genre_colors });
 
 // ジャンル一覧 (CONTENT_TYPE のジャンル名と一致させる)
+// ただし並び順はユーザーが認知しやすいように並び替えている
 const genreList: (keyof ITimeTableGenreColors)[] = [
     'ニュース・報道',
-    'スポーツ',
     '情報・ワイドショー',
-    'ドラマ',
-    '音楽',
-    'バラエティ',
-    '映画',
-    'アニメ・特撮',
     'ドキュメンタリー・教養',
+    'スポーツ',
+    'ドラマ',
+    'アニメ・特撮',
+    'バラエティ',
+    '音楽',
+    '映画',
     '劇場・公演',
     '趣味・教育',
     '福祉',
@@ -164,14 +186,16 @@ const genreList: (keyof ITimeTableGenreColors)[] = [
 // 色の選択肢
 const colorItems: { title: string; value: TimeTableGenreHighlightColor }[] = [
     { title: '白', value: 'White' },
-    { title: '黄色', value: 'Yellow' },
-    { title: '黄緑', value: 'Lime' },
-    { title: '青', value: 'Blue' },
     { title: 'ピンク', value: 'Pink' },
     { title: '赤', value: 'Red' },
     { title: 'オレンジ', value: 'Orange' },
-    { title: '黄土色', value: 'Brown' },
+    { title: '黄色', value: 'Yellow' },
+    { title: '黄緑', value: 'Lime' },
     { title: '青緑', value: 'Teal' },
+    { title: '水色', value: 'Cyan' },
+    { title: '青', value: 'Blue' },
+    { title: '黄土色', value: 'Ochre' },
+    { title: '茶色', value: 'Brown' },
 ];
 
 /**

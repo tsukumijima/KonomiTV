@@ -2,7 +2,7 @@
     <div class="route-container">
         <HeaderBar>
             <!-- PC 版では HeaderBar 内に番組表コントロールを配置 -->
-            <template #timetable-controls v-if="!Utils.isSmartphoneVertical()">
+            <template #timetable-controls v-if="!isCompactControls">
                 <div class="timetable-controls">
                     <!-- チャンネル種別セレクター -->
                     <v-select class="timetable-controls__channel-type" variant="outlined" density="compact" hide-details
@@ -22,6 +22,7 @@
                             </template>
                             <v-date-picker v-model="selectedDateForPicker" color="primary"
                                 :min="datePickerMinDate" :max="datePickerMaxDate"
+                                :allowed-dates="isDateSelectable"
                                 @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
@@ -54,7 +55,7 @@
             <div class="timetable-container" :class="{'timetable-container--loading': timetableStore.is_loading}">
                 <SPHeaderBar />
                 <!-- スマホ縦画面用コントロールバー -->
-                <div class="timetable-controls-mobile" v-if="Utils.isSmartphoneVertical()">
+                <div class="timetable-controls-mobile" v-if="isCompactControls">
                     <v-select class="timetable-controls-mobile__channel-type" variant="outlined" density="compact" hide-details
                         :items="channelTypeItems" v-model="selectedChannelTypeDisplay"
                         @update:model-value="onChannelTypeChange">
@@ -68,6 +69,7 @@
                             </template>
                             <v-date-picker v-model="selectedDateForPicker" color="primary"
                                 :min="datePickerMinDate" :max="datePickerMaxDate"
+                                :allowed-dates="isDateSelectable"
                                 @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
@@ -88,15 +90,11 @@
                 <TimeTableGrid
                     ref="timetableGridRef"
                     :channels="timetableStore.channels_data"
-                    :selectedDate="timetableStore.selected_date"
-                    :isLoading="timetableStore.is_loading"
                     :is36HourDisplay="timetableStore.is_36hour_display"
                     :canGoPreviousDay="canGoPreviousDay"
                     :canGoNextDay="canGoNextDay"
-                    @scroll-position-change="onScrollPositionChange"
                     @time-slot-change="onTimeSlotChange"
                     @date-display-offset-change="onDateDisplayOffsetChange"
-                    @program-select="onProgramSelect"
                     @show-program-detail="onShowProgramDetail"
                     @quick-reserve="onQuickReserve"
                     @go-to-next-day="goToNextDay"
@@ -156,6 +154,12 @@ const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'E
 // UI 状態
 const isSettingsDialogOpen = ref(false);
 const isDateMenuOpen = ref(false);
+const isCompactControls = computed(() => {
+    return Utils.isSmartphoneVertical() ||
+        Utils.isSmartphoneHorizontal() ||
+        Utils.isTabletVertical() ||
+        Utils.isTabletHorizontal();
+});
 
 // 日付表示のオフセット
 // 36時間表示モード時にスクロール位置に応じて日付表示を切り替えるために使用
@@ -197,14 +201,17 @@ const selectedChannelTypeDisplay = computed({
 
 // 時間選択の選択肢 (4時間ごと)
 const timeItems = computed(() => {
-    const items: { title: string; value: number }[] = [];
+    const items: { title: string; value: number; props?: { disabled: boolean } }[] = [];
+    const shouldDisableEarlyHours = timetableStore.is_36hour_display && dateDisplayOffset.value === 0;
 
     // 4時から28時 (翌4時) まで4時間ごと
     for (let hour = 4; hour <= 24; hour += 4) {
         const displayHour = hour;
+        const isEarlyHour = hour <= 12;
         items.push({
             title: `${displayHour.toString().padStart(2, '0')}時`,
             value: hour,
+            ...(shouldDisableEarlyHours && isEarlyHour ? { props: { disabled: true } } : {}),
         });
     }
 
@@ -274,12 +281,26 @@ const canGoNextDay = computed(() => {
 const datePickerMinDate = computed(() => {
     if (timetableStore.date_range === null) return undefined;
     // v-date-picker は Date 型を受け付ける
-    return timetableStore.date_range.earliest.toDate();
+    return timetableStore.date_range.earliest.startOf('day').toDate();
 });
 const datePickerMaxDate = computed(() => {
     if (timetableStore.date_range === null) return undefined;
-    return timetableStore.date_range.latest.toDate();
+    return timetableStore.date_range.latest.endOf('day').toDate();
 });
+
+/**
+ * 日付ピッカーで選択可能かどうかを判定する
+ * Vuetify の allowed-dates は (date: unknown) => boolean を期待するため、引数は unknown 型で受け取る
+ * @param date 日付 (Vuetify からは Date 型で渡される)
+ * @returns 選択可能なら true
+ */
+function isDateSelectable(date: unknown): boolean {
+    if (timetableStore.date_range === null) return false;
+    // Vuetify の v-date-picker は Date オブジェクトを渡してくるが、dayjs() はそれを受け付ける
+    const targetDate = dayjs(date as Date);
+    return targetDate.isSameOrAfter(timetableStore.date_range.earliest, 'day') &&
+        targetDate.isSameOrBefore(timetableStore.date_range.latest, 'day');
+}
 
 /**
  * チャンネルタイプ変更時のハンドラ
@@ -345,13 +366,6 @@ async function goToCurrentTime(): Promise<void> {
 }
 
 /**
- * スクロール位置変更時のハンドラ
- */
-function onScrollPositionChange(position: { x: number; y: number }): void {
-    timetableStore.updateScrollPosition(position.x, position.y);
-}
-
-/**
  * 表示中の時間帯変更時のハンドラ
  * スクロール位置から計算された現在表示中の時間帯を受け取り、時刻セレクターを更新
  * @param hour 現在表示中の時間帯 (4, 8, 12, 16, 20, 24 のいずれか)
@@ -372,13 +386,6 @@ function onTimeSlotChange(hour: number): void {
  */
 function onDateDisplayOffsetChange(offset: number): void {
     dateDisplayOffset.value = offset;
-}
-
-/**
- * 番組選択時のハンドラ
- */
-function onProgramSelect(programId: string | null): void {
-    timetableStore.selectProgram(programId);
 }
 
 /**
@@ -541,6 +548,71 @@ watch(() => timetableStore.selected_date, () => {
 });
 
 </script>
+<style lang="scss">
+
+:root {
+    // REGZA 風の時刻スケール背景色
+    // 彩度を抑えた淡い色味で、時刻の流れを表現
+    // 深夜 (0-3時): 紫成分が抜けた群青から徐々に明るい青へ
+    --timetable-time-scale-color-00: #2a4068;
+    --timetable-time-scale-color-01: #325080;
+    --timetable-time-scale-color-02: #3a5c90;
+    --timetable-time-scale-color-03: #4268a0;
+    // 朝 (4-7時): 青から青緑、緑へ
+    --timetable-time-scale-color-04: #4a7aa0;
+    --timetable-time-scale-color-05: #4d8898;
+    --timetable-time-scale-color-06: #509690;
+    --timetable-time-scale-color-07: #55a080;
+    // 午前 (8-11時): 緑から黄緑へ (彩度・明度を抑えめに)
+    --timetable-time-scale-color-08: #4c8860;
+    --timetable-time-scale-color-09: #5c8a58;
+    --timetable-time-scale-color-10: #6c8c52;
+    --timetable-time-scale-color-11: #7a8c4c;
+    // 昼 (12-15時): 落ち着いた黄緑からオリーブへ
+    --timetable-time-scale-color-12: #7c8a48;
+    --timetable-time-scale-color-13: #888848;
+    --timetable-time-scale-color-14: #908248;
+    --timetable-time-scale-color-15: #987a48;
+    // 夕方 (16-19時): 黄土色からくすんだ茶色へ
+    --timetable-time-scale-color-16: #987048;
+    --timetable-time-scale-color-17: #906248;
+    --timetable-time-scale-color-18: #80564c;
+    --timetable-time-scale-color-19: #6c4a50;
+    // 夜 (20-23時): 赤紫から紫へ
+    --timetable-time-scale-color-20: #5c4058;
+    --timetable-time-scale-color-21: #4c3a54;
+    --timetable-time-scale-color-22: #3c3850;
+    --timetable-time-scale-color-23: #30384c;
+
+    // ジャンルハイライトカラー (REGZA 風)
+    --timetable-genre-highlight-white: #ffffff;
+    --timetable-genre-background-white: #f8f8f8;
+    --timetable-genre-highlight-pink: #f50094;
+    --timetable-genre-background-pink: #f6eaef;
+    --timetable-genre-highlight-red: #e1512d;
+    --timetable-genre-background-red: #ffecec;
+    --timetable-genre-highlight-orange: #ff9800;
+    --timetable-genre-background-orange: #fff3e0;
+    --timetable-genre-highlight-yellow: #ffeb3b;
+    --timetable-genre-background-yellow: #fffde7;
+    --timetable-genre-highlight-lime: #8bc34a;
+    --timetable-genre-background-lime: #f1f8e9;
+    --timetable-genre-highlight-teal: #009688;
+    --timetable-genre-background-teal: #e0f2f1;
+    --timetable-genre-highlight-cyan: #03a9f4;
+    --timetable-genre-background-cyan: #e1f5fe;
+    --timetable-genre-highlight-blue: #4e7ac1;
+    --timetable-genre-background-blue: #eff3fb;
+    --timetable-genre-highlight-ochre: #c59a2f;
+    --timetable-genre-background-ochre: #fdf5e2;
+    --timetable-genre-highlight-brown: #a3421f;
+    --timetable-genre-background-brown: #fff2eb;
+
+    // 番組がない領域の背景色
+    --timetable-empty-cell-background: #616161;
+}
+
+</style>
 <style lang="scss" scoped>
 
 .timetable-container {
@@ -678,15 +750,26 @@ watch(() => timetableStore.selected_date, () => {
     }
 }
 
-// スマホ版の番組表コントロール
+// コンパクト表示向けの番組表コントロール
 .timetable-controls-mobile {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     padding: 10px 10px 12px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
 
+    @include tablet-horizontal {
+        padding: 12px 16px 12px;
+    }
+    @include tablet-vertical {
+        padding: 12px 16px 12px;
+    }
+    @include smartphone-horizontal {
+        gap: 4px;
+        padding: 8px 8px 10px;
+    }
     @include smartphone-vertical {
         margin-top: 14px;
     }
@@ -722,6 +805,16 @@ watch(() => timetableStore.selected_date, () => {
             min-height: 36px;
             font-size: 14px;
         }
+
+        @include tablet-horizontal {
+            width: 110px;
+        }
+        @include tablet-vertical {
+            width: 110px;
+        }
+        @include smartphone-horizontal {
+            width: 80px;
+        }
     }
 
     &__settings-button {
@@ -730,6 +823,17 @@ watch(() => timetableStore.selected_date, () => {
         min-width: 34px;
         background: rgb(var(--v-theme-background-lighten-2));
         border-radius: 6px;
+
+        @include tablet-horizontal {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+        }
+        @include tablet-vertical {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+        }
     }
 
     &__now-button {
@@ -738,6 +842,17 @@ watch(() => timetableStore.selected_date, () => {
         min-width: 34px;
         background: rgb(var(--v-theme-background-lighten-2));
         border-radius: 6px;
+
+        @include tablet-horizontal {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+        }
+        @include tablet-vertical {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+        }
     }
 
     &__date {
@@ -779,6 +894,16 @@ watch(() => timetableStore.selected_date, () => {
             background: transparent !important;
             opacity: 0 !important;
         }
+
+        @include tablet-horizontal {
+            min-width: 110px;
+        }
+        @include tablet-vertical {
+            min-width: 110px;
+        }
+        @include smartphone-horizontal {
+            min-width: 88px;
+        }
     }
 
     &__time {
@@ -796,6 +921,16 @@ watch(() => timetableStore.selected_date, () => {
             padding-bottom: 4px;
             min-height: 36px;
             font-size: 14px;
+        }
+
+        @include tablet-horizontal {
+            width: 80px;
+        }
+        @include tablet-vertical {
+            width: 80px;
+        }
+        @include smartphone-horizontal {
+            width: 56px;
         }
     }
 }

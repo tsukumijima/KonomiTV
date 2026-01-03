@@ -53,21 +53,22 @@ class ClientSettings(BaseModel):
     timetable_channel_width: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
     timetable_hour_height: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
     timetable_hover_expand: bool = False
+    timetable_dim_shopping_programs: bool = True
     # 番組表のジャンル別のハイライト色
     # キーはジャンル名 (大分類)、値はハイライトカラー
     # クライアント側の ILocalClientSettingsDefault.timetable_genre_colors と一致させる必要がある
-    timetable_genre_colors: dict[str, Literal['White', 'Yellow', 'Lime', 'Blue', 'Pink', 'Red', 'Orange', 'Brown', 'Teal']] = {
+    timetable_genre_colors: dict[str, Literal['White', 'Pink', 'Red', 'Orange', 'Yellow', 'Lime', 'Teal', 'Cyan', 'Blue', 'Ochre', 'Brown']] = {
         'ニュース・報道': 'White',
-        'スポーツ': 'White',
         '情報・ワイドショー': 'White',
-        'ドラマ': 'White',
-        '音楽': 'White',
-        'バラエティ': 'White',
-        '映画': 'White',
-        'アニメ・特撮': 'White',
-        'ドキュメンタリー・教養': 'White',
-        '劇場・公演': 'White',
-        '趣味・教育': 'White',
+        'ドキュメンタリー・教養': 'Blue',
+        'スポーツ': 'Cyan',
+        'ドラマ': 'Pink',
+        'アニメ・特撮': 'Yellow',
+        'バラエティ': 'Lime',
+        '音楽': 'Orange',
+        '映画': 'Brown',
+        '劇場・公演': 'Ochre',
+        '趣味・教育': 'Teal',
         '福祉': 'White',
         'その他': 'White',
     }
