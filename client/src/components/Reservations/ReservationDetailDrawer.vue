@@ -152,6 +152,35 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <!-- 閉じる確認ダイアログ -->
+    <v-dialog v-model="showCloseConfirmDialog" max-width="500">
+        <v-card>
+            <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
+                変更を破棄しますか？
+            </v-card-title>
+            <v-card-text class="pt-2 pb-0">
+                <div class="warning-banner warning-banner--normal">
+                    <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        録画設定の変更がまだ保存されていません。<br>
+                        このまま閉じると、変更内容は破棄されます。
+                    </span>
+                </div>
+            </v-card-text>
+            <v-card-actions class="pt-4 px-6 pb-6">
+                <v-spacer></v-spacer>
+                <v-btn color="text" variant="text" @click="showCloseConfirmDialog = false">
+                    <Icon icon="fluent:arrow-left-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">編集に戻る</span>
+                </v-btn>
+                <v-btn class="px-3" color="secondary" variant="flat" @click="confirmClose">
+                    <Icon icon="fluent:dismiss-20-regular" width="18px" height="18px" />
+                    <span class="ml-1">変更を破棄</span>
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 <script lang="ts" setup>
 
@@ -215,6 +244,9 @@ const currentSettings = ref<IRecordSettings | null>(null);
 
 // 削除確認ダイアログの表示状態
 const showDeleteDialog = ref(false);
+
+// 閉じる確認ダイアログの表示状態
+const showCloseConfirmDialog = ref(false);
 
 // 予約があるかどうか (null でなければ予約がある)
 // ただし id === -1 の場合は mock の予約なので、実際には予約がない状態
@@ -286,10 +318,17 @@ watch(isVisible, (newValue) => {
 // 閉じる処理
 const handleClose = () => {
     if (hasChanges.value) {
-        // 変更がある場合は確認
-        const confirmed = confirm('変更が保存されていません。ドロワーを閉じますか？');
-        if (!confirmed) return;
+        // 変更がある場合は確認ダイアログを表示
+        showCloseConfirmDialog.value = true;
+        return;
     }
+    isVisible.value = false;
+};
+
+// 閉じる確認
+const confirmClose = () => {
+    showCloseConfirmDialog.value = false;
+    hasChanges.value = false;
     isVisible.value = false;
 };
 
