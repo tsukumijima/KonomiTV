@@ -54,37 +54,39 @@
             <Navigation :icon-only="!Utils.isSmartphoneVertical()" />
             <div class="timetable-container" :class="{'timetable-container--loading': timetableStore.is_loading}">
                 <SPHeaderBar />
-                <!-- スマホ縦画面用コントロールバー -->
+                <!-- スマホ/タブレット用コントロールバー -->
                 <div class="timetable-controls-mobile" v-if="isCompactControls">
-                    <v-select class="timetable-controls-mobile__channel-type" variant="outlined" density="compact" hide-details
-                        :items="channelTypeItems" v-model="selectedChannelTypeDisplay"
-                        @update:model-value="onChannelTypeChange">
-                    </v-select>
-                    <div class="timetable-controls-mobile__date">
-                        <v-menu v-model="isDateMenuOpen" :close-on-content-click="false">
-                            <template #activator="{ props }">
-                                <v-btn variant="flat" class="timetable-controls-mobile__date-button" size="small" v-bind="props">
-                                    {{ formattedSelectedDate }}
-                                </v-btn>
-                            </template>
-                            <v-date-picker v-model="selectedDateForPicker" color="primary"
-                                :min="datePickerMinDate" :max="datePickerMaxDate"
-                                :allowed-dates="isDateSelectable"
-                                @update:model-value="onDatePickerChange">
-                            </v-date-picker>
-                        </v-menu>
+                    <div class="timetable-controls-mobile__inner">
+                        <v-select class="timetable-controls-mobile__channel-type" variant="outlined" density="compact" hide-details
+                            :items="channelTypeItems" v-model="selectedChannelTypeDisplay"
+                            @update:model-value="onChannelTypeChange">
+                        </v-select>
+                        <div class="timetable-controls-mobile__date">
+                            <v-menu v-model="isDateMenuOpen" :close-on-content-click="false">
+                                <template #activator="{ props }">
+                                    <v-btn variant="flat" class="timetable-controls-mobile__date-button" size="small" v-bind="props">
+                                        {{ formattedSelectedDate }}
+                                    </v-btn>
+                                </template>
+                                <v-date-picker v-model="selectedDateForPicker" color="primary"
+                                    :min="datePickerMinDate" :max="datePickerMaxDate"
+                                    :allowed-dates="isDateSelectable"
+                                    @update:model-value="onDatePickerChange">
+                                </v-date-picker>
+                            </v-menu>
+                        </div>
+                        <v-select class="timetable-controls-mobile__time" variant="outlined" density="compact" hide-details
+                            :items="timeItems" v-model="selectedTimeDisplay"
+                            @update:model-value="onTimeChange">
+                        </v-select>
+                        <v-btn variant="flat" class="timetable-controls-mobile__now-button" icon size="small" @click="goToCurrentTime">
+                            <Icon icon="fluent:clock-20-regular" width="18px" />
+                        </v-btn>
+                        <v-btn variant="flat" class="timetable-controls-mobile__settings-button" icon size="small"
+                            @click="isSettingsDialogOpen = true">
+                            <Icon icon="fluent:settings-20-regular" width="18px" />
+                        </v-btn>
                     </div>
-                    <v-select class="timetable-controls-mobile__time" variant="outlined" density="compact" hide-details
-                        :items="timeItems" v-model="selectedTimeDisplay"
-                        @update:model-value="onTimeChange">
-                    </v-select>
-                    <v-btn variant="flat" class="timetable-controls-mobile__now-button" icon size="small" @click="goToCurrentTime">
-                        <Icon icon="fluent:clock-20-regular" width="18px" />
-                    </v-btn>
-                    <v-btn variant="flat" class="timetable-controls-mobile__settings-button" icon size="small"
-                        @click="isSettingsDialogOpen = true">
-                        <Icon icon="fluent:settings-20-regular" width="18px" />
-                    </v-btn>
                 </div>
                 <!-- 番組表グリッド -->
                 <TimeTableGrid
@@ -154,11 +156,11 @@ const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'E
 // UI 状態
 const isSettingsDialogOpen = ref(false);
 const isDateMenuOpen = ref(false);
+// タブレット横画面は幅的に PC 版ヘッダーコントロールが収まるので、PC 版を使用する
 const isCompactControls = computed(() => {
     return Utils.isSmartphoneVertical() ||
         Utils.isSmartphoneHorizontal() ||
-        Utils.isTabletVertical() ||
-        Utils.isTabletHorizontal();
+        Utils.isTabletVertical();
 });
 
 // 日付表示のオフセット
@@ -752,26 +754,38 @@ watch(() => timetableStore.selected_date, () => {
 
 // コンパクト表示向けの番組表コントロール
 .timetable-controls-mobile {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 10px 12px;
     background: rgb(var(--v-theme-background-lighten-1));
     border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
-
-    @include tablet-horizontal {
-        padding: 12px 16px 12px;
-    }
     @include tablet-vertical {
-        padding: 12px 16px 12px;
-    }
-    @include smartphone-horizontal {
-        gap: 4px;
-        padding: 8px 8px 10px;
+        border-left: 1px solid rgb(var(--v-theme-background-lighten-2));
     }
     @include smartphone-vertical {
         margin-top: 14px;
+    }
+
+    // 内側のコンテナ: 実際のコントロール要素を配置
+    // タブレット縦画面・スマホ横画面では max-width を制限して右寄せ
+    &__inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 10px 12px;
+        @include tablet-vertical {
+            gap: 10px;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-bottom: 10px;
+        }
+        @include smartphone-horizontal {
+            gap: 10px;
+            max-width: calc(100% - (210px - 60px));
+            margin-left: auto;
+            padding: 6px 10px 6px;
+        }
+        @include smartphone-horizontal-short {
+            max-width: calc(100% - (190px - 56px));
+        }
     }
 
     // 無効状態のアイコンボタンのスタイル
@@ -895,14 +909,20 @@ watch(() => timetableStore.selected_date, () => {
             opacity: 0 !important;
         }
 
-        @include tablet-horizontal {
-            min-width: 110px;
-        }
         @include tablet-vertical {
-            min-width: 110px;
+            width: 140px;
+            justify-content: flex-start;
+            flex-shrink: 0;
         }
         @include smartphone-horizontal {
-            min-width: 88px;
+            width: 140px;
+            justify-content: flex-start;
+            flex-shrink: 0;
+        }
+        @include smartphone-horizontal-short {
+            width: 110px;
+            justify-content: flex-start;
+            flex-shrink: 0;
         }
     }
 
@@ -923,14 +943,17 @@ watch(() => timetableStore.selected_date, () => {
             font-size: 14px;
         }
 
-        @include tablet-horizontal {
-            width: 80px;
-        }
         @include tablet-vertical {
-            width: 80px;
+            max-width: 140px;
+            flex-shrink: 0;
         }
         @include smartphone-horizontal {
-            width: 56px;
+            max-width: 140px;
+            flex-shrink: 0;
+        }
+        @include smartphone-horizontal-short {
+            max-width: 110px;
+            flex-shrink: 0;
         }
     }
 }
