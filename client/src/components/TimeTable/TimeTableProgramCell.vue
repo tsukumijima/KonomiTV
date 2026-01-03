@@ -254,15 +254,19 @@ const reservationButtonIcon = computed(() => {
 /**
  * 録画予約ボタンのラベル
  * 予約なし: 録画予約、予約あり有効: 予約を無効化、予約あり無効: 予約を有効化
+ * スマホ縦画面かつチャンネル幅が「標準」または「狭め」の場合は「有効化」「無効化」に短縮
  */
 const reservationButtonLabel = computed(() => {
     if (!hasReservation.value) {
         return '録画予約';
     }
+    // スマホ縦画面かつチャンネル幅が「標準」または「狭め」の場合は短縮表示
+    const shouldShorten = Utils.isSmartphoneVertical() &&
+        settingsStore.settings.timetable_channel_width !== 'Wide';
     if (isReservationDisabled.value) {
-        return '予約を有効化';
+        return shouldShorten ? '有効化' : '予約を有効化';
     }
-    return '予約を無効化';
+    return shouldShorten ? '無効化' : '予約を無効化';
 });
 
 /**

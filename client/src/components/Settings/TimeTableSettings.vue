@@ -63,7 +63,7 @@
                         <span class="ml-2">ショッピング・通販番組を控えめに表示する</span>
                     </label>
                     <label class="settings__item-label" for="timetable_dim_shopping_programs">
-                        「ショッピング・通販」ジャンルの番組を落ち着いた色合いで表示し、番組表の視認性を高めます。<br>
+                        「ショッピング・通販」ジャンルの番組をグレーで表示し、番組表の視認性を高めます。<br>
                     </label>
                     <v-switch class="settings__item-switch" color="primary" id="timetable_dim_shopping_programs" hide-details
                         v-model="dimShoppingPrograms">

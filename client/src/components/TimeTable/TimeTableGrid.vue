@@ -1132,15 +1132,23 @@ watch(() => timetableStore.display_start_time, (value) => {
         flex-grow: 1;
         overflow: auto;
         min-width: 0;
-        // ドラッグスクロールを有効化するため、ブラウザのデフォルトタッチ動作を無効化
-        // App.vue の html 要素に設定された touch-action: manipulation をオーバーライドする必要がある
-        // これにより、タッチデバイスでの縦横ドラッグスクロールが JavaScript で制御可能になる
-        touch-action: none !important;
         // App.vue の html 要素に設定された overscroll-behavior-x: none をオーバーライド
         // これにより、横方向のスクロールが正常に動作する
         overscroll-behavior: auto !important;
-        // ドラッグ中のカーソルスタイル
-        cursor: grab;
+
+        // PC (マウス操作可能なデバイス) では JavaScript によるドラッグスクロールを有効化
+        @media (hover: hover) {
+            // ブラウザのデフォルトタッチ動作を無効化して JS でスクロールを制御
+            touch-action: none !important;
+            cursor: grab;
+        }
+
+        // タッチデバイス (スマホ・タブレット) ではネイティブスクロールを使用
+        // タッチ操作でのスクロールはブラウザネイティブの方がスムーズで自然な動作になる
+        @media (hover: none) {
+            touch-action: pan-x pan-y !important;
+            cursor: default;
+        }
 
         // ドラッグ中状態: カーソルを grabbing に強制
         // 子要素 (番組セルなど) の cursor: pointer をオーバーライドするため !important を使用
@@ -1150,14 +1158,6 @@ watch(() => timetableStore.display_start_time, (value) => {
             * {
                 cursor: grabbing !important;
             }
-        }
-
-        // スマホではネイティブスクロールを優先し、ドラッグ処理を行わない
-        @include smartphone-horizontal {
-            touch-action: pan-x pan-y !important;
-        }
-        @include smartphone-vertical {
-            touch-action: pan-x pan-y !important;
         }
     }
 
@@ -1189,6 +1189,7 @@ watch(() => timetableStore.display_start_time, (value) => {
         top: 0;
         left: 0;
         background: rgb(var(--v-theme-background-lighten-1));
+        border-left: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-right: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         z-index: 40;
@@ -1258,23 +1259,23 @@ watch(() => timetableStore.display_start_time, (value) => {
     }
 
     &__next-day-button {
-        bottom: 20px;
+        bottom: 16px;
         @include smartphone-vertical {
             // スマホ縦画面ではボトムナビゲーションバーの上に配置
-            bottom: calc(56px + 20px + env(safe-area-inset-bottom));
+            bottom: calc(56px + 14px + env(safe-area-inset-bottom));
         }
     }
 
     &__prev-day-button {
         // ヘッダー (65px) + チャンネルヘッダー + 余白
-        top: calc(65px + var(--timetable-channel-header-height) + 20px);
+        top: calc(65px + var(--timetable-channel-header-height) + 12px);
         @include smartphone-horizontal {
             // スマホ横画面ではヘッダーなし
-            top: calc(48px + var(--timetable-channel-header-height) + 20px);
+            top: calc(48px + var(--timetable-channel-header-height) + 8px);
         }
         @include smartphone-vertical {
             // スマホ縦画面ではヘッダーなし、モバイルコントロールバーの高さを考慮
-            top: calc(48px + 72px + var(--timetable-channel-header-height) + 24px);
+            top: calc(48px + 72px + var(--timetable-channel-header-height) + 8px);
         }
     }
 }

@@ -275,14 +275,20 @@ export class TimeTableUtils {
 
     /**
      * 現在のデバイスタイプを判定する
+     * タブレット横画面は幅的に PC 版のレイアウトが適切なため、'PC' として扱う
      * @returns デバイスタイプ (PC/Tablet/Smartphone)
      */
     static getDeviceType(): DeviceType {
         const width = window.innerWidth;
+        const isLandscape = window.matchMedia('(orientation: landscape)').matches;
 
         if (width < 600) {
             return 'Smartphone';
         } else if (width < 1280) {
+            // タブレット横画面 (960px以上の幅 & 横向き) は PC 扱いにする
+            if (isLandscape && width >= 960) {
+                return 'PC';
+            }
             return 'Tablet';
         } else {
             return 'PC';
