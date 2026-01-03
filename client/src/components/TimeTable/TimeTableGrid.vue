@@ -72,6 +72,7 @@
                                 :isSelected="selectedProgramId === program.id"
                                 :isPast="isPastProgram(program)"
                                 :is36HourDisplay="props.is36HourDisplay"
+                                :isNextReserved="isNextProgramReserved(channelData, program, false)"
                                 @click="onProgramClick(program)"
                                 @show-detail="$emit('show-program-detail', program.id, channelData, program)"
                                 @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
@@ -82,13 +83,13 @@
                         <template v-if="hasSubchannels(channelData)">
                             <template v-for="program in getSubchannelPrograms(channelData)" :key="program.id">
                                 <TimeTableProgramCell
-                                v-if="isProgramVisible(program)"
-                                :program="program"
-                                :channel="channelData.channel"
-                                :hourHeight="hourHeight"
-                                :channelWidth="getProgramCellWidth(channelData, program, true)"
-                                :fullChannelWidth="channelWidth"
-                                :isSplit="getSplitState(channelData, program, true)"
+                                    v-if="isProgramVisible(program)"
+                                    :program="program"
+                                    :channel="channelData.channel"
+                                    :hourHeight="hourHeight"
+                                    :channelWidth="getProgramCellWidth(channelData, program, true)"
+                                    :fullChannelWidth="channelWidth"
+                                    :isSplit="getSplitState(channelData, program, true)"
                                     :viewportHeight="viewportHeight"
                                     :channelHeaderHeight="channelHeaderHeight"
                                     :isScrollAtBottom="isScrollAtBottom"
@@ -96,6 +97,7 @@
                                     :isSelected="selectedProgramId === program.id"
                                     :isPast="isPastProgram(program)"
                                     :is36HourDisplay="props.is36HourDisplay"
+                                    :isNextReserved="isNextProgramReserved(channelData, program, true)"
                                     @click="onProgramClick(program)"
                                     @show-detail="$emit('show-program-detail', program.id, channelData, program)"
                                     @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
@@ -446,6 +448,30 @@ function getSubchannelPrograms(channelData: ITimeTableChannel): ITimeTableProgra
 function isPastProgram(program: ITimeTableProgram): boolean {
     const end_time = dayjs(program.end_time);
     return end_time.isBefore(dayjs());
+}
+
+/**
+ * 次の番組が予約されているかを判定
+ * 隣り合う予約済み番組の border 重複を避けるために使用
+ * @param channelData チャンネルデータ
+ * @param program 対象の番組
+ * @param isSubchannel サブチャンネルかどうか
+ * @returns 次の番組が予約されている場合は true
+ */
+function isNextProgramReserved(
+    channelData: ITimeTableChannel,
+    program: ITimeTableProgram,
+    isSubchannel: boolean,
+): boolean {
+    // 対象の番組リストを取得
+    const programs = isSubchannel ? getSubchannelPrograms(channelData) : channelData.programs;
+    // 現在の番組の終了時刻と一致する開始時刻を持つ番組を探す
+    const programEndTime = dayjs(program.end_time).valueOf();
+    const nextProgram = programs.find((p) => {
+        return dayjs(p.start_time).valueOf() === programEndTime;
+    });
+    // 次の番組が存在し、予約されている場合は true
+    return nextProgram !== undefined && nextProgram.reservation !== null;
 }
 
 /**

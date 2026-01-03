@@ -12,6 +12,7 @@
             'timetable-program-cell--unavailable': isUnavailableRecording,
             'timetable-program-cell--disabled': isReservationDisabled,
             'timetable-program-cell--shopping': isShoppingProgram,
+            'timetable-program-cell--next-reserved': hasReservation && isNextReserved,
         }"
         :style="cellStyle"
         @click="onClick"
@@ -131,6 +132,7 @@ const props = defineProps<{
     isSelected: boolean;
     isPast: boolean;
     is36HourDisplay?: boolean;  // 36時間表示モードかどうか
+    isNextReserved?: boolean;  // 次の番組も予約されているか (border 重複回避用)
 }>();
 
 // Emits
@@ -254,15 +256,20 @@ const reservationButtonIcon = computed(() => {
 /**
  * 録画予約ボタンのラベル
  * 予約なし: 録画予約、予約あり有効: 予約を無効化、予約あり無効: 予約を有効化
- * スマホ縦画面かつチャンネル幅が「標準」または「狭め」の場合は「有効化」「無効化」に短縮
+ * チャンネル幅が狭い画面では「有効化」「無効化」に短縮
  */
 const reservationButtonLabel = computed(() => {
     if (!hasReservation.value) {
         return '録画予約';
     }
-    // スマホ縦画面かつチャンネル幅が「標準」または「狭め」の場合は短縮表示
-    const shouldShorten = Utils.isSmartphoneVertical() &&
-        settingsStore.settings.timetable_channel_width !== 'Wide';
+    // チャンネル幅が狭い画面では短縮表示
+    // - スマホ縦画面: 「標準」または「狭め」の場合
+    // - スマホ横画面・タブレット縦画面: 「狭め」の場合
+    const isNarrow = settingsStore.settings.timetable_channel_width === 'Narrow';
+    const isNotWide = settingsStore.settings.timetable_channel_width !== 'Wide';
+    const shouldShorten =
+        (Utils.isSmartphoneVertical() && isNotWide) ||
+        ((Utils.isSmartphoneHorizontal() || Utils.isTabletVertical()) && isNarrow);
     if (isReservationDisabled.value) {
         return shouldShorten ? '有効化' : '予約を有効化';
     }
@@ -549,27 +556,32 @@ watch(isExpanded, async (value) => {
 
     // 予約あり
     &--reserved {
-        border: 2.5px dashed rgb(var(--v-theme-secondary));
+        border: 3.8px dashed rgb(var(--v-theme-secondary));
     }
 
     // 録画中
     &--recording {
-        border: 2.5px dashed rgb(var(--v-theme-secondary));
+        border: 3.8px dashed rgb(var(--v-theme-secondary));
     }
 
     // 一部のみ録画
     &--partial {
-        border: 2.5px dashed rgb(var(--v-theme-warning));
+        border: 3.8px dashed rgb(var(--v-theme-warning));
     }
 
     // 録画不可
     &--unavailable {
-        border: 2.5px dashed rgb(var(--v-theme-error));
+        border: 3.8px dashed rgb(var(--v-theme-error));
     }
 
     // 予約無効
     &--disabled {
-        border: 2.5px dashed rgb(var(--v-theme-text-darken-2));
+        border: 3.8px dashed rgb(var(--v-theme-text-darken-2));
+    }
+
+    // 次の番組も予約されている場合は border-bottom を非表示にして重複を避ける
+    &--next-reserved {
+        border-bottom: none;
     }
 
     // ジャンルハイライト縦線 (REGZA 風)
