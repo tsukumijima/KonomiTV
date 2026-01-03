@@ -34,6 +34,8 @@ const props = defineProps<{
     channel: ITimeTableChannel['channel'];
     width: number;
     height: number;
+    // ウィンドウリサイズ時に再計算をトリガーするためのカウンター (親から受け取る)
+    resizeTrigger: number;
 }>();
 
 const logoWidth = computed(() => {
@@ -49,6 +51,8 @@ const numberFontSize = computed(() => {
 });
 
 const nameFontSize = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = props.resizeTrigger;
     return Math.min(13.5, Math.max(Utils.isSmartphoneVertical() ? 10 : 12, props.width * 0.08));
 });
 

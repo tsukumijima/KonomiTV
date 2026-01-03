@@ -29,6 +29,7 @@
                         :channel="channelData.channel"
                         :width="channelWidth"
                         :height="channelHeaderHeight"
+                        :resizeTrigger="windowResizeCounter"
                     />
                     </div>
                 </div>
@@ -73,6 +74,7 @@
                                 :isPast="isPastProgram(program)"
                                 :is36HourDisplay="props.is36HourDisplay"
                                 :isNextReserved="isNextProgramReserved(channelData, program, false)"
+                                :resizeTrigger="windowResizeCounter"
                                 @click="onProgramClick(program)"
                                 @show-detail="$emit('show-program-detail', program.id, channelData, program)"
                                 @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
@@ -98,6 +100,7 @@
                                     :isPast="isPastProgram(program)"
                                     :is36HourDisplay="props.is36HourDisplay"
                                     :isNextReserved="isNextProgramReserved(channelData, program, true)"
+                                    :resizeTrigger="windowResizeCounter"
                                     @click="onProgramClick(program)"
                                     @show-detail="$emit('show-program-detail', program.id, channelData, program)"
                                     @quick-reserve="$emit('quick-reserve', program.id, channelData, program)"
@@ -199,6 +202,25 @@ let stickyObserveAnimationId: number | null = null;
 const STICKY_MIN_VISIBLE_HEIGHT = 60;
 const STICKY_BASE_PADDING = 2;
 
+// ウィンドウリサイズ時にリアクティブに再計算をトリガーするためのカウンター
+// window.innerWidth や window.matchMedia() の結果は Vue のリアクティブシステムでは追跡されないため、
+// リサイズイベント発火時にこのカウンターをインクリメントし、computed がこの値を参照することで再計算をトリガーする
+const windowResizeCounter = ref(0);
+
+// リサイズイベントハンドラー (デバウンス処理付き)
+let resizeDebounceTimerId: number | null = null;
+const RESIZE_DEBOUNCE_MS = 100;
+function onWindowResize() {
+    // デバウンス処理: 連続したリサイズイベントを間引く
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+    }
+    resizeDebounceTimerId = window.setTimeout(() => {
+        windowResizeCounter.value++;
+        resizeDebounceTimerId = null;
+    }, RESIZE_DEBOUNCE_MS);
+}
+
 // ドラッグスクロール用の状態
 const isDragging = ref(false);
 const isPointerDown = ref(false);
@@ -226,8 +248,13 @@ const DRAG_THRESHOLD = 5;  // ドラッグと判定する閾値 (px)
 
 /**
  * デバイスタイプ
+ * windowResizeCounter を参照することで、リサイズイベント発火時に再計算がトリガーされる
  */
-const deviceType = computed(() => TimeTableUtils.getDeviceType());
+const deviceType = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = windowResizeCounter.value;
+    return TimeTableUtils.getDeviceType();
+});
 
 /**
  * チャンネル列の幅
@@ -265,8 +292,11 @@ const channelHeaderHeight = computed(() => {
 
 /**
  * 時刻スケールの幅
+ * Utils.isSmartphoneVertical() も window.matchMedia() を使用しているため、リサイズ時の再計算が必要
  */
 const timeScaleWidth = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = windowResizeCounter.value;
     return TimeTableUtils.getTimeScaleWidth(
         deviceType.value,
         Utils.isSmartphoneVertical(),
@@ -1051,6 +1081,10 @@ defineExpose({
 
 // ライフサイクル
 onMounted(async () => {
+    // ウィンドウリサイズイベントリスナーを登録
+    // 画面回転やウィンドウサイズ変更時に、デバイスタイプ判定などの再計算をトリガーする
+    window.addEventListener('resize', onWindowResize);
+
     // wheel イベントを passive: false で登録
     // Vue 3 のデフォルトでは wheel イベントは passive: true で登録されるため、
     // event.preventDefault() が効かない。手動で { passive: false } を指定して登録することで、
@@ -1075,6 +1109,14 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+    // ウィンドウリサイズイベントリスナーを解除
+    window.removeEventListener('resize', onWindowResize);
+    // デバウンスタイマーをクリア
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+        resizeDebounceTimerId = null;
+    }
+
     // wheel イベントリスナーを解除
     if (scrollAreaRef.value !== null) {
         scrollAreaRef.value.removeEventListener('wheel', onWheel);
@@ -1197,7 +1239,7 @@ watch(() => timetableStore.display_start_time, (value) => {
     &__header-row {
         display: flex;
         position: sticky;
-        top: 0;
+        top: -0.1px;  // レンダリングによってはわずかに下が見えてしまう問題の対策
         left: 0;
         z-index: 35;
         background: rgb(var(--v-theme-background-lighten-1));

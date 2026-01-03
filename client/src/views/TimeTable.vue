@@ -51,7 +51,7 @@
             </template>
         </HeaderBar>
         <main>
-            <Navigation :icon-only="!Utils.isSmartphoneVertical()" />
+            <Navigation :icon-only="isNavigationIconOnly" />
             <div class="timetable-container" :class="{'timetable-container--loading': timetableStore.is_loading}">
                 <SPHeaderBar />
                 <!-- スマホ/タブレット用コントロールバー -->
@@ -156,11 +156,40 @@ const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'E
 // UI 状態
 const isSettingsDialogOpen = ref(false);
 const isDateMenuOpen = ref(false);
+
+// ウィンドウリサイズ時にリアクティブに再計算をトリガーするためのカウンター
+// window.innerWidth や window.matchMedia() の結果は Vue のリアクティブシステムでは追跡されないため、
+// リサイズイベント発火時にこのカウンターをインクリメントし、computed がこの値を参照することで再計算をトリガーする
+const windowResizeCounter = ref(0);
+
+// リサイズイベントハンドラー (デバウンス処理付き)
+let resizeDebounceTimerId: number | null = null;
+const RESIZE_DEBOUNCE_MS = 100;
+function onWindowResize() {
+    // デバウンス処理: 連続したリサイズイベントを間引く
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+    }
+    resizeDebounceTimerId = window.setTimeout(() => {
+        windowResizeCounter.value++;
+        resizeDebounceTimerId = null;
+    }, RESIZE_DEBOUNCE_MS);
+}
+
 // タブレット横画面は幅的に PC 版ヘッダーコントロールが収まるので、PC 版を使用する
 const isCompactControls = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = windowResizeCounter.value;
     return Utils.isSmartphoneVertical() ||
         Utils.isSmartphoneHorizontal() ||
         Utils.isTabletVertical();
+});
+
+// Navigation の icon-only 判定 (リサイズ対応)
+const isNavigationIconOnly = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = windowResizeCounter.value;
+    return !Utils.isSmartphoneVertical();
 });
 
 // 日付表示のオフセット
@@ -531,6 +560,10 @@ async function onQuickReserve(programId: string, channelData: ITimeTableChannel,
 
 // ライフサイクル
 onMounted(async () => {
+    // ウィンドウリサイズイベントリスナーを登録
+    // 画面回転やウィンドウサイズ変更時に、レイアウト判定の再計算をトリガーする
+    window.addEventListener('resize', onWindowResize);
+
     // サーバー設定を取得（バックエンド種別の判定用）
     await serverSettingsStore.fetchServerSettingsOnce();
 
@@ -539,6 +572,14 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    // ウィンドウリサイズイベントリスナーを解除
+    window.removeEventListener('resize', onWindowResize);
+    // デバウンスタイマーをクリア
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+        resizeDebounceTimerId = null;
+    }
+
     // ストアの状態をリセット
     timetableStore.reset();
 });

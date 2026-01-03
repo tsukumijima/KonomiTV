@@ -133,6 +133,8 @@ const props = defineProps<{
     isPast: boolean;
     is36HourDisplay?: boolean;  // 36時間表示モードかどうか
     isNextReserved?: boolean;  // 次の番組も予約されているか (border 重複回避用)
+    // ウィンドウリサイズ時に再計算をトリガーするためのカウンター (親から受け取る)
+    resizeTrigger: number;
 }>();
 
 // Emits
@@ -161,6 +163,8 @@ const RESERVATION_DISABLED_ICON = 'mdi:timer-pause-outline';
  * ホバー展開設定に関わらずホバーによる展開を無効化する
  */
 const isExpanded = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = props.resizeTrigger;
     if (Utils.isTouchDevice()) {
         return props.isSelected;
     }
@@ -259,6 +263,8 @@ const reservationButtonIcon = computed(() => {
  * チャンネル幅が狭い画面では「有効化」「無効化」に短縮
  */
 const reservationButtonLabel = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = props.resizeTrigger;
     if (!hasReservation.value) {
         return '録画予約';
     }
