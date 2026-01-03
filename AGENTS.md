@@ -4,7 +4,8 @@
 
 - yarn や poetry はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
 - サーバー側では poetry を使っているので、python コマンドは必ず全て poetry run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
-- 開発サーバーは `yarn dev` で起動し、URL は `https://my.local.konomi.tv:7001` を使用します。
+- 開発サーバーは `yarn dev` で起動します。
+- クライアントの開発サーバーは `https://my.local.konomi.tv:7001` でリッスンされるので (Akebi HTTPS Server による HTTPS リバースプロキシが同時に起動されるため) 、Chrome DevTools MCP では `https://my.local.konomi.tv:7001` を使ってアクセスしてください。
 
 ## 技術スタック
 
