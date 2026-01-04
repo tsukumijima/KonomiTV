@@ -1,4 +1,3 @@
-# ruff: noqa: RUF012
 
 # Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142
