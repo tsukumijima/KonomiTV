@@ -449,6 +449,11 @@ const handleAddReservation = async () => {
         border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-top-left-radius: 16px;
         overflow: hidden;
+        // iOS アプリ（Capacitor）ではセーフエリアを考慮
+        body.capacitor-ios & {
+            padding-top: env(safe-area-inset-top);
+            height: calc(48px + env(safe-area-inset-top));
+        }
     }
 
     &__tabs {
@@ -553,6 +558,11 @@ const handleAddReservation = async () => {
         border-top: 1px solid rgb(var(--v-theme-background-lighten-2));
         border-bottom-left-radius: 16px;
         overflow: hidden;
+        // iOS アプリ（Capacitor）ではセーフエリアを考慮
+        body.capacitor-ios & {
+            padding-bottom: env(safe-area-inset-bottom);
+            height: calc(52px + env(safe-area-inset-bottom));
+        }
     }
 
     &__actions {

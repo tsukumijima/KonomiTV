@@ -91,6 +91,22 @@ html {
     }
 }
 
+// iOS アプリ（Capacitor）向けのスタイル
+body.capacitor-ios {
+    html {
+        height: 100%;
+        width: 100%;
+        position: fixed;
+        overflow: hidden;
+    }
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    // セーフエリア全体に背景色を適用
+    background: rgb(var(--v-theme-background)) !important;
+}
+
 // アプリケーションのルート
 .v-application {
     min-height: 100vh;
@@ -109,6 +125,69 @@ html {
     }
 }
 
+// iOS アプリ（Capacitor）でセーフエリアのパディングを追加
+body.capacitor-ios .v-application {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    // iOS アプリではヘッダーとボトムナビを固定し、内部コンテンツのみスクロール
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+// iOS アプリ（Capacitor）でルートコンテナのスクロール設定
+// 視聴画面（.watch-container を含む）以外に適用
+body.capacitor-ios .route-container:not(:has(.watch-container)) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+// iOS アプリ（Capacitor）でメインコンテンツのスクロール設定
+// 視聴画面（.watch-container を含む）以外に適用
+body.capacitor-ios .route-container:not(:has(.watch-container)) main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+// iOS アプリ（Capacitor）の視聴画面ではルートコンテナも main も通常レイアウト
+body.capacitor-ios .route-container:has(.watch-container) {
+    display: block;
+    height: 100%;
+    overflow: hidden;
+}
+
+body.capacitor-ios .route-container:has(.watch-container) main.watch-container {
+    overflow: hidden;
+}
+
+// iOS アプリ（Capacitor）のフルスクリーン時はプレイヤーのみを表示（YouTube 風）
+body.capacitor-ios .watch-container--fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    background: #000 !important;
+    // セーフエリアのパディングを無効化（プレイヤーが画面全体を使用）
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+// iOS アプリ（Capacitor）のフルスクリーン時は .v-application のセーフエリアパディングも無効化
+body.capacitor-ios:has(.watch-container--fullscreen) .v-application {
+    padding: 0 !important;
+}
+
 // ヘッダー以外のメインコンテンツのルート
 body main {
     display: flex;
@@ -125,6 +204,13 @@ body header + main {
     @include smartphone-vertical {
         padding-top: 0px !important;
         padding-bottom: calc(env(safe-area-inset-bottom) + 56px) !important;
+    }
+}
+
+// iOS アプリ（Capacitor）では .v-application でセーフエリアが適用されるため、ボトムナビゲーション分のみ追加
+body.capacitor-ios header + main {
+    @include smartphone-vertical {
+        padding-bottom: 56px !important;
     }
 }
 

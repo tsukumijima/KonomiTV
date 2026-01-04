@@ -19,6 +19,8 @@
         </main>
         <KeyboardShortcutList :playback_mode="playback_mode" />
         <LShapedScreenCropSettings />
+        <!-- iOS アプリでは Watch Panel のナビゲーションを使用するため、BottomNavigation は非表示 -->
+        <BottomNavigation v-show="!playerStore.is_fullscreen && !is_capacitor_ios" />
     </div>
 </template>
 <script lang="ts">
@@ -32,6 +34,7 @@ import LShapedScreenCropSettings from '@/components/Watch/LShapedScreenCropSetti
 import WatchNavigation from '@/components/Watch/Navigation.vue';
 import WatchPanel from '@/components/Watch/Panel.vue';
 import WatchPlayer from '@/components/Watch/Player.vue';
+import BottomNavigation from '@/components/BottomNavigation.vue';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
@@ -46,6 +49,7 @@ export default defineComponent({
         WatchNavigation,
         WatchPanel,
         WatchPlayer,
+        BottomNavigation,
     },
     props: {
         playback_mode: {
@@ -57,6 +61,8 @@ export default defineComponent({
         return {
             // ユーティリティをテンプレートで使えるように
             Utils: Object.freeze(Utils),
+            // iOS アプリ（Capacitor）かどうか
+            is_capacitor_ios: document.body.classList.contains('capacitor-ios'),
         };
     },
     computed: {
@@ -93,6 +99,15 @@ export default defineComponent({
     },
     // 終了前に実行
     beforeUnmount() {
+
+        // iOS アプリ（Capacitor）の場合、視聴ページから離れる際は再生を停止
+        // ページ遷移時に PiP ではなく再生を止める要件のため
+        if (document.body.classList.contains('capacitor-ios')) {
+            const video = document.querySelector<HTMLVideoElement>('.watch-player__dplayer video');
+            if (video && !video.paused) {
+                video.pause();
+            }
+        }
 
         // PlayerStore に視聴画面を閉じたことを伝える
         this.playerStore.stopWatching();
@@ -253,6 +268,11 @@ export default defineComponent({
 
 // フルスクリーン時 + コントロール表示時
 .watch-container.watch-container--fullscreen.watch-container--control-display {
+    // コントロール表示時はヘッダー（タイトル）も表示（scoped スタイルより優先度を上げる）
+    .watch-content > .watch-header {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
     .watch-player__dplayer {
         .dplayer-notice, .dplayer-info-panel {
             left: 30px !important;
@@ -354,7 +374,6 @@ export default defineComponent({
 .route-container {
     height: 100vh !important;
     height: 100dvh !important;
-    border-bottom: env(safe-area-inset-bottom) solid rgb(var(--v-theme-background));  // Home Indicator 分浮かせる余白の背景色
     background: rgb(var(--v-theme-black)) !important;
     overflow: hidden;
     // タブレット横画面・スマホ横画面のみ Home Indicator 分浮かせる余白の背景色を rgb(var(--v-theme-black)) にする
@@ -382,6 +401,24 @@ export default defineComponent({
     @include smartphone-vertical {
         flex-direction: column;
         width: 100%;
+        // BottomNavigation の高さ分 (56px) + セーフエリア分の余白を追加
+        // これがないと BottomNavigation とコンテンツが被ってしまう
+        &:not(.watch-container--fullscreen) {
+            padding-bottom: calc(56px + env(safe-area-inset-bottom));
+        }
+    }
+
+    // iOS アプリ（Capacitor）向けのスタイル
+    // .v-application でセーフエリアが適用されているが、視聴ページでは別途対応が必要
+    body.capacitor-ios & {
+        @include smartphone-vertical {
+            &:not(.watch-container--fullscreen) {
+                // iOS アプリでは .v-application のセーフエリアパディング内にいるため、
+                // BottomNavigation の高さ分のみ確保すれば良い
+                // セーフエリアは BottomNavigation 側で対応する
+                padding-bottom: 56px;
+            }
+        }
     }
 
     // コントロール表示時
@@ -443,18 +480,88 @@ export default defineComponent({
         .watch-navigation {
             display: none;
         }
+        // ヘッダーをオーバーレイ表示（コントロール非表示時は自動で消える）
+        .watch-header {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            z-index: 10 !important;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent) !important;
+            padding-top: env(safe-area-inset-top) !important;
+            padding-left: calc(env(safe-area-inset-left) + 16px) !important;
+            padding-right: calc(env(safe-area-inset-right) + 16px) !important;
+            // 初期状態は非表示（コントロール表示時に visible になる）
+            // transition でフェードイン・フェードアウトを実現
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        // パネルを非表示
+        .watch-panel {
+            display: none !important;
+        }
+        // パネル表示切り替えボタンを非表示
+        .switch-button-panel {
+            display: none !important;
+        }
+        // フルスクリーン時はサイドバー表示ボタン（.watch-player__button）を非表示
+        .watch-player__button {
+            display: none !important;
+        }
+
         // ナビゲーションの分の余白を削除
         .watch-content {
+            width: 100% !important;
+            height: 100% !important;
             .watch-header {
-                padding-left: 30px;
-                @include tablet-vertical {
-                    padding-left: 16px;
-                }
-                @include smartphone-horizontal {
-                    padding-left: 16px;
-                }
-                @include smartphone-horizontal {
-                    padding-left: 16px;
+                // 上書き
+            }
+            .watch-player {
+                width: 100% !important;
+                height: 100% !important;
+
+                // iOS Capacitor アプリのフルスクリーン時: コントローラー・シークバーをセーフエリアに合わせる
+                // 映像の表示領域（セーフエリア内）に合わせてコントローラーを配置
+                body.capacitor-ios & {
+                    // コントローラーの下部・左右にセーフエリア分の余白を追加
+                    .dplayer-controller {
+                        padding-bottom: calc(env(safe-area-inset-bottom) + 6px) !important;
+                        padding-left: calc(env(safe-area-inset-left) + 16px) !important;
+                        padding-right: calc(env(safe-area-inset-right) + 16px) !important;
+                    }
+                    &.dplayer-mobile .dplayer-controller {
+                        padding-bottom: calc(env(safe-area-inset-bottom) + 6px) !important;
+                        padding-left: calc(env(safe-area-inset-left) + 16px) !important;
+                        padding-right: calc(env(safe-area-inset-right) + 16px) !important;
+                    }
+                    // コントローラーマスク（グラデーション背景）もセーフエリア対応
+                    .dplayer-controller-mask {
+                        height: calc(82px + env(safe-area-inset-bottom)) !important;
+                        padding-left: env(safe-area-inset-left) !important;
+                        padding-right: env(safe-area-inset-right) !important;
+                    }
+                    // シークバーの幅もセーフエリア対応（プレイヤーの横幅に合わせる）
+                    .dplayer-bar-wrap {
+                        width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 32px) !important;
+                        left: calc(env(safe-area-inset-left) + 16px) !important;
+                    }
+                    &.dplayer-mobile .dplayer-bar-wrap {
+                        width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 32px) !important;
+                        left: calc(env(safe-area-inset-left) + 16px) !important;
+                    }
+                    // 左側のアイコン群（時間表示・音量など）のセーフエリア対応
+                    .dplayer-icons-left {
+                        left: calc(env(safe-area-inset-left) + 16px) !important;
+                    }
+                    // 右側のアイコン群のセーフエリア対応
+                    .dplayer-icons-right {
+                        right: calc(env(safe-area-inset-right) + 16px) !important;
+                    }
+                    // コメント入力欄のセーフエリア対応
+                    .dplayer-comment-box {
+                        left: calc(env(safe-area-inset-left) + 16px) !important;
+                    }
                 }
             }
         }

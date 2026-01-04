@@ -51,18 +51,27 @@
         padding-bottom: env(safe-area-inset-bottom);
         box-sizing: content-box;
     }
+}
 
-    .v-btn.bottom-navigation-button {
-        flex-basis: 0;  // 均等に割り振る
-        min-width: 75px !important;
-        padding: 0 !important;
-        color: rgb(var(--v-theme-text-darken-1)) !important;
-        font-weight: bold;
-        font-size: 10.5px;
+// iOS アプリ（Capacitor）向けのスタイル
+// セーフエリアを確保するため、下部に余白を追加
+body.capacitor-ios .bottom-navigation-container {
+    @include smartphone-vertical {
+        // iOS アプリでは常にセーフエリア分のパディングを確保
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
 
-        &.v-btn--active {
-            color: rgb(var(--v-theme-primary)) !important;
-        }
+.v-btn.bottom-navigation-button {
+    flex-basis: 0;  // 均等に割り振る
+    min-width: 75px !important;
+    padding: 0 !important;
+    color: rgb(var(--v-theme-text-darken-1)) !important;
+    font-weight: bold;
+    font-size: 10.5px;
+
+    &.v-btn--active {
+        color: rgb(var(--v-theme-primary)) !important;
     }
 }
 

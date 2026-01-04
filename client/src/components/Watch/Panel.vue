@@ -301,16 +301,30 @@ export default defineComponent({
         flex-shrink: 0;
         height: 77px;
         background: rgb(var(--v-theme-background-lighten-1));
+        // iOS アプリ（Capacitor）ではセーフエリアを考慮
+        body.capacitor-ios & {
+            padding-bottom: env(safe-area-inset-bottom);
+            height: calc(77px + env(safe-area-inset-bottom));
+        }
         @include tablet-vertical {
             height: 66px;
             background: rgb(var(--v-theme-background));
+            body.capacitor-ios & {
+                height: calc(66px + env(safe-area-inset-bottom));
+            }
         }
         @include smartphone-horizontal {
             height: 34px;
+            body.capacitor-ios & {
+                height: calc(34px + env(safe-area-inset-bottom));
+            }
         }
         @include smartphone-vertical {
             height: 50px;
             background: rgb(var(--v-theme-background));
+            body.capacitor-ios & {
+                height: calc(50px + env(safe-area-inset-bottom));
+            }
         }
 
         .panel-navigation-button {

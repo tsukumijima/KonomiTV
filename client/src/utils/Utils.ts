@@ -2,8 +2,6 @@
 import { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 import { Capacitor } from '@capacitor/core';
 
-import useSettingsStore from '@/stores/SettingsStore';
-
 
 /**
  * 共通ユーティリティ
@@ -14,14 +12,39 @@ export default class Utils {
     // ビルド時の環境変数 (vue.config.js に記載) から取得
     static readonly version: string = import.meta.env.KONOMITV_VERSION;
 
-    // バックエンドの API のベース URL
-    // Worker からも参照できるように self.location を使う
-    static readonly api_base_url = (() => {
-        // Capacitor iOS アプリの場合、SettingsStore から動的に取得
-        if (Utils.isCapacitorIOS()) {
-            const settings_store = useSettingsStore();
-            if (settings_store.settings.ios_app_server_url) {
-                return `${settings_store.settings.ios_app_server_url}/api`;
+    // Capacitor プラットフォームの判定結果をキャッシュ（遅延初期化）
+    private static _isCapacitorIOSCached: boolean | null = null;
+
+    /**
+     * Capacitor iOS プラットフォーム判定の遅延初期化用プライベートメソッド
+     * 静的初期化時に Capacitor.getPlatform() を呼ぶとエラーになるため、初回アクセス時に判定する
+     */
+    private static _getCapacitorIOSStatus(): boolean {
+        if (Utils._isCapacitorIOSCached === null) {
+            Utils._isCapacitorIOSCached = Capacitor.getPlatform() === 'ios';
+            console.log('[Utils] Capacitor platform initialized:', Utils._isCapacitorIOSCached ? 'iOS' : 'Web');
+        }
+        return Utils._isCapacitorIOSCached;
+    }
+
+    /**
+     * バックエンドの API のベース URL を取得する (getter メソッド)
+     * Worker からも参照できるように self.location を使う
+     * Capacitor iOS アプリの場合は、LocalStorage から動的に取得する
+     */
+    static get api_base_url(): string {
+        // Capacitor iOS アプリの場合、LocalStorage から動的に取得
+        if (Utils._getCapacitorIOSStatus()) {
+            try {
+                const stored_settings = localStorage.getItem('KonomiTV-Settings');
+                if (stored_settings) {
+                    const settings = JSON.parse(stored_settings);
+                    if (settings.ios_app_server_url) {
+                        return `${settings.ios_app_server_url}/api`;
+                    }
+                }
+            } catch (error) {
+                console.error('[Utils] Failed to load settings from LocalStorage:', error);
             }
             // サーバー URL 未設定時はエラーを投げる（初回起動時は router のガードで設定画面へリダイレクト）
             throw new Error('Server URL is not configured. Please configure it in settings.');
@@ -34,7 +57,7 @@ export default class Utils {
             // ビルド後は同じポートを使う
             return `${self.location.protocol}//${self.location.host}/api`;
         }
-    })();
+    }
 
     // パフォーマンス最適化のため、apply28HourClock() で利用する正規表現を事前コンパイル
     private static readonly date_week_time_pattern = /(\d{4})\/(\d{2})\/(\d{2})\s+\((.)\)\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
@@ -109,8 +132,19 @@ export default class Utils {
      * @returns 変換後の文字列
      */
     static apply28HourClock(text: string): string {
-        const settings_store = useSettingsStore();
-        if (settings_store.settings.use_28hour_clock !== true) {
+        // Capacitor iOS アプリでも動作するよう、LocalStorage から直接読み込む
+        try {
+            const stored_settings = localStorage.getItem('KonomiTV-Settings');
+            if (stored_settings) {
+                const settings = JSON.parse(stored_settings);
+                if (settings.use_28hour_clock !== true) {
+                    return text;
+                }
+            } else {
+                return text;
+            }
+        } catch (error) {
+            // LocalStorage の読み込みに失敗した場合は変換しない
             return text;
         }
 
@@ -367,7 +401,7 @@ export default class Utils {
      * @returns Capacitor iOS アプリとして動作している場合は true を返す
      */
     static isCapacitorIOS(): boolean {
-        return Capacitor.getPlatform() === 'ios';
+        return Utils._getCapacitorIOSStatus();
     }
 
 

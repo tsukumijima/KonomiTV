@@ -27,6 +27,11 @@ import Utils from '@/utils';
 // Element.scrollInfoView() のオプション指定を使うために必要
 SeamlessScrollPolyfill();
 
+// iOS アプリ（Capacitor）の場合、body にクラスを追加
+if (Utils.isCapacitorIOS()) {
+    document.body.classList.add('capacitor-ios');
+}
+
 // ***** Vue アプリケーションの初期化 *****
 
 // Vue アプリケーションを作成
@@ -61,35 +66,35 @@ app.mount('#app');
 
 // ***** Service Worker のイベントを登録 *****
 
-const { updateServiceWorker } = useRegisterSW({
-    // Service Worker の登録に成功したとき
-    onRegisteredSW(registration) {
-        console.log('Service worker has been registered.');
-    },
-    // Service Worker の登録に失敗したとき
-    onRegisterError(error) {
-        console.error('Error during service worker registration:', error);
-    },
-    // PWA がオフラインで利用可能になったとき
-    onOfflineReady() {
-        console.log('Content has been cached for offline use.');
-    },
-    // PWA の更新が必要なとき
-    async onNeedRefresh() {
-        // iOS アプリモードでは自動更新を無効化（App Store 更新が主）
-        if (Utils.isCapacitorIOS()) {
-            console.log('iOS App mode: Service Worker auto-update disabled.');
-            return;
-        }
-
-        console.log('New content is available; please refresh.');
-        // リロードするまでトーストを表示し続ける
-        Message.show('クライアントが新しいバージョンに更新されました。5秒後にリロードします。', 10);  // 10秒間表示
-        await Utils.sleep(5);  // 5秒待つ
-        // PWA (Service Worker) を更新し、ページをリロードする
-        updateServiceWorker(true);
-    },
-});
+// iOS アプリ（Capacitor）では Service Worker を使用しない
+// WKWebView での Service Worker サポートは限定的で、InvalidStateError などのエラーが発生する可能性がある
+if (!Utils.isCapacitorIOS()) {
+    const { updateServiceWorker } = useRegisterSW({
+        // Service Worker の登録に成功したとき
+        onRegisteredSW(registration) {
+            console.log('Service worker has been registered.');
+        },
+        // Service Worker の登録に失敗したとき
+        onRegisterError(error) {
+            console.error('Error during service worker registration:', error);
+        },
+        // PWA がオフラインで利用可能になったとき
+        onOfflineReady() {
+            console.log('Content has been cached for offline use.');
+        },
+        // PWA の更新が必要なとき
+        async onNeedRefresh() {
+            console.log('New content is available; please refresh.');
+            // リロードするまでトーストを表示し続ける
+            Message.show('クライアントが新しいバージョンに更新されました。5秒後にリロードします。', 10);  // 10秒間表示
+            await Utils.sleep(5);  // 5秒待つ
+            // PWA (Service Worker) を更新し、ページをリロードする
+            updateServiceWorker(true);
+        },
+    });
+} else {
+    console.log('iOS App mode: Service Worker registration skipped.');
+}
 
 // ***** 設定データの同期 *****
 

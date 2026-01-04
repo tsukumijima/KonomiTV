@@ -5,7 +5,7 @@
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
                 <SPHeaderBar />
-                <div class="channels-tab">
+                <div class="channels-tab channels-tab--fixed">
                     <div class="channels-tab__buttons" :style="{
                         '--tab-length': Array.from(channelsStore.channels_list_with_pinned).length,
                         '--active-tab-index': active_tab_index,
@@ -18,7 +18,7 @@
                         <div class="channels-tab__highlight"></div>
                     </div>
                 </div>
-                <Swiper class="channels-list" :space-between="32" :auto-height="true" :touch-start-prevent-default="false"
+                <Swiper class="channels-list" :space-between="32" :auto-height="false" :touch-start-prevent-default="false"
                     :observer="true" :observe-parents="true"
                     @swiper="swiper_instance = $event"
                     @slide-change="active_tab_index = $event.activeIndex"
@@ -175,8 +175,6 @@ export default defineComponent({
     },
     watch: {
         active_tab_index() {
-            // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
-            this.swiper_instance?.updateAutoHeight();
             // 現在なアクティブなタブを Swiper 側に随時反映する
             // ローディング中のみスライドアニメーションを実行せずに即座に切り替える
             this.swiper_instance?.slideTo(this.active_tab_index, this.is_loading === true ? 0 : undefined);
@@ -215,14 +213,6 @@ export default defineComponent({
         if (this.channelsStore.channels_list_with_pinned.get('ピン留め')?.length === 0) {
             this.active_tab_index = 1;
         }
-
-        // content-visibility: auto の指定の関係でうまく計算されないことがある Swiper の autoHeight を強制的に再計算する
-        this.swiper_instance?.updateAutoHeight();
-
-        // 画面がスクロールされたときに Swiper の autoHeight を再計算する
-        window.addEventListener('scroll', () => {
-            this.swiper_instance?.updateAutoHeight();
-        }, { passive: true, signal: this.scroll_abort_controller.signal });
 
         // チャンネル情報の更新が終わったタイミングでローディング状態を解除する
         await Utils.sleep(0.01);  // 少し待たないとタブのハイライトがアニメーションされてしまう
@@ -280,15 +270,42 @@ export default defineComponent({
 </script>
 <style lang="scss" scoped>
 
+.route-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+
+    main {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+}
+
+// iOS アプリ（Capacitor）向けのスタイル
+// タブは固定されたまま、チャンネル一覧のみスクロール可能にする
+body.capacitor-ios {
+    .route-container {
+        // iOS アプリではセーフエリアが .v-application で適用されているため、
+        // ルートコンテナはセーフエリアを考慮した高さにする
+        height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+}
+
 .channels-container {
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 100%;  // 親要素の高さいっぱいに広げる
     min-width: 0;  // magic!
     margin-left: 21px;
     margin-right: 21px;
     opacity: 1;
     transition: opacity 0.2s;
+    overflow: hidden;  // チャンネル一覧以外はスクロールさせない
     @include smartphone-vertical {
         margin-left: 0px;
         margin-right: 0px;
@@ -326,9 +343,7 @@ export default defineComponent({
         --channels-tab-padding-bottom: 12px;
         display: flex;
         align-items: center;
-        position: sticky;
-        flex: none;
-        top: 65px;
+        flex-shrink: 0;  // タブは縮小しない
         height: var(--channels-tab-height);
         padding-top: 5px;
         padding-bottom: var(--channels-tab-padding-bottom);
@@ -347,12 +362,10 @@ export default defineComponent({
         );
 
         @include smartphone-horizontal {
-            top: 0px;
             padding-top: 0px;
             --channels-tab-padding-bottom: 8px;
         }
         @include smartphone-vertical {
-            top: 0px;
             padding-top: 0px;
             --channels-tab-padding-bottom: 10px;
         }
@@ -407,14 +420,14 @@ export default defineComponent({
 
     .channels-list {
         width: 100%;
-        // タブとボトムナビゲーション分の高さを引き、スクロールバーが出るよう 1px 足す
-        min-height: calc(100% - var(--channels-tab-height) + var(--bottom-navigation-height) + 1px);
+        flex: 1 1 auto;  // 残りのスペースを埋める
+        padding: 0 32px;
         padding-bottom: var(--channels-list-padding-bottom);
         background: transparent !important;
-        overflow: hidden;
+        overflow-y: auto;  // 縦方向のスクロールを有効化
+        overflow-x: hidden;
 
         @include smartphone-vertical {
-            min-height: calc(100% - 54px - var(--channels-tab-height) + var(--bottom-navigation-height) + 1px);
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -1009,7 +1022,8 @@ export default defineComponent({
     justify-content: center;
     align-items: center;
     position: fixed;
-    bottom: 72px;
+    // ボトムナビゲーション (56px) + セーフエリア + 余裕 (16px) 分上に配置
+    bottom: calc(56px + env(safe-area-inset-bottom) + 16px);
     right: 20px;
     padding: 12px 16px;
     background: rgb(var(--v-theme-background-lighten-2));

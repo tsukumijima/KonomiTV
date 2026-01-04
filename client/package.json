@@ -20,8 +20,10 @@
         "node": ">=20.16.0"
     },
     "dependencies": {
+        "@capacitor/app": "^8.0.0",
         "@capacitor/core": "^8.0.0",
         "@capacitor/ios": "^8.0.0",
+        "@capacitor/screen-orientation": "^8.0.0",
         "@github/mini-throttle": "^2.1.1",
         "@microsoft/fetch-event-source": "^2.0.1",
         "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.2",

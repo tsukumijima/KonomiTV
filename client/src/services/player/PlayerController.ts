@@ -1781,6 +1781,11 @@ class PlayerController {
 
         // フルスクリーンかどうか
         this.player.fullScreen.isFullScreen = (type?: DPlayerType.FullscreenType) => {
+            // iOS アプリ（Capacitor）の場合は、watch-container--fullscreen クラスが付与されているかどうかで判定
+            const isCapacitorIOS = document.body.classList.contains('capacitor-ios');
+            if (isCapacitorIOS) {
+                return player_store.is_fullscreen;
+            }
             // iOS Safari の場合はビデオ要素のフルスクリーン状態を確認
             if (isIOSSafari() && this.player?.video?.webkitDisplayingFullscreen !== undefined) {
                 return this.player.video.webkitDisplayingFullscreen;
@@ -1805,6 +1810,22 @@ class PlayerController {
                 }
             }
 
+            // iOS アプリ（Capacitor）の場合は、Capacitor Screen Orientation を使用
+            const isCapacitorIOS = document.body.classList.contains('capacitor-ios');
+            if (isCapacitorIOS) {
+                // Capacitor Screen Orientation を使用して横向きに固定
+                import('@capacitor/screen-orientation').then(({ ScreenOrientation }) => {
+                    ScreenOrientation.lock({ orientation: 'landscape' }).catch(() => {});
+                }).catch(() => {});
+                // iOS アプリでは watch-container のみをフルスクリーン化（YouTube 風）
+                const watch_container = document.querySelector('.watch-container');
+                if (watch_container) {
+                    watch_container.classList.add('watch-container--fullscreen');
+                    player_store.is_fullscreen = true;
+                }
+                return;
+            }
+
             // フルスクリーンをリクエスト
             // Safari は webkit のベンダープレフィックスが必要
             fullscreen_container.requestFullscreen = fullscreen_container.requestFullscreen || fullscreen_container.webkitRequestFullscreen;
@@ -1823,6 +1844,31 @@ class PlayerController {
 
         // フルスクリーンをキャンセル
         this.player.fullScreen.cancel = (type?: DPlayerType.FullscreenType) => {
+            // iOS アプリ（Capacitor）の場合
+            const isCapacitorIOS = document.body.classList.contains('capacitor-ios');
+            if (isCapacitorIOS) {
+                // Capacitor Screen Orientation を使用して縦画面に戻す
+                import('@capacitor/screen-orientation').then(({ ScreenOrientation }) => {
+                    // 縦画面に固定してから解除（確実に縦に戻す）
+                    ScreenOrientation.lock({ orientation: 'portrait' }).then(() => {
+                        // 少し待ってから固定を解除（向きが変わるのを待つ）
+                        setTimeout(() => {
+                            ScreenOrientation.unlock().catch(() => {});
+                        }, 100);
+                    }).catch(() => {
+                        ScreenOrientation.unlock().catch(() => {});
+                    });
+                }).catch(() => {});
+                // watch-container のフルスクリーンクラスを削除
+                const watch_container = document.querySelector('.watch-container');
+                if (watch_container) {
+                    watch_container.classList.remove('watch-container--fullscreen');
+                    player_store.is_fullscreen = false;
+                }
+                // パネル表示状態は変更しない（サイドバーを開かない）
+                return;
+            }
+
             // iOS Safari の場合はビデオ要素のネイティブ全画面機能を使用
             if (isIOSSafari()) {
                 if (this.player?.video?.webkitExitFullscreen) {

@@ -100,6 +100,10 @@ const usePlayerStore = defineStore('player', {
         // Document Picture-in-Picture モードかどうか
         is_document_pip: false,
 
+        // iOS アプリ: PiP 開始時にフルスクリーン状態だったかどうか
+        // PiP から戻る際にフルスクリーン状態を復元するために使用
+        was_fullscreen_before_pip: false,
+
         // コントロールを表示するか
         is_control_display: true,
 
@@ -229,6 +233,7 @@ const usePlayerStore = defineStore('player', {
             this.is_virtual_keyboard_display = false;
             this.is_fullscreen = false;
             this.is_document_pip = false;
+            this.was_fullscreen_before_pip = false;
             this.is_control_display = true;
             this.is_panel_display = (() => {
                 const settings_store = useSettingsStore();

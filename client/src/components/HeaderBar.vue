@@ -241,4 +241,10 @@ const showSearchInput = computed(() => {
     }
 }
 
+// iOS アプリ（Capacitor）でセーフエリアの左右パディングを追加
+body.capacitor-ios .header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+}
+
 </style>

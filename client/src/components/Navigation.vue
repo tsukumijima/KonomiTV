@@ -294,3 +294,7 @@ export default defineComponent({
 }
 
 </style>
+// iOS アプリ（Capacitor）でセーフエリアの左パディングを追加
+body.capacitor-ios .navigation {
+    left: env(safe-area-inset-left);
+}
