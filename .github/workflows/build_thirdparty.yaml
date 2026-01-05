@@ -408,13 +408,14 @@ jobs:
           chmod a+x thirdparty/FFmpeg/ffprobe.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/FFmpeg/ffprobe.elf
 
-          # rkmppenc が依存しているライブラリをダウンロードしてまとめる
+          # rkmppenc が依存しているライブラリをダウンロードしてまとめる (mpp / librga を含む)
+          ## ref: https://blog.tsukumijima.net/article/nanopi-r6s-debian-bullseye/#toc16
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
-          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-a94f677/librockchip-mpp1_1.5.0-1_arm64.deb
-          curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-5cb2d9d/librga2_2.2.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/mpp/releases/download/v1.5.0-1-20250110-194af18/librockchip-mpp1_1.5.0-1_arm64.deb
+          curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-20260105-bfd411b/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/aarch64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
