@@ -2,4 +2,4 @@
 # PyInstaller によるビルドキャッシュや成果物
 build/
 dist/
-*.spec
+!KonomiTV-Installer.spec

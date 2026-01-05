@@ -56,7 +56,7 @@ jobs:
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
         working-directory: installer/
-        run: poetry run task build-windows
+        run: poetry run task build
 
       # 単一実行ファイルにビルドされたインストーラーを Artifact としてアップロード
       - name: Upload Installer Executable as Artifact
@@ -138,7 +138,7 @@ jobs:
         working-directory: installer/
         run: |
           docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c \
-            'poetry install --no-root && poetry run task build-linux'
+            'poetry install --no-root && poetry run task build'
           if [ "${{ matrix.arch }}" == "arm64" ]; then
             echo "Renaming artifact for ARM build..."
             sudo mv dist/KonomiTV-Installer.elf dist/KonomiTV-Installer-ARM.elf

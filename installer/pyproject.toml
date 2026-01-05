@@ -8,8 +8,8 @@ package-mode = false
 dev = "python KonomiTV-Installer.py"
 lint = "ruff check --fix . ; pyright"
 typecheck = "pyright"
-build-windows = "pyinstaller --onefile --collect-datas=emoji --uac-admin --icon=KonomiTV-Installer.ico KonomiTV-Installer.py"
-build-linux = "pyinstaller --onefile --collect-datas=emoji --name=KonomiTV-Installer.elf KonomiTV-Installer.py"
+# KonomiTV-Installer.spec は PyInstaller によって自動生成された .spec をベースにカスタマイズしている
+build = "pyinstaller --clean KonomiTV-Installer.spec"
 
 [tool.poetry.dependencies]
 python = "3.11.*"
@@ -32,6 +32,7 @@ requests = "^2.32.4"
 rich = "^13.9.3"
 "ruamel.yaml" = "==0.18.12"
 ruff = ">=0.9.1,<1.0.0"
+setuptools = "<80"
 taskipy = "^1.14.0"
 tzdata = "^2024.2"
 watchdog = "^5.0.3"

@@ -66,7 +66,7 @@ def Installer(version: str) -> None:
         is_docker_installed = IsDockerInstalled()
         if is_docker_installed is True and is_arm_device is False:
             ShowPanel([
-                f'お使いの PC には Docker と Docker Compose {"V2" if IsDockerComposeV2() else "V1"} がインストールされています。',
+                f'お使いの PC には Docker と Docker Compose {"V2 以降" if IsDockerComposeV2() else "V1"} がインストールされています。',
                 'Docker + Docker Compose を使ってインストールしますか？',
             ], padding=(1, 2, 1, 2))
 
