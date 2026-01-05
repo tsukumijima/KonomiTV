@@ -15,11 +15,11 @@ build-linux = "pyinstaller --onefile --collect-datas=emoji --name=KonomiTV-Insta
 python = "3.11.*"
 aiofiles = "^24.1.0"
 distro = "^1.8.0"
-elevate = "^0.1.3"
+elevate = ">=0.1.3,<1.0.0"
 emoji = "^2.14.0"
-ifaddr = "^0.2.0"
+ifaddr = "<=0.2.0,<1.0.0"
 psutil = "^6.0.0"
-py7zr = "^0.22.0"
+py7zr = ">=0.22.0,<1.0.0"
 # For the Windows version only, to prevent virus detection, when the installer is built by CI,
 # it is forced to replace the PyInstaller with my own build.
 # ref: https://python-poetry.org/docs/dependency-specification/#combining-git--url--path-dependencies-with-source-repositories
@@ -30,8 +30,8 @@ pyinstaller = [
 pyright = "^1.1.403"
 requests = "^2.32.4"
 rich = "^13.9.3"
-"ruamel.yaml" = "0.18.12"
-ruff = "^0.9.1"
+"ruamel.yaml" = "==0.18.12"
+ruff = ">=0.9.1,<1.0.0"
 taskipy = "^1.14.0"
 tzdata = "^2024.2"
 watchdog = "^5.0.3"
