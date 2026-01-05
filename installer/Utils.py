@@ -2,6 +2,7 @@
 import asyncio
 import datetime
 import os
+import shutil
 import subprocess
 import time
 from collections.abc import Callable
@@ -447,17 +448,18 @@ def IsDockerComposeV2() -> bool:
     if os.name == 'nt':
         return False
 
-    try:
-        # Docker Compose V2 以降 (サブコマンド形式) の存在確認
-        # バージョン文字列のパターンマッチングではなく、コマンドの終了コードで判定する
-        result = subprocess.run(
-            args = ['docker', 'compose', 'version'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        return result.returncode == 0
-    except FileNotFoundError:
+    # Docker コマンドが PATH に存在するか確認
+    if shutil.which('docker') is None:
         return False
+
+    # Docker Compose V2 以降 (サブコマンド形式) の存在確認
+    # バージョン文字列のパターンマッチングではなく、コマンドの終了コードで判定する
+    result = subprocess.run(
+        args = ['docker', 'compose', 'version'],
+        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+    )
+    return result.returncode == 0
 
 
 def IsDockerInstalled() -> bool:
@@ -473,42 +475,26 @@ def IsDockerInstalled() -> bool:
     if os.name == 'nt':
         return False
 
-    try:
-        # Docker コマンドの存在確認
-        # `type docker` では認識できない環境があるため、直接 docker --version を実行する
-        docker_result = subprocess.run(
-            args = ['docker', '--version'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        if docker_result.returncode != 0:
-            return False  # Docker がインストールされていない
+    # Docker コマンドが PATH に存在するか確認
+    if shutil.which('docker') is None:
+        return False  # Docker がインストールされていない
 
-        # Docker Compose V2 以降 (サブコマンド形式) の存在確認
-        # バージョン文字列のパターンマッチングではなく、コマンドの終了コードで判定する
-        docker_compose_v2_result = subprocess.run(
-            args = ['docker', 'compose', 'version'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        if docker_compose_v2_result.returncode == 0:
-            return True  # Docker と Docker Compose V2 以降がインストールされている
+    # Docker Compose V2 以降 (サブコマンド形式) の存在確認
+    # バージョン文字列のパターンマッチングではなく、コマンドの終了コードで判定する
+    docker_compose_v2_result = subprocess.run(
+        args = ['docker', 'compose', 'version'],
+        stdout = subprocess.DEVNULL,  # 標準出力を表示しない
+        stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
+    )
+    if docker_compose_v2_result.returncode == 0:
+        return True  # Docker と Docker Compose V2 以降がインストールされている
 
-        # Docker Compose V1 (スタンドアロン形式) の存在確認
-        docker_compose_v1_result = subprocess.run(
-            args = ['docker-compose', 'version'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        if docker_compose_v1_result.returncode == 0:
-            return True  # Docker と Docker Compose V1 がインストールされている
+    # Docker Compose V1 (スタンドアロン形式) の存在確認
+    # shutil.which() で docker-compose コマンドの存在を確認
+    if shutil.which('docker-compose') is not None:
+        return True  # Docker と Docker Compose V1 がインストールされている
 
-        return False  # Docker はインストールされているが、Docker Compose がインストールされていない
-
-    # subprocess.run() で万が一 FileNotFoundError が送出された場合、
-    # コマンドが存在しないことによる例外のため、インストールされていないものと判断する
-    except FileNotFoundError:
-        return False
+    return False  # Docker はインストールされているが、Docker Compose がインストールされていない
 
 
 def IsGitInstalled() -> bool:
@@ -519,26 +505,9 @@ def IsGitInstalled() -> bool:
         bool: Git コマンドがインストールされていれば True 、インストールされていなければ False
     """
 
-    ## Windows
-    if os.name == 'nt':
-        result = subprocess.run(
-            args = ['C:/Windows/System32/where.exe', 'git'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        if result.returncode == 0:
-            return True
-    ## Linux
-    else:
-        result = subprocess.run(
-            args = ['/usr/bin/bash', '-c', 'type git'],
-            stdout = subprocess.DEVNULL,  # 標準出力を表示しない
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-        )
-        if result.returncode == 0:
-            return True
-
-    return False
+    # shutil.which() で git コマンドが PATH に存在するか確認
+    # Windows / Linux 両方で動作する
+    return shutil.which('git') is not None
 
 
 def RemoveEmojiIfLegacyTerminal(text: str) -> str:
