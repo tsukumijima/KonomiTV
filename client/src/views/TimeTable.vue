@@ -131,7 +131,7 @@ import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import TimeTableGrid from '@/components/TimeTable/TimeTableGrid.vue';
 import Message from '@/message';
 import { IChannel, ChannelTypePretty } from '@/services/Channels';
-import { IProgram, ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
+import { IProgram, ITimeTableProgram } from '@/services/Programs';
 import Reservations, { IReservation, IRecordSettingsDefault } from '@/services/Reservations';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useSettingsStore from '@/stores/SettingsStore';
@@ -424,10 +424,11 @@ function onDateDisplayOffsetChange(offset: number): void {
  * 番組表から番組詳細ドロワーを開く
  * 予約がある場合は API から取得し、予約がない場合は mock の IReservation を作成して渡す
  * @param programId 番組 ID
- * @param channelData 番組が属するチャンネルデータ
+ * @param channel 番組が属するチャンネル情報
  * @param program 番組情報
  */
-async function onShowProgramDetail(programId: string, channelData: ITimeTableChannel, program: ITimeTableProgram): Promise<void> {
+async function onShowProgramDetail(programId: string, channel: IChannel, program: ITimeTableProgram): Promise<void> {
+
     // 過去番組かどうかを判定
     const endTime = dayjs(program.end_time);
     isDrawerProgramPast.value = endTime.isBefore(dayjs());
@@ -441,14 +442,14 @@ async function onShowProgramDetail(programId: string, channelData: ITimeTableCha
             drawerChannel.value = null;
         } else {
             // 取得失敗時は mock の IReservation を作成して渡す
-            drawerReservation.value = createMockReservation(program, channelData.channel);
+            drawerReservation.value = createMockReservation(program, channel);
             drawerProgram.value = null;
             drawerChannel.value = null;
         }
     } else {
         // 予約がない場合は mock の IReservation を作成して渡す
         // id が -1 の場合は mock と判定され、予約追加ボタンが表示される
-        drawerReservation.value = createMockReservation(program, channelData.channel);
+        drawerReservation.value = createMockReservation(program, channel);
         drawerProgram.value = null;
         drawerChannel.value = null;
     }
@@ -509,10 +510,10 @@ async function onReservationDeleted(): Promise<void> {
  * - 予約がない場合: デフォルト設定でワンクリック予約追加
  * - 既存予約がある場合: 予約の有効/無効を切り替え
  * @param programId 番組 ID
- * @param channelData 番組が属するチャンネルデータ
+ * @param channel 番組が属するチャンネル情報
  * @param program 番組情報
  */
-async function onQuickReserve(programId: string, channelData: ITimeTableChannel, program: ITimeTableProgram): Promise<void> {
+async function onQuickReserve(programId: string, channel: IChannel, program: ITimeTableProgram): Promise<void> {
     // 過去番組の場合は何もしない
     const endTime = dayjs(program.end_time);
     if (endTime.isBefore(dayjs())) {

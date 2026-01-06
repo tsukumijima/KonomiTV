@@ -514,32 +514,41 @@ async def TimeTableAPI(
         independent_subchannels = independent_subchannels_by_ts.get(ts_key, set())
 
         # このチャンネルがサブチャンネルかつ独立サブチャンネルでない場合はスキップ
-        # (メインチャンネルの subchannel_programs に含める)
+        # (メインチャンネルの subchannels に含める)
         if channel_row['is_subchannel'] and channel_row['service_id'] not in independent_subchannels:
             continue
 
         # 番組リスト
         programs_list = programs_by_channel.get(channel_row['id'], [])
 
-        # サブチャンネルの番組を収集 (8時間未満のサブチャンネルのみ)
-        subchannel_programs: dict[str, list[dict[str, Any]]] | None = None
+        # サブチャンネルのリストを収集 (8時間未満のサブチャンネルのみ)
+        subchannels: list[dict[str, Any]] | None = None
         if not channel_row['is_subchannel']:
             # メインチャンネルの場合、同一 TS 内のサブチャンネル番組を収集
             ts_channel_list = ts_channels.get(ts_key, [])
             for sub_channel_row in ts_channel_list:
                 # サブチャンネルかつ独立サブチャンネルでない場合のみ
                 if sub_channel_row['is_subchannel'] and sub_channel_row['service_id'] not in independent_subchannels:
+                    # サブチャンネルの SID がメインチャンネルの SID より小さい場合はスキップ
+                    # サブチャンネルは必ずメインチャンネルより大きい SID を持つため、
+                    # SID が小さい場合はこのメインチャンネルのサブチャンネルではない
+                    # (例: 放送大学ラジオ 531 のサブチャンネルとして放送大学テレビ SD 232 が紐づかないようにする)
+                    if sub_channel_row['service_id'] < channel_row['service_id']:
+                        continue
                     sub_programs = programs_by_channel.get(sub_channel_row['id'], [])
                     if sub_programs:
-                        if subchannel_programs is None:
-                            subchannel_programs = {}
-                        # キーはチャンネル ID (NID32736-SID1024 形式) を使用
-                        subchannel_programs[sub_channel_row['id']] = sub_programs
+                        if subchannels is None:
+                            subchannels = []
+                        # チャンネル情報と番組リストを含める
+                        subchannels.append({
+                            'channel': sub_channel_row,
+                            'programs': sub_programs,
+                        })
 
         result_channels.append({
             'channel': channel_row,
             'programs': programs_list,
-            'subchannel_programs': subchannel_programs,
+            'subchannels': subchannels,
         })
 
     # Pydantic v2 は Rust バックエンドにより高速化されているため、モデルを直接返す
