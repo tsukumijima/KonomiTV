@@ -149,6 +149,22 @@ const useTimeTableStore = defineStore('timetable', () => {
 
 
     /**
+     * 日時から「放送日」を計算する
+     * 番組表は04:00を境界として日付が切り替わるため、04:00より前の時刻は前日の放送日として扱う
+     * @param datetime 日時
+     * @returns 放送日の開始時刻 (その日の04:00)
+     */
+    function getBroadcastDate(datetime: Dayjs): Dayjs {
+        // 04:00ちょうどの場合を前日扱いにするため、1ミリ秒引いてから計算
+        // 例: 2026-01-14T04:00:00 → 2026-01-14T03:59:59.999 → 4時間引いて 2026-01-13T23:59:59.999 → 1/13
+        const adjusted = datetime.subtract(1, 'millisecond');
+        const shiftedBack = adjusted.subtract(4, 'hour');
+        // 放送日の開始時刻 (04:00) を返す
+        return shiftedBack.startOf('day').add(4, 'hour');
+    }
+
+
+    /**
      * 今日の番組表の開始時刻 (4:00) を取得する
      * 0:00〜3:59 の場合は前日の 4:00 を返す (28時間表記対応)
      * @returns 今日の開始時刻
@@ -467,8 +483,9 @@ const useTimeTableStore = defineStore('timetable', () => {
             previous_date = selected_date.value.subtract(1, 'day');
         }
 
-        // 日付範囲の最小値を超えないようにする (日単位で比較)
-        if (previous_date.isBefore(date_range.value.earliest, 'day')) {
+        // 日付範囲の最小値を超えないようにする (放送日ベースで比較)
+        const earliestBroadcastDate = getBroadcastDate(date_range.value.earliest);
+        if (previous_date.isBefore(earliestBroadcastDate, 'day')) {
             return;
         }
 
@@ -506,8 +523,9 @@ const useTimeTableStore = defineStore('timetable', () => {
             next_date = selected_date.value.add(1, 'day');
         }
 
-        // 日付範囲の最大値を超えないようにする (日単位で比較)
-        if (next_date.isAfter(date_range.value.latest, 'day')) {
+        // 日付範囲の最大値を超えないようにする (放送日ベースで比較)
+        const latestBroadcastDate = getBroadcastDate(date_range.value.latest);
+        if (next_date.isAfter(latestBroadcastDate, 'day')) {
             return;
         }
 
@@ -569,7 +587,10 @@ const useTimeTableStore = defineStore('timetable', () => {
             previous_date = selected_date.value.subtract(1, 'day');
         }
 
-        return previous_date.isSameOrAfter(date_range.value.earliest, 'day');
+        // date_range.earliest を放送日ベースに変換してから比較する
+        // earliest は番組の開始時刻なので、04:00境界を考慮して放送日を計算
+        const earliestBroadcastDate = getBroadcastDate(date_range.value.earliest);
+        return previous_date.isSameOrAfter(earliestBroadcastDate, 'day');
     });
 
 
@@ -591,7 +612,10 @@ const useTimeTableStore = defineStore('timetable', () => {
             next_date = selected_date.value.add(1, 'day');
         }
 
-        return next_date.isSameOrBefore(date_range.value.latest, 'day');
+        // date_range.latest を放送日ベースに変換してから比較する
+        // 例: latest が 2026-01-14T04:00:00 の場合、04:00境界を考慮すると選択可能な最終放送日は 1/13
+        const latestBroadcastDate = getBroadcastDate(date_range.value.latest);
+        return next_date.isSameOrBefore(latestBroadcastDate, 'day');
     });
 
 
@@ -672,6 +696,7 @@ const useTimeTableStore = defineStore('timetable', () => {
         can_go_next_day,
 
         // Actions
+        getBroadcastDate,
         getTodayStartTime,
         getDayEndTime,
         getDisplayStartTime,

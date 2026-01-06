@@ -301,19 +301,26 @@ const canGoNextDay = computed(() => timetableStore.can_go_next_day);
 
 // v-date-picker 用の日付範囲制限
 // 番組情報が存在する日付範囲のみ選択可能にする
+// 番組表は04:00を境界として日付が切り替わるため、放送日ベースに変換してから比較する
 const datePickerMinDate = computed(() => {
     if (timetableStore.date_range === null) return undefined;
     // v-date-picker は Date 型を受け付ける
-    return timetableStore.date_range.earliest.startOf('day').toDate();
+    // earliest を放送日ベースに変換してから startOf('day') を適用
+    const earliestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.earliest);
+    return earliestBroadcastDate.startOf('day').toDate();
 });
 const datePickerMaxDate = computed(() => {
     if (timetableStore.date_range === null) return undefined;
-    return timetableStore.date_range.latest.endOf('day').toDate();
+    // latest を放送日ベースに変換してから endOf('day') を適用
+    // 例: latest が 2026-01-14T04:00:00 の場合、放送日は 1/13 なので 1/13 23:59:59 が最大日時
+    const latestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.latest);
+    return latestBroadcastDate.endOf('day').toDate();
 });
 
 /**
  * 日付ピッカーで選択可能かどうかを判定する
  * Vuetify の allowed-dates は (date: unknown) => boolean を期待するため、引数は unknown 型で受け取る
+ * 番組表は04:00を境界として日付が切り替わるため、放送日ベースに変換してから比較する
  * @param date 日付 (Vuetify からは Date 型で渡される)
  * @returns 選択可能なら true
  */
@@ -321,8 +328,11 @@ function isDateSelectable(date: unknown): boolean {
     if (timetableStore.date_range === null) return false;
     // Vuetify の v-date-picker は Date オブジェクトを渡してくるが、dayjs() はそれを受け付ける
     const targetDate = dayjs(date as Date);
-    return targetDate.isSameOrAfter(timetableStore.date_range.earliest, 'day') &&
-        targetDate.isSameOrBefore(timetableStore.date_range.latest, 'day');
+    // date_range を放送日ベースに変換してから比較
+    const earliestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.earliest);
+    const latestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.latest);
+    return targetDate.isSameOrAfter(earliestBroadcastDate, 'day') &&
+        targetDate.isSameOrBefore(latestBroadcastDate, 'day');
 }
 
 /**
