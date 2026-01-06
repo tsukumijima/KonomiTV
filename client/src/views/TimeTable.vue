@@ -192,10 +192,10 @@ const isNavigationIconOnly = computed(() => {
     return !Utils.isSmartphoneVertical();
 });
 
-// 日付表示のオフセット
+// ストアの date_display_offset への参照を作成 (テンプレートでのアクセスを簡潔にするため)
 // 36時間表示モード時にスクロール位置に応じて日付表示を切り替えるために使用
 // 0: 選択日をそのまま表示, 1: 選択日 + 1日 (翌日) を表示
-const dateDisplayOffset = ref(0);
+const dateDisplayOffset = computed(() => timetableStore.date_display_offset);
 
 // ドロワー関連の状態
 const isDrawerOpen = ref(false);
@@ -292,20 +292,12 @@ const selectedDateForPicker = computed({
 });
 
 // 前の日に移動できるか
-// 日単位で比較するため、'day' を第2引数に指定
-const canGoPreviousDay = computed(() => {
-    if (timetableStore.date_range === null) return false;
-    const previous = timetableStore.selected_date.subtract(1, 'day');
-    return previous.isSameOrAfter(timetableStore.date_range.earliest, 'day');
-});
+// ストアの computed を使用 (36時間表示モード時の date_display_offset を考慮した判定)
+const canGoPreviousDay = computed(() => timetableStore.can_go_previous_day);
 
 // 次の日に移動できるか
-// 日単位で比較するため、'day' を第2引数に指定
-const canGoNextDay = computed(() => {
-    if (timetableStore.date_range === null) return false;
-    const next = timetableStore.selected_date.add(1, 'day');
-    return next.isSameOrBefore(timetableStore.date_range.latest, 'day');
-});
+// ストアの computed を使用 (36時間表示モード時の date_display_offset を考慮した判定)
+const canGoNextDay = computed(() => timetableStore.can_go_next_day);
 
 // v-date-picker 用の日付範囲制限
 // 番組情報が存在する日付範囲のみ選択可能にする
@@ -413,10 +405,11 @@ function onTimeSlotChange(hour: number): void {
  * 日付表示オフセット変更時のハンドラ
  * 36時間表示モード時に、スクロール位置が日付境界を超えたかどうかに応じて
  * 日付表示を切り替えるために使用
+ * また、ストアに保存することで「次の日」「前の日」の移動先日付の計算にも使用される
  * @param offset オフセット (0: 選択日, 1: 選択日 + 1日)
  */
 function onDateDisplayOffsetChange(offset: number): void {
-    dateDisplayOffset.value = offset;
+    timetableStore.setDateDisplayOffset(offset);
 }
 
 /**
@@ -588,7 +581,7 @@ onUnmounted(() => {
 // 日付が変更されたら、日付表示オフセットをリセット
 // これにより、日付変更後はボタンに選択された日付が表示される
 watch(() => timetableStore.selected_date, () => {
-    dateDisplayOffset.value = 0;
+    timetableStore.setDateDisplayOffset(0);
 });
 
 </script>

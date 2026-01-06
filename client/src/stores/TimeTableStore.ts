@@ -65,6 +65,12 @@ const useTimeTableStore = defineStore('timetable', () => {
     // 36時間表示モードかどうか (現在時刻から翌日4時までが11時間未満の場合)
     const is_36hour_display = ref<boolean>(false);
 
+    // 日付表示のオフセット (36時間表示モード時のスクロール位置に応じて変化)
+    // 0: selected_date の日付を表示中, 1: selected_date + 1日 (翌日) を表示中
+    // 通常モード (非36時間表示) では常に 0
+    // 「次の日を見る」「前の日を見る」で移動する日付の計算に使用される
+    const date_display_offset = ref<number>(0);
+
     // スクロール上端の制限時刻 (選択日が今日の場合のみ有効、それ以外は null)
     // 「現在時刻 - 1時間の00分」を表す
     const scroll_top_limit_time = ref<Dayjs | null>(null);
@@ -403,14 +409,63 @@ const useTimeTableStore = defineStore('timetable', () => {
 
 
     /**
+     * 現在時刻が36時間表示の時間帯（17時以降）かどうかを判定する
+     * この判定は selected_date に依存しない純粋な時刻判定
+     * @returns 17時以降なら true
+     */
+    function is36HourTimeRange(): boolean {
+        const now = dayjs();
+        // 28時間表記対応: 0〜3時は前日の24〜27時として扱う
+        let current_hour = now.hour();
+        if (current_hour < 4) {
+            current_hour += 24;
+        }
+        return current_hour >= 17;
+    }
+
+
+    /**
      * 前の日の番組表データを取得する
+     *
+     * 36時間モードのページング設計:
+     * - 17時以降は「今日」と「今日+1」が36時間モードの1ページとして統合される
+     * - そのため、「今日+1」は単独ページとして存在しない
+     * - ページ構成: ... → 今日-1 (24h) → 今日 (36h) → 今日+2 (24h) → ...
+     *
+     * 例 (1/6 22:00 の場合):
+     * - 1/8 から「前の日」→ 1/6 (36時間モード) ※1/7をスキップ
+     * - 36時間モードから「前の日」→ 1/5
      */
     async function goToPreviousDay(): Promise<void> {
         if (date_range.value === null) {
             return;
         }
 
-        const previous_date = selected_date.value.subtract(1, 'day');
+        const today_start = getTodayStartTime();
+        const is_36hour_time = is36HourTimeRange();
+
+        let previous_date: Dayjs;
+
+        if (is_36hour_display.value) {
+            // 現在36時間モードを表示中の場合
+            // 36時間モードからの「前の日」は、36時間モードの開始日 (today) の前日に移動
+            // date_display_offset に関わらず、36時間モードページの「前」は常に today - 1
+            previous_date = selected_date.value.subtract(1, 'day');
+        } else if (is_36hour_time) {
+            // 36時間表示の時間帯 (17時以降) だが、現在36時間モードではない場合
+            // 移動先が「今日+1」になる場合は、代わりに「今日」(36時間モード) に移動
+            // これにより、1/8 → 1/7 ではなく 1/8 → 1/6 (36h) となる
+            const naive_previous = selected_date.value.subtract(1, 'day');
+            if (naive_previous.isSame(today_start.add(1, 'day'), 'day')) {
+                // 移動先が「今日+1」(例: 1/7) の場合、「今日」(例: 1/6) に移動
+                previous_date = today_start;
+            } else {
+                previous_date = naive_previous;
+            }
+        } else {
+            // 通常モード (17時より前): 単純に1日前
+            previous_date = selected_date.value.subtract(1, 'day');
+        }
 
         // 日付範囲の最小値を超えないようにする (日単位で比較)
         if (previous_date.isBefore(date_range.value.earliest, 'day')) {
@@ -423,13 +478,33 @@ const useTimeTableStore = defineStore('timetable', () => {
 
     /**
      * 次の日の番組表データを取得する
+     *
+     * 36時間モードのページング設計:
+     * - 17時以降は「今日」と「今日+1」が36時間モードの1ページとして統合される
+     * - 36時間モードからの「次の日」は「今日+2」に移動する
+     * - ページ構成: ... → 今日-1 (24h) → 今日 (36h) → 今日+2 (24h) → ...
+     *
+     * 例 (1/6 22:00 の場合):
+     * - 36時間モードから「次の日」→ 1/8 ※1/7をスキップ
+     * - 1/8 から「次の日」→ 1/9
      */
     async function goToNextDay(): Promise<void> {
         if (date_range.value === null) {
             return;
         }
 
-        const next_date = selected_date.value.add(1, 'day');
+        let next_date: Dayjs;
+
+        if (is_36hour_display.value) {
+            // 現在36時間モードを表示中の場合
+            // 36時間モードは今日 (selected_date) から翌々日4時まで表示するため、
+            // 「次の日」は selected_date + 2 (翌々日) に移動
+            // これにより、1/6 (36h) → 1/8 となる
+            next_date = selected_date.value.add(2, 'day');
+        } else {
+            // 通常モード: 単純に1日後
+            next_date = selected_date.value.add(1, 'day');
+        }
 
         // 日付範囲の最大値を超えないようにする (日単位で比較)
         if (next_date.isAfter(date_range.value.latest, 'day')) {
@@ -456,6 +531,71 @@ const useTimeTableStore = defineStore('timetable', () => {
 
 
     /**
+     * 日付表示オフセットを設定する
+     * TimeTableGrid からスクロール位置に応じて呼び出される
+     * @param offset オフセット値 (0: 選択日, 1: 選択日 + 1日)
+     */
+    function setDateDisplayOffset(offset: number): void {
+        date_display_offset.value = offset;
+    }
+
+
+    /**
+     * 前の日に移動できるかどうか
+     * goToPreviousDay() と同じロジックで判定
+     */
+    const can_go_previous_day = computed<boolean>(() => {
+        if (date_range.value === null) {
+            return false;
+        }
+
+        const today_start = getTodayStartTime();
+        const is_36hour_time = is36HourTimeRange();
+
+        let previous_date: Dayjs;
+
+        if (is_36hour_display.value) {
+            // 36時間モードからの「前の日」: today - 1
+            previous_date = selected_date.value.subtract(1, 'day');
+        } else if (is_36hour_time) {
+            // 17時以降で、移動先が「今日+1」なら「今日」に移動
+            const naive_previous = selected_date.value.subtract(1, 'day');
+            if (naive_previous.isSame(today_start.add(1, 'day'), 'day')) {
+                previous_date = today_start;
+            } else {
+                previous_date = naive_previous;
+            }
+        } else {
+            previous_date = selected_date.value.subtract(1, 'day');
+        }
+
+        return previous_date.isSameOrAfter(date_range.value.earliest, 'day');
+    });
+
+
+    /**
+     * 次の日に移動できるかどうか
+     * goToNextDay() と同じロジックで判定
+     */
+    const can_go_next_day = computed<boolean>(() => {
+        if (date_range.value === null) {
+            return false;
+        }
+
+        let next_date: Dayjs;
+
+        if (is_36hour_display.value) {
+            // 36時間モードからの「次の日」: today + 2
+            next_date = selected_date.value.add(2, 'day');
+        } else {
+            next_date = selected_date.value.add(1, 'day');
+        }
+
+        return next_date.isSameOrBefore(date_range.value.latest, 'day');
+    });
+
+
+    /**
      * ストアの状態をリセットする
      * 番組表ページから離れる際に呼び出される
      */
@@ -465,6 +605,7 @@ const useTimeTableStore = defineStore('timetable', () => {
         is_loading.value = false;
         is_initial_load_completed.value = false;
         is_36hour_display.value = false;
+        date_display_offset.value = 0;
         scroll_top_limit_time.value = null;
         // selected_channel_type は次回アクセス時に initialLoad() で再設定されるため、
         // あえて null にリセットして、次回は最新の available_channel_types に基づいて決定されるようにする
@@ -521,16 +662,20 @@ const useTimeTableStore = defineStore('timetable', () => {
         is_loading,
         is_initial_load_completed,
         is_36hour_display,
+        date_display_offset,
         scroll_top_limit_time,
 
         // Getters
         available_channel_types,
         display_start_time,
+        can_go_previous_day,
+        can_go_next_day,
 
         // Actions
         getTodayStartTime,
         getDayEndTime,
         getDisplayStartTime,
+        setDateDisplayOffset,
         fetchTimeTableData,
         initialLoad,
         changeDate,
