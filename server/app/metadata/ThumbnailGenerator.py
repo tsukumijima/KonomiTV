@@ -11,6 +11,7 @@ import time
 from typing import ClassVar, Literal, cast
 
 import anyio
+import av
 import cv2
 import numpy as np
 import typer
@@ -273,17 +274,19 @@ class ThumbnailGenerator:
         )
 
 
-    async def generateAndSave(self, skip_tile_if_exists: bool = False) -> None:
+    async def generateAndSave(self, skip_tile_if_exists: bool = False, use_pyav: bool = False) -> None:
         """
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
 
         Args:
             skip_tile_if_exists (bool): True の場合、既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
+            use_pyav (bool): True の場合、FFmpeg CLI の代わりに PyAV (libav) を使用してフレーム抽出を行う (デフォルト: False)
         """
 
         start_time = time.time()
-        logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
+        method_name = 'PyAV' if use_pyav else 'FFmpeg CLI'
+        logging.info(f'{self.file_path}: Generating thumbnail using {method_name}... / Face detection mode: {self.face_detection_mode}')
         try:
             # 1. プレイヤーのシークバー用サムネイルタイル画像を生成
             tile_exists = await self.seekbar_thumbnails_tile_path.is_file()
@@ -301,7 +304,12 @@ class ThumbnailGenerator:
                 logging.info(f'{self.file_path}: Seekbar thumbnail tile already exists. Skipping generation.')
             else:
                 ## まだシークバー用サムネイルタイルが生成されていなければ生成
-                if not await self.__generateThumbnailTile():
+                ## use_pyav が True の場合は PyAV 実装を使用
+                if use_pyav:
+                    success = await self.__generateThumbnailTilePyAV()
+                else:
+                    success = await self.__generateThumbnailTile()
+                if not success:
                     logging.error(f'{self.file_path}: Failed to generate seekbar thumbnail tile.')
                     return
                 logging.info(f'{self.file_path}: Seekbar thumbnail generation completed. ({time.time() - start_time:.2f} sec)')
@@ -657,6 +665,277 @@ class ThumbnailGenerator:
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in seekbar thumbnail tile generation:', exc_info=ex)
+            return False
+
+
+    async def __generateThumbnailTilePyAV(self) -> bool:
+        """
+        PyAV (libav) を使い、録画ファイルから各候補フレームを抽出し、メモリ上で OpenCV によるタイル化を行う実装
+        FFmpeg CLI を使う __generateThumbnailTile と異なり、プロセス起動オーバーヘッドを排除する
+        ・コンテナを1回だけ開き、各タイムスタンプにシークして1フレームずつ抽出
+        ・シーケンシャルにアクセスすることで HDD への負荷を最小化
+        ・skip_frame = 'NONINTRA' で I フレームのみをデコードし、デコード負荷を軽減
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        try:
+            # 動画の長さと tile_interval_sec から候補フレーム数を算出
+            num_candidates = math.ceil(self.duration_sec / self.tile_interval_sec)
+            if num_candidates < 1:
+                num_candidates = 1
+
+            # タイルの行数を計算（列数は self.TILE_COLS 固定）
+            tile_rows = math.ceil(num_candidates / self.TILE_COLS)
+            width, height = self.TILE_SCALE
+
+            total_width = width * self.TILE_COLS
+            total_height = height * tile_rows
+
+            # WebP の最大サイズ制限をチェック（制限内なら WebP、越える場合は JPEG にフォールバック）
+            use_webp = total_width <= self.WEBP_MAX_SIZE and total_height <= self.WEBP_MAX_SIZE
+            if not use_webp:
+                self.seekbar_thumbnails_tile_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
+                logging.warning(f'{self.file_path}: Image size ({total_width}x{total_height}) exceeds WebP limits. Falling back to JPEG.')
+
+            # 各候補フレーム抽出の開始位置（秒）を算出（動画末尾の場合は調整する）
+            candidate_offsets: list[float] = []
+            for i in range(num_candidates):
+                offset = i * self.tile_interval_sec
+                # もし候補フレームの開始位置 + 0.01秒が動画長を超える場合、抽出可能な位置に調整する
+                if offset + 0.01 > self.duration_sec:
+                    offset = max(0, self.duration_sec - 0.02)
+                candidate_offsets.append(offset)
+
+            # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
+            thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+            if not await thumbnails_dir.is_dir():
+                await thumbnails_dir.mkdir(parents=True, exist_ok=True)
+
+            # PyAV でフレーム抽出を実行（IO バウンドなのでスレッドプールで実行）
+            start_time = time.time()
+            loop = asyncio.get_running_loop()
+            bgr_frames = await loop.run_in_executor(
+                None,  # デフォルトの ThreadPoolExecutor を使用
+                self._extractFramesPyAV,
+                candidate_offsets,
+                width,
+                height,
+            )
+
+            if bgr_frames is None:
+                logging.error(f'{self.file_path}: Failed to extract frames using PyAV.')
+                return False
+
+            logging.debug(
+                f'{self.file_path}: All frames extracted using PyAV. ({time.time() - start_time:.2f} sec)'
+            )
+
+            # BGR フレームを PNG バイナリに変換して既存のタイル化処理を再利用
+            # CPU バウンドな処理なので、イベントループをブロックしないよう ProcessPoolExecutor で実行する
+            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                success = await loop.run_in_executor(
+                    executor,
+                    self._generateAndSaveTileImageFromBGR,
+                    bgr_frames,
+                    tile_rows,
+                    height,
+                    width,
+                    use_webp,
+                )
+                if not success:
+                    logging.error(f'{self.file_path}: Failed to generate and save tile image.')
+                    return False
+
+            return True
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in PyAV seekbar thumbnail tile generation:', exc_info=ex)
+            return False
+
+
+    def _extractFramesPyAV(
+        self,
+        candidate_offsets: list[float],
+        target_width: int,
+        target_height: int,
+    ) -> list[NDArray[np.uint8]] | None:
+        """
+        PyAV を使って指定されたタイムスタンプのフレームを抽出する
+        ThreadPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
+
+        Args:
+            candidate_offsets (list[float]): 抽出するフレームのタイムスタンプ (秒) のリスト
+            target_width (int): 出力画像の幅
+            target_height (int): 出力画像の高さ
+
+        Returns:
+            list[NDArray[np.uint8]] | None: BGR フォーマットの画像データのリスト / エラー時は None
+        """
+
+        try:
+            # 結果を格納するリスト
+            bgr_frames: list[NDArray[np.uint8]] = []
+
+            # MPEG-TS の場合は format を明示的に指定
+            format_name = 'mpegts' if self.container_format == 'MPEG-TS' else None
+
+            # シーケンシャルにフレームを抽出（HDD への負荷を考慮）
+            for i, offset_sec in enumerate(candidate_offsets):
+                try:
+                    # 各フレーム抽出ごとにコンテナを開き直す
+                    ## MPEG-TS ではシーク後に container.seek() を再度呼ぶと正しい位置に移動しないことがあるため、
+                    ## 各フレーム抽出時にコンテナを再オープンすることで確実にシークを行う
+                    container = av.open(str(self.file_path), format=format_name)
+                    video_stream = container.streams.video[0]
+
+                    # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
+                    video_stream.codec_context.skip_frame = 'NONINTRA'
+
+                    # 指定位置にシーク
+                    # MPEG-TS では start_time が 0 から始まらないことがあるため、start_time を考慮する必要がある
+                    # start_time は pts 単位（90kHz クロックで表現された開始位置）なので、
+                    # offset_sec を pts 単位に変換してから start_time を加算する
+                    time_base = float(video_stream.time_base)
+                    start_time = video_stream.start_time if video_stream.start_time else 0
+                    target_ts = int(start_time + offset_sec / time_base)
+                    container.seek(target_ts, backward=True, any_frame=False, stream=video_stream)
+
+                    # シーク後、最初のフレームを取得
+                    frame = None
+                    for packet in container.demux(video_stream):
+                        for decoded_frame in packet.decode():
+                            frame = decoded_frame
+                            break
+                        if frame is not None:
+                            break
+
+                    container.close()
+
+                    if frame is None:
+                        # フレームが取得できなかった場合は黒画像を使用
+                        logging.warning(f'{self.file_path}: Failed to extract frame at {offset_sec:.2f}s. Using black image.')
+                        black_frame = np.zeros((target_height, target_width, 3), dtype=np.uint8)
+                        bgr_frames.append(black_frame)
+                        continue
+
+                    # フレームを BGR numpy 配列に変換
+                    # PyAV は RGB フォーマットで出力するので、BGR に変換する
+                    img_rgb = frame.to_ndarray(format='rgb24')
+
+                    # リサイズ（ターゲットサイズに合わせる）
+                    img_resized = cv2.resize(img_rgb, (target_width, target_height), interpolation=cv2.INTER_AREA)
+
+                    # RGB から BGR に変換
+                    img_bgr = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
+                    bgr_frames.append(img_bgr)
+
+                    # 進捗ログ（50フレームごと）
+                    if (i + 1) % 50 == 0:
+                        logging.debug(f'{self.file_path}: Extracted {i + 1}/{len(candidate_offsets)} frames')
+
+                except Exception as ex:
+                    # 個別のフレーム抽出エラーは警告にとどめ、黒画像で代替
+                    logging.warning(f'{self.file_path}: Error extracting frame at {offset_sec:.2f}s: {ex}')
+                    black_frame = np.zeros((target_height, target_width, 3), dtype=np.uint8)
+                    bgr_frames.append(black_frame)
+
+            return bgr_frames
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in PyAV frame extraction:', exc_info=ex)
+            return None
+
+
+    def _generateAndSaveTileImageFromBGR(
+        self,
+        bgr_frames: list[NDArray[np.uint8]],
+        tile_rows: int,
+        height: int,
+        width: int,
+        use_webp: bool,
+    ) -> bool:
+        """
+        BGR フレームからタイル画像を生成し、WebP または JPEG として保存する
+        ProcessPoolExecutor で実行されるため、あえて prefix のアンダースコアは1つとしている
+
+        Args:
+            bgr_frames (list[NDArray[np.uint8]]): BGR フレームのリスト
+            tile_rows (int): タイルの行数
+            height (int): タイルの高さ
+            width (int): タイルの幅
+            use_webp (bool): WebP として保存するかどうか (False の場合は JPEG)
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        try:
+            # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
+            try:
+                Config()
+            except AssertionError:
+                LoadConfig(bypass_validation=True)
+
+            # OpenCV を用いてタイル化処理を行う
+            rows = []
+            num_cols = self.TILE_COLS
+            for r in range(tile_rows):
+                row_images = bgr_frames[r * num_cols: (r + 1) * num_cols]
+                # 最終行が列数に満たない場合、黒画像で埋める
+                if len(row_images) < num_cols:
+                    black_image = np.zeros((height, width, 3), dtype=np.uint8)
+                    while len(row_images) < num_cols:
+                        row_images.append(black_image)
+                row_concat = cv2.hconcat(row_images)
+                rows.append(row_concat)
+            tile_image = cv2.vconcat(rows)
+
+            # タイル画像を PNG としてメモリ上にエンコード
+            _, tile_png_data = cv2.imencode('.png', tile_image)
+            if tile_png_data is None:
+                logging.error(f'{self.file_path}: Failed to encode tile image as PNG.')
+                return False
+
+            # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
+            process = subprocess.Popen(
+                [
+                    LIBRARY_PATH['FFmpeg'],
+                    '-y',
+                    '-nostdin',
+                    '-f', 'image2pipe',
+                    '-codec:v', 'png',
+                    '-i', 'pipe:0',
+                    *([
+                        '-codec:v', 'webp',
+                        '-quality', str(self.WEBP_QUALITY),
+                        '-compression_level', str(self.WEBP_COMPRESSION),
+                        '-preset', 'picture',
+                    ] if use_webp else [
+                        '-codec:v', 'mjpeg',
+                        '-qmin', '1',
+                        '-qmax', '1',
+                        '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),
+                    ]),
+                    '-threads', 'auto',
+                    str(self.seekbar_thumbnails_tile_path),
+                ],
+                stdin = subprocess.PIPE,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE,
+            )
+
+            _, stderr_data = process.communicate(input=tile_png_data.tobytes())
+            if process.returncode != 0:
+                error_message = stderr_data.decode('utf-8', errors='ignore')
+                logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
+                return False
+
+            return True
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in BGR tile image generation and saving:', exc_info=ex)
             return False
 
 
@@ -1525,6 +1804,11 @@ if __name__ == "__main__":
             "--skip-tile",
             help="サムネイルタイルが既に存在する場合は再生成をスキップ",
         ),
+        use_pyav: bool = typer.Option(
+            False,
+            "--use-pyav",
+            help="FFmpeg CLI の代わりに PyAV (libav) を使用してフレーム抽出を行う (実験的機能)",
+        ),
     ) -> None:
         """
         録画ファイルからサムネイルを生成する
@@ -1554,6 +1838,6 @@ if __name__ == "__main__":
             generator.face_detection_mode = face_detection_mode
 
         # サムネイルを生成
-        asyncio.run(generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists))
+        asyncio.run(generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists, use_pyav=use_pyav))
 
     typer.run(main)
