@@ -38,7 +38,8 @@ class ThumbnailGenerator:
     TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
 
     # WebP 出力の設定
-    WEBP_QUALITY: ClassVar[int] = 68  # WebP 品質 (0-100)
+    WEBP_QUALITY_REPRESENTATIVE: ClassVar[int] = 80  # 代表サムネイルの WebP 品質 (0-100)
+    WEBP_QUALITY_TILE: ClassVar[int] = 68  # シークバーサムネイルタイルの WebP 品質 (0-100)
     WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
 
@@ -538,7 +539,7 @@ class ThumbnailGenerator:
                     img_rgb = frame.to_ndarray(format='rgb24')
 
                     # リサイズ（SCORING_SCALE に合わせる）
-                    img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_AREA)
+                    img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_LINEAR)
 
                     # RGB から BGR に変換
                     img_bgr = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
@@ -626,6 +627,37 @@ class ThumbnailGenerator:
             return None
 
 
+    def __saveRepresentativeThumbnail(self, img_bgr: NDArray[np.uint8]) -> bool:
+        """
+        代表サムネイルを WebP ファイルに同期的に保存する
+
+        Args:
+            img_bgr (NDArray[np.uint8]): 保存する画像データ (BGR)
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        try:
+            # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
+            thumbnails_dir = THUMBNAILS_DIR
+            if not thumbnails_dir.is_dir():
+                thumbnails_dir.mkdir(parents=True, exist_ok=True)
+
+            # WebP ファイルを書き込む
+            if not cv2.imwrite(str(self.representative_thumbnail_path), img_bgr, [
+                cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY_REPRESENTATIVE,
+            ]):
+                logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
+                return False
+
+            return True
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in representative thumbnail saving:', exc_info=ex)
+            return False
+
+
     def __generateAndSaveTileImage(
         self,
         bgr_frames: list[NDArray[np.uint8]],
@@ -654,7 +686,7 @@ class ThumbnailGenerator:
             # 将来的に TILE_SCALE を小さくしてファイルサイズを削減する際に使用
             if (tile_width, tile_height) != (scoring_width, scoring_height):
                 resized_frames = [
-                    cv2.resize(frame, (tile_width, tile_height), interpolation=cv2.INTER_AREA)
+                    cv2.resize(frame, (tile_width, tile_height), interpolation=cv2.INTER_LINEAR)
                     for frame in bgr_frames
                 ]
             else:
@@ -691,7 +723,7 @@ class ThumbnailGenerator:
                     '-i', 'pipe:0',
                     *([
                         '-codec:v', 'webp',
-                        '-quality', str(self.WEBP_QUALITY),
+                        '-quality', str(self.WEBP_QUALITY_TILE),
                         '-compression_level', str(self.WEBP_COMPRESSION),
                         '-preset', 'picture',
                     ] if use_webp else [
@@ -718,40 +750,6 @@ class ThumbnailGenerator:
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in tile image generation and saving:', exc_info=ex)
-            return False
-
-
-    def __saveRepresentativeThumbnail(self, img_bgr: NDArray[np.uint8]) -> bool:
-        """
-        代表サムネイルを WebP ファイルに同期的に保存する
-
-        Args:
-            img_bgr (NDArray[np.uint8]): 保存する画像データ (BGR)
-
-        Returns:
-            bool: 成功時は True、失敗時は False
-        """
-
-        try:
-            # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
-            thumbnails_dir = THUMBNAILS_DIR
-            if not thumbnails_dir.is_dir():
-                thumbnails_dir.mkdir(parents=True, exist_ok=True)
-
-            # WebP 出力用のパラメータを設定
-            params = [
-                cv2.IMWRITE_WEBP_QUALITY, self.WEBP_QUALITY,
-            ]
-
-            # WebP ファイルを書き込む
-            if not cv2.imwrite(str(self.representative_thumbnail_path), img_bgr, params):
-                logging.error(f'{self.file_path}: Failed to write representative thumbnail.')
-                return False
-
-            return True
-
-        except Exception as ex:
-            logging.error(f'{self.file_path}: Error in representative thumbnail saving:', exc_info=ex)
             return False
 
 
