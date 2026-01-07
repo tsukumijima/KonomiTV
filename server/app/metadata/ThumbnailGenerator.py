@@ -496,67 +496,87 @@ class ThumbnailGenerator:
             format_name = 'mpegts' if self.container_format == 'MPEG-TS' else None
 
             # シーケンシャルにフレームを抽出（HDD への負荷を考慮）
-            for i, offset_sec in enumerate(candidate_offsets):
-                try:
-                    # 各フレーム抽出ごとにコンテナを開き直す
-                    ## MPEG-TS ではシーク後に container.seek() を再度呼ぶと正しい位置に移動しないことがあるため、
-                    ## 各フレーム抽出時にコンテナを再オープンすることで確実にシークを行う
-                    container = av.open(str(self.file_path), format=format_name)
-                    video_stream = container.streams.video[0]
+            container = av.open(str(self.file_path), format=format_name)
+            video_stream = container.streams.video[0]
+            try:
+                # コンテナは 1 回だけ開き、各フレーム抽出で seek を繰り返す
+                ## MPEG-TS でも実測で問題なければ再オープンを避けられるため、まずは 1 回オープンで検証する
+                # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
+                video_stream.codec_context.skip_frame = 'NONINTRA'
 
-                    # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
-                    video_stream.codec_context.skip_frame = 'NONINTRA'
+                for i, offset_sec in enumerate(candidate_offsets):
+                    try:
+                        # 指定位置にシーク
+                        # MPEG-TS では start_time が 0 から始まらないことがあるため、start_time を考慮する必要がある
+                        # start_time は pts 単位（90kHz クロックで表現された開始位置）なので、
+                        # offset_sec を pts 単位に変換してから start_time を加算する
+                        time_base = float(video_stream.time_base) if video_stream.time_base is not None else 1.0
+                        start_time = video_stream.start_time if video_stream.start_time else 0
+                        target_ts = int(start_time + offset_sec / time_base)
+                        container.seek(target_ts, backward=True, any_frame=False, stream=video_stream)
 
-                    # 指定位置にシーク
-                    # MPEG-TS では start_time が 0 から始まらないことがあるため、start_time を考慮する必要がある
-                    # start_time は pts 単位（90kHz クロックで表現された開始位置）なので、
-                    # offset_sec を pts 単位に変換してから start_time を加算する
-                    time_base = float(video_stream.time_base) if video_stream.time_base is not None else 1.0
-                    start_time = video_stream.start_time if video_stream.start_time else 0
-                    target_ts = int(start_time + offset_sec / time_base)
-                    container.seek(target_ts, backward=True, any_frame=False, stream=video_stream)
+                        # seek 後のデコーダ内部状態を初期化し、前回のデコード状態を引きずらないようにする
+                        video_stream.codec_context.flush_buffers()
 
-                    # シーク後、最初のフレームを取得
-                    frame: av.VideoFrame | None = None
-                    for packet in container.demux(video_stream):
-                        for decoded_frame in packet.decode():
-                            frame = cast(av.VideoFrame, decoded_frame)
-                            break
-                        if frame is not None:
-                            break
+                        # シーク後、最初のフレームを取得
+                        frame: av.VideoFrame | None = None
+                        for packet in container.demux(video_stream):
+                            for decoded_frame in packet.decode():
+                                frame = cast(av.VideoFrame, decoded_frame)
+                                break
+                            if frame is not None:
+                                break
 
-                    container.close()
+                        if frame is None:
+                            # フレームが取得できなかった場合は黒画像を使用
+                            logging.warning(f'{self.file_path}: Failed to extract frame at {offset_sec:.2f}s. Using black image.')
+                            black_frame = np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
+                            bgr_frames.append(black_frame)
+                            continue
 
-                    if frame is None:
-                        # フレームが取得できなかった場合は黒画像を使用
-                        logging.warning(f'{self.file_path}: Failed to extract frame at {offset_sec:.2f}s. Using black image.')
+                        # フレームを numpy 配列に変換
+                        img_rgb = frame.to_ndarray(format='rgb24')
+
+                        # リサイズを実行
+                        img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_LINEAR)
+
+                        # RGB から OpenCV 向けの BGR に変換して bgr_frames に追加する
+                        img_bgr = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
+                        bgr_frames.append(img_bgr)
+
+                        # 進捗ログ（50フレームごと）
+                        if (i + 1) % 50 == 0:
+                            logging.debug(f'{self.file_path}: Extracted {i + 1}/{len(candidate_offsets)} frames')
+
+                    except Exception as ex:
+                        # 個別のフレーム抽出エラーは警告にとどめ、黒画像で代替
+                        logging.warning(
+                            f'{self.file_path}: Error extracting frame at {offset_sec:.2f}s.',
+                            exc_info=ex,
+                        )
                         black_frame = np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
                         bgr_frames.append(black_frame)
-                        continue
 
-                    # フレームを BGR numpy 配列に変換
-                    # PyAV は RGB フォーマットで出力するので、BGR に変換する
-                    img_rgb = frame.to_ndarray(format='rgb24')
-
-                    # リサイズ（SCORING_SCALE に合わせる）
-                    img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_LINEAR)
-
-                    # RGB から BGR に変換
-                    img_bgr = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
-                    bgr_frames.append(img_bgr)
-
-                    # 進捗ログ（50フレームごと）
-                    if (i + 1) % 50 == 0:
-                        logging.debug(f'{self.file_path}: Extracted {i + 1}/{len(candidate_offsets)} frames')
-
-                except Exception as ex:
-                    # 個別のフレーム抽出エラーは警告にとどめ、黒画像で代替
-                    logging.warning(
-                        f'{self.file_path}: Error extracting frame at {offset_sec:.2f}s.',
-                        exc_info=ex,
-                    )
-                    black_frame = np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
-                    bgr_frames.append(black_frame)
+                        # 一時的なデマルチプレクサの不調を想定し、念のためコンテナを再オープンして継続
+                        try:
+                            container.close()
+                        except Exception as close_ex:
+                            logging.warning(
+                                f'{self.file_path}: Failed to close container after error.',
+                                exc_info=close_ex,
+                            )
+                        try:
+                            container = av.open(str(self.file_path), format=format_name)
+                            video_stream = container.streams.video[0]
+                            video_stream.codec_context.skip_frame = 'NONINTRA'
+                        except Exception as reopen_ex:
+                            logging.error(
+                                f'{self.file_path}: Failed to reopen container after error.',
+                                exc_info=reopen_ex,
+                            )
+                            return None
+            finally:
+                container.close()
 
             logging.info(f'{self.file_path}: All {len(bgr_frames)} frames extraction completed. ({time.time() - start_time_frame_extraction:.2f} sec)')
 
