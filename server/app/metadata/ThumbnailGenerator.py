@@ -497,6 +497,10 @@ class ThumbnailGenerator:
 
             # シーケンシャルにフレームを抽出（HDD への負荷を考慮）
             container = av.open(str(self.file_path), format=format_name)
+            # PyAV で video stream が存在しない場合は、明示的にエラーとして扱う
+            if len(container.streams.video) == 0:
+                logging.error(f'{self.file_path}: No video stream found in ThumbnailGenerator.')
+                raise ValueError('No video stream found in ThumbnailGenerator.')
             video_stream = container.streams.video[0]
             try:
                 # コンテナは 1 回だけ開き、各フレーム抽出で seek を繰り返す
@@ -510,7 +514,16 @@ class ThumbnailGenerator:
                         # MPEG-TS では start_time が 0 から始まらないことがあるため、start_time を考慮する必要がある
                         # start_time は pts 単位（90kHz クロックで表現された開始位置）なので、
                         # offset_sec を pts 単位に変換してから start_time を加算する
-                        time_base = float(video_stream.time_base) if video_stream.time_base is not None else 1.0
+                        if video_stream.time_base is None:
+                            # time_base が None の場合はコンテナ形式に応じてフォールバックする
+                            if self.container_format == 'MPEG-TS':
+                                time_base = 1 / 90000
+                                logging.warning(f'{self.file_path}: time_base is None in ThumbnailGenerator, using fallback: {time_base}')
+                            else:
+                                logging.error(f'{self.file_path}: time_base is None in ThumbnailGenerator for non-TS container.')
+                                raise ValueError('time_base is None in ThumbnailGenerator for non-TS container.')
+                        else:
+                            time_base = float(video_stream.time_base)
                         start_time = video_stream.start_time if video_stream.start_time else 0
                         target_ts = int(start_time + offset_sec / time_base)
                         container.seek(target_ts, backward=True, any_frame=False, stream=video_stream)
