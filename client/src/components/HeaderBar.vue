@@ -11,7 +11,7 @@
                 v-model="searchQuery" @keydown="handleKeyDown">
             <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" @click="doSearch" />
         </div>
-        <v-btn v-show="isButtonDisplay" variant="flat" class="pwa-install-button"
+        <v-btn v-show="isButtonDisplay && !isTimeTablePage" variant="flat" class="pwa-install-button"
             @click="pwaInstallHandler.install()">
             <Icon icon="material-symbols:install-desktop-rounded" height="20px" class="mr-1" />
             アプリとしてインストール
@@ -76,6 +76,9 @@ const showSearchInput = computed(() => {
     const path = route.path;
     return !path.startsWith('/captures') && !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
 });
+
+// 番組表ページかどうか（ヘッダーにコントロールが多くスペースに余裕がないため、PWA インストールボタンを非表示にする）
+const isTimeTablePage = computed(() => route.path.startsWith('/timetable'));
 
 </script>
 <style lang="scss" scoped>
