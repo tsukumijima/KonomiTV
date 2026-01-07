@@ -8,7 +8,7 @@ import Settings, { type IServerSettings, IServerSettingsDefault } from '@/servic
 /**
  * サーバー設定を共有・キャッシュするストア
  */
-const useServerSettingsStore = defineStore('serveSettings', () => {
+const useServerSettingsStore = defineStore('serverSettings', () => {
 
     // サーバー設定のキャッシュ
     const server_settings = ref<IServerSettings>(structuredClone(IServerSettingsDefault));
