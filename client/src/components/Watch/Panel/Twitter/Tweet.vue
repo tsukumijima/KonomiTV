@@ -24,7 +24,7 @@
                         <img :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
                     </a>
                 </div>
-                <video class="tweet__movie" v-if="displayedTweet.movie_url" :src="displayedTweet.movie_url" controls @click.stop></video>
+                <video class="tweet__movie" v-if="displayedTweet.movie_url" :src="displayedTweet.movie_url" controls crossorigin="anonymous" @click.stop></video>
                 <a v-if="displayedTweet.quoted_tweet"
                     :href="`https://x.com/${displayedTweet.quoted_tweet.user.screen_name}/status/${displayedTweet.quoted_tweet.id}`"
                     target="_blank" class="tweet__quoted-tweet" @click.stop>
