@@ -204,6 +204,8 @@ let stickyUpdateAnimationId: number | null = null;
 let stickyObserveAnimationId: number | null = null;
 const STICKY_MIN_VISIBLE_HEIGHT = 60;
 const STICKY_BASE_PADDING = 2;
+// タッチ操作が行われたかを保持
+const isTouchDetected = ref(false);
 
 // ウィンドウリサイズ時にリアクティブに再計算をトリガーするためのカウンター
 // window.innerWidth や window.matchMedia() の結果は Vue のリアクティブシステムでは追跡されないため、
@@ -762,9 +764,14 @@ function onWheel(event: WheelEvent): void {
  * ポインターダウンイベントハンドラ (ドラッグスクロール開始)
  */
 function onPointerDown(event: PointerEvent): void {
-    if (event.pointerType !== 'mouse') return;
+    // 1. pointerType が明らかにマウスでない場合はスキップ
+    // 2. pointerType が mouse と報告されても、直前にタッチが検知されていればスキップ
+    if (event.pointerType !== 'mouse' || isTouchDetected.value) {
+        return;
+    }
     // scrollAreaRef がない場合は何もしない
     if (scrollAreaRef.value === null) return;
+
 
     // 番組セル内のボタン上でのクリックは除外 (ボタン側で処理)
     // 番組セル自体はドラッグ対象とする
@@ -1100,6 +1107,10 @@ onMounted(async () => {
     if (scrollAreaRef.value !== null) {
         scrollAreaRef.value.addEventListener('wheel', onWheel, { passive: false });
     }
+    // 一度でもタッチされたら true にする (パッシブリスナーで負荷を最小限に)
+    window.addEventListener('touchstart', () => {
+        isTouchDetected.value = true;
+    }, { once: true, passive: true });
 
     // データロード完了後に初期スクロール位置を設定
     await nextTick();
@@ -1212,12 +1223,15 @@ watch(() => timetableStore.display_start_time, (value) => {
         // これにより、横方向のスクロールが正常に動作する
         overscroll-behavior: auto !important;
 
-        // PC (マウス操作可能なデバイス) では JavaScript によるドラッグスクロールを有効化
-        @media (hover: hover) {
-            // ブラウザのデフォルトタッチ動作を無効化して JS でスクロールを制御
+        // 「マウスなどの精密なポインタ」があり、かつ「ホバー可能」な場合のみ JS スクロールを適用
+        // Galaxy Z Fold の大画面モードでの誤判定を防ぐため、any-pointer: coarse を考慮
+        @media (hover: hover) and (pointer: fine) {
+        // タッチ操作（coarseポインタ）が一つも存在しない場合のみ JS 制御にする
+        @media not all and (any-pointer: coarse) {
             touch-action: none !important;
             cursor: grab;
         }
+    }
 
         // タッチデバイス (スマホ・タブレット) ではネイティブスクロールを使用
         // タッチ操作でのスクロールはブラウザネイティブの方がスムーズで自然な動作になる
@@ -1225,6 +1239,8 @@ watch(() => timetableStore.display_start_time, (value) => {
             touch-action: pan-x pan-y !important;
             cursor: default;
         }
+
+
 
         // ドラッグ中状態: カーソルを grabbing に強制
         // 子要素 (番組セルなど) の cursor: pointer をオーバーライドするため !important を使用
