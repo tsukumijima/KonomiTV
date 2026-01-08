@@ -519,8 +519,26 @@ class MetadataAnalyzer:
 
         recorded_program = None
         if container_format == 'MPEG-TS':
+            # FFprobe の programs 配列から、実際にストリームが存在する service_id を特定する
+            ## 複数サービスを含む TS ファイル (CS放送やマルチ編成) では、PAT に複数のサービスが含まれている場合がある
+            ## FFprobe は実際のストリーム構成を解析するため、nb_streams > 0 かつ pcr_pid > 0 の program_id が
+            ## 実際に放送されているサービスの service_id である可能性が高い
+            preferred_service_id: int | None = None
+            for program in full_probe.programs:
+                # nb_streams > 0 かつ pcr_pid > 0 のプログラムを探す
+                ## pcr_pid > 0 は実際に放送中のサービスを示す (pcr_pid == 0 は未使用のサブチャンネル)
+                if (program.nb_streams is not None and program.nb_streams > 0 and
+                    program.pcr_pid is not None and program.pcr_pid > 0 and
+                    program.program_num is not None):
+                    preferred_service_id = program.program_num
+                    logging.debug(
+                        f'{self.recorded_file_path}: Detected preferred service_id {preferred_service_id} from FFprobe '
+                        f'(nb_streams: {program.nb_streams}, pcr_pid: {program.pcr_pid}).'
+                    )
+                    break
+
             # TS ファイルに含まれる番組情報・チャンネル情報を解析する
-            analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset)
+            analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset, preferred_service_id=preferred_service_id)
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')

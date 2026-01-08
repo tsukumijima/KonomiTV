@@ -36,13 +36,19 @@ class TSInfoAnalyzer:
     ariblib の開発者の youzaka 氏に感謝します
     """
 
-    def __init__(self, recorded_video: schemas.RecordedVideo, end_ts_offset: int | None = None) -> None:
+    def __init__(
+        self,
+        recorded_video: schemas.RecordedVideo,
+        end_ts_offset: int | None = None,
+        preferred_service_id: int | None = None,
+    ) -> None:
         """
         録画 TS ファイルや録画データ関連ファイルに含まれる番組情報を解析するクラスを初期化する
 
         Args:
             recorded_video (schemas.RecordedVideo): 録画ファイル情報を表すモデル
             end_ts_offset (int | None): 有効な TS データの終了位置 (バイト単位、ファイル後半がゼロ埋めされている場合に指定する)
+            preferred_service_id (int | None): 優先的に使用する service_id (FFprobe などの外部解析結果から得られた値)
         """
 
         # 有効な TS データの終了位置 (EIT 解析時に必要)
@@ -55,6 +61,9 @@ class TSInfoAnalyzer:
         self.recorded_video = recorded_video
         self.first_tot_timedelta = timedelta()
         self.last_tot_timedelta = timedelta()
+
+        # 優先的に使用する service_id (外部から指定された場合)
+        self.preferred_service_id = preferred_service_id
 
         # 録画ファイルが MPEG-TS 形式の場合
         if self.recorded_video.container_format == 'MPEG-TS':
@@ -343,8 +352,15 @@ class TSInfoAnalyzer:
             logging.warning(f'{self.recorded_video.file_path}: service_id not found.')
             return None
 
+        # 外部から preferred_service_id が指定されていて、PAT に含まれている場合はそれを優先的に使用
+        ## FFprobe などで実際にストリームが存在する service_id が事前に判明している場合に使用される
+        if self.preferred_service_id is not None and self.preferred_service_id in service_id_order:
+            service_id = self.preferred_service_id
+            logging.debug(
+                f'{self.recorded_video.file_path}: Using preferred service_id {service_id} from external analysis.'
+            )
         # 複数サービスが存在する場合は、映像・音声 PID の出現頻度から正しい service_id を推定する
-        if len(service_id_order) > 1:
+        elif len(service_id_order) > 1:
             selected_service_id = self.__selectServiceIdByPidFrequency(
                 service_id_order = service_id_order,
                 service_pmt_pid_map = service_pmt_pid_map,
@@ -769,24 +785,54 @@ class TSInfoAnalyzer:
             return None
 
         # PMT から映像・音声 PID を取得
+        ## ariblib の ProgramMapSection は _pids クラス属性がデフォルトで定義されていないため、
+        ## 動的に追加してから sections() メソッドを使用する
         service_pid_map: dict[int, dict[str, set[int]]] = {}
+
+        # ファイルの 20% 位置にシークしてから PMT を解析する
+        ## Mirakurun/mirakc では録画開始直後はサービス分離が完了しておらず、古い PMT 情報が含まれている場合がある
+        ## ファイルの 20% 位置であれば、サービス分離が完了した後の正しい PMT を取得できる可能性が高い
+        ## ariblib の sections() メソッドは内部キャッシュを持っておりシーク位置を尊重しないため、
+        ## 新しいファイルハンドルを開いて 20% 位置から読み込む必要がある
+        effective_size = min(self.end_ts_offset, self.recorded_video.file_size)
+        pmt_seek_offset = ClosestMultiple(int(effective_size * 0.2), ts.PACKET_SIZE)
+
+        # ProgramMapSection._pids が存在しない場合は空リストで初期化
+        if not hasattr(ProgramMapSection, '_pids'):
+            ProgramMapSection._pids = []  # type: ignore[attr-defined]
         original_pmt_pids = ProgramMapSection._pids  # type: ignore[attr-defined]
-        ProgramMapSection._pids = list(service_pmt_pid_map.values())  # type: ignore[attr-defined]
+        pmt_pids_to_use = list(service_pmt_pid_map.values())
+        ProgramMapSection._pids = pmt_pids_to_use  # type: ignore[attr-defined]
         try:
-            for pmt in self.ts.sections(ProgramMapSection):
-                service_id = int(pmt.program_number)
-                if service_id not in service_pmt_pid_map:
-                    continue
-                video_pids = {int(pid) for pid in pmt.video_pids()}
-                audio_pids = {int(pid) for pid in pmt.audio_pids()}
-                if len(video_pids) == 0 and len(audio_pids) == 0:
-                    continue
-                service_pid_map[service_id] = {
-                    'video_pids': video_pids,
-                    'audio_pids': audio_pids,
-                }
-                if len(service_pid_map) == len(service_pmt_pid_map):
-                    break
+            # 20% 位置から始まる新しいファイルハンドルを開いて PMT を解析
+            ## サービス分離済みのファイルでは特定のサービスの PMT しか存在しないため、
+            ## 一定回数 PMT を確認したら終了する
+            with ariblib.tsopen(self.recorded_video.file_path, chunk=1000) as pmt_ts:
+                pmt_ts.seek(pmt_seek_offset)
+                pmt_check_count = 0
+                max_pmt_checks = len(service_pmt_pid_map) * 3  # 各サービスにつき最大3回のチェック
+                for pmt in pmt_ts.sections(ProgramMapSection):
+                    pmt_check_count += 1
+                    service_id = int(pmt.program_number)
+                    if service_id not in service_pmt_pid_map:
+                        continue
+                    # 既にこのサービスの PMT を取得済みならスキップ
+                    if service_id in service_pid_map:
+                        # すべてのサービスを確認済みか、一定回数チェックしたら終了
+                        if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
+                            break
+                        continue
+                    video_pids = {int(p) for p in pmt.video_pids()}
+                    audio_pids = {int(p) for p in pmt.audio_pids()}
+                    if len(video_pids) == 0 and len(audio_pids) == 0:
+                        continue
+                    service_pid_map[service_id] = {
+                        'video_pids': video_pids,
+                        'audio_pids': audio_pids,
+                    }
+                    # すべてのサービスを確認済みか、一定回数チェックしたら終了
+                    if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
+                        break
         finally:
             ProgramMapSection._pids = original_pmt_pids  # type: ignore[attr-defined]
 
@@ -837,8 +883,8 @@ class TSInfoAnalyzer:
                 continue
             video_pids = service_pid_map[service_id]['video_pids']
             audio_pids = service_pid_map[service_id]['audio_pids']
-            video_count = sum(pid_counts.get(pid, 0) for pid in video_pids)
-            audio_count = sum(pid_counts.get(pid, 0) for pid in audio_pids)
+            video_count = sum(pid_counts.get(p, 0) for p in video_pids)
+            audio_count = sum(pid_counts.get(p, 0) for p in audio_pids)
             # 映像を優先してスコア化する
             score = video_count * 2 + audio_count
             if score > best_score:
