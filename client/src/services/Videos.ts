@@ -36,8 +36,36 @@ export interface IRecordedVideo {
     secondary_audio_sampling_rate: number | null;
     has_key_frames: boolean;
     cm_sections: { start_time: number; end_time: number; }[] | null;
+    thumbnail_info: IThumbnailInfo | null;
     created_at: string;
     updated_at: string;
+}
+
+/** サムネイル情報を表すインターフェース */
+export interface IThumbnailInfo {
+    version: number;
+    representative: IThumbnailImageInfo;
+    tile: IThumbnailTileInfo;
+}
+
+/** 代表サムネイル情報を表すインターフェース */
+export interface IThumbnailImageInfo {
+    format: 'WebP';
+    width: number;
+    height: number;
+}
+
+/** サムネイルタイル情報を表すインターフェース */
+export interface IThumbnailTileInfo {
+    format: 'WebP';
+    image_width: number;
+    image_height: number;
+    tile_width: number;
+    tile_height: number;
+    total_tiles: number;
+    column_count: number;
+    row_count: number;
+    interval_sec: number;
 }
 
 /** 録画ファイル情報を表すインターフェースのデフォルト値 */
@@ -67,6 +95,7 @@ export const IRecordedVideoDefault: IRecordedVideo = {
     secondary_audio_sampling_rate: null,
     has_key_frames: false,
     cm_sections: null,
+    thumbnail_info: null,
     created_at: '2000-01-01T00:00:00+09:00',
     updated_at: '2000-01-01T00:00:00+09:00',
 };
