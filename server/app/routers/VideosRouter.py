@@ -88,8 +88,8 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
         'has_key_frames': has_key_frames,
         'cm_sections': cm_sections,
         'thumbnail_info': thumbnail_info,
-        'created_at': row['created_at'],
-        'updated_at': row['updated_at'],
+        'created_at': row['rv_created_at'],
+        'updated_at': row['rv_updated_at'],
     }
 
     # channel のデータを構築 (channel_id が存在する場合のみ)
@@ -387,6 +387,8 @@ async def VideosAPI(
             CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             rv.thumbnail_info,
+            rv.created_at AS rv_created_at,
+            rv.updated_at AS rv_updated_at,
             ch.id AS ch_id,
             ch.display_channel_id,
             ch.network_id AS ch_network_id,
@@ -614,6 +616,8 @@ async def VideosSearchAPI(
             CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             rv.thumbnail_info,
+            rv.created_at AS rv_created_at,
+            rv.updated_at AS rv_updated_at,
             ch.id AS ch_id,
             ch.display_channel_id,
             ch.network_id AS ch_network_id,
