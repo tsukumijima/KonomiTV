@@ -401,7 +401,6 @@ class ThumbnailGenerator:
         )
 
         # 計算結果をログ出力
-        duration_min = int(duration_sec / 60)
         expected_tiles = duration_sec / interval
         base_tiles = (self.BASE_DURATION_MIN * 60) / self.BASE_INTERVAL_SEC
         increase_ratio = expected_tiles / base_tiles

@@ -613,6 +613,7 @@ async def VideosSearchAPI(
             -- 空かどうかの判定結果だけを取得する
             CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
+            rv.thumbnail_info,
             ch.id AS ch_id,
             ch.display_channel_id,
             ch.network_id AS ch_network_id,
