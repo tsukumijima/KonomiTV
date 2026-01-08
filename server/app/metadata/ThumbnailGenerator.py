@@ -35,13 +35,13 @@ class ThumbnailGenerator:
     BASE_INTERVAL_SEC: ClassVar[float] = 5.0  # 基準となる間隔 (5秒)
     MAX_INTERVAL_SEC: ClassVar[float] = 30.0  # 最大間隔 (30秒)
     SCORING_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # スコアリング・代表サムネイル選定時の解像度 (顔検出精度のため維持)
-    TILE_SCALE: ClassVar[tuple[int, int]] = (192, 108)  # タイル化時の1フレーム解像度 (width, height)
+    TILE_SCALE: ClassVar[tuple[int, int]] = (320, 180)  # タイル化時の1フレーム解像度 (width, height)
     LEGACY_TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # 旧タイルの1フレーム解像度 (width, height)
     LEGACY_TILE_COLS: ClassVar[int] = 34  # 旧タイルの列数
 
     # WebP 出力の設定
     WEBP_QUALITY_REPRESENTATIVE: ClassVar[int] = 80  # 代表サムネイルの WebP 品質 (0-100)
-    WEBP_QUALITY_TILE: ClassVar[int] = 68  # シークバーサムネイルタイルの WebP 品質 (0-100)
+    WEBP_QUALITY_TILE: ClassVar[int] = 71  # シークバーサムネイルタイルの WebP 品質 (0-100)
     WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
     FFMPEG_TIMEOUT: ClassVar[int] = 300  # FFmpeg サブプロセスのタイムアウト時間 (秒)
@@ -343,7 +343,7 @@ class ThumbnailGenerator:
             # 1. 候補オフセットを計算
             candidate_offsets = self.__calculateCandidateOffsets()
 
-            # 2. フレーム抽出 + タイル画像生成 + 代表サムネイル保存をサブプロセス内で完結させる
+            # 2. フレーム抽出 + タイル画像生成・保存 + 代表サムネイル保存をサブプロセス内で完結させる
             ## 親プロセスへのフレーム配列転送を避け、メモリ使用量とコピーコストを抑制する
             loop = asyncio.get_running_loop()
             with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
@@ -643,7 +643,8 @@ class ThumbnailGenerator:
                         img_rgb = frame.to_ndarray(format='rgb24')
 
                         # リサイズを実行
-                        img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_LINEAR)
+                        ## 1440x1080 から一気に 480x270 まで縮小するため INTER_AREA を使う
+                        img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_AREA)
 
                         # RGB から OpenCV 向けの BGR に変換して bgr_frames に追加する
                         img_bgr = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
@@ -806,10 +807,10 @@ class ThumbnailGenerator:
             scoring_width, scoring_height = self.SCORING_SCALE
 
             # SCORING_SCALE と TILE_SCALE が異なる場合はリサイズ
-            # 将来的に TILE_SCALE を小さくしてファイルサイズを削減する際に使用
+            ## 縮小前ローパス、LANCZOS4 縮小、クロマモアレ抑制、Yアンシャープを組み合わせた高品質な縮小処理を適用
             if (tile_width, tile_height) != (scoring_width, scoring_height):
                 resized_frames = [
-                    cv2.resize(frame, (tile_width, tile_height), interpolation=cv2.INTER_LINEAR)
+                    self.downscaleWithAntiMoire(frame, tile_width, tile_height)
                     for frame in bgr_frames
                 ]
             else:
@@ -840,6 +841,121 @@ class ThumbnailGenerator:
             return False
 
 
+    def downscaleWithAntiMoire(
+        self,
+        bgr: NDArray[np.uint8],
+        out_width: int,
+        out_height: int,
+        pre_lp_sigma: float = 0.50,
+        chroma_sigma: float = 1.0,
+        unsharp_sigma: float = 0.8,
+        unsharp_amount: float = 0.28,
+    ) -> NDArray[np.uint8]:
+        """
+        縮小前ローパス、LANCZOS4 縮小、クロマモアレ抑制、Yアンシャープを組み合わせた高品質な縮小処理
+        モアレを抑制しつつ、シャープネスを維持する
+
+        Args:
+            bgr (NDArray[np.uint8]): 入力画像データ (BGR)
+            out_width (int): 出力幅
+            out_height (int): 出力高さ
+            pre_lp_sigma (float): 縮小前ローパスの強さ (デフォルト: 0.50、モアレ抑制とシャープさのバランス)
+            chroma_sigma (float): クロマ後処理の強さ (デフォルト: 1.0)
+            unsharp_sigma (float): アンシャープ用ぼかしの標準偏差 (デフォルト: 0.8)
+            unsharp_amount (float): アンシャープマスクの強度 (デフォルト: 0.28、モアレ抑制とシャープさのバランス)
+
+        Returns:
+            NDArray[np.uint8]: 処理後の画像データ (BGR)
+        """
+
+        # 縮小率に応じてローパスとシャープの強さを自動調整
+        ## 480x270 -> 256x144 の縮小はモアレが出やすいため、縮小率が小さいほど抑制を強める
+        in_height, in_width = bgr.shape[:2]
+        scale_x = out_width / max(1, in_width)
+        scale_y = out_height / max(1, in_height)
+        scale = min(scale_x, scale_y)
+        scale = float(np.clip(scale, 0.05, 1.0))
+        pre_lp_sigma_scaled = float(np.clip(pre_lp_sigma + (1.0 - scale) * 0.35, 0.35, 0.95))
+        unsharp_amount_scaled = float(np.clip(unsharp_amount + (1.0 - scale) * 0.20, 0.20, 0.55))
+        unsharp_sigma_scaled = float(np.clip(unsharp_sigma + (1.0 - scale) * 0.15, 0.7, 1.1))
+
+        # 強い縮小時は 2 段階で縮小し、折り返し歪みを緩和する
+        use_two_step = scale < 0.72
+        mid_width = out_width
+        mid_height = out_height
+        if use_two_step is True:
+            mid_scale = (scale + 1.0) / 2.0
+            mid_width = round(in_width * mid_scale)
+            mid_height = round(in_height * mid_scale)
+            if mid_width <= out_width or mid_height <= out_height:
+                use_two_step = False
+
+        # 1) YCrCb に分離（Y = 輝度、Cr/Cb = 色差）
+        ycc = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)
+        y, cr, cb = cv2.split(ycc)
+
+        # 2) 縮小前ローパス：Y だけ "ごく弱く"
+        ## 色は後で別途やるので、まずは輝度の高周波だけ少し落とす
+        y_lp = cv2.GaussianBlur(y, (0, 0), sigmaX=pre_lp_sigma_scaled)
+
+        # 3) LANCZOS4 で縮小（Y はローパス後、Cr/Cb はそのまま縮小）
+        ## 強い縮小時は一度 INTER_AREA で中間サイズまで落としてから LANCZOS4 で仕上げる
+        if use_two_step is True:
+            y_mid = cv2.resize(y_lp, (mid_width, mid_height), interpolation=cv2.INTER_AREA)
+            cr_mid = cv2.resize(cr, (mid_width, mid_height), interpolation=cv2.INTER_AREA)
+            cb_mid = cv2.resize(cb, (mid_width, mid_height), interpolation=cv2.INTER_AREA)
+            y_s = cv2.resize(y_mid, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+            cr_s = cv2.resize(cr_mid, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+            cb_s = cv2.resize(cb_mid, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+        else:
+            y_s = cv2.resize(y_lp, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+            cr_s = cv2.resize(cr, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+            cb_s = cv2.resize(cb, (out_width, out_height), interpolation=cv2.INTER_LANCZOS4)
+
+        # 4) モアレ推定マスク（クロマの細かい揺れを見てマスク化）
+        cr_bl = cv2.GaussianBlur(cr_s, (0, 0), sigmaX=chroma_sigma)
+        cb_bl = cv2.GaussianBlur(cb_s, (0, 0), sigmaX=chroma_sigma)
+        score = cv2.absdiff(cr_s, cr_bl).astype(np.uint16) + cv2.absdiff(cb_s, cb_bl).astype(np.uint16)
+
+        # 閾値は素材で動くのでまずは 12 を試す
+        threshold = 10 if scale < 0.6 else 12
+        mask = (score > threshold).astype(np.uint8) * 255
+        mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
+        mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=1.0).astype(np.float32) / 255.0  # 0..1
+
+        # 5) クロマだけ平滑化（モアレ領域ほど強めに）
+        cr_strong = cv2.GaussianBlur(cr_s, (0, 0), sigmaX=chroma_sigma * 1.6)
+        cb_strong = cv2.GaussianBlur(cb_s, (0, 0), sigmaX=chroma_sigma * 1.6)
+        cr2 = (cr_s.astype(np.float32) * (1 - mask) + cr_strong.astype(np.float32) * mask).astype(np.uint8)
+        cb2 = (cb_s.astype(np.float32) * (1 - mask) + cb_strong.astype(np.float32) * mask).astype(np.uint8)
+
+        # 6) Y だけアンシャープ。エッジ限定 + モアレ領域では弱める
+        ## エッジ以外は極力触らず、線のソリッド感だけを引き出す
+        y_bl = cv2.GaussianBlur(y_s, (0, 0), sigmaX=unsharp_sigma_scaled)
+        detail = (y_s.astype(np.float32) - y_bl.astype(np.float32))
+        sobel_x = cv2.Sobel(y_s.astype(np.float32), cv2.CV_32F, 1, 0, ksize=3)
+        sobel_y = cv2.Sobel(y_s.astype(np.float32), cv2.CV_32F, 0, 1, ksize=3)
+        edge_mag = cv2.magnitude(sobel_x, sobel_y)
+        edge_mag_array = np.asarray(edge_mag, dtype=np.float32)
+        edge_ref = float(np.percentile(edge_mag_array, 95))
+        if edge_ref < 1.0:
+            edge_ref = 1.0
+        edge_norm = cast(NDArray[np.float32], np.clip(edge_mag_array / edge_ref, 0.0, 1.0))
+        edge_mask = cast(NDArray[np.float32], np.clip((edge_norm - 0.05) / 0.20, 0.0, 1.0))
+        edge_mask = cast(NDArray[np.float32], cv2.GaussianBlur(edge_mask, (0, 0), sigmaX=0.3))
+
+        # モアレ領域は最大70%弱める
+        ## エッジのソリッド感を優先するため、エッジ領域は弱めすぎない
+        moire_suppress = 1.0 - 0.40 * mask
+        edge_boost = 0.34 + 1.45 * edge_mask
+        base_amount = unsharp_amount_scaled * 0.34
+        amount_local = (unsharp_amount_scaled * edge_boost + base_amount) * moire_suppress
+        y2 = np.clip(y_s.astype(np.float32) + detail * amount_local, 0, 255).astype(np.uint8)
+
+        out = cv2.merge([y2, cr2, cb2])
+        return cast(NDArray[np.uint8], cv2.cvtColor(out, cv2.COLOR_YCrCb2BGR))
+
+
     def __encodeTileImageToWebP(
         self,
         tile_image: NDArray[np.uint8],
@@ -866,6 +982,7 @@ class ThumbnailGenerator:
 
         # FFmpeg でタイル画像を WebP に圧縮保存
         # 出力形式を -f webp で明示的に指定することで、.tmp などの拡張子でも正しく出力できる
+        preset = 'drawing' if self.face_detection_mode == 'Anime' else 'picture'
         process = subprocess.Popen(
             [
                 LIBRARY_PATH['FFmpeg'],
@@ -877,7 +994,7 @@ class ThumbnailGenerator:
                 '-codec:v', 'webp',
                 '-quality', str(ThumbnailGenerator.WEBP_QUALITY_TILE),
                 '-compression_level', str(ThumbnailGenerator.WEBP_COMPRESSION),
-                '-preset', 'picture',
+                '-preset', preset,
                 '-threads', 'auto',
                 '-f', 'webp',
                 str(output_path),
@@ -908,6 +1025,7 @@ class ThumbnailGenerator:
     async def __saveThumbnailInfoToDB(self) -> None:
         """
         生成済みサムネイル情報を DB に保存する
+        再生成の場合、既存のサムネイル情報は上書きされる（この時点でサムネイル自体が上書き保存されているので正常な挙動）
         """
 
         # DB から RecordedVideo を取得
@@ -1091,11 +1209,9 @@ class ThumbnailGenerator:
             x1 = x0 + legacy_width
             # フレームを切り出し
             frame = legacy_tile[y0:y1, x0:x1]
-            # 新しいサイズにリサイズ (線形補間)
-            resized_frame = cast(
-                NDArray[np.uint8],
-                cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR),
-            )
+            # 新しいサイズにリサイズ
+            ## 縮小前ローパス、LANCZOS4 縮小、クロマモアレ抑制、Yアンシャープを組み合わせた高品質な縮小処理を適用
+            resized_frame = self.downscaleWithAntiMoire(cast(NDArray[np.uint8], frame), new_width, new_height)
             resized_frames.append(resized_frame)
 
         # 新しい列数でタイル化
