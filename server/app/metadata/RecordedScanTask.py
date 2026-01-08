@@ -940,7 +940,6 @@ class RecordedScanTask:
                 async with ProcessLimiter.getSemaphore('ThumbnailMigration'):
                     async with DriveIOLimiter.getSemaphore(file_path):
                         # タイル画像と代表サムネイルの両方が存在する場合は既存タイルを新仕様に変換
-                        ## この場合は RecordedVideo の情報のみで十分なため、軽量な forMigration() で初期化
                         if await tile_path.is_file() and await thumbnail_path.is_file():
                             generator = ThumbnailGenerator.forMigration(
                                 file_path = db_recorded_video.file_path,
@@ -949,7 +948,7 @@ class RecordedScanTask:
                             )
                             await generator.migrateFromLegacyTile()
                         # サムネイルが存在しない場合は新規生成する
-                        ## 新規生成には RecordedProgram の情報が必要なため、この場合のみ取得する
+                        ## 新規生成を行うには RecordedProgram が必要なため、ここで随時取得する
                         else:
                             logging.info(f'{file_path}: Missing thumbnails. Regenerating with new settings. ({index}/{len(target_videos)})')
                             recorded_program = await RecordedProgram.get_or_none(
