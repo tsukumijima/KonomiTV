@@ -310,7 +310,7 @@ class RecordedScanTask:
 
         # 現在登録されている全ての RecordedVideo レコードをキャッシュ
         ## 重複削除処理で保持すると判断されたレコードのみを使う
-        existing_db_recorded_videos = {}
+        existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] = {}
         for video in videos_to_keep:
             # 既存レコードのファイルパスもシンボリックリンクを解決して正規化する
             canonical_path = await self.resolveRecordedPath(anyio.Path(video.file_path))
@@ -384,10 +384,12 @@ class RecordedScanTask:
                     # .git から始まるファイルは無視
                     if thumbnail_path.name.startswith('.git'):
                         continue
+                    # ディレクトリは無視
+                    if await thumbnail_path.is_dir():
+                        continue
 
                     # ファイル名からハッシュを抽出
                     ## ファイル名は "{hash}.webp" または "{hash}_tile.webp" の形式
-                    ## JPEG フォールバックの場合は ".jpg" の可能性もある
                     file_name = thumbnail_path.stem
                     if file_name.endswith('_tile'):
                         file_hash = file_name[:-5]  # "_tile" を除去
@@ -400,6 +402,9 @@ class RecordedScanTask:
                         logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
                 except Exception as ex:
                     logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
+
+        # サムネイル情報のマイグレーションを実行
+        await self.__migrateThumbnailInfo()
 
         # かつてのバグで RecordedVideo.file_hash が衝突している録画ファイルのメタデータを再解析する
         ## トランザクション配下に入れることでパフォーマンスが向上する
@@ -880,6 +885,92 @@ class RecordedScanTask:
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
+
+
+    async def __migrateThumbnailInfo(self) -> None:
+        """
+        サムネイル情報 (thumbnail_info) が未保存の録画に対して、サムネイル情報の移行・補完を行う
+
+        このメソッドは runBatchScan() から呼び出され、以下の処理を行う:
+        - RecordedVideo.thumbnail_info が None のレコードを対象にサムネイル情報を移行
+        - 既存のサムネイルタイル画像が存在する場合は旧仕様 (480x270, 34列) から新仕様 (192x108, 85列) に変換
+        - サムネイルが存在しない場合は新規に生成
+
+        新仕様ではタイルサイズを小さくすることで、ファイルサイズを削減しつつシークバーでの表示品質を維持している
+        旧仕様のタイル画像は backup フォルダにバックアップされる (MIGRATION_BACKUP_ENABLED が True の場合)
+        """
+
+        logging.info('Starting thumbnail metadata migration...')
+
+        # サムネイルフォルダが存在しない場合はマイグレーション不要
+        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+        if not await thumbnails_dir.is_dir():
+            logging.info('Thumbnail directory does not exist. Skipping thumbnail metadata migration.')
+            return
+
+        # thumbnail_info が未設定の録画済みファイルを一括取得
+        ## マイグレーション処理では RecordedVideo の情報のみで十分なため、RecordedProgram は取得しない
+        target_videos = await RecordedVideo.filter(status='Recorded', thumbnail_info=None).all()
+        if len(target_videos) == 0:
+            logging.info('No videos require thumbnail metadata migration.')
+            return
+
+        logging.info(
+            f'Thumbnail metadata migration target count: {len(target_videos)} '
+            f'(backup_enabled: {ThumbnailGenerator.MIGRATION_BACKUP_ENABLED}).'
+        )
+
+        # 各録画ファイルに対してサムネイル情報を移行
+        for index, db_recorded_video in enumerate(target_videos, start=1):
+            file_path = anyio.Path(db_recorded_video.file_path)
+
+            # 録画ファイルが存在しない場合はスキップ (削除済みなど)
+            if not await self.isFileExists(file_path):
+                logging.warning(f'{file_path}: Recording file not found. Skipping thumbnail metadata migration. ({index}/{len(target_videos)})')
+                continue
+
+            # 既存のサムネイルファイルのパスを構築
+            tile_path = thumbnails_dir / f'{db_recorded_video.file_hash}_tile.webp'
+            thumbnail_path = thumbnails_dir / f'{db_recorded_video.file_hash}.webp'
+
+            try:
+                logging.info(f'{file_path}: Thumbnail migration started. ({index}/{len(target_videos)})')
+
+                # 同時実行数を制限しつつサムネイル処理を実行
+                async with ProcessLimiter.getSemaphore('ThumbnailMigration'):
+                    async with DriveIOLimiter.getSemaphore(file_path):
+                        # タイル画像と代表サムネイルの両方が存在する場合は既存タイルを新仕様に変換
+                        ## この場合は RecordedVideo の情報のみで十分なため、軽量な forMigration() で初期化
+                        if await tile_path.is_file() and await thumbnail_path.is_file():
+                            generator = ThumbnailGenerator.forMigration(
+                                file_path = db_recorded_video.file_path,
+                                file_hash = db_recorded_video.file_hash,
+                                duration_sec = db_recorded_video.duration,
+                            )
+                            await generator.migrateFromLegacyTile()
+                        # サムネイルが存在しない場合は新規生成する
+                        ## 新規生成には RecordedProgram の情報が必要なため、この場合のみ取得する
+                        else:
+                            logging.info(f'{file_path}: Missing thumbnails. Regenerating with new settings. ({index}/{len(target_videos)})')
+                            recorded_program = await RecordedProgram.get_or_none(
+                                id=db_recorded_video.recorded_program_id,
+                            ).select_related('recorded_video', 'channel')
+                            if recorded_program is None:
+                                logging.warning(f'{file_path}: RecordedProgram not found. Skipping thumbnail regeneration. ({index}/{len(target_videos)})')
+                                continue
+                            recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
+                            generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
+                            await generator.generateAndSave()
+
+                logging.info(f'{file_path}: Thumbnail migration finished. ({index}/{len(target_videos)})')
+            except Exception as ex:
+                logging.error(f'{file_path}: Failed to migrate thumbnail metadata:', exc_info=ex)
+
+            # イベントループが他のタスクを処理できるよう定期的に制御を返す
+            if index % 20 == 0:
+                await asyncio.sleep(0)
+
+        logging.info('Thumbnail metadata migration completed.')
 
 
     async def watchRecordedFolders(self) -> None:

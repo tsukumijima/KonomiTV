@@ -52,6 +52,14 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
     if row['cm_sections'] is not None:
         cm_sections = json.loads(row['cm_sections'])
 
+    # thumbnail_info は小さいので、通常通りパースする
+    thumbnail_info: schemas.ThumbnailInfo | None = None
+    if row['thumbnail_info'] is not None:
+        if isinstance(row['thumbnail_info'], str):
+            thumbnail_info = json.loads(row['thumbnail_info'])
+        else:
+            thumbnail_info = row['thumbnail_info']
+
     # recorded_video のデータを構築
     recorded_video_dict = {
         'id': row['rv_id'],
@@ -79,6 +87,7 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
         'secondary_audio_sampling_rate': row['secondary_audio_sampling_rate'],
         'has_key_frames': has_key_frames,
         'cm_sections': cm_sections,
+        'thumbnail_info': thumbnail_info,
         'created_at': row['created_at'],
         'updated_at': row['updated_at'],
     }
@@ -165,7 +174,6 @@ async def GetThumbnailResponse(
     """
     サムネイル画像のレスポンスを生成する共通処理
     ETags と Last-Modified を使ったキャッシュ制御を行う
-    WebP の最大サイズ制限を超えた場合は JPEG にフォールバックする
 
     Args:
         request (Request): FastAPI のリクエストオブジェクト
@@ -260,15 +268,13 @@ async def GetThumbnailResponse(
     suffix = '_tile' if return_tiled else ''
     base_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{recorded_program.recorded_video.file_hash}{suffix}'
 
-    # WebP と JPEG の両方を試す
+    # WebP のみを試す
     thumbnail_path = None
     media_type = None
-    for ext, mime in [('.webp', 'image/webp'), ('.jpg', 'image/jpeg')]:
-        path = base_path.with_suffix(ext)
-        if await path.is_file():
-            thumbnail_path = path
-            media_type = mime
-            break
+    path = base_path.with_suffix('.webp')
+    if await path.is_file():
+        thumbnail_path = path
+        media_type = 'image/webp'
 
     # サムネイル画像が存在しない場合はデフォルトのサムネイル画像を返す
     if thumbnail_path is None:
@@ -380,6 +386,7 @@ async def VideosAPI(
             -- 空かどうかの判定結果だけを取得する
             CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
+            rv.thumbnail_info,
             ch.id AS ch_id,
             ch.display_channel_id,
             ch.network_id AS ch_network_id,
@@ -783,10 +790,10 @@ async def VideoReanalyzeAPI(
 @router.get(
     '/{video_id}/thumbnail',
     summary = '録画番組サムネイル画像取得 API',
-    response_description = '録画番組のサムネイル画像 (WebP または JPEG) 。',
+    response_description = '録画番組のサムネイル画像 (WebP) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
+        200: {'content': {'image/webp': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
@@ -806,10 +813,10 @@ async def VideoThumbnailAPI(
 @router.get(
     '/{video_id}/thumbnail/tiled',
     summary = '録画番組シークバー用サムネイルタイル画像取得 API',
-    response_description = '録画番組のシークバー用サムネイルタイル画像 (WebP または JPEG) 。',
+    response_description = '録画番組のシークバー用サムネイルタイル画像 (WebP) 。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'image/webp': {}, 'image/jpeg': {}}},
+        200: {'content': {'image/webp': {}}},
         304: {'description': 'Not Modified'},
         422: {'description': 'Specified video_id was not found'},
     },
@@ -907,7 +914,7 @@ async def VideoDeleteAPI(
         # 同じ file_hash を持つ他のレコードが存在する場合はスキップ
         thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
         if await thumbnails_dir.is_dir() and not has_duplicates:
-            # 通常サムネイル (.webp または .jpg)
+            # 通常サムネイル (.webp、旧仕様の .jpg)
             for ext in ['.webp', '.jpg']:
                 thumbnail_path = thumbnails_dir / f'{file_hash}{ext}'
                 if await thumbnail_path.is_file():
@@ -922,7 +929,7 @@ async def VideoDeleteAPI(
                 elif ext == '.webp':  # JPEG はよほど長尺でない限り発生しないので WebP のみチェック
                     logging.warning(f'[VideoDeleteAPI] Thumbnail file does not exist: {thumbnail_path}')
 
-            # タイルサムネイル (.webp または .jpg)
+            # タイルサムネイル (.webp、旧仕様の .jpg)
             for ext in ['.webp', '.jpg']:
                 tile_thumbnail_path = thumbnails_dir / f'{file_hash}_tile{ext}'
                 if await tile_thumbnail_path.is_file():

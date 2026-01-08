@@ -152,6 +152,7 @@ docker-compose.yaml
 server/data/*.*
 server/data/account-icons/*.*
 server/data/thumbnails/*.*
+server/data/thumbnails/old/*.*
 server/static/interlaced_*
 
 # thirdparty

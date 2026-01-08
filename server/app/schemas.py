@@ -11,8 +11,10 @@ from tortoise.contrib.pydantic import PydanticModel
 from typing_extensions import TypedDict
 
 
-# 以下の型定義は親モデル -> 子モデルの順に記述する
+# 以下に定義する型定義は、必ず以下の例のように、「親モデル」->「子モデル」の順に記述すること！
 # from __future__ import annotations をインポートしているので前方参照について気にする必要はない
+## 悪い例: ThumbnailImageInfo -> ThumbnailTileInfo -> ThumbnailInfo -> KeyFrame -> CMSection -> RecordedVideo
+## 良い例: RecordedVideo -> KeyFrame -> CMSection -> ThumbnailInfo -> ThumbnailImageInfo -> ThumbnailTileInfo
 
 # モデルとモデルに関連する API レスポンスの構造を表す Pydantic モデル
 ## この Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
@@ -160,6 +162,7 @@ class RecordedVideo(PydanticModel):
     # key_frames はデータ量が多いため、キーフレーム情報を取得できているかを表す has_key_frames のみ返す
     has_key_frames: bool = False
     cm_sections: list[CMSection] | None = None
+    thumbnail_info: ThumbnailInfo | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -170,6 +173,27 @@ class KeyFrame(TypedDict):
 class CMSection(TypedDict):
     start_time: float
     end_time: float
+
+class ThumbnailInfo(TypedDict):
+    version: int
+    representative: ThumbnailImageInfo
+    tile: ThumbnailTileInfo
+
+class ThumbnailImageInfo(TypedDict):
+    format: Literal['WebP']
+    width: int
+    height: int
+
+class ThumbnailTileInfo(TypedDict):
+    format: Literal['WebP']
+    image_width: int
+    image_height: int
+    tile_width: int
+    tile_height: int
+    total_tiles: int
+    column_count: int
+    row_count: int
+    interval_sec: float
 
 # ***** 録画番組 *****
 

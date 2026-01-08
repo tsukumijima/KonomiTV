@@ -16,10 +16,12 @@ import cv2
 import numpy as np
 import typer
 from numpy.typing import NDArray
+from tortoise import Tortoise
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
-from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.constants import DATABASE_CONFIG, LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.models.RecordedVideo import RecordedVideo
 
 
 class ThumbnailGenerator:
@@ -29,22 +31,27 @@ class ThumbnailGenerator:
     """
 
     # サムネイルのタイル化の設定
-    ## 将来的に TILE_SCALE のみ (240, 135) などに変更してファイルサイズを削減可能
     BASE_DURATION_MIN: ClassVar[int] = 30  # 基準となる動画の長さ (30分)
     BASE_INTERVAL_SEC: ClassVar[float] = 5.0  # 基準となる間隔 (5秒)
     MAX_INTERVAL_SEC: ClassVar[float] = 30.0  # 最大間隔 (30秒)
     SCORING_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # スコアリング・代表サムネイル選定時の解像度 (顔検出精度のため維持)
-    TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # タイル化時の1フレーム解像度 (width, height)
-    TILE_COLS: ClassVar[int] = 34   # WebP の最大サイズ制限 (16383px) を考慮し、1行あたりの最大フレーム数を設定
+    TILE_SCALE: ClassVar[tuple[int, int]] = (192, 108)  # タイル化時の1フレーム解像度 (width, height)
+    LEGACY_TILE_SCALE: ClassVar[tuple[int, int]] = (480, 270)  # 旧タイルの1フレーム解像度 (width, height)
+    LEGACY_TILE_COLS: ClassVar[int] = 34  # 旧タイルの列数
 
     # WebP 出力の設定
     WEBP_QUALITY_REPRESENTATIVE: ClassVar[int] = 80  # 代表サムネイルの WebP 品質 (0-100)
     WEBP_QUALITY_TILE: ClassVar[int] = 68  # シークバーサムネイルタイルの WebP 品質 (0-100)
     WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
+    FFMPEG_TIMEOUT: ClassVar[int] = 300  # FFmpeg サブプロセスのタイムアウト時間 (秒)
 
-    # JPEG フォールバック時の設定
-    JPEG_QUALITY: ClassVar[int] = 90  # JPEG 品質 (0-100)
+    # サムネイル情報のバージョン
+    THUMBNAIL_INFO_VERSION: ClassVar[int] = 1
+
+    # サムネイルタイル移行時のバックアップ設定 (デバッグ用)
+    MIGRATION_BACKUP_ENABLED: ClassVar[bool] = False
+    MIGRATION_BACKUP_DIR_NAME: ClassVar[str] = 'old'
 
     # 顔検出用カスケード分類器のパス
     HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
@@ -160,7 +167,18 @@ class ThumbnailGenerator:
         self.face_detection_mode = face_detection_mode
 
         # 動画の長さに応じて適切なタイル化間隔を計算
-        self.tile_interval_sec = self.__calculateTileInterval(duration_sec)
+        self.base_tile_interval_sec = self.__calculateBaseTileInterval(duration_sec)
+
+        # タイル情報を計算して初期化
+        ## コンストラクタで計算することで、以降のメソッドで None チェックが不要になる
+        (
+            self.tile_interval_sec,
+            self.tile_cols,
+            self.tile_rows,
+            self.total_tiles,
+            self.tile_image_width,
+            self.tile_image_height,
+        ) = self.__calculateTileLayout()
 
         # ファイルハッシュをベースにしたファイル名を生成
         self.seekbar_thumbnails_tile_path = anyio.Path(str(THUMBNAILS_DIR / f"{file_hash}_tile.webp"))
@@ -276,6 +294,32 @@ class ThumbnailGenerator:
         )
 
 
+    @classmethod
+    def forMigration(cls, file_path: str, file_hash: str, duration_sec: float) -> ThumbnailGenerator:
+        """
+        既存サムネイルのマイグレーション専用のファクトリメソッド
+        タイルレイアウト計算に必要な最低限の情報のみで ThumbnailGenerator を初期化する
+        代表サムネイル生成に必要な candidate_time_ranges や face_detection_mode は使用しないため、ダミー値を設定
+
+        Args:
+            file_path (str): 録画ファイルのパス (ログ出力用)
+            file_hash (str): 録画ファイルのハッシュ
+            duration_sec (float): 動画の長さ (秒)
+
+        Returns:
+            ThumbnailGenerator: マイグレーション用に初期化された ThumbnailGenerator インスタンス
+        """
+
+        return cls(
+            file_path = anyio.Path(file_path),
+            container_format = 'MPEG-TS',  # マイグレーション処理では使用しないためダミー値
+            file_hash = file_hash,
+            duration_sec = duration_sec,
+            candidate_time_ranges = [],  # マイグレーション処理では使用しないため空リスト
+            face_detection_mode = None,  # マイグレーション処理では使用しないため None
+        )
+
+
     async def generateAndSave(self) -> None:
         """
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
@@ -298,19 +342,6 @@ class ThumbnailGenerator:
 
             # 1. 候補オフセットを計算
             candidate_offsets = self.__calculateCandidateOffsets()
-            num_candidates = len(candidate_offsets)
-
-            # タイルの行数を計算（列数は self.TILE_COLS 固定）
-            tile_rows = math.ceil(num_candidates / self.TILE_COLS)
-            tile_width, tile_height = self.TILE_SCALE
-            total_width = tile_width * self.TILE_COLS
-            total_height = tile_height * tile_rows
-
-            # WebP の最大サイズ制限をチェック（制限内なら WebP、越える場合は JPEG にフォールバック）
-            use_webp = total_width <= self.WEBP_MAX_SIZE and total_height <= self.WEBP_MAX_SIZE
-            if not use_webp:
-                self.seekbar_thumbnails_tile_path = self.seekbar_thumbnails_tile_path.with_suffix('.jpg')
-                logging.warning(f'{self.file_path}: Image size ({total_width}x{total_height}) exceeds WebP limits. Falling back to JPEG.')
 
             # 2. フレーム抽出 + タイル画像生成 + 代表サムネイル保存をサブプロセス内で完結させる
             ## 親プロセスへのフレーム配列転送を避け、メモリ使用量とコピーコストを抑制する
@@ -320,13 +351,15 @@ class ThumbnailGenerator:
                     executor,
                     self._generateAndSaveThumbnails,
                     candidate_offsets,
-                    tile_rows,
-                    use_webp,
+                    self.tile_rows,
                 )
 
             if not success:
                 logging.error(f'{self.file_path}: Failed to generate thumbnails in subprocess.')
                 return
+
+            # 3. サムネイル情報を DB に保存
+            await self.__saveThumbnailInfoToDB()
 
             logging.info(f'{self.file_path}: Thumbnail generation completed. (Total: {time.time() - start_time:.2f} sec)')
             logging.debug(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
@@ -338,7 +371,7 @@ class ThumbnailGenerator:
             return
 
 
-    def __calculateTileInterval(self, duration_sec: float) -> float:
+    def __calculateBaseTileInterval(self, duration_sec: float) -> float:
         """
         動画の長さに応じて適切なタイル化間隔を計算する
         30分以下の番組は5秒間隔固定とし、それより長い番組は対数関数的にサムネイル数の増加を抑制する
@@ -368,6 +401,7 @@ class ThumbnailGenerator:
         )
 
         # 計算結果をログ出力
+        duration_min = int(duration_sec / 60)
         expected_tiles = duration_sec / interval
         base_tiles = (self.BASE_DURATION_MIN * 60) / self.BASE_INTERVAL_SEC
         increase_ratio = expected_tiles / base_tiles
@@ -379,6 +413,72 @@ class ThumbnailGenerator:
         return interval
 
 
+    def __calculateTileLayout(self) -> tuple[float, int, int, int, int, int]:
+        """
+        WebP の最大サイズ制限と動画長に基づき、タイルの間隔とレイアウトを確定する
+        上限を超える場合は間隔を引き上げ、必ず WebP の制限内に収める
+
+        Returns:
+            tuple[float, int, int, int, int, int]: (tile_interval_sec, tile_cols, tile_rows, total_tiles, tile_image_width, tile_image_height)
+        """
+
+        # タイルの幅と高さを取得
+        tile_width, tile_height = self.TILE_SCALE
+        # WebP の最大サイズ制限から、1行あたりの最大列数と最大行数を算出
+        max_cols = max(1, self.WEBP_MAX_SIZE // tile_width)
+        max_rows = max(1, self.WEBP_MAX_SIZE // tile_height)
+        # WebP に収められる最大タイル数
+        max_tiles = max_cols * max_rows
+
+        # 基準間隔で動画全体をカバーした場合の期待タイル数を算出
+        expected_tiles = math.ceil(self.duration_sec / self.base_tile_interval_sec)
+        # もし期待タイル数が WebP の制限を超える場合は、間隔を引き上げて調整
+        if expected_tiles > max_tiles:
+            # 最大タイル数に収まるように間隔を再計算（0.1秒単位で切り上げ）
+            adjusted_interval = math.ceil((self.duration_sec / max_tiles) * 10) / 10
+            # 基準間隔より短くならないように調整
+            tile_interval_sec = max(self.base_tile_interval_sec, adjusted_interval)
+            logging.warning(
+                f'{self.file_path}: Tile count exceeds WebP limit. '
+                f'Adjusting interval to {tile_interval_sec:.1f} sec '
+                f'(base: {self.base_tile_interval_sec:.1f} sec, max tiles: {max_tiles}).'
+            )
+        else:
+            # WebP の制限内に収まる場合は基準間隔をそのまま使用
+            tile_interval_sec = self.base_tile_interval_sec
+
+        # 調整後の間隔で実際に生成されるタイル数を算出
+        total_tiles = math.ceil(self.duration_sec / tile_interval_sec)
+        if total_tiles < 1:
+            total_tiles = 1
+        # タイル数から必要な行数を算出
+        tile_rows = math.ceil(total_tiles / max_cols)
+        # もし行数が最大行数を超える場合は、さらに間隔を引き上げて収める
+        if tile_rows > max_rows:
+            # 念のため、上限を超える場合はさらに間隔を引き上げて収める
+            total_tiles = max_cols * max_rows
+            tile_interval_sec = math.ceil((self.duration_sec / total_tiles) * 10) / 10
+            tile_rows = max_rows
+            logging.warning(
+                f'{self.file_path}: Tile rows still exceed WebP limit. '
+                f'Adjusting interval again to {tile_interval_sec:.1f} sec.'
+            )
+
+        # タイル画像全体の幅と高さを算出
+        tile_cols = max_cols
+        tile_image_width = tile_width * tile_cols
+        tile_image_height = tile_height * tile_rows
+
+        logging.debug(
+            f'{self.file_path}: Tile layout -> '
+            f'interval: {tile_interval_sec:.1f} sec, '
+            f'cols: {tile_cols}, rows: {tile_rows}, total: {total_tiles}, '
+            f'image: {tile_image_width}x{tile_image_height}'
+        )
+
+        return (tile_interval_sec, tile_cols, tile_rows, total_tiles, tile_image_width, tile_image_height)
+
+
     def __calculateCandidateOffsets(self) -> list[float]:
         """
         動画の長さと tile_interval_sec から、各候補フレームの抽出開始位置（秒）のリストを算出する
@@ -387,15 +487,9 @@ class ThumbnailGenerator:
             list[float]: 各候補フレームの抽出開始位置（秒）のリスト
         """
 
-        # 動画の長さと tile_interval_sec から候補フレーム数を算出
-        # ceil() を使うことで、端数でも切り捨てずに確実にすべての区間をカバー
-        num_candidates = math.ceil(self.duration_sec / self.tile_interval_sec)
-        if num_candidates < 1:
-            num_candidates = 1
-
         # 各候補フレーム抽出の開始位置（秒）を算出（動画末尾の場合は調整する）
         candidate_offsets: list[float] = []
-        for i in range(num_candidates):
+        for i in range(self.total_tiles):
             offset = i * self.tile_interval_sec
             # もし候補フレームの開始位置 + 0.01秒が動画長を超える場合、抽出可能な位置に調整する
             if offset + 0.01 > self.duration_sec:
@@ -409,17 +503,16 @@ class ThumbnailGenerator:
         self,
         candidate_offsets: list[float],
         tile_rows: int,
-        use_webp: bool,
     ) -> bool:
         """
         サブプロセス内でフレーム抽出・スコアリング・タイル生成・代表サムネイル保存まで行う
         PyAV (FFmpeg) によるデコードや OpenCV での画像処理が CPU-bound のため、ProcessPoolExecutor 上で実行する
-        ProcessPoolExecutor で実行されるエントリーポイントのため、あえて prefix のアンダースコアは1つとしている
+        ProcessPoolExecutor で実行されるエントリーポイントなので、あえて prefix のアンダースコアは1つとしている
+        (別プロセスで実行されるため、__ を付けるとマングリングにより正常に実行できない)
 
         Args:
             candidate_offsets (list[float]): 抽出するフレームのタイムスタンプ (秒) のリスト
             tile_rows (int): タイルの行数
-            use_webp (bool): WebP として保存するかどうか (False の場合は JPEG)
 
         Returns:
             bool: 成功時は True、失敗時は False
@@ -460,7 +553,7 @@ class ThumbnailGenerator:
 
         # 3. タイル画像を生成・保存
         start_time_tile = time.time()
-        if not self.__generateAndSaveTileImage(all_frames, tile_rows, use_webp):
+        if not self.__generateAndSaveTileImage(all_frames, tile_rows):
             logging.error(f'{self.file_path}: Failed to generate and save tile image.')
             return False
 
@@ -611,7 +704,7 @@ class ThumbnailGenerator:
             # (index, score, found_face) のリスト
             scored_frames: list[tuple[int, float, bool]] = []
             total_frames = len(bgr_frames)
-            cols = self.TILE_COLS
+            cols = self.tile_cols
             for idx in range(total_frames):
                 # このフレームの動画内時間(秒)
                 time_offset = idx * self.tile_interval_sec
@@ -695,17 +788,15 @@ class ThumbnailGenerator:
         self,
         bgr_frames: list[NDArray[np.uint8]],
         tile_rows: int,
-        use_webp: bool,
     ) -> bool:
         """
-        BGR フレームからタイル画像を生成し、WebP または JPEG として保存する
+        BGR フレームからタイル画像を生成し、WebP として保存する
         フレームは SCORING_SCALE で抽出されているため、TILE_SCALE にリサイズしてからタイル化する
         (SCORING_SCALE == TILE_SCALE の場合はリサイズ不要)
 
         Args:
             bgr_frames (list[NDArray[np.uint8]]): BGR フレームのリスト (SCORING_SCALE)
             tile_rows (int): タイルの行数
-            use_webp (bool): WebP として保存するかどうか (False の場合は JPEG)
 
         Returns:
             bool: 成功時は True、失敗時は False
@@ -727,7 +818,7 @@ class ThumbnailGenerator:
 
             # OpenCV を用いてタイル化処理を行う
             rows = []
-            num_cols = self.TILE_COLS
+            num_cols = self.tile_cols
             for r in range(tile_rows):
                 row_images = list(resized_frames[r * num_cols: (r + 1) * num_cols])
                 # 最終行が列数に満たない場合、黒画像で埋める
@@ -737,46 +828,10 @@ class ThumbnailGenerator:
                         row_images.append(black_image)
                 row_concat = cv2.hconcat(row_images)
                 rows.append(row_concat)
-            tile_image = cv2.vconcat(rows)
+            tile_image = cast(NDArray[np.uint8], cv2.vconcat(rows))
 
-            # タイル画像を PNG としてメモリ上にエンコード
-            _, tile_png_data = cv2.imencode('.png', tile_image)
-            if tile_png_data is None:
-                logging.error(f'{self.file_path}: Failed to encode tile image as PNG.')
-                return False
-
-            # FFmpeg でタイル画像を WebP または JPEG に圧縮保存
-            process = subprocess.Popen(
-                [
-                    LIBRARY_PATH['FFmpeg'],
-                    '-y',
-                    '-nostdin',
-                    '-f', 'image2pipe',
-                    '-codec:v', 'png',
-                    '-i', 'pipe:0',
-                    *([
-                        '-codec:v', 'webp',
-                        '-quality', str(self.WEBP_QUALITY_TILE),
-                        '-compression_level', str(self.WEBP_COMPRESSION),
-                        '-preset', 'picture',
-                    ] if use_webp else [
-                        '-codec:v', 'mjpeg',
-                        '-qmin', '1',
-                        '-qmax', '1',
-                        '-qscale:v', str(int((100 - self.JPEG_QUALITY) / 4)),
-                    ]),
-                    '-threads', 'auto',
-                    str(self.seekbar_thumbnails_tile_path),
-                ],
-                stdin = subprocess.PIPE,
-                stdout = subprocess.PIPE,
-                stderr = subprocess.PIPE,
-            )
-
-            _, stderr_data = process.communicate(input=tile_png_data.tobytes())
-            if process.returncode != 0:
-                error_message = stderr_data.decode('utf-8', errors='ignore')
-                logging.error(f'{self.file_path}: FFmpeg tile image compression failed with error: {error_message}')
+            # タイル画像を WebP としてエンコードし、ファイルに保存する
+            if not self.__encodeTileImageToWebP(tile_image, pathlib.Path(str(self.seekbar_thumbnails_tile_path)), str(self.file_path)):
                 return False
 
             return True
@@ -784,6 +839,287 @@ class ThumbnailGenerator:
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in tile image generation and saving:', exc_info=ex)
             return False
+
+
+    def __encodeTileImageToWebP(
+        self,
+        tile_image: NDArray[np.uint8],
+        output_path: pathlib.Path,
+        log_prefix: str,
+    ) -> bool:
+        """
+        タイル画像を WebP としてエンコードし、ファイルに保存する
+
+        Args:
+            tile_image (NDArray[np.uint8]): タイル画像 (BGR)
+            output_path (pathlib.Path): 出力先のパス
+            log_prefix (str): ログに表示するファイルパスまたは識別子
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        # タイル画像を PNG としてメモリ上にエンコード
+        _, tile_png_data = cv2.imencode('.png', tile_image)
+        if tile_png_data is None:
+            logging.error(f'{log_prefix}: Failed to encode tile image as PNG.')
+            return False
+
+        # FFmpeg でタイル画像を WebP に圧縮保存
+        # 出力形式を -f webp で明示的に指定することで、.tmp などの拡張子でも正しく出力できる
+        process = subprocess.Popen(
+            [
+                LIBRARY_PATH['FFmpeg'],
+                '-y',
+                '-nostdin',
+                '-f', 'image2pipe',
+                '-codec:v', 'png',
+                '-i', 'pipe:0',
+                '-codec:v', 'webp',
+                '-quality', str(ThumbnailGenerator.WEBP_QUALITY_TILE),
+                '-compression_level', str(ThumbnailGenerator.WEBP_COMPRESSION),
+                '-preset', 'picture',
+                '-threads', 'auto',
+                '-f', 'webp',
+                str(output_path),
+            ],
+            stdin = subprocess.PIPE,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+        )
+
+        # FFmpeg プロセスの実行とタイムアウト処理
+        try:
+            _, stderr_data = process.communicate(input=tile_png_data.tobytes(), timeout=ThumbnailGenerator.FFMPEG_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            # タイムアウトが発生した場合、プロセスを強制終了してパイプをフラッシュ
+            process.kill()
+            process.communicate()
+            logging.error(f'{log_prefix}: FFmpeg tile image compression timed out after {ThumbnailGenerator.FFMPEG_TIMEOUT} seconds.')
+            return False
+
+        if process.returncode != 0:
+            error_message = stderr_data.decode('utf-8', errors='ignore')
+            logging.error(f'{log_prefix}: FFmpeg tile image compression failed with error: {error_message}')
+            return False
+
+        return True
+
+
+    async def __saveThumbnailInfoToDB(self) -> None:
+        """
+        生成済みサムネイル情報を DB に保存する
+        """
+
+        # DB から RecordedVideo を取得
+        db_recorded_video = await RecordedVideo.get_or_none(file_path=str(self.file_path))
+        if db_recorded_video is None:
+            logging.warning(f'{self.file_path}: RecordedVideo not found for thumbnail metadata update.')
+            return
+
+        tile_width, tile_height = self.TILE_SCALE
+        scoring_width, scoring_height = self.SCORING_SCALE
+
+        # サムネイル情報を DB に保存
+        db_recorded_video.thumbnail_info = schemas.ThumbnailInfo(
+            version = self.THUMBNAIL_INFO_VERSION,
+            representative = schemas.ThumbnailImageInfo(
+                format = 'WebP',
+                width = scoring_width,
+                height = scoring_height,
+            ),
+            tile = schemas.ThumbnailTileInfo(
+                format = 'WebP',
+                image_width = self.tile_image_width,
+                image_height = self.tile_image_height,
+                tile_width = tile_width,
+                tile_height = tile_height,
+                total_tiles = self.total_tiles,
+                column_count = self.tile_cols,
+                row_count = self.tile_rows,
+                interval_sec = self.tile_interval_sec,
+            ),
+        )
+        await db_recorded_video.save()
+
+
+    async def migrateFromLegacyTile(self) -> bool:
+        """
+        既存のサムネイルタイル画像を新仕様に合わせて再タイル化し、サムネイル情報を DB に保存する
+
+        旧仕様 (480x270, 34列) で生成されたタイル画像を読み込み、新仕様 (192x108, 85列) にリサイズ・再タイル化する
+        処理は ProcessPoolExecutor で別プロセスで実行され、完了後に旧タイルをバックアップしてから新タイルに置換する
+        このメソッドは RecordedScanTask から呼び出される
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        # 出力先パスと一時ファイルパスを設定
+        ## タイル画像のパスはインスタンス変数 seekbar_thumbnails_tile_path として既に保持されている
+        output_tile_path = self.seekbar_thumbnails_tile_path
+        temp_tile_path = anyio.Path(f'{output_tile_path}.tmp')
+
+        # ProcessPoolExecutor を使用して別プロセスで画像変換を実行
+        ## 画像処理は CPU-bound な処理のため、別プロセスで実行している
+        ## anyio.Path は同期関数では実行できないため、pathlib.Path に変換して渡す
+        loop = asyncio.get_running_loop()
+        try:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+                success = await loop.run_in_executor(
+                    executor,
+                    self._convertLegacyTileImage,
+                    pathlib.Path(str(output_tile_path)),
+                    pathlib.Path(str(temp_tile_path)),
+                )
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error converting legacy tile:', exc_info=ex)
+            return False
+
+        # 変換失敗時はエラーログを出力して終了
+        if not success:
+            logging.error(f'{self.file_path}: Legacy tile migration failed.')
+            return False
+
+        # 一時ファイルが生成されていない場合はエラー
+        if not await temp_tile_path.is_file():
+            logging.error(f'{self.file_path}: Migrated tile file was not created.')
+            return False
+
+        # 旧タイルをバックアップしてから新タイルに置換
+        backup_dir = anyio.Path(str(THUMBNAILS_DIR / self.MIGRATION_BACKUP_DIR_NAME))
+
+        # バックアップが有効な場合
+        backup_path: anyio.Path | None = None
+        if self.MIGRATION_BACKUP_ENABLED:
+            # バックアップディレクトリを作成
+            await backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_path = backup_dir / output_tile_path.name
+            # 同名のバックアップが既に存在する場合はタイムスタンプを付与
+            if await backup_path.is_file():
+                timestamp = int(time.time())
+                backup_path = backup_dir / f'{output_tile_path.stem}_{timestamp}{output_tile_path.suffix}'
+            # 旧タイルをバックアップディレクトリに移動
+            await output_tile_path.replace(backup_path)
+            try:
+                # 新タイルを旧タイルのパスに移動
+                await temp_tile_path.replace(output_tile_path)
+            except Exception as ex:
+                # 失敗した場合はバックアップから復元 (ロールバック)
+                if await backup_path.is_file():
+                    await backup_path.replace(output_tile_path)
+                raise ex
+        else:
+            # バックアップが無効な場合は単純に置換
+            await temp_tile_path.replace(output_tile_path)
+
+        if backup_path is not None:
+            logging.info(f'{self.file_path}: Legacy tile backed up to {backup_path}.')
+
+        logging.info(
+            f'{self.file_path}: Legacy tile converted. '
+            f'interval: {self.tile_interval_sec:.1f} sec, '
+            f'cols: {self.tile_cols}, rows: {self.tile_rows}, total: {self.total_tiles}.'
+        )
+
+        # サムネイル情報を DB に保存
+        await self.__saveThumbnailInfoToDB()
+
+        return True
+
+
+    def _convertLegacyTileImage(
+        self,
+        legacy_tile_path: pathlib.Path,
+        output_tile_path: pathlib.Path,
+    ) -> bool:
+        """
+        既存のタイル画像を読み込み、新しい解像度に合わせて再タイル化する
+        旧仕様 (480x270, 34列) で生成されたタイル画像を、新仕様 (192x108, 85列) に変換する
+        ProcessPoolExecutor で実行されるエントリーポイントなので、あえて prefix のアンダースコアは1つとしている
+        (別プロセスで実行されるため、__ を付けるとマングリングにより正常に実行できない)
+
+        Args:
+            legacy_tile_path (pathlib.Path): 変換元のタイル画像パス
+            output_tile_path (pathlib.Path): 変換後のタイル画像パス
+
+        Returns:
+            bool: 成功時は True、失敗時は False
+        """
+
+        # 旧タイル画像を読み込む
+        legacy_tile = cv2.imread(str(legacy_tile_path), cv2.IMREAD_COLOR)
+        if legacy_tile is None:
+            logging.error(f'{self.file_path}: Failed to read legacy tile image.')
+            return False
+
+        # 旧タイルの解像度情報を取得
+        legacy_width, legacy_height = self.LEGACY_TILE_SCALE
+        new_width, new_height = self.TILE_SCALE
+        legacy_image_height, legacy_image_width = legacy_tile.shape[:2]
+        # 旧タイル画像のサイズから実際の行数・列数を計算
+        legacy_rows = legacy_image_height // legacy_height
+        legacy_cols = legacy_image_width // legacy_width
+
+        # 期待する列数と実際の列数が一致しない場合は警告を出力
+        if legacy_cols != self.LEGACY_TILE_COLS:
+            logging.warning(
+                f'{self.file_path}: Legacy tile columns mismatch. '
+                f'expected: {self.LEGACY_TILE_COLS}, detected: {legacy_cols}.'
+            )
+
+        # 旧タイル画像に含まれるタイル数の上限を計算
+        max_tiles = legacy_rows * legacy_cols
+        total_tiles = self.total_tiles
+        # 要求されたタイル数が上限を超える場合は上限に合わせる
+        if total_tiles > max_tiles:
+            logging.warning(
+                f'{self.file_path}: Total tiles exceed legacy tile image. '
+                f'using {max_tiles} tiles instead of {total_tiles}.'
+            )
+            total_tiles = max_tiles
+
+        # 旧タイルからフレームを切り出し、新しいサイズへリサイズ
+        resized_frames: list[NDArray[np.uint8]] = []
+        for idx in range(total_tiles):
+            # タイルの位置 (行・列) を計算
+            row = idx // legacy_cols
+            col = idx % legacy_cols
+            # 切り出し座標を計算
+            y0 = row * legacy_height
+            y1 = y0 + legacy_height
+            x0 = col * legacy_width
+            x1 = x0 + legacy_width
+            # フレームを切り出し
+            frame = legacy_tile[y0:y1, x0:x1]
+            # 新しいサイズにリサイズ (線形補間)
+            resized_frame = cast(
+                NDArray[np.uint8],
+                cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR),
+            )
+            resized_frames.append(resized_frame)
+
+        # 新しい列数でタイル化
+        ## リサイズしたフレームを新しい列数で並べ直し、1枚のタイル画像を生成する
+        rows = []
+        tile_cols = self.tile_cols
+        tile_rows = self.tile_rows
+        for r in range(tile_rows):
+            # この行に含まれるフレームを取得
+            row_images = list(resized_frames[r * tile_cols: (r + 1) * tile_cols])
+            # 最終行が列数に満たない場合は黒画像で埋める
+            if len(row_images) < tile_cols:
+                black_image = np.zeros((new_height, new_width, 3), dtype=np.uint8)
+                while len(row_images) < tile_cols:
+                    row_images.append(black_image)
+            # 横方向に連結
+            row_concat = cv2.hconcat(row_images)
+            rows.append(row_concat)
+        # 全ての行を縦方向に連結してタイル画像を完成
+        tile_image = cast(NDArray[np.uint8], cv2.vconcat(rows))
+
+        # WebP にエンコードして保存
+        return self.__encodeTileImageToWebP(tile_image, output_tile_path, str(self.file_path))
 
 
     def __inCandidateIntervals(self, sec: float) -> bool:
@@ -1321,9 +1657,14 @@ class ThumbnailGenerator:
 
 
 if __name__ == "__main__":
-    # デバッグ用: サムネイル画像を生成する
-    # Usage: poetry run python -m app.metadata.ThumbnailGenerator /path/to/recorded_file.ts
-    def main(
+    # デバッグ用 CLI
+    # Usage:
+    #   poetry run python -m app.metadata.ThumbnailGenerator generate /path/to/recorded_file.ts
+    #   poetry run python -m app.metadata.ThumbnailGenerator migrate <file_hash> <duration_sec>
+    app = typer.Typer()
+
+    @app.command()
+    def generate(
         file_path: pathlib.Path = typer.Argument(
             ...,
             exists=True,
@@ -1382,4 +1723,86 @@ if __name__ == "__main__":
         # サムネイルを生成
         asyncio.run(generator.generateAndSave())
 
-    typer.run(main)
+    @app.command()
+    def migrate(
+        recorded_video_id: int = typer.Argument(
+            ...,
+            help="対象の録画ファイルの ID",
+        ),
+    ) -> None:
+        """
+        既存のサムネイルタイル画像を新仕様にマイグレーションする
+        旧仕様 (480x270, 34列) から新仕様 (192x108, 85列) に変換する
+        """
+
+        async def run() -> bool:
+
+            # データベースを初期化
+            await Tortoise.init(config=DATABASE_CONFIG)
+
+            try:
+                # RecordedVideo を取得
+                db_recorded_video = await RecordedVideo.get_or_none(id=recorded_video_id)
+                if db_recorded_video is None:
+                    logging.error(f'RecordedVideo not found: {recorded_video_id}')
+                    return False
+
+                # 既に thumbnail_info が設定されている場合はマイグレーション済みなのでスキップ
+                if db_recorded_video.thumbnail_info is not None:
+                    logging.info(f'RecordedVideo {recorded_video_id}: Already migrated. Skipping.')
+                    return True
+
+                file_path = db_recorded_video.file_path
+                file_hash = db_recorded_video.file_hash
+                duration_sec = db_recorded_video.duration
+
+                tile_path = THUMBNAILS_DIR / f'{file_hash}_tile.webp'
+                thumbnail_path = THUMBNAILS_DIR / f'{file_hash}.webp'
+
+                logging.info(f'RecordedVideo ID: {recorded_video_id}')
+                logging.info(f'File path: {file_path}')
+                logging.info(f'File hash: {file_hash}')
+                logging.info(f'Duration: {duration_sec} sec')
+                logging.info(f'Tile path: {tile_path}')
+                logging.info(f'Thumbnail path: {thumbnail_path}')
+
+                # ファイルの存在確認
+                if not tile_path.exists():
+                    logging.error(f'Tile file not found: {tile_path}')
+                    return False
+                if not thumbnail_path.exists():
+                    logging.error(f'Thumbnail file not found: {thumbnail_path}')
+                    return False
+
+                generator = ThumbnailGenerator.forMigration(
+                    file_path = file_path,
+                    file_hash = file_hash,
+                    duration_sec = duration_sec,
+                )
+
+                logging.info('Tile layout:')
+                logging.info(f'  interval: {generator.tile_interval_sec:.1f} sec')
+                logging.info(f'  cols: {generator.tile_cols}')
+                logging.info(f'  rows: {generator.tile_rows}')
+                logging.info(f'  total: {generator.total_tiles}')
+                logging.info(f'  image: {generator.tile_image_width}x{generator.tile_image_height}')
+
+                logging.info('Starting migration...')
+                return await generator.migrateFromLegacyTile()
+
+            finally:
+                # データベース接続を閉じる（必須）
+                await Tortoise.close_connections()
+
+        # 設定を読み込む (必須)
+        LoadConfig(bypass_validation=True)
+
+        success = asyncio.run(run())
+
+        if success:
+            logging.info('Migration succeeded!')
+        else:
+            logging.error('Migration failed!')
+            raise typer.Exit(1)
+
+    app()
