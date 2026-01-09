@@ -16,6 +16,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
+from tortoise.expressions import RawSQL
 
 from app import logging, schemas
 from app.config import Config
@@ -234,13 +235,26 @@ async def BackgroundAnalysisAPI():
         logging.info('Manual background analysis has started.')
 
         # キーフレーム情報が未生成、またはサムネイルが未生成の録画ファイルを取得
-        db_recorded_videos = await RecordedVideo.filter(status='Recorded')
+        ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
+        ## has_key_frames は key_frames を読み込まずに SQL で判定する (key_frames のデフォルト値は '[]')
+        video_rows = await RecordedVideo.filter(status='Recorded').annotate(
+            has_key_frames=RawSQL("CASE WHEN key_frames != '[]' THEN 1 ELSE 0 END"),
+        ).values(
+            'id',
+            'recorded_program_id',
+            'file_path',
+            'file_hash',
+            'duration',
+            'container_format',
+            'has_key_frames',
+            'cm_sections',
+        )
 
         # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
         ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
         ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
-        for db_recorded_video in db_recorded_videos:
-            file_path = anyio.Path(db_recorded_video.file_path)
+        for video_row in video_rows:
+            file_path = anyio.Path(video_row['file_path'])
             try:
                 if not await file_path.is_file():
                     logging.warning(f'{file_path}: File not found. Skipping...')
@@ -250,28 +264,28 @@ async def BackgroundAnalysisAPI():
                 tasks: list[Coroutine[Any, Any, None]] = []
 
                 # キーフレーム情報が未解析の場合、タスクに追加
-                if not db_recorded_video.has_key_frames:
-                    tasks.append(KeyFrameAnalyzer(file_path, db_recorded_video.container_format).analyzeAndSave())
+                if not video_row['has_key_frames']:
+                    tasks.append(KeyFrameAnalyzer(file_path, video_row['container_format']).analyzeAndSave())
 
                 # CM 区間情報が未解析の場合、タスクに追加
                 ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
                 ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
-                if db_recorded_video.cm_sections is None:
+                if video_row['cm_sections'] is None:
                     tasks.append(CMSectionsDetector(
-                        file_path = anyio.Path(db_recorded_video.file_path),
-                        duration_sec = db_recorded_video.duration,
+                        file_path = anyio.Path(video_row['file_path']),
+                        duration_sec = video_row['duration'],
                     ).detectAndSave())
 
                 # サムネイルが未生成の場合、タスクに追加
                 # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
-                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}_tile.webp'
-                thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{db_recorded_video.file_hash}.webp'
+                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}_tile.webp'
+                thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}.webp'
                 if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
                     # 録画番組情報を取得
                     db_recorded_program = await RecordedProgram.all() \
                         .select_related('recorded_video') \
                         .select_related('channel') \
-                        .get_or_none(id=db_recorded_video.id)
+                        .get_or_none(id=video_row['recorded_program_id'])
                     if db_recorded_program is not None:
                         # RecordedProgram モデルを schemas.RecordedProgram に変換
                         recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)

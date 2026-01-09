@@ -408,21 +408,26 @@ class RecordedScanTask:
 
         # かつてのバグで RecordedVideo.file_hash が衝突している録画ファイルのメタデータを再解析する
         ## トランザクション配下に入れることでパフォーマンスが向上する
+        ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
         ## ref: https://github.com/tsukumijima/KonomiTV/commit/92e8630f41b6440ebd10defa5fdde1489ac7376a
         async with transactions.in_transaction():
-            collision_videos = await RecordedVideo.filter(
+            collision_video_rows = await RecordedVideo.filter(
                 file_hash__in=list(self.KNOWN_COLLISION_FILE_HASHES),
-            ).all()
+            ).values(
+                'status',
+                'file_path',
+                'file_hash',
+            )
             processed_collision_paths: set[str] = set()
-            if len(collision_videos) > 0:
-                logging.info(f'Found {len(collision_videos)} videos affected by known hash collisions. Reanalyzing...')
-                for collision_video in collision_videos:
-                    file_path_str = collision_video.file_path
+            if len(collision_video_rows) > 0:
+                logging.info(f'Found {len(collision_video_rows)} videos affected by known hash collisions. Reanalyzing...')
+                for collision_video_row in collision_video_rows:
+                    file_path_str = collision_video_row['file_path']
                     # 既に処理済みのファイルはスキップ
                     if file_path_str in processed_collision_paths:
                         continue
                     # 録画中のファイルは今後の解析に任せる
-                    if collision_video.status == 'Recording':
+                    if collision_video_row['status'] == 'Recording':
                         continue
                     file_path = anyio.Path(file_path_str)
                     # ファイルが存在しない場合はスキップ
@@ -430,7 +435,7 @@ class RecordedScanTask:
                         continue
                     try:
                         # メタデータ再解析を実行
-                        logging.info(f'{file_path}: Reanalyzing due to known hash collision ({collision_video.file_hash}).')
+                        logging.info(f'{file_path}: Reanalyzing due to known hash collision ({collision_video_row["file_hash"]}).')
                         await self.processRecordedFile(
                             file_path = file_path,
                             force_update = True,
