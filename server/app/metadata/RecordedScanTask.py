@@ -910,31 +910,38 @@ class RecordedScanTask:
 
         # thumbnail_info が未設定の録画済みファイルを一括取得
         ## マイグレーション処理では RecordedVideo の情報のみで十分なため、RecordedProgram は取得しない
-        target_videos = await RecordedVideo.filter(status='Recorded', thumbnail_info=None).all()
-        if len(target_videos) == 0:
+        ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
+        target_video_rows = await RecordedVideo.filter(status='Recorded', thumbnail_info=None).values(
+            'id',
+            'file_path',
+            'file_hash',
+            'duration',
+            'recorded_program_id',
+        )
+        if len(target_video_rows) == 0:
             logging.info('No videos require thumbnail metadata migration.')
             return
 
         logging.info(
-            f'Thumbnail metadata migration target count: {len(target_videos)} '
+            f'Thumbnail metadata migration target count: {len(target_video_rows)} '
             f'(backup_enabled: {ThumbnailGenerator.MIGRATION_BACKUP_ENABLED}).'
         )
 
         # 各録画ファイルに対してサムネイル情報を移行
-        for index, db_recorded_video in enumerate(target_videos, start=1):
-            file_path = anyio.Path(db_recorded_video.file_path)
+        for index, video_row in enumerate(target_video_rows, start=1):
+            file_path = anyio.Path(video_row['file_path'])
 
             # 録画ファイルが存在しない場合はスキップ (削除済みなど)
             if not await self.isFileExists(file_path):
-                logging.warning(f'{file_path}: Recording file not found. Skipping thumbnail metadata migration. ({index}/{len(target_videos)})')
+                logging.warning(f'{file_path}: Recording file not found. Skipping thumbnail metadata migration. ({index}/{len(target_video_rows)})')
                 continue
 
             # 既存のサムネイルファイルのパスを構築
-            tile_path = thumbnails_dir / f'{db_recorded_video.file_hash}_tile.webp'
-            thumbnail_path = thumbnails_dir / f'{db_recorded_video.file_hash}.webp'
+            tile_path = thumbnails_dir / f'{video_row["file_hash"]}_tile.webp'
+            thumbnail_path = thumbnails_dir / f'{video_row["file_hash"]}.webp'
 
             try:
-                logging.info(f'{file_path}: Thumbnail migration started. ({index}/{len(target_videos)})')
+                logging.info(f'{file_path}: Thumbnail migration started. ({index}/{len(target_video_rows)})')
 
                 # 同時実行数を制限しつつサムネイル処理を実行
                 async with ProcessLimiter.getSemaphore('ThumbnailMigration'):
@@ -942,26 +949,26 @@ class RecordedScanTask:
                         # タイル画像と代表サムネイルの両方が存在する場合は既存タイルを新仕様に変換
                         if await tile_path.is_file() and await thumbnail_path.is_file():
                             generator = ThumbnailGenerator.forMigration(
-                                file_path = db_recorded_video.file_path,
-                                file_hash = db_recorded_video.file_hash,
-                                duration_sec = db_recorded_video.duration,
+                                file_path = video_row['file_path'],
+                                file_hash = video_row['file_hash'],
+                                duration_sec = video_row['duration'],
                             )
                             await generator.migrateFromLegacyTile()
                         # サムネイルが存在しない場合は新規生成する
                         ## 新規生成を行うには RecordedProgram が必要なため、ここで随時取得する
                         else:
-                            logging.info(f'{file_path}: Missing thumbnails. Regenerating with new settings. ({index}/{len(target_videos)})')
+                            logging.info(f'{file_path}: Missing thumbnails. Regenerating with new settings. ({index}/{len(target_video_rows)})')
                             recorded_program = await RecordedProgram.get_or_none(
-                                id=db_recorded_video.recorded_program_id,
+                                id=video_row['recorded_program_id'],
                             ).select_related('recorded_video', 'channel')
                             if recorded_program is None:
-                                logging.warning(f'{file_path}: RecordedProgram not found. Skipping thumbnail regeneration. ({index}/{len(target_videos)})')
+                                logging.warning(f'{file_path}: RecordedProgram not found. Skipping thumbnail regeneration. ({index}/{len(target_video_rows)})')
                                 continue
                             recorded_program_schema = schemas.RecordedProgram.model_validate(recorded_program, from_attributes=True)
                             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
                             await generator.generateAndSave()
 
-                logging.info(f'{file_path}: Thumbnail migration finished. ({index}/{len(target_videos)})')
+                logging.info(f'{file_path}: Thumbnail migration finished. ({index}/{len(target_video_rows)})')
             except Exception as ex:
                 logging.error(f'{file_path}: Failed to migrate thumbnail metadata:', exc_info=ex)
 
