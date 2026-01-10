@@ -163,6 +163,23 @@
                 </v-switch>
             </div>
             <div class="settings__item">
+                <div class="settings__item-heading">チャンネル表示・選局で優先するエリア (地デジ)</div>
+                <div class="settings__item-label">
+                    複数の地域の放送波が受信できる環境で、リモコン番号が同じチャンネルが複数ある場合に、どのエリアのチャンネルを優先して表示・選局するかを設定します。デフォルトは未設定です。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    優先エリアのチャンネルは枝番なし (例: Ch:011) で、それ以外のチャンネルは枝番付き (例: Ch:011-1) で表示されます。キーボードショートカットやリモコンボタンでの選局時も、優先エリアのチャンネルが選局されます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    設定しない場合は、(ネットワークID)-(サービスID) の数値順で優先順位が決まります。<br>
+                </div>
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :items="preferred_terrestrial_region_options"
+                    v-model="server_settings.tv.preferred_terrestrial_region">
+                </v-select>
+            </div>
+            <div class="settings__item">
                 <div class="settings__item-heading">誰も見ていないチャンネルのエンコードタスクを維持する秒数</div>
                 <div class="settings__item-label">
                     10 秒に設定したなら、10 秒間誰も見ていない状態が継続したらエンコードタスク（エンコーダー）を終了します。<br>
@@ -209,6 +226,36 @@
                     @click="server_settings.video.recorded_folders.push('')">
                     <Icon icon="fluent:add-12-filled" height="17px" />
                     <span class="ml-1">保存先フォルダを追加</span>
+                </v-btn>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">録画フォルダのスキャン対象から除外するフォルダの絶対パス</div>
+                <div class="settings__item-label" style="padding-bottom: 2px;">
+                    録画フォルダ以下にある一時フォルダなど、スキャン対象から除外したいサブフォルダを指定できます。<br>
+                </div>
+                <div class="settings__item-label mt-1" style="padding-bottom: 2px;">
+                    シンボリックリンク解決前のパスと、解決後の実体パスの両方で前方一致判定を行います。<br>
+                    例えば、<code>E:\TV-Record\Temp</code> を指定すると、そのサブフォルダ以下の録画ファイルはスキャン対象から除外されます。<br>
+                </div>
+                <div v-for="(pattern, index) in server_settings.video.exclude_scan_patterns" :key="'exclude-pattern-' + index">
+                    <div class="d-flex align-center mt-3">
+                        <v-text-field class="settings__item-form mt-0" color="primary" variant="outlined" hide-details
+                            placeholder="例: E:\TV-Record\Trash"
+                            :density="is_form_dense ? 'compact' : 'default'"
+                            v-model="server_settings.video.exclude_scan_patterns[index]">
+                        </v-text-field>
+                        <button v-ripple class="settings__item-delete-button"
+                            @click="server_settings.video.exclude_scan_patterns.splice(index, 1)">
+                            <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
+                                <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
+                    @click="server_settings.video.exclude_scan_patterns.push('')">
+                    <Icon icon="fluent:add-12-filled" height="17px" />
+                    <span class="ml-1">除外フォルダを追加</span>
                 </v-btn>
             </div>
             <div class="settings__content-heading mt-6">
@@ -380,6 +427,64 @@ import SettingsBase from '@/views/Settings/Base.vue';
 
 // フォームを小さくするかどうか
 const is_form_dense = Utils.isSmartphoneHorizontal();
+
+// 優先する地デジのエリアの選択肢
+const preferred_terrestrial_region_options = [
+    { title: '未設定', value: null },
+    { title: '北海道（札幌）', value: '北海道（札幌）' },
+    { title: '北海道（函館）', value: '北海道（函館）' },
+    { title: '北海道（旭川）', value: '北海道（旭川）' },
+    { title: '北海道（帯広）', value: '北海道（帯広）' },
+    { title: '北海道（釧路）', value: '北海道（釧路）' },
+    { title: '北海道（北見）', value: '北海道（北見）' },
+    { title: '北海道（室蘭）', value: '北海道（室蘭）' },
+    { title: '青森県', value: '青森県' },
+    { title: '岩手県', value: '岩手県' },
+    { title: '宮城県', value: '宮城県' },
+    { title: '秋田県', value: '秋田県' },
+    { title: '山形県', value: '山形県' },
+    { title: '福島県', value: '福島県' },
+    { title: '茨城県', value: '茨城県' },
+    { title: '栃木県', value: '栃木県' },
+    { title: '群馬県', value: '群馬県' },
+    { title: '埼玉県', value: '埼玉県' },
+    { title: '千葉県', value: '千葉県' },
+    { title: '東京都', value: '東京都' },
+    { title: '神奈川県', value: '神奈川県' },
+    { title: '新潟県', value: '新潟県' },
+    { title: '富山県', value: '富山県' },
+    { title: '石川県', value: '石川県' },
+    { title: '福井県', value: '福井県' },
+    { title: '山梨県', value: '山梨県' },
+    { title: '長野県', value: '長野県' },
+    { title: '岐阜県', value: '岐阜県' },
+    { title: '静岡県', value: '静岡県' },
+    { title: '愛知県', value: '愛知県' },
+    { title: '三重県', value: '三重県' },
+    { title: '滋賀県', value: '滋賀県' },
+    { title: '京都府', value: '京都府' },
+    { title: '大阪府', value: '大阪府' },
+    { title: '兵庫県', value: '兵庫県' },
+    { title: '奈良県', value: '奈良県' },
+    { title: '和歌山県', value: '和歌山県' },
+    { title: '鳥取県', value: '鳥取県' },
+    { title: '島根県', value: '島根県' },
+    { title: '岡山県', value: '岡山県' },
+    { title: '広島県', value: '広島県' },
+    { title: '山口県', value: '山口県' },
+    { title: '徳島県', value: '徳島県' },
+    { title: '香川県', value: '香川県' },
+    { title: '愛媛県', value: '愛媛県' },
+    { title: '高知県', value: '高知県' },
+    { title: '福岡県', value: '福岡県' },
+    { title: '佐賀県', value: '佐賀県' },
+    { title: '長崎県', value: '長崎県' },
+    { title: '熊本県', value: '熊本県' },
+    { title: '大分県', value: '大分県' },
+    { title: '宮崎県', value: '宮崎県' },
+    { title: '鹿児島県', value: '鹿児島県' },
+    { title: '沖縄県', value: '沖縄県' },
+];
 
 // ユーザー情報を取得し、もし管理者権限であれば無効化を解除
 const is_disabled = ref(true);
