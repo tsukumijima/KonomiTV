@@ -162,7 +162,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - TypeScript 側のスキーマ定義も Python 側と同じ順序を維持する。もし差分が発生する場合は、その理由をコメントで明記する
 
 ### Python コード
-- コードの編集後は `poetry run task lint` を実行し、Ruff によるコードリンターと Pyright による型チェッカーを実行すること
+- **コードの編集後には、必ず `poetry run task lint` コマンドで、Ruff によるコードリンターと Pyright による型チェッカーを実行すること**
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
@@ -181,6 +181,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 
 ### Vue / TypeScript コード
 
+- **コードの編集後には、必ず `yarn lint; yarn typecheck` コマンドで、ESLint によるコードリンターと TypeScript による型チェッカーを実行すること**
 - 文字列にはシングルクォートを用いる
 - 新規で実装する箇所に関しては Vue 3 Composition API パターンに従う
   - Vue.js 2 から移行した関係で Options API で書かれているコンポーネントがあるが、それらは Options API のまま維持する
