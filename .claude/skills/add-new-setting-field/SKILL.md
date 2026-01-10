@@ -1,6 +1,6 @@
 ---
 name: add-new-setting-field
-description: KonomiTV のフロントエンドに新しい設定フィールドを追加する際の手順
+description: "【設定追加時は必ず参照】KonomiTV に新しい設定 (v-switch/v-select など) を追加する際の必須手順。SettingsStore.ts / Settings.ts / config.py / Settings/*.vue への追加が必要"
 ---
 以下に、KonomiTV のフロントエンドに新しい設定フィールドを追加する際の手順を示します。
 

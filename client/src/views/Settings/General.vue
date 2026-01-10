@@ -71,6 +71,16 @@
                     v-model="settingsStore.settings.use_28hour_clock">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_original_broadcast_time_during_playback">録画番組の再生中に元の放送時刻を表示する</label>
+                <label class="settings__item-label" for="show_original_broadcast_time_during_playback">
+                    オンにすると、録画番組の再生中に現在時刻ではなく、元の放送時刻を再生位置に合わせて表示します。デフォルトはオフです。<br>
+                    元の放送時刻が表示されているときは、タイムシフト再生中であることを示すアイコンが時刻の左側に表示されます。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_original_broadcast_time_during_playback" hide-details
+                    v-model="settingsStore.settings.show_original_broadcast_time_during_playback">
+                </v-switch>
+            </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
                 <div class="settings__item-heading">デフォルトのパネルの表示状態</div>

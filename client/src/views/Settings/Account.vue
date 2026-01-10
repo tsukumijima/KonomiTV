@@ -86,7 +86,7 @@
                     <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
                     <label class="settings__item-label" for="sync_settings">
                         KonomiTV では、設定を同じアカウントでログインしているデバイス間で同期できます！<br>
-                        同期をオンにすると、同期をオンにしているすべてのデバイスで共通の設定が使えます。ピン留めチャンネルやハッシュタグリストなども同期されます。<br>
+                        同期をオンにすると、同期をオンにしているすべてのデバイスで共通の設定が使えます。ピン留めしたチャンネル・マイリスト・視聴履歴・ハッシュタグリストなども一緒に同期されます。<br>
                         なお、デバイス固有の設定（画質設定など）は、同期後も各デバイスで個別に反映されます。<br>
                     </label>
                     <v-switch class="settings__item-switch" color="primary" id="sync_settings" hide-details
