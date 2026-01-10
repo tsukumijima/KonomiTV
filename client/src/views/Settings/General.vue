@@ -31,6 +31,7 @@
                 <Icon icon="fluent:calendar-ltr-16-regular" height="19px" />
                 <span class="ml-1">番組表の表示設定を開く</span>
             </v-btn>
+            <v-divider class="mt-6"></v-divider>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="show_player_background_image">プレイヤーの読み込み中に背景写真を表示する</label>
                 <label class="settings__item-label" for="show_player_background_image">
