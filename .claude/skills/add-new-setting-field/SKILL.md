@@ -1,6 +1,6 @@
 ---
+name: add-new-setting-field
 description: KonomiTV のフロントエンドに新しい設定フィールドを追加する際の手順
-globs: 
 ---
 以下に、KonomiTV のフロントエンドに新しい設定フィールドを追加する際の手順を示します。
 
