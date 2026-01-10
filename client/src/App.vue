@@ -282,6 +282,15 @@ body .route-container {
     color: rgb(var(--v-theme-text));
     background: rgb(var(--v-theme-primary));
     font-size: 0.94em;
+
+    // Safari でのみ display: inline に変更
+    // Safari では -webkit-line-clamp と inline-flex/inline-block の組み合わせで
+    // 省略が不要なテキストでも ... が表示されるレンダリングバグが発生するため
+    @supports (hanging-punctuation: first) and (font: -apple-system-body) and (-webkit-appearance: none) {
+        display: inline;
+        padding-top: 0.1em;
+        padding-bottom: 0.14em;
+    }
 }
 
 // スマホ縦画面 (幅が 600px 以下の端末) のみ表示する <br> タグ

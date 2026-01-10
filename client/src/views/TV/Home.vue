@@ -1009,7 +1009,8 @@ export default defineComponent({
     justify-content: center;
     align-items: center;
     position: fixed;
-    bottom: 72px;
+    // iPhone X 以降の Home Indicator の高さ分を考慮
+    bottom: calc(72px + env(safe-area-inset-bottom));
     right: 20px;
     padding: 12px 16px;
     background: rgb(var(--v-theme-background-lighten-2));
