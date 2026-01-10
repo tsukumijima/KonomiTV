@@ -18,6 +18,7 @@ from app import logging
 from app.config import Config
 from app.constants import HTTPX_CLIENT
 from app.utils import GetMirakurunAPIEndpointURL
+from app.utils.edcb import ChSet5Item
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.JikkyoClient import JikkyoClient
@@ -146,6 +147,26 @@ class Channel(TortoiseModel):
                 logging.error('Failed to get channels from Mirakurun / mirakc. (Connection Timeout)')
                 raise ex
 
+            # 優先地域から対応する地域識別リストを取得
+            preferred_region = Config().tv.preferred_terrestrial_region
+            preferred_region_ids: list[int] = []
+            if preferred_region is not None:
+                preferred_region_ids = TSInformation.TERRESTRIAL_REGION_TO_REGION_IDS.get(preferred_region, [])
+
+            # サービスを NID-SID の数値順にソート（枝番処理がミスらないように）
+            # 優先地域が設定されている場合は、優先地域のチャンネルを先頭に持ってくる
+            def sort_key(service: dict[str, Any]) -> tuple[int, int]:
+                nid = service['networkId']
+                sid = service['serviceId']
+                base_key = nid * 100000 + sid
+                # 優先地域が設定されている場合
+                if preferred_region_ids:
+                    region_id = TSInformation.getRegionIDFromNetworkID(nid)
+                    if region_id in preferred_region_ids:
+                        return (0, base_key)  # 優先地域は最初に処理
+                return (1, base_key)  # それ以外は後
+            services.sort(key=sort_key)
+
             # 同じネットワーク ID のサービスのカウント
             same_network_id_counts: dict[int, int] = {}
 
@@ -272,6 +293,12 @@ class Channel(TortoiseModel):
                     if 'Can\'t delete unpersisted record' not in str(ex):
                         raise ex
 
+            # 地デジの録画専用チャンネルの枝番を再計算
+            await cls.recalculateRecordingOnlyChannelBranchNumbers(
+                same_network_id_counts,
+                same_remocon_id_counts,
+            )
+
 
     @classmethod
     async def updateFromEDCB(cls) -> None:
@@ -295,8 +322,26 @@ class Channel(TortoiseModel):
             chset5_txt = await edcb.sendFileCopy('ChSet5.txt')
             if chset5_txt is not None:
                 services = EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(chset5_txt))
+
+                # 優先地域から対応する地域識別リストを取得
+                preferred_region = Config().tv.preferred_terrestrial_region
+                preferred_region_ids: list[int] = []
+                if preferred_region is not None:
+                    preferred_region_ids = TSInformation.TERRESTRIAL_REGION_TO_REGION_IDS.get(preferred_region, [])
+
                 # 枝番処理がミスらないようソートしておく
-                services.sort(key = lambda temp: temp['onid'] * 100000 + temp['sid'])
+                # 優先地域が設定されている場合は、優先地域のチャンネルを先頭に持ってくる
+                def sort_key(service: ChSet5Item) -> tuple[int, int]:
+                    nid = service['onid']
+                    sid = service['sid']
+                    base_key = nid * 100000 + sid
+                    # 優先地域が設定されている場合
+                    if preferred_region_ids:
+                        region_id = TSInformation.getRegionIDFromNetworkID(nid)
+                        if region_id in preferred_region_ids:
+                            return (0, base_key)  # 優先地域は最初に処理
+                    return (1, base_key)  # それ以外は後
+                services.sort(key=sort_key)
             else:
                 logging.error('Failed to get channels from EDCB.')
                 raise Exception('Failed to get channels from EDCB.')
@@ -457,6 +502,74 @@ class Channel(TortoiseModel):
                 except OperationalError as ex:
                     if 'Can\'t delete unpersisted record' not in str(ex):
                         raise ex
+
+            # 地デジの録画専用チャンネルの枝番を再計算
+            await cls.recalculateRecordingOnlyChannelBranchNumbers(
+                same_network_id_counts,
+                same_remocon_id_counts,
+            )
+
+
+    @classmethod
+    async def recalculateRecordingOnlyChannelBranchNumbers(
+        cls,
+        same_network_id_counts: dict[int, int],
+        same_remocon_id_counts: dict[int, int],
+    ) -> None:
+        """
+        地デジの録画専用チャンネルの枝番を再計算する
+
+        視聴可能なチャンネルの更新処理後の枝番カウンタを引き継ぎ、
+        録画ファイルのメタデータにのみ存在するチャンネルが、常に視聴可能なチャンネルの後に続くようにする。
+        UNIQUE 制約を回避するため、2段階で更新を行う。
+
+        Args:
+            same_network_id_counts (dict[int, int]): 視聴可能なチャンネルの更新処理後の同一 NID カウンタ
+            same_remocon_id_counts (dict[int, int]): 視聴可能なチャンネルの更新処理後の同一リモコン番号カウンタ
+        """
+
+        # Step 1: 録画ファイルのメタデータにのみ存在するチャンネルの display_channel_id を一時値に変更
+        # UNIQUE 制約を回避するため、並び替え前に全て一時的な値に変更する
+        # SQLite では UNIQUE 制約はトランザクション内でも即座にチェックされるため、この処理が必要
+        recording_only_channels = await cls.filter(is_watchable=False, type='GR')
+        for channel in recording_only_channels:
+            temp_display_channel_id = f'_temp_{channel.id}'
+            if channel.display_channel_id != temp_display_channel_id:
+                channel.display_channel_id = temp_display_channel_id
+                await channel.save()
+
+        # 録画ファイルのメタデータにのみ存在するチャンネルを NID-SID 順でソート（決定論的ソート）
+        # 視聴可能なチャンネルの後に続くため、優先地域の考慮は不要
+        recording_only_channels_sorted = sorted(
+            recording_only_channels,
+            key=lambda ch: ch.network_id * 100000 + ch.service_id,
+        )
+
+        # Step 2: 正しい枝番を計算して更新
+        # 録画ファイルのメタデータにのみ存在するチャンネルのみ存在する NID の場合、same_network_id_counts にキーがないため初期化が必要
+        for channel in recording_only_channels_sorted:
+            # 視聴可能なチャンネルに存在しない NID の場合はカウンタを初期化
+            # 視聴可能なチャンネルと同様に、初期化後にインクリメントして 1 から開始する必要がある
+            if channel.network_id not in same_network_id_counts:
+                same_network_id_counts[channel.network_id] = 0
+            same_network_id_counts[channel.network_id] += 1
+            new_channel_number = await TSInformation.calculateChannelNumber(
+                channel.type,
+                channel.network_id,
+                channel.service_id,
+                channel.remocon_id,
+                same_network_id_counts,
+                same_remocon_id_counts,
+            )
+            new_display_channel_id = channel.type.lower() + new_channel_number
+            channel.channel_number = new_channel_number
+            channel.display_channel_id = new_display_channel_id
+            try:
+                await channel.save()
+                logging.info(f'Updated recording-only channel branch number: {channel.id} -> {new_display_channel_id}')
+            except IntegrityError:
+                # 万が一競合が発生した場合（通常は発生しないはず）
+                logging.warning(f'Channel: {channel.name} ({channel.id}) display_channel_id conflict, skipped.')
 
 
     async def getCurrentAndNextProgram(self) -> tuple[Program | None, Program | None]:

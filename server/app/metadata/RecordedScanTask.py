@@ -326,10 +326,18 @@ class RecordedScanTask:
                     # Mac の metadata ファイルをスキップ
                     if file_path.name.startswith('._'):
                         continue
+                    # 除外パターンのチェック（シンボリックリンク解決前）
+                    # 空文字列は全パスにマッチしてしまうため除外する
+                    original_path_str = str(file_path)
+                    if any(original_path_str.startswith(pattern) for pattern in Config().video.exclude_scan_patterns if pattern):
+                        continue
                     # シンボリックリンクを含むパスは実体に解決して処理する
                     canonical_path = await self.resolveRecordedPath(file_path)
-                    original_path_str = str(file_path)
                     canonical_path_str = str(canonical_path)
+                    # 除外パターンのチェック（シンボリックリンク解決後）
+                    # 空文字列は全パスにマッチしてしまうため除外する
+                    if any(canonical_path_str.startswith(pattern) for pattern in Config().video.exclude_scan_patterns if pattern):
+                        continue
                     # シンボリックリンクのマッピングを更新する
                     await self.__updateSymlinkMapping(original_path_str, canonical_path_str)
                     if await canonical_path.is_dir():
