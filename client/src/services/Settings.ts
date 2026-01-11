@@ -120,7 +120,7 @@ export interface IServerSettings {
     };
     video: {
         recorded_folders: string[];
-        exclude_scan_patterns: string[];
+        exclude_scan_paths: string[];
     };
     capture: {
         upload_folders: string[];
@@ -151,7 +151,7 @@ export const IServerSettingsDefault: IServerSettings = {
     },
     video: {
         recorded_folders: [],
-        exclude_scan_patterns: [],
+        exclude_scan_paths: [],
     },
     capture: {
         upload_folders: [],

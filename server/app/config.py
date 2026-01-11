@@ -338,7 +338,7 @@ class _ServerSettingsTV(BaseModel):
 
 class _ServerSettingsVideo(BaseModel):
     recorded_folders: list[DirectoryPath] = []
-    exclude_scan_patterns: list[str] = []
+    exclude_scan_paths: list[str] = []
 
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
@@ -438,17 +438,17 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if GetPlatformEnvironment() == 'Linux-Docker':
             config_dict['video']['recorded_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['video']['recorded_folders']]
-            if 'exclude_scan_patterns' in config_dict['video']:
+            if 'exclude_scan_paths' in config_dict['video']:
                 # 空文字や空白だけのパスは無視する
                 ## 空文字が Docker 用 Prefix に変換されると、全パスが除外対象になってしまうため
-                exclude_scan_patterns = [
+                exclude_scan_paths = [
                     pattern.strip()
-                    for pattern in config_dict['video']['exclude_scan_patterns']
+                    for pattern in config_dict['video']['exclude_scan_paths']
                     if type(pattern) is str and pattern.strip() != ''
                 ]
-                config_dict['video']['exclude_scan_patterns'] = [
+                config_dict['video']['exclude_scan_paths'] = [
                     _DOCKER_PATH_PREFIX + pattern
-                    for pattern in exclude_scan_patterns
+                    for pattern in exclude_scan_paths
                 ]
             config_dict['capture']['upload_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['capture']['upload_folders']]
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
@@ -508,7 +508,7 @@ def SaveConfig(config: ServerSettings) -> None:
     ## LoadConfig() で実行されている処理と逆の処理を行う
     if GetPlatformEnvironment() == 'Linux-Docker':
         config_dict['video']['recorded_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['video']['recorded_folders']]
-        config_dict['video']['exclude_scan_patterns'] = [str(pattern).replace(_DOCKER_PATH_PREFIX, '') for pattern in config_dict['video']['exclude_scan_patterns']]
+        config_dict['video']['exclude_scan_paths'] = [str(pattern).replace(_DOCKER_PATH_PREFIX, '') for pattern in config_dict['video']['exclude_scan_paths']]
         config_dict['capture']['upload_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['capture']['upload_folders']]
         if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
             config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')

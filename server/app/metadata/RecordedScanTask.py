@@ -317,6 +317,14 @@ class RecordedScanTask:
             video.file_path = str(canonical_path)
             existing_db_recorded_videos[anyio.Path(video.file_path)] = video
 
+        # スキャン対象から除外するフォルダ
+        # 空文字列は全パスにマッチしてしまうため除外する
+        exclude_scan_paths = [
+            self.__normalizePathForPrefixMatch(pattern)
+            for pattern in self.config.video.exclude_scan_paths
+            if type(pattern) is str and pattern.strip() != ''
+        ]
+
         # 各録画フォルダをスキャン
         logging.info('Scanning recorded folders...')
         processed_canonical_paths: set[str] = set()
@@ -327,16 +335,17 @@ class RecordedScanTask:
                     if file_path.name.startswith('._'):
                         continue
                     # 除外パターンのチェック（シンボリックリンク解決前）
-                    # 空文字列は全パスにマッチしてしまうため除外する
                     original_path_str = str(file_path)
-                    if any(original_path_str.startswith(pattern) for pattern in Config().video.exclude_scan_patterns if pattern):
+                    original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
+                    if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
                         continue
                     # シンボリックリンクを含むパスは実体に解決して処理する
                     canonical_path = await self.resolveRecordedPath(file_path)
                     canonical_path_str = str(canonical_path)
                     # 除外パターンのチェック（シンボリックリンク解決後）
                     # 空文字列は全パスにマッチしてしまうため除外する
-                    if any(canonical_path_str.startswith(pattern) for pattern in Config().video.exclude_scan_patterns if pattern):
+                    canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
+                    if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
                         continue
                     # シンボリックリンクのマッピングを更新する
                     await self.__updateSymlinkMapping(original_path_str, canonical_path_str)
@@ -738,6 +747,22 @@ class RecordedScanTask:
             return file_path
 
 
+    @staticmethod
+    def __normalizePathForPrefixMatch(path_str: str) -> str:
+        """
+        パス区切り文字を統一し、前方一致の比較を安定させる。
+
+        Args:
+            path_str (str): 正規化対象のパス文字列
+
+        Returns:
+            str: パス区切り文字を / に統一した文字列
+        """
+
+        # Windows ではパス区切り文字として / と \\ の両方が使えるため、比較前に / に統一する
+        return path_str.replace('\\', '/')
+
+
     async def __updateSymlinkMapping(self, original_path_str: str | None, canonical_path_str: str) -> None:
         """
         シンボリックリンクの元パスと実体パスのマッピングを管理する。
@@ -1002,6 +1027,14 @@ class RecordedScanTask:
         # 監視対象のディレクトリを設定
         watch_paths = [str(path) for path in self.recorded_folders]
 
+        # スキャン対象から除外するフォルダ
+        # 空文字列は全パスにマッチしてしまうため除外する
+        exclude_scan_paths = [
+            self.__normalizePathForPrefixMatch(pattern)
+            for pattern in self.config.video.exclude_scan_paths
+            if type(pattern) is str and pattern.strip() != ''
+        ]
+
         # 録画完了チェック用のタスク
         completion_check_task = asyncio.create_task(self.__checkRecordingCompletion())
 
@@ -1020,8 +1053,20 @@ class RecordedScanTask:
                     # Mac の metadata ファイルをスキップ
                     if file_path.name.startswith('._'):
                         continue
+                    # 除外パターンのチェック（シンボリックリンク解決前）
+                    # 空文字列は全パスにマッチしてしまうため除外する
+                    original_path_str = str(file_path)
+                    original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
+                    if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                        continue
                     # シンボリックリンクを含むパスは実体に解決して処理する
                     canonical_path = await self.resolveRecordedPath(file_path)
+                    # 除外パターンのチェック（シンボリックリンク解決後）
+                    # 空文字列は全パスにマッチしてしまうため除外する
+                    canonical_path_str = str(canonical_path)
+                    canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
+                    if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                        continue
                     if await canonical_path.is_dir():
                         continue
                     # 対象拡張子のファイル以外は無視

@@ -237,15 +237,15 @@
                     シンボリックリンク解決前のパスと、解決後の実体パスの両方で前方一致判定を行います。<br>
                     例えば、<code>E:\TV-Record\Temp</code> を指定すると、そのサブフォルダ以下の録画ファイルはスキャン対象から除外されます。<br>
                 </div>
-                <div v-for="(pattern, index) in server_settings.video.exclude_scan_patterns" :key="'exclude-pattern-' + index">
+                <div v-for="(pattern, index) in server_settings.video.exclude_scan_paths" :key="'exclude-pattern-' + index">
                     <div class="d-flex align-center mt-3">
                         <v-text-field class="settings__item-form mt-0" color="primary" variant="outlined" hide-details
                             placeholder="例: E:\TV-Record\Trash"
                             :density="is_form_dense ? 'compact' : 'default'"
-                            v-model="server_settings.video.exclude_scan_patterns[index]">
+                            v-model="server_settings.video.exclude_scan_paths[index]">
                         </v-text-field>
                         <button v-ripple class="settings__item-delete-button"
-                            @click="server_settings.video.exclude_scan_patterns.splice(index, 1)">
+                            @click="server_settings.video.exclude_scan_paths.splice(index, 1)">
                             <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 16 16">
                                 <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0ZM6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1h4Zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0v-5ZM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5Z"></path>
                             </svg>
@@ -253,7 +253,7 @@
                     </div>
                 </div>
                 <v-btn class="mt-3" color="background-lighten-2" variant="flat" height="40px"
-                    @click="server_settings.video.exclude_scan_patterns.push('')">
+                    @click="server_settings.video.exclude_scan_paths.push('')">
                     <Icon icon="fluent:add-12-filled" height="17px" />
                     <span class="ml-1">除外フォルダを追加</span>
                 </v-btn>
