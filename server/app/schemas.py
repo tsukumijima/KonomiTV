@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field, RootModel, computed_field
 from tortoise.contrib.pydantic import PydanticModel
 from typing_extensions import TypedDict
 
+from app.utils.TSInformation import TerrestrialRegion
+
 
 # 以下に定義する型定義は、必ず以下の例のように、「親モデル」->「子モデル」の順に記述すること！
 # from __future__ import annotations をインポートしているので前方参照について気にする必要はない
@@ -34,6 +36,10 @@ class Channel(PydanticModel):
     channel_number: str
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']
     name: str
+    # terrestrial_regions: network_id から算出した地デジチャンネルの地域名のリスト (デバッグ用)
+    # 広域放送局の場合は複数の地域名が含まれる
+    # 地デジ以外のチャンネルまたは地域が特定できない場合は None
+    terrestrial_regions: list[TerrestrialRegion] | None = None
     jikkyo_force: int | None = None
     is_subchannel: bool = False
     is_radiochannel: bool = False

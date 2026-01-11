@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import anyio
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, Response
 from fastapi.security.utils import get_authorization_scheme_param
 from tortoise import connections
 
@@ -23,6 +23,7 @@ from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.JikkyoClient import JikkyoClient
+from app.utils.TSInformation import TSInformation
 
 
 # ルーター
@@ -146,6 +147,12 @@ async def ChannelsAPI():
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
             'is_watchable': True,
+            # 地デジチャンネルの地域名のリスト (デバッグ用)
+            # 広域放送局の場合は複数の地域名が含まれる
+            # 地デジ以外のチャンネルまたは地域が特定できない場合は None
+            'terrestrial_regions': (
+                TSInformation.getRegionNamesFromNetworkID(channel.network_id) if channel.type == 'GR' else None
+            ),
             'is_display': True,
             'viewer_count': 0,
             'program_present': None,
@@ -242,9 +249,8 @@ async def ChannelsAPI():
         ## 後から filter() で絞り込むのだと効率が悪い
         result[channel_dict['type']].append(channel_dict)
 
-    # JSONResponse を直接返すことで、通常自動的に行われる重いバリデーションや整形処理を回避できる
-    ## チャンネル情報は情報量が多くすべてのチャンネルに対してバリデーションを行うと重くなるため、検証をスキップしてパフォーマンスを向上させる
-    return JSONResponse(result)
+    # Pydantic v2 ではバリデーションが高速化されているため、通常通り Pydantic モデルを返す
+    return schemas.LiveChannels.model_validate(result)
 
 
 @router.get(
@@ -262,6 +268,13 @@ async def ChannelAPI(
 
     # 現在と次の番組情報を取得
     channel.program_present, channel.program_following = await channel.getCurrentAndNextProgram()
+
+    # 地デジチャンネルの地域名のリストを設定 (デバッグ用)
+    # 広域放送局の場合は複数の地域名が含まれる
+    # 地デジ以外のチャンネルまたは地域が特定できない場合は None
+    channel.terrestrial_regions = (
+        TSInformation.getRegionNamesFromNetworkID(channel.network_id) if channel.type == 'GR' else None
+    )
 
     # チャンネル情報を返却
     return channel

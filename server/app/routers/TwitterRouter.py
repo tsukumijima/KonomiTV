@@ -336,10 +336,10 @@ async def TwitterTweetAPI(
             error_message = f'ツイート画像のアップロード中に Twitter API から HTTP {ex.response.status_code} エラーが返されました。'
             if len(ex.api_errors) > 0:
                 error_message += f'Message: {ex.api_errors[0]}'  # エラーメッセージがあれば追加
-        return {
-            'is_success': False,
-            'detail': error_message,
-        }
+        return schemas.TwitterAPIResult(
+            is_success = False,
+            detail = error_message,
+        )
 
     # GraphQL API を使ってツイートを送信し、結果をそのまま返す
     return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids)

@@ -9,7 +9,7 @@ from tortoise.exceptions import ConfigurationError
 from tortoise.expressions import Q
 
 
-# 優先地デジエリアの Literal 型の定義（北海道は7分割、計53選択肢）
+# 地デジ放送エリアの Literal 型（北海道は7分割、計53選択肢）
 TerrestrialRegion = Literal[
     '北海道（札幌）', '北海道（函館）', '北海道（旭川）', '北海道（帯広）',
     '北海道（釧路）', '北海道（北見）', '北海道（室蘭）',
@@ -75,7 +75,7 @@ class TSInformation:
 
     # 地域名 → 対応する地域識別のリスト（県域 + 広域）
     # 北海道は放送エリアごとに地域識別が異なるため、個別に分割
-    # ARIB TR-B14 第五分冊 9章「各種数値割り当て一覧」に基づく
+    # ARIB TR-B14 第五分冊 第七編 9.1「各種数値割り当て一覧」に基づく
     TERRESTRIAL_REGION_TO_REGION_IDS: ClassVar[dict[TerrestrialRegion, list[int]]] = {
         # 北海道（地域識別が異なる7つの放送エリア + 北海道域）
         '北海道（札幌）': [10, 4],   # 札幌 + 北海道域
@@ -108,9 +108,9 @@ class TSInformation:
         '山梨県': [32],
         '長野県': [30],
         # 東海（中京広域を含む）
-        '岐阜県': [39, 3],
         '静岡県': [35],
         '愛知県': [33, 3],
+        '岐阜県': [39, 3],
         '三重県': [38, 3],
         # 近畿（近畿広域を含む）
         '滋賀県': [45, 2],
@@ -140,6 +140,11 @@ class TSInformation:
         '鹿児島県': [58],
         '沖縄県': [62],
     }
+
+    # 地域識別 → 対応する地域名のリスト（逆引きマッピング）
+    # TERRESTRIAL_REGION_TO_REGION_IDS から事前に構築して高速な逆引きを実現する
+    # region_id をキーとし、その region_id を持つすべての地域名をリストで保持する
+    REGION_ID_TO_REGION_NAMES: ClassVar[dict[int, list[TerrestrialRegion]]] = {}
 
     # formatString() で使用する変換マップ
     __format_string_translation_map: dict[int, str] | None = None
@@ -376,14 +381,14 @@ class TSInformation:
         """
         地デジのネットワーク ID から地域識別を取得する
 
-        ARIB TR-B14 第五分冊 9.1.1 より:
+        ARIB TR-B14 第五分冊 第七編 9.1 より:
         network_id = 0x7FF0 - 0x0010 × 地域識別 + 地域事業者識別 - 0x0400 × 県複フラグ
 
         Args:
             network_id (int): ネットワーク ID
 
         Returns:
-            int | None: 地域識別 (1-62)。地デジ以外の場合は None
+            int | None: 地域識別 (1-62) (地デジ以外の場合は None)
         """
 
         # 地デジの NID 範囲チェック
@@ -403,6 +408,35 @@ class TSInformation:
         # (region_broadcaster_id が 0 以外だと、切り捨てでは地域識別が 1 ずれる)
         region_id = (0x7FF0 - network_id + 0x000F) // 0x0010
         return region_id if 1 <= region_id <= 62 else None
+
+
+    @staticmethod
+    def getRegionNamesFromNetworkID(network_id: int) -> list[TerrestrialRegion] | None:
+        """
+        地デジのネットワーク ID から該当するすべての地域名を取得する
+
+        事前に構築した REGION_ID_TO_REGION_NAMES を使用して高速に逆引きを行う
+        広域放送局 (region_id: 1-6) の場合、その広域に含まれるすべての都道府県名をリストで返す
+
+        Args:
+            network_id (int): ネットワーク ID
+
+        Returns:
+            list[TerrestrialRegion] | None: 地域名のリスト (地デジ以外または不明な場合は None)
+        """
+
+        # ネットワーク ID から地域識別を取得
+        region_id = TSInformation.getRegionIDFromNetworkID(network_id)
+        if region_id is None:
+            return None
+
+        # 事前に構築した逆引きマッピングから地域名リストを取得
+        region_names = TSInformation.REGION_ID_TO_REGION_NAMES.get(region_id)
+        if region_names is None:
+            return None
+
+        # リストのコピーを返す（呼び出し元での変更を防ぐ）
+        return list(region_names)
 
 
     @staticmethod
@@ -640,3 +674,13 @@ class TSInformation:
             is_subchannel = False
 
         return is_subchannel
+
+
+# REGION_ID_TO_REGION_NAMES の初期化
+# TERRESTRIAL_REGION_TO_REGION_IDS から逆引きマッピングを構築する
+# モジュールのインポート時に一度だけ実行される
+for _region_name, _region_ids in TSInformation.TERRESTRIAL_REGION_TO_REGION_IDS.items():
+    for _region_id in _region_ids:
+        if _region_id not in TSInformation.REGION_ID_TO_REGION_NAMES:
+            TSInformation.REGION_ID_TO_REGION_NAMES[_region_id] = []
+        TSInformation.REGION_ID_TO_REGION_NAMES[_region_id].append(_region_name)

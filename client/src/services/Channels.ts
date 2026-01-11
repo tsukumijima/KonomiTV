@@ -9,6 +9,19 @@ export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'BS4K';
 // チャンネルタイプの型 (実際のチャンネルリストに表示される表現)
 export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'BS4K';
 
+/** 地デジ放送エリアの型 (北海道は7分割、計53選択肢) */
+export type TerrestrialRegion =
+    | '北海道（札幌）' | '北海道（函館）' | '北海道（旭川）' | '北海道（帯広）'
+    | '北海道（釧路）' | '北海道（北見）' | '北海道（室蘭）'
+    | '青森県' | '岩手県' | '宮城県' | '秋田県' | '山形県' | '福島県'
+    | '茨城県' | '栃木県' | '群馬県' | '埼玉県' | '千葉県' | '東京都' | '神奈川県'
+    | '新潟県' | '富山県' | '石川県' | '福井県' | '山梨県' | '長野県'
+    | '岐阜県' | '静岡県' | '愛知県' | '三重県'
+    | '滋賀県' | '京都府' | '大阪府' | '兵庫県' | '奈良県' | '和歌山県'
+    | '鳥取県' | '島根県' | '岡山県' | '広島県' | '山口県'
+    | '徳島県' | '香川県' | '愛媛県' | '高知県'
+    | '福岡県' | '佐賀県' | '長崎県' | '熊本県' | '大分県' | '宮崎県' | '鹿児島県' | '沖縄県';
+
 /** チャンネル情報を表すインターフェイス */
 export interface IChannel {
     id: string;
@@ -20,10 +33,14 @@ export interface IChannel {
     channel_number: string;
     type: ChannelType;
     name: string;
+    // 地デジチャンネルの地域名のリスト (デバッグ用)
+    // 広域放送局の場合は複数の地域名が含まれる
+    // 地デジ以外のチャンネルまたは地域が特定できない場合は null
+    terrestrial_regions: TerrestrialRegion[] | null;
     jikkyo_force: number | null;
     is_subchannel: boolean;
     is_radiochannel: boolean;
-    is_watchable: boolean,
+    is_watchable: boolean;
 }
 
 /** 現在放送中のチャンネル情報を表すインターフェイス */
@@ -50,6 +67,7 @@ export const ILiveChannelDefault: ILiveChannel = {
     is_subchannel: false,
     is_radiochannel: false,
     is_watchable: true,
+    terrestrial_regions: null,
     is_display: true,
     viewer_count: 0,
     program_present: IProgramDefault,
