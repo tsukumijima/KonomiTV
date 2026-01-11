@@ -167,6 +167,16 @@ class Channel(TortoiseModel):
                 return (1, base_key)  # それ以外は後
             services.sort(key=sort_key)
 
+            # 優先エリア設定の変更により display_channel_id（枝番）が変わる可能性があるため、
+            # UNIQUE 制約の衝突を回避するために、地デジチャンネルの display_channel_id を一時値に変更する
+            # この処理をしないと、優先エリア設定を変更してサーバーを再起動しても枝番が更新されない
+            for channel in duplicate_channels.values():
+                if channel.type == 'GR':
+                    temp_display_channel_id = f'_temp_{channel.id}'
+                    if channel.display_channel_id != temp_display_channel_id:
+                        channel.display_channel_id = temp_display_channel_id
+                        await channel.save()
+
             # 同じネットワーク ID のサービスのカウント
             same_network_id_counts: dict[int, int] = {}
 
@@ -272,7 +282,7 @@ class Channel(TortoiseModel):
                     await channel.save()
                 # 既に登録されているチャンネルならスキップ
                 except IntegrityError:
-                    pass
+                    logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered.')
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
@@ -342,6 +352,16 @@ class Channel(TortoiseModel):
                             return (0, base_key)  # 優先地域は最初に処理
                     return (1, base_key)  # それ以外は後
                 services.sort(key=sort_key)
+
+                # 優先エリア設定の変更により display_channel_id（枝番）が変わる可能性があるため、
+                # UNIQUE 制約の衝突を回避するために、地デジチャンネルの display_channel_id を一時値に変更する
+                # この処理をしないと、優先エリア設定を変更してサーバーを再起動しても枝番が更新されない
+                for channel in duplicate_channels.values():
+                    if channel.type == 'GR':
+                        temp_display_channel_id = f'_temp_{channel.id}'
+                        if channel.display_channel_id != temp_display_channel_id:
+                            channel.display_channel_id = temp_display_channel_id
+                            await channel.save()
             else:
                 logging.error('Failed to get channels from EDCB.')
                 raise Exception('Failed to get channels from EDCB.')
@@ -482,7 +502,6 @@ class Channel(TortoiseModel):
                 # 既に登録されているチャンネルならスキップ
                 except IntegrityError:
                     logging.warning(f'Channel: {channel.name} ({channel.id}) is already registered.')
-                    pass
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():

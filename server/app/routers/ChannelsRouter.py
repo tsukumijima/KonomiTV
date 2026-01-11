@@ -69,8 +69,11 @@ async def ChannelsAPI():
     tasks = []
 
     # チャンネル情報を取得
+    # remocon_id (リモコン番号) を第一ソートキー、channel_number (チャンネル番号) を第二ソートキーとしてソート
+    # Tortoise ORM では order_by() を複数回チェーンすると最後の order_by() だけが有効になるため、
+    # 必ず order_by('remocon_id', 'channel_number') のように引数で指定する必要がある
     channels: list[Channel]
-    tasks.append(Channel.filter(is_watchable=True).order_by('channel_number').order_by('remocon_id'))
+    tasks.append(Channel.filter(is_watchable=True).order_by('remocon_id', 'channel_number'))
 
     # データベースの生のコネクションを取得
     # 地デジ・BS・CS を合わせると 18000 件近くになる番組情報を SQLite かつ ORM で絞り込んで素早く取得するのは無理があるらしい
