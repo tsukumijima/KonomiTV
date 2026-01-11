@@ -62,6 +62,7 @@
                     v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
                 </v-switch>
             </div>
+            <v-divider class="mt-6"></v-divider>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="use_28hour_clock">時刻を 28 時間表記で表示する</label>
                 <label class="settings__item-label" for="use_28hour_clock">
@@ -112,6 +113,18 @@
                     :density="is_form_dense ? 'compact' : 'default'"
                     :items="video_panel_active_tab" v-model="settingsStore.settings.video_panel_active_tab">
                 </v-select>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">視聴履歴の保持件数</div>
+                <div class="settings__item-label">
+                    録画番組の視聴履歴を何件まで保持するかを設定します。デフォルトは 50 件です。<br>
+                    この値を超えると、最も古い視聴履歴から自動的に削除されます。<br>
+                </div>
+                <v-text-field class="settings__item-form" color="primary" variant="outlined" hide-details
+                    type="number" min="1" suffix="件"
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    v-model.number="settingsStore.settings.video_watched_history_max_count">
+                </v-text-field>
             </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">

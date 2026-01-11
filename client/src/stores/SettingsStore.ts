@@ -70,6 +70,7 @@ export interface ILocalClientSettings extends IClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    video_watched_history_max_count: number;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
@@ -201,6 +202,9 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_panel_active_tab: 'Program',
     // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     video_panel_active_tab: 'RecordedProgram',
+    // 視聴履歴の保持件数 (Default: 50件)
+    // この値を超えると、最も古い視聴履歴から自動的に削除される
+    video_watched_history_max_count: 50,
 
     // ***** 設定 → 画質 *****
 
@@ -339,6 +343,7 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'panel_display_state',
     'tv_panel_active_tab',
     'video_panel_active_tab',
+    'video_watched_history_max_count',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
