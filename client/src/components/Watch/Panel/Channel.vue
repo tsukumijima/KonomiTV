@@ -421,14 +421,18 @@ export default defineComponent({
                             -webkit-line-clamp: 2;  // 2行までに制限
                             -webkit-box-orient: vertical;
                             @include smartphone-horizontal {
+                                display: block;
                                 margin-top: 5px;
                                 font-size: 12.5px;
-                                -webkit-line-clamp: 1;  // 1行までに制限
+                                white-space: nowrap;
+                                text-overflow: ellipsis;
                             }
                             @include smartphone-vertical {
+                                display: block;
                                 margin-top: 5px;
                                 font-size: 12.5px;
-                                -webkit-line-clamp: 1;  // 1行までに制限
+                                white-space: nowrap;
+                                text-overflow: ellipsis;
                             }
                         }
 

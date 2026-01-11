@@ -428,9 +428,8 @@ const handleSwitchClick = (event: Event) => {
             line-height: 1.35;
             margin-right: 12px;
             overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
+            text-overflow: ellipsis;
             @include tablet-vertical {
                 font-size: 15px;
             }
@@ -438,10 +437,13 @@ const handleSwitchClick = (event: Event) => {
                 font-size: 14px;
             }
             @include smartphone-vertical {
+                display: -webkit-box;
                 font-size: 13px;
                 line-height: 1.45;
                 margin-right: 8px;
+                white-space: normal;
                 -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
         }
 
@@ -729,18 +731,16 @@ const handleSwitchClick = (event: Event) => {
         }
 
         &-description {
-            display: -webkit-box;
             flex-grow: 1;
             margin-right: 12px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
             line-height: 1.55;
-            overflow-wrap: break-word;
             font-feature-settings: "palt" 1;
             letter-spacing: 0.07em;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
             overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
             @include tablet-vertical {
                 font-size: 11px;
             }

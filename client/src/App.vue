@@ -313,8 +313,7 @@ body .route-container {
     // 省略が不要なテキストでも ... が表示されるレンダリングバグが発生するため
     @supports (hanging-punctuation: first) and (font: -apple-system-body) and (-webkit-appearance: none) {
         display: inline;
-        padding-top: 0.1em;
-        padding-bottom: 0.14em;
+        padding-bottom: 0.045em;
     }
 }
 

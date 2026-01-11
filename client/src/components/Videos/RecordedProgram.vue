@@ -434,27 +434,32 @@ const deleteVideo = async () => {
         }
 
         &-title {
-            display: -webkit-box;
             font-size: 17px;
             font-weight: 600;
             font-feature-settings: "palt" 1;  // 文字詰め
             letter-spacing: 0.07em;  // 字間を少し空ける
             overflow: hidden;
-            -webkit-line-clamp: 1;  // 1行までに制限
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
+            text-overflow: ellipsis;
             @include tablet-vertical {
+                display: -webkit-box;
                 font-size: 15px;
                 line-height: 1.4;
+                white-space: normal;
                 -webkit-line-clamp: 2;  // 2行までに制限
+                -webkit-box-orient: vertical;
             }
             @include smartphone-horizontal {
                 font-size: 14px;
             }
             @include smartphone-vertical {
+                display: -webkit-box;
                 margin-right: 12px;
                 font-size: 13px;
                 line-height: 1.4;
+                white-space: normal;
                 -webkit-line-clamp: 2;  // 2行までに制限
+                -webkit-box-orient: vertical;
             }
         }
 
@@ -564,9 +569,12 @@ const deleteVideo = async () => {
             -webkit-line-clamp: 2;  // 2行までに制限
             -webkit-box-orient: vertical;
             @include tablet-vertical {
+                display: block;
                 margin-top: 3.5px;
                 font-size: 11px;
-                -webkit-line-clamp: 1;  // 1行までに制限
+                overflow-wrap: normal;
+                white-space: nowrap;
+                text-overflow: ellipsis;
             }
             @include smartphone-horizontal {
                 margin-top: 3.5px;

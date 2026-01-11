@@ -136,10 +136,8 @@ const tooltipText = computed(() => {
         font-size: var(--timetable-channel-name-size);
         font-weight: 500;
         color: rgb(var(--v-theme-text));
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
         overflow: hidden;
+        white-space: nowrap;
         text-overflow: ellipsis;
         max-width: 100%;
     }
