@@ -3,8 +3,11 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import atexit
+import shutil
 from typing import TYPE_CHECKING
 
+import js2py_.node_import
 import tweepy
 from cryptography.fernet import InvalidToken
 from fastapi import HTTPException, status
@@ -22,6 +25,20 @@ from app.constants import (
 
 if TYPE_CHECKING:
     from app.models.User import User
+
+
+# js2py_ ライブラリの node_import.py は、モジュールのトップレベルで tempfile.mkdtemp() を呼び出し
+# 一時ディレクトリを作成するが、クリーンアップ処理が実装されていないため、一時ディレクトリが残り続けてしまう問題がある
+# tweepy_authlib が js2py_ をインポートしているため、tweepy_authlib のインポート後に
+# atexit でクリーンアップを登録することで、プロセス終了時に一時ディレクトリを削除する
+# ref: https://github.com/nicholaskajoh/js2py_/blob/master/js2py_/node_import.py
+def _cleanup_js2py_temp_dir() -> None:
+    try:
+        shutil.rmtree(js2py_.node_import.DIRNAME, ignore_errors=True)
+    except Exception:
+        pass
+
+atexit.register(_cleanup_js2py_temp_dir)
 
 
 class TwitterAccount(TortoiseModel):
