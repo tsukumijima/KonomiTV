@@ -399,8 +399,9 @@ class TSInformation:
 
         # 地域識別の計算
         # network_id = 0x7FF0 - 0x0010 × 地域識別 + 地域事業者識別
-        # 地域事業者識別は 0〜15 なので、0x0010 で割った商が地域識別
-        region_id = (0x7FF0 - network_id) // 0x0010
+        # 地域事業者識別は 0〜15 なので、0x0010 で割る場合は切り捨てではなく切り上げが必要
+        # (region_broadcaster_id が 0 以外だと、切り捨てでは地域識別が 1 ずれる)
+        region_id = (0x7FF0 - network_id + 0x000F) // 0x0010
         return region_id if 1 <= region_id <= 62 else None
 
 
