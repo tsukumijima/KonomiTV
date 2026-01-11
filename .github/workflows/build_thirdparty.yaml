@@ -26,9 +26,9 @@ env:
   ## FFmpeg-Builds の最新リリースでは FFmpeg 4.4 系がビルドされなくなったため、FFMPEG_HWENCC_* は 4.4 系の最終ビルドで固定されている
   ## (正確には Ubuntu 20.04 LTS で入る FFmpeg は 4.2 系だが、FFmpeg 4.x 系であれば ABI 互換性があるため 4.4 系でも動作する)
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
-  FFMPEG_TAG: 'autobuild-2025-10-31-13-40'
+  FFMPEG_TAG: 'autobuild-2025-12-31-14-28'
   FFMPEG_MAJOR_VERSION: '7.1'
-  FFMPEG_VERSION: '7.1.2-7-g24c44c34dc'
+  FFMPEG_VERSION: '7.1.3-22-g40b336e650'
   FFMPEG_HWENCC_TAG: 'autobuild-2024-03-31-17-28'
   FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
   FFMPEG_HWENCC_VERSION: '4.4.4-94-g5d07afd482'
