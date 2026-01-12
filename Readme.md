@@ -1,8 +1,8 @@
 
-# <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">　<!-- omit in toc -->
+# <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV Logo">　<!-- omit in toc -->
 
-<img width="100%" src="https://github.com/user-attachments/assets/6971f354-0418-4305-bf6d-b061142ffec6"><br>
-<video controls src="https://github.com/user-attachments/assets/ee0b6df0-3bb0-40da-99f4-798437aa2f9c"></video><br>
+<img width="100%" src="https://github.com/user-attachments/assets/6971f354-0418-4305-bf6d-b061142ffec6">
+<video controls src="https://github.com/user-attachments/assets/ee0b6df0-3bb0-40da-99f4-798437aa2f9c"></video>
 
 **いろいろな場所とデバイスでテレビと録画を快適に見れる、モダンな Web ベースのソフトウェアです。**
 
