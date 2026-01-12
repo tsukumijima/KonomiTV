@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "KonomiTV-Installer"
-version = "0.12.0"
+version = "0.13.0"
 description = "KonomiTV Installer"
 package-mode = false
 
