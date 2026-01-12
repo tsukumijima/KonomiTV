@@ -184,7 +184,7 @@ class Programs {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '番組検索機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 default:
                     APIClient.showGenericError(response, '番組情報の検索に失敗しました。');

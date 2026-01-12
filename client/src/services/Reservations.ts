@@ -147,7 +147,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified program was not found':
                     APIClient.showGenericError(response, '指定された番組が見つかりませんでした。');
@@ -187,7 +187,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified reservation_id was not found':
                     APIClient.showGenericError(response, '指定された録画予約が見つかりませんでした。');
@@ -216,7 +216,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified reservation_id was not found':
                     APIClient.showGenericError(response, '指定された録画予約が見つかりませんでした。');
