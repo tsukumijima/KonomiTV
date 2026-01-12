@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
@@ -25,6 +25,7 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils.DriveIOLimiter import DriveIOLimiter
+from app.utils.FileProcessingQueue import FileProcessingQueue
 from app.utils.ProcessLimiter import ProcessLimiter
 
 
@@ -58,6 +59,67 @@ class RecordedVideoSummary:
     file_modified_at: datetime
     file_size: int
     file_hash: str
+
+
+@dataclass(slots=True, order=True)
+class PrioritizedFile:
+    """
+    優先度付きファイル処理キューで使用するファイルエントリ
+
+    このデータクラスは FileProcessingQueue で使用され、録画ファイルの処理順序を制御する
+    heapq はデフォルトで最小ヒープとして動作するため、新しいファイルを優先するには
+    priority を負のタイムスタンプとする必要がある
+
+    order=True を指定することで、priority フィールドによる比較が可能になる
+    compare=False を指定したフィールドは比較から除外される
+
+    Attributes:
+        priority: 優先度（負のタイムスタンプ = 新しいファイルほど小さい値 = 高優先度）
+        tie_breaker: 同一優先度のファイルを区別するためのタイブレーカー（ファイルパス文字列）
+        file_path: ファイルパス（シンボリックリンク解決済み）
+        original_path: 元のファイルパス（シンボリックリンク経由で検出した場合）
+        file_created_at: ファイル作成日時
+
+    Note:
+        heapq で同一 priority のエントリを比較する際、anyio.Path は比較不可能なため
+        TypeError が発生する。これを防ぐため、tie_breaker フィールドを追加して
+        同一 priority のエントリを区別できるようにしている。
+    """
+
+    # 優先度（負のタイムスタンプで新しいファイルを優先）
+    priority: float
+    # タイブレーカー（同一優先度時の比較用、ファイルパス文字列を使用）
+    tie_breaker: str
+    # ファイルパス（比較には使用しない）
+    file_path: anyio.Path = field(compare=False)
+    original_path: anyio.Path | None = field(compare=False, default=None)
+    file_created_at: datetime = field(compare=False, default_factory=lambda: datetime.now(tz=ZoneInfo('Asia/Tokyo')))
+
+    @classmethod
+    def create(cls, file_path: anyio.Path, original_path: anyio.Path | None, file_created_at: datetime) -> PrioritizedFile:
+        """
+        ファクトリメソッド: 優先度を自動計算して PrioritizedFile を生成する
+
+        Args:
+            file_path: シンボリックリンク解決済みのファイルパス
+            original_path: 元のファイルパス（シンボリックリンク経由で検出した場合）
+            file_created_at: ファイル作成日時
+
+        Returns:
+            PrioritizedFile: 優先度が設定されたインスタンス
+        """
+
+        # 負のタイムスタンプを使用（新しいファイルほど小さい値 = 高優先度）
+        priority = -file_created_at.timestamp()
+        # タイブレーカーとしてファイルパス文字列を使用（同一作成日時のファイルを区別するため）
+        tie_breaker = str(file_path)
+        return cls(
+            priority=priority,
+            tie_breaker=tie_breaker,
+            file_path=file_path,
+            original_path=original_path,
+            file_created_at=file_created_at,
+        )
 
 
 class RecordedScanTask:
@@ -147,6 +209,11 @@ class RecordedScanTask:
         self._file_locks: dict[anyio.Path, asyncio.Lock] = {}
         # _file_locks 辞書自体へのアクセスを保護するためのロック
         self._file_locks_dict_lock = asyncio.Lock()
+
+        # ファイル処理の優先度付きキュー
+        # バッチスキャンとファイル監視の両方で使用し、新しいファイルを優先して処理する
+        # 詳細は FileProcessingQueue クラスのドキュメントを参照
+        self._file_processing_queue = FileProcessingQueue()
 
         # 初期化済みフラグをセット
         self._initialized = True
@@ -325,8 +392,11 @@ class RecordedScanTask:
             if type(pattern) is str and pattern.strip() != ''
         ]
 
-        # 各録画フォルダをスキャン
+        # 各録画フォルダをスキャンし、対象ファイルを収集する
+        # 新しいファイルから先に処理するため、まず全ファイルを収集してから優先度順にソートする
+        # ref: https://github.com/tsukumijima/KonomiTV/issues/189
         logging.info('Scanning recorded folders...')
+        collected_files: list[PrioritizedFile] = []
         processed_canonical_paths: set[str] = set()
         for folder in self.recorded_folders:
             async for file_path in folder.rglob('*'):
@@ -362,14 +432,39 @@ class RecordedScanTask:
                         continue
                     processed_canonical_paths.add(canonical_path_str)
 
-                    # 見つかったファイルを処理
-                    await self.processRecordedFile(
-                        file_path = canonical_path,
-                        original_path = file_path,
-                        existing_db_recorded_videos = existing_db_recorded_videos,
-                    )
+                    # ファイルの作成日時を取得して PrioritizedFile を作成
+                    stat = await canonical_path.stat()
+                    file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=ZoneInfo('Asia/Tokyo'))
+                    original_path = file_path if original_path_str != canonical_path_str else None
+                    collected_files.append(PrioritizedFile.create(
+                        file_path=canonical_path,
+                        original_path=original_path,
+                        file_created_at=file_created_at,
+                    ))
                 except Exception as ex:
-                    logging.error(f'{file_path}: Failed to process recorded file:', exc_info=ex)
+                    logging.error(f'{file_path}: Failed to collect recorded file:', exc_info=ex)
+
+        # 収集したファイルを優先度付きキューにロード（新しい順にソートされる）
+        await self._file_processing_queue.loadBatchFiles(collected_files)
+        logging.info(f'Collected {len(collected_files)} files for processing (sorted by creation time, newest first).')
+
+        # 優先度付きキューからファイルを順次取り出して処理
+        # バッチスキャン中にファイル監視で検出された新規ファイルは、このキューに優先的に追加されるため、
+        # 古いファイルの処理中に新しいファイルが検出された場合でも、新しいファイルが先に処理される
+        while (prioritized_file := await self._file_processing_queue.getNextFile()) is not None:
+            try:
+                await self.processRecordedFile(
+                    file_path=prioritized_file.file_path,
+                    original_path=prioritized_file.original_path,
+                    existing_db_recorded_videos=existing_db_recorded_videos,
+                )
+                # 処理済みとしてマーク（重複処理を防ぐため）
+                await self._file_processing_queue.markProcessed(prioritized_file.file_path)
+            except Exception as ex:
+                logging.error(f'{prioritized_file.file_path}: Failed to process recorded file:', exc_info=ex)
+
+        # バッチスキャン完了後、キューをクリアして次回のスキャンに備える
+        await self._file_processing_queue.clear()
 
         # 存在しない録画ファイルに対応するレコードを一括削除
         ## トランザクション配下に入れることでパフォーマンスが向上する
@@ -1102,6 +1197,7 @@ class RecordedScanTask:
         - 録画中ファイルの状態管理
         - メタデータ解析のスロットリング
         - 最終更新日時の継続更新検出による録画中判定
+        - バッチスキャン中に検出された新規ファイルは優先キューに追加
 
         Args:
             file_path (anyio.Path): 解決後のファイルパス
@@ -1112,8 +1208,27 @@ class RecordedScanTask:
             # ファイルの状態をチェック
             stat = await file_path.stat()
             last_modified = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
+            file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=ZoneInfo('Asia/Tokyo'))
             now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
             file_size = stat.st_size
+
+            # バッチスキャン中に検出された新規ファイル（まだ録画中としてマークされていないファイル）は優先キューに追加
+            # これにより、バッチスキャンの残りの古いファイルより先に処理される
+            # ただし、既に録画中としてマークされているファイル（継続的に更新されるファイル）はキューに追加せず
+            # 従来通り直接処理する（録画中ファイルは継続的な更新追跡が必要なため）
+            # ref: https://github.com/tsukumijima/KonomiTV/issues/189
+            if self._is_batch_scan_running and file_path not in self._recording_files:
+                # 既にキューで処理済みのファイルは追加しない
+                if not await self._file_processing_queue.isProcessed(file_path):
+                    await self._file_processing_queue.addPriorityFile(
+                        PrioritizedFile.create(
+                            file_path=file_path,
+                            original_path=original_file_path,
+                            file_created_at=file_created_at,
+                        )
+                    )
+                    logging.info(f'{file_path}: New file detected during batch scan, added to priority queue.')
+                    return  # キューに追加したので、ここでは直接処理しない（キューから取り出された時に処理される）
 
             # 既に録画中とマークされているファイルの処理
             if file_path in self._recording_files:
