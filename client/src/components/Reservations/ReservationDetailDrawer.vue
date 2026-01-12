@@ -48,10 +48,10 @@
                     </span>
                 </div>
                 <!-- Mirakurun バックエンド時の通知 -->
-                <div v-if="!isEDCBBackend && !isPastProgram && !hasReservation" class="status-banner status-banner--info mb-4">
+                <div v-if="!isEDCBBackend && !isPastProgram && !hasRealReservation" class="status-banner status-banner--info mb-4">
                     <Icon icon="fluent:info-16-regular" class="status-banner__icon" />
                     <span class="status-banner__text">
-                        録画予約機能は EDCB バックエンド利用時のみ使用できます。
+                        録画予約機能は EDCB バックエンド選択時のみ利用できます。
                     </span>
                 </div>
                 <!-- 番組情報 -->
@@ -395,7 +395,7 @@ const handleAddReservation = async () => {
 
     // EDCB バックエンドでない場合はエラー
     if (!isEDCBBackend.value) {
-        Message.error('録画予約機能は EDCB バックエンド利用時のみ使用できます。');
+        Message.error('録画予約機能は EDCB バックエンド選択時のみ利用できます。');
         return;
     }
 
