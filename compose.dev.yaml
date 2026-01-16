@@ -1,0 +1,8 @@
+
+services:
+  konomitv:
+    volumes:
+      - type: bind
+        source: './server/app/'
+        target: '/code/server/app/'
+    command: ["dev"]

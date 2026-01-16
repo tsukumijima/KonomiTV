@@ -4,15 +4,12 @@
 # Docker のマルチステージビルドを使い、最終的な Docker イメージのサイズを抑え、ビルドキャッシュを効かせる
 # --------------------------------------------------------------------------------------------------------------
 
-# 念のため最終イメージに合わせて Ubuntu 22.04 LTS にしておく
+# 念のため最終イメージに合わせて Ubuntu 22.04 LTS にしておきません
 ## 中間イメージなので、サイズは（ビルドするマシンのディスク容量以外は）気にしなくて良い
-FROM ubuntu:22.04 AS thirdparty-downloader
-
-# apt-get に対話的に設定確認されないための設定
-ENV DEBIAN_FRONTEND=noninteractive
+FROM alpine AS thirdparty-downloader
 
 # ダウンロード・展開に必要なパッケージのインストール
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certificates unzip xz-utils
+RUN apk --no-cache add git aria2 unzip tar xz
 
 # サードパーティーライブラリをダウンロード
 ## サードパーティーライブラリは変更が少ないので、先にダウンロード処理を実行してビルドキャッシュを効かせる
@@ -29,7 +26,7 @@ RUN tar xvf thirdparty-linux.tar.xz
 # クライアントのビルド成果物 (dist) は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
 # --------------------------------------------------------------------------------------------------------------
 
-FROM node:20.16.0 AS client-builder
+FROM node:20.16.0-alpine AS client-builder
 
 # 依存パッケージリスト (package.json/yarn.lock) だけをコピー
 WORKDIR /code/client/
@@ -54,7 +51,9 @@ RUN yarn build
 ## NVEncC の動作には CUDA ライブラリが必要なため、CUDA 付きのイメージを使う
 ## RTX 5090 (Blackwell) 世代をサポートする最低バージョンである CUDA 12.8.0 を指定している
 ## cuda:x.x.x-runtime 系イメージだと NVEncC で使わない余計なライブラリが付属して重いので、base イメージを使う
-FROM nvidia/cuda:12.8.0-base-ubuntu22.04
+FROM nvidia/cuda:12.8.0-base-ubuntu22.04 AS base
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # タイムゾーンを東京に設定
 ENV TZ=Asia/Tokyo
@@ -109,12 +108,13 @@ WORKDIR /code/server/
 COPY --from=thirdparty-downloader /thirdparty/ /code/server/thirdparty/
 
 # Poetry の依存パッケージリストだけをコピー
-COPY ./server/pyproject.toml ./server/poetry.lock ./server/poetry.toml /code/server/
+COPY ./server/pyproject.toml ./server/uv.lock /code/server/
 
-# 依存パッケージを poetry でインストール
-## 仮想環境 (.venv) をプロジェクト直下に作成する
-RUN /code/server/thirdparty/Python/bin/python -m poetry env use /code/server/thirdparty/Python/bin/python && \
-    /code/server/thirdparty/Python/bin/python -m poetry install --only main --no-root
+# Disable development dependencies
+ENV UV_NO_DEV=1
+
+# 依存パッケージを uv でインストール
+RUN uv sync --locked
 
 # サーバーのソースコードをコピー
 COPY ./server/ /code/server/
@@ -126,4 +126,5 @@ COPY --from=client-builder /code/client/dist/ /code/client/dist/
 COPY ./config.example.yaml /code/config.example.yaml
 
 # KonomiTV サーバーを起動
-ENTRYPOINT ["/code/server/.venv/bin/python", "KonomiTV.py"]
+ENTRYPOINT ["uv", "run", "task"]
+CMD ["serve"]

@@ -145,8 +145,8 @@ cython_debug/
 # config.yaml
 config.yaml
 
-# docker-compose.yaml
-docker-compose.yaml
+# private configs
+compose*.private.yaml
 
 # user files
 server/data/*.*

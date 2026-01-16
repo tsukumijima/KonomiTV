@@ -1,17 +1,10 @@
 
-version: '3.9'
 services:
   konomitv:
-    image: konomitv
-    container_name: KonomiTV
-    build:
-      context: .
-    # OS 起動時にコンテナを自動起動
-    restart: always
-    # ネットワークをホスト側と共有する
-    # 標準の bridge モード (仮想ネットワーク) だと、ローカルホストとの通信が面倒
-    # ref: https://inocop.hatenablog.com/entry/2018/12/18/131526
-    network_mode: host
+    build: ./
+    restart: unless-stopped
+    ports:
+      - "7000:7000"
     # ボリュームのマウント設定
     # /host-rootfs/ はコンテナ内の KonomiTV からホストマシンのファイルを読み書きするために必要
     volumes:
@@ -27,7 +20,6 @@ services:
       - type: bind
         source: '/'
         target: '/host-rootfs/'
-
     # ==================== ↓↓↓↓↓ ここからユーザー設定 ↓↓↓↓↓ ====================
 
     # QSVEncC / VCEEncC を利用する (Intel Graphics / AMD GPU にアクセスする) ために必要な設定
