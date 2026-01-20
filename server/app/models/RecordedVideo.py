@@ -37,7 +37,7 @@ class RecordedVideo(TortoiseModel):
     container_format = cast(TortoiseField[Literal['MPEG-TS', 'MPEG-4']], fields.CharField(255))
     video_codec = cast(TortoiseField[Literal['MPEG-2', 'H.264', 'H.265']], fields.CharField(255))
     # プロファイルは他にも多くあるが、現実的に使われそうなものだけを列挙
-    video_codec_profile = cast(TortoiseField[Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']], fields.CharField(255))
+    video_codec_profile = cast(TortoiseField[Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline', 'Constrained Baseline']], fields.CharField(255))
     video_scan_type = cast(TortoiseField[Literal['Interlaced', 'Progressive']], fields.CharField(255))
     video_frame_rate = fields.FloatField()
     video_resolution_width = fields.IntField()

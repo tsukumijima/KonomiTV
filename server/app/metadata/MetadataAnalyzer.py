@@ -260,7 +260,7 @@ class MetadataAnalyzer:
         duration: float | None = None
         container_format: Literal['MPEG-TS', 'MPEG-4'] | None = None
         video_codec: Literal['MPEG-2', 'H.264', 'H.265'] | None = None
-        video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'] | None = None
+        video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline', 'Constrained Baseline'] | None = None
         video_scan_type: Literal['Interlaced', 'Progressive'] | None = None
         video_frame_rate: float | None = None
         video_resolution_width: int | None = None
@@ -371,7 +371,7 @@ class MetadataAnalyzer:
                 ## Main@High や High@L5 など @ 区切りで Level や Tier などが付与されている場合があるので、それらを除去する
                 profile = video_stream.profile or ''
                 video_codec_profile = cast(
-                    Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline'],
+                    Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline', 'Constrained Baseline'],
                     profile.split('@')[0] if profile else 'Main'
                 )
                 ## スキャン形式
