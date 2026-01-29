@@ -2,6 +2,7 @@ import asyncio
 import json
 from typing import Any
 
+import anyio
 from zendriver import Browser, Tab, cdp
 
 from app import logging
@@ -141,8 +142,8 @@ class TwitterScrapeBrowser:
             await self._page.send(cdp.debugger.enable())
 
             # zendriver_setup.js の内容を読み込む
-            setup_js_path = STATIC_DIR / 'zendriver_setup.js'
-            setup_js_code = setup_js_path.read_text(encoding='utf-8')
+            setup_js_path = anyio.Path(STATIC_DIR / 'zendriver_setup.js')
+            setup_js_code = await setup_js_path.read_text(encoding='utf-8')
 
             # Debugger.paused イベントをリッスン
             async def on_paused(event: cdp.debugger.Paused) -> None:
