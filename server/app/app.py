@@ -151,14 +151,48 @@ def Root(file: str):
             # パスに api/ が前方一致で含まれていなければ、index.html を返す
             return FileResponse(CLIENT_DIR / 'index.html', media_type='text/html')
 
+def GetCORSHeadersForExceptionHandler(request: Request) -> dict[str, str]:
+    """
+    例外ハンドラ用の CORS ヘッダーを生成する。
+    Starlette のミドルウェアスタックは ServerErrorMiddleware → CORSMiddleware → ExceptionMiddleware の順で構築される。
+    @app.exception_handler() で登録したハンドラは ExceptionMiddleware で処理されるため、
+    通常は CORSMiddleware の send ラッパーを通り CORS ヘッダーが付与される。
+    ただし、ExceptionMiddleware で処理しきれない例外が ServerErrorMiddleware まで到達した場合、
+    CORSMiddleware がバイパスされ CORS ヘッダーが欠落する。
+    この関数はその防御策として、例外ハンドラ内で明示的に CORS ヘッダーを付与する。
+    ref: https://github.com/fastapi/fastapi/discussions/8027
+    ref: https://github.com/encode/starlette/discussions/2876
+
+    Args:
+        request: FastAPI の Request オブジェクト
+
+    Returns:
+        CORS ヘッダーを含む辞書。Origin が許可されていない場合は空の辞書を返す。
+    """
+
+    # リクエストの Origin ヘッダーを取得
+    origin = request.headers.get('Origin')
+    # CORS ヘッダーを設定
+    cors_header = ''
+    if origin is not None:
+        # 開発環境では全てのオリジンからのリクエストを許可
+        ## allow_credentials=True と Access-Control-Allow-Origin: * の組み合わせは
+        ## ブラウザにブロックされるため、リクエスト元の Origin をそのままエコーバックする
+        if CONFIG.general.debug is True:
+            cors_header = origin
+        # 本番環境では、Origin が許可されたオリジンに含まれている場合のみその Origin を返す
+        elif origin in CORS_ORIGINS:
+            cors_header = origin
+
+    return {'Access-Control-Allow-Origin': cors_header} if cors_header else {}
+
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
 async def ExceptionHandler(request: Request, exc: Exception):
     return JSONResponse(
         {'detail': f'Oops! {type(exc).__name__} did something. There goes a rainbow...'},
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        # FastAPI の謎仕様で CORSMiddleware は exception_handler に対しては効かないので、ここで自前で CORS ヘッダーを付与する
-        headers = {'Access-Control-Allow-Origin': CORS_ORIGINS[0] if len(CORS_ORIGINS) > 0 else ''},
+        headers = GetCORSHeadersForExceptionHandler(request),
     )
 
 # Tortoise ORM の初期化
@@ -172,7 +206,11 @@ tortoise.contrib.fastapi.register_tortoise(
     app = app,
     config = DATABASE_CONFIG,
     generate_schemas = True,
-    add_exception_handlers = True,
+    # Tortoise ORM の例外ハンドラ (DoesNotExist → 404, IntegrityError → 422) は登録しない
+    ## これらのハンドラは CORS ヘッダーを付与しないため、ブラウザがエラーレスポンスをブロックする可能性がある
+    ## Tortoise ORM の例外がルーターから漏れ出すこと自体がアプリのバグなので、
+    ## @app.exception_handler(Exception) で 500 として処理すれば十分
+    add_exception_handlers = False,
 )
 
 # サーバーの起動時に実行する
