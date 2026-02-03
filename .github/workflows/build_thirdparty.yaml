@@ -38,7 +38,7 @@ env:
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
   QSVENCC_VERSION: '8.04'
-  NVENCC_VERSION: '9.09'
+  NVENCC_VERSION: '9.10'
   VCEENCC_VERSION: '9.01'  # ドライバのバージョン要件が上げられているので当面 9.01 で固定
   RKMPPENC_VERSION: '0.17'
   # libmediainfo のバージョン
