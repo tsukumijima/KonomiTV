@@ -1,5 +1,6 @@
 
 import asyncio
+import random
 from collections.abc import Coroutine
 from typing import Annotated, Any, Literal
 
@@ -340,6 +341,9 @@ async def TwitterTweetAPI(
             is_success = False,
             detail = error_message,
         )
+
+    # スパム判定対策のため、ランダムに2〜5秒待機
+    await asyncio.sleep(random.uniform(2, 5))
 
     # GraphQL API を使ってツイートを送信し、結果をそのまま返す
     return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, media_ids)

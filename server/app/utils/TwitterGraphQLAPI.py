@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import re
 import time
 from datetime import datetime
@@ -515,51 +516,73 @@ class TwitterGraphQLAPI:
             for media_id in media_ids:
                 media_entities.append({'media_id': media_id, 'tagged_users': []})
 
-            # Twitter GraphQL API にリクエスト
-            response = await self.invokeGraphQLAPI(
-                endpoint_name='CreateTweet',
-                variables={
-                    'tweet_text': tweet,
-                    'dark_request': False,
-                    'media': {
-                        'media_entities': media_entities,
-                        'possibly_sensitive': False,
+            # ツイート ID を取得できない場合 (スパム判定されたケースが多い) に備え、最大2回までリトライする
+            ## リトライ時は 3〜5 秒のランダムな間隔で待機してから再送信する (経験的にこの範囲で待つと成功しやすい)
+            MAX_RETRY_COUNT = 2
+            RETRY_WAIT_SECONDS_MIN = 3.0
+            RETRY_WAIT_SECONDS_MAX = 5.0
+            for retry_count in range(MAX_RETRY_COUNT + 1):
+
+                # Twitter GraphQL API にリクエスト
+                response = await self.invokeGraphQLAPI(
+                    endpoint_name='CreateTweet',
+                    variables={
+                        'tweet_text': tweet,
+                        'dark_request': False,
+                        'media': {
+                            'media_entities': media_entities,
+                            'possibly_sensitive': False,
+                        },
+                        'semantic_annotation_ids': [],
+                        'disallowed_reply_options': None,
                     },
-                    'semantic_annotation_ids': [],
-                    'disallowed_reply_options': None,
-                },
-                error_message_prefix='ツイートの送信に失敗しました。',
-            )
-
-            # 最後のツイート時刻を更新
-            self._last_tweet_time = time.time()
-
-            # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
-            if isinstance(response, str):
-                logging.error(f'{self.log_prefix} Failed to create tweet: {response}')
-                return schemas.TwitterAPIResult(
-                    is_success=False,
-                    detail=response,  # エラーメッセージをそのまま返す
+                    error_message_prefix='ツイートの送信に失敗しました。',
                 )
 
-            # おそらくツイートに成功しているはずなので、可能であれば送信したツイートの ID を取得
-            tweet_id: str
-            try:
-                tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
-            except Exception as ex:
-                # API レスポンスが変わっているなどでツイート ID を取得できなかった
-                logging.error(f'{self.log_prefix} Failed to get tweet ID:', exc_info=ex)
-                logging.error(f'{self.log_prefix} Response: {response}')
+                # 最後のツイート時刻を更新
+                self._last_tweet_time = time.time()
+
+                # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
+                # この場合は明示的な API エラーなのでリトライせずにそのまま返す
+                if isinstance(response, str):
+                    logging.error(f'{self.log_prefix} Failed to create tweet: {response}')
+                    return schemas.TwitterAPIResult(
+                        is_success=False,
+                        detail=response,  # エラーメッセージをそのまま返す
+                    )
+
+                # おそらくツイートに成功しているはずなので、可能であれば送信したツイートの ID を取得
+                tweet_id: str
+                try:
+                    tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
+                except Exception as ex:
+                    # API レスポンスが変わっているか、スパム判定でツイート ID を取得できなかった
+                    logging.error(f'{self.log_prefix} Failed to get tweet ID (attempt {retry_count + 1}/{MAX_RETRY_COUNT + 1}):', exc_info=ex)
+                    logging.error(f'{self.log_prefix} Response: {response}')
+                    # まだリトライ回数が残っている場合は待機してから再送信する
+                    if retry_count < MAX_RETRY_COUNT:
+                        retry_wait_seconds = random.uniform(RETRY_WAIT_SECONDS_MIN, RETRY_WAIT_SECONDS_MAX)
+                        logging.info(f'{self.log_prefix} Retrying tweet after {retry_wait_seconds:.1f} seconds...')
+                        await asyncio.sleep(retry_wait_seconds)
+                        continue
+                    # リトライ回数を使い切った場合はエラーを返す
+                    return schemas.PostTweetResult(
+                        is_success=False,
+                        detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
+                        tweet_url='https://x.com/i/status/__error__',
+                    )
+
                 return schemas.PostTweetResult(
-                    is_success=False,
-                    detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
-                    tweet_url='https://x.com/i/status/__error__',
+                    is_success=True,
+                    detail='ツイートを送信しました。',
+                    tweet_url=f'https://x.com/i/status/{tweet_id}',
                 )
 
+            # ここに到達することはないが、型チェッカーのために念のため返す
             return schemas.PostTweetResult(
-                is_success=True,
-                detail='ツイートを送信しました。',
-                tweet_url=f'https://x.com/i/status/{tweet_id}',
+                is_success=False,
+                detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
+                tweet_url='https://x.com/i/status/__error__',
             )
 
     async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
