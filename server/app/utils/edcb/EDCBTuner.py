@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import ClassVar
+from threading import Lock
+from typing import ClassVar, Literal, cast
 
 from app.utils.edcb import SetChInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
@@ -13,53 +14,84 @@ from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.edcb.PipeStreamReader import PipeStreamReader
 
 
+EDCBTunerState = Literal['Idle', 'Starting', 'Active', 'Cancelling']
+
+
 class EDCBTuner:
     """ EDCB バックエンドのチューナーを制御するクラス """
 
     # 全てのチューナーインスタンスが格納されるリスト
     # チューナーを閉じずに再利用するため、全てのチューナーインスタンスにアクセスできるようにする
-    __instances: ClassVar[list[EDCBTuner | None]] = []
+    __instances: ClassVar[list[EDCBTuner]] = []
+
+    # NetworkTV モードのチューナーを識別する任意の整数
+    # ほかのロケフリ系アプリと重複しないように 500 から増分する
+    __next_networktv_id: ClassVar[int] = 500
+    __lock: ClassVar[Lock] = Lock()
 
 
-    def __new__(cls, network_id: int, service_id: int, transport_stream_id: int) -> EDCBTuner:
-
-        # 新しいチューナーインスタンスを生成する
-        instance = super().__new__(cls)
-
-        # 生成したチューナーインスタンスを登録する
-        cls.__instances.append(instance)
-
-        # 登録されたチューナーインスタンスを返す
-        return instance
-
-
-    def __init__(self, network_id: int, service_id: int, transport_stream_id: int) -> None:
+    @classmethod
+    def getOrCreate(cls, owner_live_stream_id: str) -> EDCBTuner:
         """
-        チューナーインスタンスを初期化する
+        再利用可能なチューナーインスタンスを取得する
+        再利用できるチューナーがない場合は新規に生成する
 
         Args:
-            network_id (int): ネットワーク ID
-            service_id (int): サービス ID
-            transport_stream_id (int): トランスポートストリーム ID
+            owner_live_stream_id (str): 制御権限を持つライブストリーム ID
+
+        Returns:
+            EDCBTuner: 取得したチューナーインスタンス
+        """
+
+        # インスタンスの再利用/生成は排他制御する
+        ## 競合した場合に同じチューナーを二重取得しないようにする
+        with cls.__lock:
+
+            # 再利用可能なチューナーインスタンスがあれば、それを返す
+            for instance in cls.__instances:
+                # 未使用かつ未割り当てであれば再利用する
+                if instance._state == 'Idle' and instance._owner_live_stream_id is None and instance._locked is False:
+                    # 制御権限を割り当てる
+                    instance._owner_live_stream_id = owner_live_stream_id
+                    return instance
+
+            # NetworkTV ID を払い出す
+            edcb_networktv_id = cls.__next_networktv_id
+            cls.__next_networktv_id += 1
+
+            # 新しいチューナーインスタンスを生成する
+            ## __init__ は直接呼び出さず、このメソッドからのみ生成する
+            instance = cls(edcb_networktv_id, owner_live_stream_id)
+
+            # 生成したチューナーインスタンスを登録する
+            cls.__instances.append(instance)
+
+            return instance
+
+
+    def __init__(self, edcb_networktv_id: int, owner_live_stream_id: str) -> None:
+        """
+        チューナーインスタンスを初期化する
+        直接呼び出してはいけない (必ず getOrCreate() を経由すること)
+
+        Args:
+            edcb_networktv_id (int): NetworkTV ID
+            owner_live_stream_id (str): 制御権限を持つライブストリーム ID
         """
 
         # NID・SID・TSID を設定
-        self.network_id: int = network_id
-        self.service_id: int = service_id
-        self.transport_stream_id: int = transport_stream_id
+        ## setChannel() で設定するため、初期値は 0 にする
+        self.network_id: int = 0
+        self.service_id: int = 0
+        self.transport_stream_id: int = 0
 
         # チューナーがロックされているかどうか
         ## 一般に ONAir 時はロックされ、Idling 時はアンロックされる
         self._locked: bool = False
 
-        # チューナーの制御権限を委譲している（＝チューナーが再利用されている）かどうか
-        ## このフラグが True になっているチューナーは、チューナー制御の取り合いにならないように以後何を実行してもチューナーの状態を変更できなくなる
-        self._delegated: bool = False
-
-        # このチューナーインスタンス固有の NetworkTV ID を取得
+        # EpgDataCap_Bon の NetworkTV ID
         ## NetworkTV ID は NetworkTV モードの EpgDataCap_Bon を識別するために割り当てられる ID
-        ## アンロック状態のチューナーがあれば、その NetworkTV ID を使い起動中の EpgDataCap_Bon を再利用する
-        self._edcb_networktv_id: int = self.__getNetworkTVID()
+        self._edcb_networktv_id: int = edcb_networktv_id
 
         # EpgDataCap_Bon のプロセス ID
         ## プロセス ID が None のときはチューナーが起動されていないものとして扱う
@@ -69,53 +101,21 @@ class EDCBTuner:
         ## まだ接続していないとき、接続が閉じられた後は None になる
         self._edcb_stream_writer: asyncio.StreamWriter | None = None
 
+        # チューナーとのストリーミング接続の StreamReader (TCP/IP モード時)
+        ## まだ接続していないとき、接続が閉じられた後は None になる
+        self._edcb_stream_reader: asyncio.StreamReader | None = None
+
         # チューナーとのストリーミング接続を閉じるためのパイプ (名前付きパイプモード時)
         ## まだ接続していないとき、接続が閉じられた後は None になる
         self._edcb_pipe_stream_reader: PipeStreamReader | None = None
 
+        # このチューナーの利用状態
+        ## Idle: 未使用 / Starting: 起動・チャンネル切り替え中 / Active: 受信中 / Cancelling: キャンセル中
+        self._state: EDCBTunerState = 'Idle'
 
-    def __getNetworkTVID(self) -> int:
-        """
-        EpgDataCap_Bon の NetworkTV ID を取得する
-        アンロック状態のチューナーインスタンスがあれば、それを削除した上でそのチューナーインスタンスの NetworkTV ID を返す
-
-        Returns:
-            int: 取得した EpgDataCap_Bon の NetworkTV ID
-        """
-
-        # 二重制御の防止
-        if self._delegated is True:
-            return 0
-
-        # NetworkTV モードのチューナーを識別する任意の整数
-        ## ほかのロケフリ系アプリと重複しないように 500 を増分してある
-        ## さらに登録されているチューナーインスタンスの数を足す（とりあえず被らなければいいのでこれで）
-        edcb_networktv_id = 500 + len(EDCBTuner.__instances)
-
-        # インスタンスごとに
-        for instance in EDCBTuner.__instances:
-
-            # ロックされていなければ
-            if instance is not None and instance._locked is False:
-
-                # edcb_networktv_id が存在しない（初期化途中、おそらく自分自身のインスタンス）場合はスキップ
-                if not hasattr(instance, '_edcb_networktv_id'):
-                    continue
-
-                # そのインスタンスの NetworkTV ID を取得
-                edcb_networktv_id = instance._edcb_networktv_id
-
-                # そのインスタンスから今後チューナーを制御できないようにする（制御権限の委譲）
-                # NetworkTV ID が同じチューナーインスタンスが複数ある場合でも、制御できるインスタンスは1つに限定する
-                instance._delegated = True
-
-                # 二重にチューナーを再利用することがないよう、インスタンスの登録を削除する
-                # インデックスがずれるのを避けるため、None を入れて要素自体は削除しない
-                EDCBTuner.__instances[EDCBTuner.__instances.index(instance)] = None
-                break
-
-        # NetworkTV ID を返す
-        return edcb_networktv_id
+        # このチューナーの制御権限を持つライブストリーム ID
+        ## None の場合は未割り当て
+        self._owner_live_stream_id: str | None = owner_live_stream_id
 
 
     def getEDCBNetworkTVID(self) -> int:
@@ -126,21 +126,82 @@ class EDCBTuner:
             int: 取得した EpgDataCap_Bon の NetworkTV ID
         """
 
+        # NetworkTV ID を返す
         return self._edcb_networktv_id
 
 
-    async def open(self) -> bool:
+    def getState(self) -> EDCBTunerState:
         """
-        チューナーを起動する
-        すでに EpgDataCap_Bon が起動している（チューナーを再利用した）場合は、その EpgDataCap_Bon に対してチャンネル切り替えを行う
+        チューナーの現在の状態を取得する
 
         Returns:
-            bool: チューナーを起動できたかどうか
+            EDCBTunerState: 現在の状態
         """
 
-        # 二重制御の防止
-        if self._delegated is True:
+        # 現在の状態を返す
+        return self._state
+
+
+    def setState(self, state: EDCBTunerState) -> None:
+        """
+        チューナーの状態を設定する
+
+        Args:
+            state (EDCBTunerState): 設定する状態
+        """
+
+        # 状態を更新する
+        self._state = state
+
+
+    def _isOwner(self, live_stream_id: str) -> bool:
+        """
+        指定されたライブストリームがこのチューナーの制御権限を持っているかどうかを返す
+
+        Args:
+            live_stream_id (str): ライブストリーム ID
+
+        Returns:
+            bool: 制御権限を持っているかどうか
+        """
+
+        # 制御権限の一致を返す
+        return self._owner_live_stream_id == live_stream_id
+
+
+    async def setChannel(
+        self,
+        network_id: int,
+        service_id: int,
+        transport_stream_id: int,
+        owner_live_stream_id: str,
+    ) -> bool:
+        """
+        チューナーのチャンネルを設定する
+        チューナーが起動していない場合は起動する
+
+        Args:
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
+            transport_stream_id (int): トランスポートストリーム ID
+            owner_live_stream_id (str): 制御権限を持つライブストリーム ID
+
+        Returns:
+            bool: チャンネル設定に成功したかどうか
+        """
+
+        # 制御権限が一致していない場合は処理しない
+        if self._isOwner(owner_live_stream_id) is False:
             return False
+
+        # キャンセル中は処理しない
+        if self._state == 'Cancelling':
+            return False
+
+        # NID・SID・TSID を更新
+        self.network_id = network_id
+        self.service_id = service_id
+        self.transport_stream_id = transport_stream_id
 
         # edcb.sendNwTVIDSetCh() に渡す辞書
         set_ch_info: SetChInfo = {
@@ -167,6 +228,7 @@ class EDCBTuner:
 
         # チューナーを起動する
         ## ほかのタスクがチューナーを閉じている (Idling -> Offline) などで空きがない場合があるのでいくらかリトライする
+        self._state = 'Starting'
         set_ch_timeout = time.monotonic() + 5  # 現在時刻から5秒後
         while True:
 
@@ -182,23 +244,48 @@ class EDCBTuner:
 
         # チューナーの起動に失敗した
         if self._edcb_process_id is None:
-            await self.close()  # チューナーを閉じる
+            self._state = 'Idle'
             return False
+
+        # 起動済みとして状態を更新する
+        self._state = 'Active'
 
         return True
 
 
-    async def connect(self) -> asyncio.StreamReader | PipeStreamReader | None:
+    async def connect(self, owner_live_stream_id: str) -> asyncio.StreamReader | PipeStreamReader | None:
         """
         チューナーに接続し、放送波を受け取るための TCP ソケットまたは名前付きパイプを返す
+
+        Args:
+            owner_live_stream_id (str): 制御権限を持つライブストリーム ID
 
         Returns:
             asyncio.StreamReader | PipeStreamReader | None: TCP ソケットまたは名前付きパイプの StreamReader (取得できなかった場合は None を返す)
         """
 
+        # 制御権限が一致していない場合は処理しない
+        if self._isOwner(owner_live_stream_id) is False:
+            return None
+
+        # キャンセル中は処理しない
+        if self._state == 'Cancelling':
+            return None
+
         # プロセス ID が取得できている（チューナーが起動している）ことが前提
         if self._edcb_process_id is None:
             return None
+
+        # 既に StreamReader を保持している場合は再利用する
+        if self._edcb_stream_reader is not None and self._edcb_stream_writer is not None:
+            if self._edcb_stream_writer.is_closing() is False:
+                self._state = 'Active'
+                return self._edcb_stream_reader
+
+        if self._edcb_pipe_stream_reader is not None:
+            if self._edcb_pipe_stream_reader.is_closing() is False:
+                self._state = 'Active'
+                return self._edcb_pipe_stream_reader
 
         stream_reader: asyncio.StreamReader | PipeStreamReader | None = None
 
@@ -215,33 +302,48 @@ class EDCBTuner:
             self._edcb_pipe_stream_reader = stream_reader
 
         # チューナーへの接続に失敗した
-        ## チューナーを閉じてからエラーを返す
         if stream_reader is None:
-            await self.close()  # チューナーを閉じる
+            self._state = 'Idle'
             return None
 
+        # Reader / Writer を保持する
         if stream_writer is not None:
             self._edcb_stream_writer = stream_writer
+            self._edcb_stream_reader = cast(asyncio.StreamReader, stream_reader)
+
+        # 接続済みとして状態を更新する
+        self._state = 'Active'
 
         return stream_reader
 
 
-    async def disconnect(self) -> None:
+    async def disconnect(self, owner_live_stream_id: str) -> None:
         """
         チューナーとのストリーミング接続を閉じる
         ストリーミングが終了した際に必ず呼び出す必要がある
+
+        Args:
+            owner_live_stream_id (str): 制御権限を持つライブストリーム ID
         """
+
+        # 制御権限が一致していない場合は処理しない
+        if self._isOwner(owner_live_stream_id) is False:
+            return
 
         # TCP/IP モード
         if self._edcb_stream_writer is not None:
             self._edcb_stream_writer.close()
             await self._edcb_stream_writer.wait_closed()
             self._edcb_stream_writer = None
+            self._edcb_stream_reader = None
 
         # 名前付きパイプモード
         elif self._edcb_pipe_stream_reader is not None:
             await self._edcb_pipe_stream_reader.close()
             self._edcb_pipe_stream_reader = None
+
+        # 切断済みとして状態を更新する
+        self._state = 'Idle'
 
 
     def isDisconnected(self) -> bool:
@@ -252,40 +354,100 @@ class EDCBTuner:
             bool: チューナーとのストリーミング接続が閉じられているかどうか
         """
 
+        # TCP/IP モード
         if self._edcb_stream_writer is not None:
             return self._edcb_stream_writer.is_closing()
-        elif self._edcb_pipe_stream_reader is not None:
+
+        # 名前付きパイプモード
+        if self._edcb_pipe_stream_reader is not None:
             return self._edcb_pipe_stream_reader.is_closing()
 
         return True
 
 
-    def lock(self) -> None:
+    def lock(self, owner_live_stream_id: str | None) -> bool:
         """
         チューナーをロックする
         ロックしておかないとチューナーの制御を横取りされてしまうので、基本はロック状態にする
+
+        Args:
+            owner_live_stream_id (str | None): 制御権限を持つライブストリーム ID
+
+        Returns:
+            bool: ロックできたかどうか
         """
+
+        # 制御権限が一致していない場合は処理しない
+        if owner_live_stream_id is None or self._isOwner(owner_live_stream_id) is False:
+            return False
+
+        # ロック状態にする
         self._locked = True
+        return True
 
 
-    def unlock(self) -> None:
+    def unlock(self, owner_live_stream_id: str | None) -> bool:
         """
         チューナーをアンロックする
         チューナーがアンロックされている場合、起動中の EpgDataCap_Bon は次のチューナーインスタンスの初期化時に再利用される
+
+        Args:
+            owner_live_stream_id (str | None): 制御権限を持つライブストリーム ID
+
+        Returns:
+            bool: アンロックできたかどうか
         """
+
+        # 制御権限が一致していない場合は処理しない
+        if owner_live_stream_id is None or self._isOwner(owner_live_stream_id) is False:
+            return False
+
+        # アンロック状態にする
+        self._locked = False
+        return True
+
+
+    def handoff(self, current_owner_live_stream_id: str, next_owner_live_stream_id: str) -> bool:
+        """
+        チューナーの制御権限を別のライブストリームに移譲する
+        ストリーミング接続のクリーンアップは呼び出し元で行う
+
+        Args:
+            current_owner_live_stream_id (str): 現在の制御権限を持つライブストリーム ID
+            next_owner_live_stream_id (str): 移譲先のライブストリーム ID
+
+        Returns:
+            bool: 移譲に成功したかどうか
+        """
+
+        # 制御権限が一致していない場合は処理しない
+        if self._isOwner(current_owner_live_stream_id) is False:
+            return False
+
+        # 再利用可能な状態に戻す
+        self._state = 'Idle'
         self._locked = False
 
+        # 制御権限を移譲する
+        self._owner_live_stream_id = next_owner_live_stream_id
 
-    async def close(self) -> bool:
+        return True
+
+
+    async def close(self, owner_live_stream_id: str | None, force: bool = False) -> bool:
         """
         チューナーを終了する
+
+        Args:
+            owner_live_stream_id (str | None): 制御権限を持つライブストリーム ID
+            force (bool): 制御権限の一致を無視して終了するかどうか
 
         Returns:
             bool: チューナーを終了できたかどうか
         """
 
-        # 二重制御の防止
-        if self._delegated is True:
+        # 制御権限が一致していない場合は処理しない
+        if force is False and (owner_live_stream_id is None or self._isOwner(owner_live_stream_id) is False):
             return False
 
         # チューナーを閉じ、実行結果を取得する
@@ -295,9 +457,19 @@ class EDCBTuner:
         # チューナーが閉じられたので、プロセス ID を None に戻す
         self._edcb_process_id = None
 
+        # ストリーミング接続の状態を破棄する
+        self._edcb_stream_writer = None
+        self._edcb_stream_reader = None
+        self._edcb_pipe_stream_reader = None
+
+        # 状態を初期化する
+        self._state = 'Idle'
+        self._owner_live_stream_id = None
+        self._locked = False
+
         # インスタンスの登録を削除する
         if self in EDCBTuner.__instances:
-            EDCBTuner.__instances[EDCBTuner.__instances.index(self)] = None
+            EDCBTuner.__instances.remove(self)
 
         return result
 
@@ -308,6 +480,7 @@ class EDCBTuner:
         現在起動中の全てのチューナーを終了する
         明示的に終了しないといつまでも起動してしまうため、アプリケーション終了時に実行する
         """
-        for instance in EDCBTuner.__instances:
-            if instance is not None:
-                await instance.close()
+
+        # 登録されているチューナーを順に終了する
+        for instance in list(cls.__instances):
+            await instance.close(instance._owner_live_stream_id, force=True)

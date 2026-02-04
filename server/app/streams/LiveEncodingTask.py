@@ -719,15 +719,20 @@ class LiveEncodingTask:
         # EDCB バックエンド
         elif BACKEND_TYPE == 'EDCB':
 
-            # チューナーインスタンスを初期化
+            # チューナーインスタンスを取得する
             ## Idling への切り替え、ONAir への復帰時に LiveStream 側でチューナーのアンロック/ロックが行われる
-            self.live_stream.tuner = EDCBTuner(channel.network_id, channel.service_id, cast(int, channel.transport_stream_id))
+            if self.live_stream.tuner is None:
+                self.live_stream.tuner = EDCBTuner.getOrCreate(self.live_stream.live_stream_id)
 
             # チューナーを起動する
-            # アンロック状態のチューナーインスタンスがあれば、自動的にそのチューナーが再利用される
             logging.debug(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
             self.live_stream.setStatus('Standby', 'チューナーを起動しています…')
-            is_tuner_opened = await self.live_stream.tuner.open()
+            is_tuner_opened = await self.live_stream.tuner.setChannel(
+                channel.network_id,
+                channel.service_id,
+                cast(int, channel.transport_stream_id),
+                self.live_stream.live_stream_id,
+            )
 
             # チューナーの起動に失敗した
             # ほとんどがチューナー不足によるものなので、ステータス詳細でもそのように表示する
@@ -736,7 +741,7 @@ class LiveEncodingTask:
                 self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足していると考えられます。(E-02E)')
 
                 # チューナーを閉じる
-                await self.live_stream.tuner.close()
+                await self.live_stream.tuner.close(self.live_stream.live_stream_id)
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.live_stream.disconnectAll()
@@ -751,19 +756,19 @@ class LiveEncodingTask:
 
             # チューナーをロックする
             # ロックしないと途中でチューナーの制御を横取りされてしまう
-            self.live_stream.tuner.lock()
+            self.live_stream.tuner.lock(self.live_stream.live_stream_id)
 
             # チューナーに接続する
             # 放送波が送信される TCP ソケットまたは名前付きパイプを取得する
             self.live_stream.setStatus('Standby', 'チューナーに接続しています…')
-            reader = await self.live_stream.tuner.connect()
+            reader = await self.live_stream.tuner.connect(self.live_stream.live_stream_id)
 
             # チューナーへの接続に失敗した
             if reader is None:
                 self.live_stream.setStatus('Offline', 'チューナーへの接続に失敗しました。チューナー側に何らかの問題があるかもしれません。(E-03E)')
 
                 # チューナーを閉じる
-                await self.live_stream.tuner.close()
+                await self.live_stream.tuner.close(self.live_stream.live_stream_id)
 
                 # すべての視聴中クライアントのライブストリームへの接続を切断する
                 self.live_stream.disconnectAll()
@@ -860,7 +865,7 @@ class LiveEncodingTask:
             # EDCB バックエンド: チューナーとのストリーミング接続を閉じる
             ## チャンネル切り替え時に再利用するため、ここではチューナー自体は閉じない
             if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
-                await self.live_stream.tuner.disconnect()
+                await self.live_stream.tuner.disconnect(self.live_stream.live_stream_id)
 
             # Mirakurun バックエンド: Service Stream API とのストリーミング接続を閉じる
             if BACKEND_TYPE == 'Mirakurun' and response is not None and session is not None:
@@ -1349,7 +1354,7 @@ class LiveEncodingTask:
             ## 新しいエンコードタスクが今回立ち上げたチューナーを再利用できるようにする
             ## エンコーダーの再起動が必要なだけでチューナー自体はそのまま使えるし、わざわざ閉じてからもう一度開くのは無駄
             if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
-                self.live_stream.tuner.unlock()
+                self.live_stream.tuner.unlock(self.live_stream.live_stream_id)
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
             if self._retry_count < self.MAX_RETRY_COUNT:
@@ -1371,8 +1376,8 @@ class LiveEncodingTask:
                 # チューナーを終了する (EDCB バックエンドのみ)
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
                 if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
-                    await self.live_stream.tuner.close()
-                    self.live_stream.tuner = None
+                    if await self.live_stream.tuner.close(self.live_stream.live_stream_id) is True:
+                        self.live_stream.tuner = None
 
         # 通常終了
         else:
@@ -1380,15 +1385,17 @@ class LiveEncodingTask:
             # EDCB バックエンドのみ
             if BACKEND_TYPE == 'EDCB' and self.live_stream.tuner is not None:
 
-                # チャンネル切り替え時にチューナーが再利用されるように、3秒ほど待つ
-                # 3秒間の間にチューナーの制御権限が新しいエンコードタスクに委譲されれば、下記の通り実際にチューナーが閉じられることはない
-                await asyncio.sleep(3)
+                # 再利用中ならチューナーを閉じない
+                ## LiveStream 側の handoff と競合しないようにする
+                if self.live_stream.tuner.getState() == 'Cancelling':
+                    # 強制的にガベージコレクションを実行してから早期 return する
+                    gc.collect()
+                    return
 
-                # チューナーを終了する（まだ制御を他のチューナーインスタンスに委譲していない場合）
-                # Idling に移行しアンロック状態になっている間にチューナーが再利用された場合、制御権限をもう持っていないため実際には何も起こらない
+                # チューナーを終了する（まだ制御をこのライブストリームが保持している場合のみ）
                 ## tuner.close() した時点でそのチューナーインスタンスは意味をなさなくなるので、LiveStream インスタンスのプロパティからも削除する
-                await self.live_stream.tuner.close()
-                self.live_stream.tuner = None
+                if await self.live_stream.tuner.close(self.live_stream.live_stream_id) is True:
+                    self.live_stream.tuner = None
 
         # 強制的にガベージコレクションを実行する
         gc.collect()

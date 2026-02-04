@@ -159,7 +159,7 @@ server/static/interlaced_*
 server/thirdparty/*
 
 # subproject
-EDCB/
+/EDCB/
 
 # ignore .gitkeep
 !.gitkeep
