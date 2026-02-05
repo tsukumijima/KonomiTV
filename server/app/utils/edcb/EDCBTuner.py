@@ -276,17 +276,6 @@ class EDCBTuner:
         if self._edcb_process_id is None:
             return None
 
-        # 既に StreamReader を保持している場合は再利用する
-        if self._edcb_stream_reader is not None and self._edcb_stream_writer is not None:
-            if self._edcb_stream_writer.is_closing() is False:
-                self._state = 'Active'
-                return self._edcb_stream_reader
-
-        if self._edcb_pipe_stream_reader is not None:
-            if self._edcb_pipe_stream_reader.is_closing() is False:
-                self._state = 'Active'
-                return self._edcb_pipe_stream_reader
-
         stream_reader: asyncio.StreamReader | PipeStreamReader | None = None
 
         # チューナーに接続する
@@ -343,7 +332,10 @@ class EDCBTuner:
             self._edcb_pipe_stream_reader = None
 
         # 切断済みとして状態を更新する
-        self._state = 'Idle'
+        # Cancelling 状態の場合は handoff シーケンスの途中であるため、状態を維持する
+        ## handoff 後の旧タスク終了時に getState() == 'Cancelling' でチューナー close をスキップする判定に使われる
+        if self._state != 'Cancelling':
+            self._state = 'Idle'
 
 
     def isDisconnected(self) -> bool:
