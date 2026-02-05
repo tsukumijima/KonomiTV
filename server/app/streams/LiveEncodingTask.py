@@ -709,6 +709,14 @@ class LiveEncodingTask:
                     self.live_stream.psi_data_archiver.destroy()
                     self.live_stream.psi_data_archiver = None
 
+                # 明示的にエンコーダープロセスを終了する
+                ## エンコーダープロセスはチューナー接続よりも前に起動されているため、ここで終了しないとプロセスがリークする
+                try:
+                    tsreadex.kill()
+                    encoder.kill()
+                except Exception:
+                    pass
+
                 # エンコードタスクを停止する
                 await session.close()
                 return
@@ -751,6 +759,14 @@ class LiveEncodingTask:
                     self.live_stream.psi_data_archiver.destroy()
                     self.live_stream.psi_data_archiver = None
 
+                # 明示的にエンコーダープロセスを終了する
+                ## エンコーダープロセスはチューナー接続よりも前に起動されているため、ここで終了しないとプロセスがリークする
+                try:
+                    tsreadex.kill()
+                    encoder.kill()
+                except Exception:
+                    pass
+
                 # エンコードタスクを停止する
                 return
 
@@ -777,6 +793,14 @@ class LiveEncodingTask:
                 if self.live_stream.psi_data_archiver is not None:
                     self.live_stream.psi_data_archiver.destroy()
                     self.live_stream.psi_data_archiver = None
+
+                # 明示的にエンコーダープロセスを終了する
+                ## エンコーダープロセスはチューナー接続よりも前に起動されているため、ここで終了しないとプロセスがリークする
+                try:
+                    tsreadex.kill()
+                    encoder.kill()
+                except Exception:
+                    pass
 
                 # エンコードタスクを停止する
                 return
@@ -1324,7 +1348,13 @@ class LiveEncodingTask:
                 await asyncio.sleep(0.1)
 
         # エンコードタスクの終了を待つ
-        await Controller()
+        ## チャンネル切り替え時に LiveStream.connect() からこのタスクがキャンセルされる場合がある
+        ## CancelledError を捕捉しないと以降のエンコーダープロセスの終了処理がスキップされてしまうため、
+        ## CancelledError をキャッチした上で必ず終了処理に進む
+        try:
+            await Controller()
+        except asyncio.CancelledError:
+            logging.debug(f'[Live: {self.live_stream.live_stream_id}] Encoding task was cancelled by channel switch.')
 
         # ***** エンコードタスクの終了処理 *****
 
