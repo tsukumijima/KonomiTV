@@ -317,10 +317,11 @@ class LiveStream:
                             live_stream_status = live_stream.getStatus()
 
                         # クライアントが接続されている場合は対象外
-                        if live_stream_status.client_count != 0:
+                        # ただし Standby 状態のストリームはまだクライアントに有意なデータを配信していないため、
+                        # client_count に関係なくチューナー再利用の対象にする (disconnectAll() で安全に切断できる)
+                        if live_stream_status.client_count != 0 and live_stream_status.status != 'Standby':
                             # 近いタイミングで Idling に遷移する可能性があるため、リトライ対象とする
                             if (live_stream_status.status == 'ONAir' or
-                                live_stream_status.status == 'Standby' or
                                 live_stream_status.status == 'Idling'):
                                 should_wait_next_retry = True
                             continue

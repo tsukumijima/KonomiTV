@@ -250,7 +250,7 @@ async def LivePSIArchivedDataAPI(
             while True:
                 message = await receive()
                 if message['type'] == 'http.disconnect':
-                    # HTTP リクエストの切断を検知できるようにしばらく待つ
+                    # 上のループで HTTP リクエストの切断を検知できるようにしばらく待つ
                     await asyncio.sleep(5)
                     break
         except asyncio.CancelledError:
@@ -337,17 +337,22 @@ async def LiveMPEGTSStreamAPI(
     response = StreamingResponse(generator(), media_type='video/mp2t')
 
     # HTTP リクエストがキャンセルされたときに自前でライブストリームの接続を切断できるよう、StreamingResponse のインスタンスにモンキーパッチを当てる
-    ## StreamingResponse はリクエストがキャンセルされるとレスポンスを生成するジェネレーターの実行自体を勝手に強制終了してしまう
-    ## そうするとリクエストがキャンセルされたか判定できず、クライアントがタイムアウトするまで接続切断がライブストリームに反映されない
-    ## これを避けるため StreamingResponse.listen_for_disconnect() を書き換えて、自前でライブストリームの接続を切断できるようにする
+    ## Starlette の StreamingResponse は stream_response() と listen_for_disconnect() を TaskGroup で並行実行し、
+    ## listen_for_disconnect() が完了すると cancel_scope.cancel() で stream_response() (ジェネレーター) を強制終了する
+    ## デフォルトの listen_for_disconnect() は http.disconnect を受け取ると即座に完了するため、
+    ## ジェネレーターが強制終了されて disconnect() が呼ばれず、client_count が減少しない問題があった
+    ## これを避けるため listen_for_disconnect() を書き換え、http.disconnect の受信時点で即座に LiveStream.disconnect() を呼び出す
+    ## LiveStream.disconnect() は二重呼び出しに安全なので、ジェネレーター側で重複して呼ばれても問題ない
     # ref: https://github.com/encode/starlette/pull/839
     async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
         try:
             while True:
                 message = await receive()
                 if message['type'] == 'http.disconnect':
-                    # 上のループでライブストリームへの接続を切断できるようにしばらく待つ
-                    await asyncio.sleep(5)
+                    # HTTP リクエストの切断を検知したら即座にライブストリームへの接続を切断する
+                    ## こうすることで client_count が即座に減少し、チューナー再利用の判定が高速化される
+                    logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
+                    live_stream.disconnect(live_stream_client)
                     break
         except asyncio.CancelledError:
             pass
