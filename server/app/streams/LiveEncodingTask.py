@@ -1330,7 +1330,7 @@ class LiveEncodingTask:
                                     break
 
                         # それ以外なら、エンコーダーの再起動で復帰できる可能性があるのでエンコードタスクを再起動する
-                        if self.live_stream.getStatus().status == 'Offline':
+                        if self.live_stream.getStatus().status != 'Offline':
 
                             # エンコードタスクを再起動
                             result = self.live_stream.setStatus('Restart', 'エンコーダーが強制終了されました。エンコードタスクを再起動しています… (ER-06)')
