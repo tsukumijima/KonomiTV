@@ -361,10 +361,18 @@ class LiveStream:
                         # 実行中のタスクがあればキャンセルする
                         if live_stream._live_encoding_task_ref is not None:
                             live_stream._live_encoding_task_ref.cancel()
-                            try:
-                                await live_stream._live_encoding_task_ref
-                            except asyncio.CancelledError:
-                                pass
+
+                            # タスクの完了を最大 10 秒待つ
+                            ## エンコーダープロセスの kill とバックグラウンドタスクの完了を含め、通常は 0.5 秒程度で完了する
+                            ## EDCB との通信ハングなどで無期限にブロックされることを防ぐためにタイムアウトを設ける
+                            ## asyncio.wait() はタスクの状態を変更しないため、タイムアウトしても旧タスクは自然終了を続ける
+                            done, _ = await asyncio.wait(
+                                {live_stream._live_encoding_task_ref},
+                                timeout=10.0,
+                            )
+                            if not done:
+                                logging.warning(f'[Live: {live_stream.live_stream_id}] Encoding task cleanup did not complete within 10 seconds.')
+
                             live_stream._live_encoding_task_ref = None
 
                         # チューナーインスタンスを移譲する
