@@ -1344,6 +1344,11 @@ class LiveEncodingTask:
                                     for log in lines[-151:-1]:
                                         logging.warning(log)
 
+                        # エンコーダーが既に終了しているため、後続の異常検出処理を実行する意味がない
+                        # この時点でステータスは Offline か Restart のいずれかに設定されているはずなので、
+                        # 直接ループを抜けてエンコードタスクの終了処理に移る
+                        break
+
                     # この時点で最新のライブストリームのステータスが Offline か Restart に変更されていたら、エンコードタスクの終了処理に移る
                     live_stream_status = self.live_stream.getStatus()  # 更新されているかもしれないので再取得
                     if live_stream_status.status == 'Offline' or live_stream_status.status == 'Restart':
