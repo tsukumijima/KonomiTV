@@ -45,11 +45,10 @@
                 </div>
             </div>
             <!-- 録画開始ボタン / 録画状態表示 -->
-            <div v-ripple="isRecording || (isEDCBBackend && !hasReservation && !is_starting_recording)"
+            <div v-ripple="isRecordButtonClickable"
                 class="program-info__record-button"
                 :class="{
                     'program-info__record-button--disabled': !isEDCBBackend,
-                    'program-info__record-button--recording': isRecording,
                     'program-info__record-button--preparing': isPreparing,
                 }"
                 @click="handleRecordButtonClick">
@@ -145,8 +144,6 @@ export default defineComponent({
 
             // 現在の番組に対する録画予約情報
             reservation: null as IReservation | null,
-            // 録画予約の状態を読み込み中かどうか
-            is_loading_reservation: false,
             // 録画開始ボタンの処理中かどうか
             is_starting_recording: false,
             // 録画停止確認ダイアログの表示状態
@@ -181,6 +178,12 @@ export default defineComponent({
         // 録画開始中かどうか（予約投入済み + まだ録画が開始されていない）
         isPreparing(): boolean {
             return this.hasReservation === true && this.isRecording === false;
+        },
+
+        // 録画ボタンがクリック可能かどうか（v-ripple エフェクトの表示判定に使用）
+        // 録画中（停止ダイアログを開く）または未予約 (EDCB バックエンド) の場合のみクリック可能
+        isRecordButtonClickable(): boolean {
+            return this.isRecording || (this.isEDCBBackend && !this.hasReservation && !this.is_starting_recording);
         },
     },
     watch: {
@@ -217,7 +220,6 @@ export default defineComponent({
                 return false;
             }
             const requestToken = ++this.reservation_status_request_token;
-            this.is_loading_reservation = true;
             try {
                 const result = await Reservations.fetchReservations();
 
@@ -247,10 +249,8 @@ export default defineComponent({
                 );
                 this.reservation = matchingReservation ?? null;
                 return true;
-            } finally {
-                if (requestToken === this.reservation_status_request_token) {
-                    this.is_loading_reservation = false;
-                }
+            } catch {
+                return false;
             }
         },
 
@@ -294,10 +294,11 @@ export default defineComponent({
             this.is_starting_recording = true;
             try {
                 const result = await Reservations.addReservation(programPresent.id, IRecordSettingsDefault);
+                // 予約状態を再チェックして UI を更新
+                // 予約追加に失敗した場合も、外部で既に予約済みの可能性があるため状態を再取得する
+                await this.checkReservationStatus();
                 if (result === true) {
                     Message.show('録画予約を追加しました。録画を開始しています...');
-                    // 予約状態を再チェックして UI を更新
-                    await this.checkReservationStatus();
                     // まだ録画が開始されていない場合はポーリングを開始し、録画開始を待機する
                     if (this.isRecording !== true) {
                         this.startPolling();
@@ -393,7 +394,6 @@ export default defineComponent({
          */
         invalidateReservationStatusRequest(): void {
             this.reservation_status_request_token++;
-            this.is_loading_reservation = false;
         },
     },
     mounted() {
