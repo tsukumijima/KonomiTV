@@ -236,7 +236,17 @@ class JikkyoClient:
             jikkyo_id = channel['id']
             if jikkyo_id in cls.JIKKYO_CHANNEL_ID_MAP:
                 for thread in channel['threads']:
-                    if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
+                    thread_start_time = datetime.fromisoformat(thread['start_at'])
+                    thread_end_time = datetime.fromisoformat(thread['end_at'])
+
+                    # NX-Jikkyo から取得した時刻文字列にタイムゾーン情報がない場合でも、
+                    # サーバー内部の時刻基準と一致させるため JST aware datetime に正規化する
+                    if thread_start_time.tzinfo is None:
+                        thread_start_time = thread_start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                    if thread_end_time.tzinfo is None:
+                        thread_end_time = thread_end_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+
+                    if thread_start_time <= current_time <= thread_end_time:
                         cls.__jikkyo_channels_statuses[jikkyo_id] = {
                             'force': thread['jikkyo_force'],
                             'viewers': thread['viewers'],
