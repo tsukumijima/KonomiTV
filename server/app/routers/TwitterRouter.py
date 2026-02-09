@@ -3,7 +3,9 @@ import asyncio
 import random
 from collections.abc import Coroutine
 from typing import Annotated, Any, Literal
+from urllib.parse import urlparse
 
+import httpx
 import tweepy
 from fastapi import (
     APIRouter,
@@ -14,11 +16,15 @@ from fastapi import (
     HTTPException,
     Path,
     Query,
+    Request,
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 
 from app import logging, schemas
+from app.constants import API_REQUEST_HEADERS
 from app.models.TwitterAccount import TwitterAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
@@ -473,4 +479,103 @@ async def TwitterSearchAPI(
         search_type = search_type,
         query = query,
         cursor_id = cursor_id,
+    )
+
+
+@router.get(
+    '/video-proxy',
+    summary = 'Twitter 動画プロキシ API',
+    response_class = StreamingResponse,
+)
+async def TwitterVideoProxyAPI(
+    request: Request,
+    url: Annotated[str, Query(description='プロキシ対象の Twitter 動画 URL 。')],
+):
+    """
+    Twitter の動画を KonomiTV サーバー経由でプロキシ配信する。<br>
+    Twitter 側の仕様変更により、許可されたオリジン以外からの動画 URL への直接アクセスが<br>
+    403 Forbidden で拒否されるようになったため、サーバー側でリクエストを中継することでこの制限を回避する。<br>
+    Range リクエストに対応しており、動画のシーク操作が可能。<br>
+    セキュリティ上の理由から、`video.twimg.com` および `pbs.twimg.com` ドメインの HTTPS URL のみプロキシを許可する。
+    """
+
+    # Twitter 動画のプロキシで許可するドメインのリスト
+    ALLOWED_VIDEO_PROXY_DOMAINS = ['video.twimg.com', 'pbs.twimg.com']
+
+    # URL のバリデーション: スキームが https であること
+    parsed_url = urlparse(url)
+    if parsed_url.scheme != 'https':
+        logging.error(f'[TwitterRouter][TwitterVideoProxyAPI] URL scheme must be https: {parsed_url.scheme}')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'URL scheme must be https.',
+        )
+
+    # URL のバリデーション: Twitter の動画ドメインのみ許可
+    if parsed_url.hostname not in ALLOWED_VIDEO_PROXY_DOMAINS:
+        logging.error(f'[TwitterRouter][TwitterVideoProxyAPI] URL domain is not allowed: {parsed_url.hostname}')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = f'URL domain is not allowed. Only {", ".join(ALLOWED_VIDEO_PROXY_DOMAINS)} are allowed.',
+        )
+
+    # リクエストヘッダの構築
+    ## Range ヘッダを転送することで、動画のシーク操作に対応する
+    proxy_headers: dict[str, str] = {
+        'User-Agent': API_REQUEST_HEADERS['User-Agent'],
+    }
+    allowed_request_headers = ['range', 'accept', 'accept-encoding', 'if-range', 'if-none-match', 'if-modified-since']
+    for key, value in request.headers.items():
+        if key.lower() in allowed_request_headers:
+            proxy_headers[key] = value
+
+    # httpx クライアントを作成し、ストリーミングモードでリクエストを送信
+    ## メモリ効率のためにレスポンスボディを一括で読み込まず、チャンク単位でストリーミング転送する
+    client = httpx.AsyncClient(follow_redirects=True, timeout=30.0)
+    try:
+        upstream_request = client.build_request('GET', url, headers=proxy_headers)
+        upstream_response = await client.send(upstream_request, stream=True)
+    except Exception as ex:
+        await client.aclose()
+        logging.error('[TwitterRouter][TwitterVideoProxyAPI] Failed to request upstream:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_502_BAD_GATEWAY,
+            detail = f'Failed to request upstream: {ex}',
+        )
+
+    # 上流サーバーからエラーレスポンスが返された場合はクリーンアップしてエラーを返す
+    if upstream_response.status_code >= 400:
+        error_body = await upstream_response.aread()
+        await upstream_response.aclose()
+        await client.aclose()
+        error_text = error_body[:200].decode('utf-8', errors='replace')
+        logging.error(f'[TwitterRouter][TwitterVideoProxyAPI] Upstream returned HTTP {upstream_response.status_code}: {error_text}')
+        raise HTTPException(
+            status_code = upstream_response.status_code,
+            detail = f'Upstream returned HTTP {upstream_response.status_code}.',
+        )
+
+    # レスポンスヘッダの構築
+    ## 動画のストリーミング再生に必要なヘッダを転送する
+    allowed_response_headers = [
+        'content-type',
+        'content-length',
+        'content-range',
+        'accept-ranges',
+        'cache-control',
+        'etag',
+        'last-modified',
+    ]
+    response_headers = {key: value for key, value in upstream_response.headers.items() if key.lower() in allowed_response_headers}
+
+    # ストリーミングレスポンスの完了後にクリーンアップを行う BackgroundTask
+    async def cleanup() -> None:
+        await upstream_response.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        upstream_response.aiter_bytes(chunk_size=65536),
+        status_code = upstream_response.status_code,
+        headers = response_headers,
+        background = BackgroundTask(cleanup),
     )
