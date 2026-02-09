@@ -24,7 +24,7 @@
                         <img :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
                     </a>
                 </div>
-                <video class="tweet__movie" v-if="displayedTweet.movie_url" :src="displayedTweet.movie_url" controls crossorigin="anonymous" @click.stop></video>
+                <video class="tweet__movie" v-if="proxyMovieUrl" :src="proxyMovieUrl" controls @click.stop></video>
                 <a v-if="displayedTweet.quoted_tweet"
                     :href="`https://x.com/${displayedTweet.quoted_tweet.user.screen_name}/status/${displayedTweet.quoted_tweet.id}`"
                     target="_blank" class="tweet__quoted-tweet" @click.stop>
@@ -101,6 +101,14 @@ const formatText = (text: string) => {
 
 const formattedText = computed(() => formatText(displayedTweet.value.text));
 const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ? formatText(displayedTweet.value.quoted_tweet.text) : '');
+
+// Twitter 側の仕様変更により、許可されたオリジン以外からの動画 URL への直接アクセスが 403 になるため、
+// KonomiTV サーバーの動画プロキシ API 経由で動画を配信する
+const proxyMovieUrl = computed(() => {
+    const movieUrl = displayedTweet.value.movie_url;
+    if (!movieUrl) return null;
+    return `${Utils.api_base_url}/twitter/video-proxy?url=${encodeURIComponent(movieUrl)}`;
+});
 
 const handleTweetClick = (event: MouseEvent) => {
     // テキストが選択されている場合は、クリックイベントを無視する
