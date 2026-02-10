@@ -6,7 +6,6 @@ import ariblib.constants
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
 
 from app import logging, schemas
-from app.models.Channel import Channel
 from app.routers.ReservationsRouter import (
     DecodeEDCBRecSettingData,
     EncodeEDCBRecSettingData,
@@ -15,6 +14,7 @@ from app.routers.ReservationsRouter import (
 from app.utils.edcb import (
     AutoAddData,
     AutoAddDataRequired,
+    ChSet5Item,
     ContentData,
     RecSettingData,
     SearchDateInfoRequired,
@@ -22,6 +22,7 @@ from app.utils.edcb import (
     SearchKeyInfoRequired,
 )
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 
 
 # ルーター
@@ -31,12 +32,18 @@ router = APIRouter(
 )
 
 
-async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.ReservationCondition:
+async def DecodeEDCBAutoAddData(
+    auto_add_data: AutoAddDataRequired,
+    edcb: CtrlCmdUtil,
+    chset5_services: list[ChSet5Item] | None = None,
+) -> schemas.ReservationCondition:
     """
     EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換する
 
     Args:
         auto_add_data (AutoAddDataRequired): EDCB の AutoAddData オブジェクト
+        edcb (CtrlCmdUtil): EDCB API クライアント
+        chset5_services (list[ChSet5Item] | None): 事前取得済みの ChSet5 サービス情報
 
     Returns:
         schemas.ReservationCondition: schemas.ReservationCondition オブジェクト
@@ -49,7 +56,11 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     reserve_count = auto_add_data['add_count']
 
     # 番組検索条件
-    program_search_condition = await DecodeEDCBSearchKeyInfo(auto_add_data['search_info'])
+    program_search_condition = await DecodeEDCBSearchKeyInfo(
+        auto_add_data['search_info'],
+        edcb,
+        chset5_services,
+    )
 
     # 録画設定
     record_settings = DecodeEDCBRecSettingData(auto_add_data['rec_setting'])
@@ -62,12 +73,18 @@ async def DecodeEDCBAutoAddData(auto_add_data: AutoAddDataRequired) -> schemas.R
     )
 
 
-async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas.ProgramSearchCondition:
+async def DecodeEDCBSearchKeyInfo(
+    search_info: SearchKeyInfoRequired,
+    edcb: CtrlCmdUtil,
+    chset5_services: list[ChSet5Item] | None = None,
+) -> schemas.ProgramSearchCondition:
     """
     EDCB の SearchKeyInfo オブジェクトを schemas.ProgramSearchCondition オブジェクトに変換する
 
     Args:
         search_info (SearchKeyInfoRequired): EDCB の SearchKeyInfo オブジェクト
+        edcb (CtrlCmdUtil): EDCB API クライアント
+        chset5_services (list[ChSet5Item] | None): 事前取得済みの ChSet5 サービス情報
 
     Returns:
         schemas.ProgramSearchCondition: schemas.ProgramSearchCondition オブジェクト
@@ -124,9 +141,15 @@ async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas
     ## この時点で service_ranges の内容がデフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) と一致する場合、
     ## 全チャンネルを検索対象にしているのと同義なので、None に変換する
     ## 一旦リストの中の Pydantic モデルを dict に変換し、サービス ID でソートして条件を整えてから比較している
-    default_service_ranges = await GetDefaultServiceRanges()
-    if (sorted([service.model_dump() for service in service_ranges], key=lambda x: x['service_id']) ==
-        sorted([service.model_dump() for service in default_service_ranges], key=lambda x: x['service_id'])):
+    default_service_ranges = await GetDefaultServiceRanges(edcb, chset5_services)
+    if (sorted(
+            [service.model_dump() for service in service_ranges],
+            key=lambda x: (x['network_id'], x['transport_stream_id'], x['service_id']),
+        ) ==
+        sorted(
+            [service.model_dump() for service in default_service_ranges],
+            key=lambda x: (x['network_id'], x['transport_stream_id'], x['service_id']),
+        )):
         service_ranges = None
 
     # 検索対象を絞り込むジャンル範囲のリスト
@@ -239,12 +262,18 @@ async def DecodeEDCBSearchKeyInfo(search_info: SearchKeyInfoRequired) -> schemas
     )
 
 
-async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearchCondition) -> SearchKeyInfoRequired:
+async def EncodeEDCBSearchKeyInfo(
+    program_search_condition: schemas.ProgramSearchCondition,
+    edcb: CtrlCmdUtil,
+    chset5_services: list[ChSet5Item] | None = None,
+) -> SearchKeyInfoRequired:
     """
     schemas.ProgramSearchCondition オブジェクトを EDCB の SearchKeyInfo オブジェクトに変換する
 
     Args:
         program_search_condition (schemas.ProgramSearchCondition): schemas.ProgramSearchCondition オブジェクト
+        edcb (CtrlCmdUtil): EDCB API クライアント
+        chset5_services (list[ChSet5Item] | None): 事前取得済みの ChSet5 サービス情報
 
     Returns:
         SearchKeyInfoRequired: EDCB の SearchKeyInfo オブジェクト
@@ -272,7 +301,7 @@ async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearc
     ## ジャンル範囲や放送日時範囲とは異なり、空リストにしても全チャンネルが検索対象にはならないため、
     ## もし service_ranges が None だった場合はデフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) を設定する
     service_list: list[int] = []
-    for channel in program_search_condition.service_ranges or await GetDefaultServiceRanges():
+    for channel in program_search_condition.service_ranges or await GetDefaultServiceRanges(edcb, chset5_services):
         service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
 
     # 検索対象を絞り込むジャンル範囲のリスト
@@ -366,43 +395,65 @@ async def EncodeEDCBSearchKeyInfo(program_search_condition: schemas.ProgramSearc
     return search_info
 
 
-async def GetDefaultServiceRanges() -> list[schemas.ProgramSearchConditionService]:
+async def GetChSet5Services(
+    edcb: CtrlCmdUtil,
+    chset5_services: list[ChSet5Item] | None = None,
+) -> list[ChSet5Item]:
+    """
+    ChSet5.txt を解析したサービス一覧を取得する。
+
+    Args:
+        edcb (CtrlCmdUtil): EDCB API クライアント
+        chset5_services (list[ChSet5Item] | None): 事前取得済みの ChSet5 サービス情報
+
+    Returns:
+        list[ChSet5Item]: ChSet5.txt を解析したサービス一覧
+    """
+
+    # 呼び出し元で既に取得済みの場合は再取得しない
+    if chset5_services is not None:
+        return chset5_services
+
+    chset5_txt = await edcb.sendFileCopy('ChSet5.txt')
+    if chset5_txt is None:
+        logging.error('[ReservationConditionsRouter][GetChSet5Services] Failed to get ChSet5.txt from EDCB.')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to get ChSet5.txt from EDCB',
+        )
+
+    return EDCBUtil.parseChSet5(EDCBUtil.convertBytesToString(chset5_txt))
+
+
+async def GetDefaultServiceRanges(
+    edcb: CtrlCmdUtil,
+    chset5_services: list[ChSet5Item] | None = None,
+) -> list[schemas.ProgramSearchConditionService]:
     """
     デフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) を取得する
-    KonomiTV のデータベース上に保存されているチャンネル数と EDCB 上で有効とされている (EPG 取得対象の) チャンネル数が一致する前提の元、
-    Channel モデルから EPG 取得対象のチャンネルの情報を取得している
+    EpgTimer の ChSet5.ChListSelected と整合するよう、EDCB の ChSet5.txt を一次ソースとして扱う
 
     Returns:
         list[schemas.ProgramSearchConditionService]: デフォルトの番組検索条件のチャンネル範囲のリスト
     """
 
-    # チャンネル情報を取得
-    ## リモコン番号順にソートしておく
-    ## EDCB が返すレスポンスが必ずしもリモコン ID でソートされているとは限らない (サービス ID でソートされていることもある？) ので、
-    ## この関数で返す値が順序含めて完全に一致するとは限らないし、等価か比較する際は別途ソートする必要がある
-    channels = await Channel.filter(is_watchable=True).order_by('channel_number').order_by('remocon_id')
+    # ChSet5.txt は EpgTimer 側のサービス選択状態を保持しているため、
+    # 番組検索条件の「全チャンネル」は ChSet5 ベースで組み立てる
+    chset5_services = await GetChSet5Services(edcb, chset5_services)
 
-    # チャンネルタイプごとにグループ化
-    ground_channels: dict[Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], list[Channel]] = {}
-    for channel in channels:
-        if channel.type not in ground_channels:
-            ground_channels[channel.type] = []
-        ground_channels[channel.type].append(channel)
-
-    # 地上波・BS・110度CS・CATV・124/128度CS・BS4K の順に連結
-    sorted_channels: list[Channel] = []
-    for channel_type in ['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']:
-        if channel_type in ground_channels:
-            sorted_channels.extend(ground_channels[channel_type])
-
-    # ProgramSearchConditionService オブジェクトに変換
+    # EpgTimer の ChSet5 は同一サービスが重複する可能性があるため、
+    # ONID / TSID / SID の組で先勝ちにして重複を除去する
+    unique_service_keys: set[tuple[int, int, int]] = set()
     default_service_ranges: list[schemas.ProgramSearchConditionService] = []
-    for channel in sorted_channels:
-        assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
+    for service in chset5_services:
+        service_key = (service['onid'], service['tsid'], service['sid'])
+        if service_key in unique_service_keys:
+            continue
+        unique_service_keys.add(service_key)
         default_service_ranges.append(schemas.ProgramSearchConditionService(
-            network_id = channel.network_id,
-            transport_stream_id = channel.transport_stream_id,
-            service_id = channel.service_id,
+            network_id = service['onid'],
+            transport_stream_id = service['tsid'],
+            service_id = service['sid'],
         ))
 
     return default_service_ranges
@@ -465,8 +516,14 @@ async def ReservationConditionsAPI(
         # None が返ってきた場合は空のリストを返す
         return schemas.ReservationConditions(total=0, reservation_conditions=[])
 
+    # 同一リクエスト内での ChSet5.txt 再取得を避けるため、先に 1 回だけ取得して全変換処理で使い回す
+    chset5_services = await GetChSet5Services(edcb)
+
     # EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換
-    reserve_conditions = [await DecodeEDCBAutoAddData(auto_add_data) for auto_add_data in auto_add_data_list]
+    reserve_conditions = [
+        await DecodeEDCBAutoAddData(auto_add_data, edcb, chset5_services)
+        for auto_add_data in auto_add_data_list
+    ]
 
     return schemas.ReservationConditions(total=len(reserve_conditions), reservation_conditions=reserve_conditions)
 
@@ -486,8 +543,13 @@ async def RegisterReservationConditionAPI(
 
     # EDCB の AutoAddData オブジェクトを組み立てる
     ## data_id は EDCB 側で自動で割り振られるため省略している
+    chset5_services = await GetChSet5Services(edcb)
     auto_add_data: AutoAddData = {
-        'search_info': cast(SearchKeyInfo, await EncodeEDCBSearchKeyInfo(reserve_condition_add_request.program_search_condition)),
+        'search_info': cast(SearchKeyInfo, await EncodeEDCBSearchKeyInfo(
+            reserve_condition_add_request.program_search_condition,
+            edcb,
+            chset5_services,
+        )),
         'rec_setting': cast(RecSettingData, EncodeEDCBRecSettingData(reserve_condition_add_request.record_settings)),
     }
 
@@ -512,13 +574,15 @@ async def RegisterReservationConditionAPI(
 )
 async def ReservationConditionAPI(
     auto_add_data: Annotated[AutoAddDataRequired, Depends(GetAutoAddData)],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
     指定されたキーワード自動予約条件の情報を取得する。
     """
 
     # EDCB の AutoAddData オブジェクトを schemas.ReservationCondition オブジェクトに変換して返す
-    return await DecodeEDCBAutoAddData(auto_add_data)
+    chset5_services = await GetChSet5Services(edcb)
+    return await DecodeEDCBAutoAddData(auto_add_data, edcb, chset5_services)
 
 
 @router.put(
@@ -537,7 +601,12 @@ async def UpdateReservationConditionAPI(
     """
 
     # 現在のキーワード自動予約条件の AutoAddData に新しい検索条件・録画設定を上書きマージする形で EDCB に送信する
-    auto_add_data['search_info'] = await EncodeEDCBSearchKeyInfo(reserve_condition_update_request.program_search_condition)
+    chset5_services = await GetChSet5Services(edcb)
+    auto_add_data['search_info'] = await EncodeEDCBSearchKeyInfo(
+        reserve_condition_update_request.program_search_condition,
+        edcb,
+        chset5_services,
+    )
     auto_add_data['rec_setting'] = EncodeEDCBRecSettingData(reserve_condition_update_request.record_settings)
 
     # EDCB に指定されたキーワード自動予約条件を更新するように指示
@@ -552,7 +621,11 @@ async def UpdateReservationConditionAPI(
         )
 
     # 更新されたキーワード自動予約条件の情報を schemas.ReservationCondition オブジェクトに変換して返す
-    return await DecodeEDCBAutoAddData(await GetAutoAddData(auto_add_data['data_id'], edcb))
+    return await DecodeEDCBAutoAddData(
+        await GetAutoAddData(auto_add_data['data_id'], edcb),
+        edcb,
+        chset5_services,
+    )
 
 
 @router.delete(
