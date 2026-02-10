@@ -6,7 +6,6 @@ from __future__ import annotations
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
-from zoneinfo import ZoneInfo
 
 import httpx
 from tortoise import fields, transactions
@@ -16,7 +15,7 @@ from tortoise.models import Model as TortoiseModel
 
 from app import logging
 from app.config import Config
-from app.constants import HTTPX_CLIENT
+from app.constants import HTTPX_CLIENT, JST
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.edcb import ChSet5Item
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
@@ -603,7 +602,7 @@ class Channel(TortoiseModel):
         from app.models.Program import Program
 
         # 現在時刻
-        now = datetime.now(ZoneInfo('Asia/Tokyo'))
+        now = datetime.now(JST)
 
         # 現在の番組情報を取得する
         program_present = await Program.filter(

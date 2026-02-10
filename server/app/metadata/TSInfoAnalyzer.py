@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from io import BufferedReader, BytesIO
 from pathlib import Path
 from typing import Any, Literal, cast
-from zoneinfo import ZoneInfo
 
 import ariblib
 import ariblib.event
@@ -26,7 +25,8 @@ from ariblib.sections import (
 from biim.mpeg2ts import ts
 
 from app import logging, schemas
-from app.utils import ClosestMultiple
+from app.constants import JST
+from app.utils import ClosestMultiple, NormalizeToJSTDatetime
 from app.utils.TSInformation import TSInformation
 
 
@@ -249,7 +249,7 @@ class TSInfoAnalyzer:
                                         if (first_pcr_sec is not None) and (pcr_at_section_start_sec is not None):
                                             elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
                                             assert section.JST_time is not None
-                                            jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                                            jst_time = NormalizeToJSTDatetime(section.JST_time)
                                             recording_start_time = jst_time - timedelta(seconds=elapsed)
                                             recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
                                             return (recording_start_time, recording_end_time)
@@ -277,7 +277,7 @@ class TSInfoAnalyzer:
                             else:
                                 elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
                                 assert section.JST_time is not None
-                                jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                                jst_time = NormalizeToJSTDatetime(section.JST_time)
                                 recording_start_time = jst_time - timedelta(seconds=elapsed)
                                 recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
                                 return (recording_start_time, recording_end_time)
@@ -300,8 +300,8 @@ class TSInfoAnalyzer:
             last_tot_time: datetime | None = None
             for tot in self.ts.sections(TimeOffsetSection):
                 if first_tot_time is None:
-                    first_tot_time = tot.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
-                last_tot_time = tot.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                    first_tot_time = NormalizeToJSTDatetime(tot.JST_time)
+                last_tot_time = NormalizeToJSTDatetime(tot.JST_time)
 
             if first_tot_time is None or last_tot_time is None:
                 return None
@@ -556,7 +556,7 @@ class TSInfoAnalyzer:
                     ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
                     ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
                     if event.start_time is not None:
-                        start_time = cast(datetime, event.start_time).astimezone(ZoneInfo('Asia/Tokyo'))
+                        start_time = NormalizeToJSTDatetime(cast(datetime, event.start_time))
                     ## 番組長 (秒)
                     ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
                     if event.duration is not None:
@@ -706,8 +706,8 @@ class TSInfoAnalyzer:
         ## 録画ファイルが短すぎて EIT のパースに失敗した場合のみ
         ## 番組情報としては全く使い物にならないし、基本現在の番組情報を使わせるようにしたいので、後続の処理で使われないような値を設定する
         if start_time is None and end_time is None:
-            start_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
-            end_time = datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo'))
+            start_time = datetime(1970, 1, 1, 9, tzinfo=JST)
+            end_time = datetime(1970, 1, 1, 9, tzinfo=JST)
             duration = 0.0
 
         # 番組開始時刻が取得できないが番組終了時刻のみ取得できる状況は仕様上発生し得ない
@@ -737,8 +737,8 @@ class TSInfoAnalyzer:
             duration = duration,
             # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
             # この値は参照されず、DB の値は別途自動生成される
-            created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
-            updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+            created_at = datetime.now(tz=JST),
+            updated_at = datetime.now(tz=JST),
         )
 
         # 以下のフィールドは、対応するデータを取得できなかった場合に Pydantic モデルに設定されているデフォルト値が使われる

@@ -7,15 +7,15 @@ import json
 import re
 from datetime import datetime
 from typing import Any, ClassVar, Literal, NotRequired, cast
-from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
 from typing_extensions import TypedDict
 
 from app import logging, schemas
-from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH
+from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, JST
 from app.models.User import User
+from app.utils import ParseDatetimeStringToJST
 
 
 class JikkyoChannelStatus(TypedDict):
@@ -231,20 +231,14 @@ class JikkyoClient:
             return
 
         # 現在時刻に対応するスレッドから実況チャンネルのステータスを取得する
-        current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
+        current_time = datetime.now(JST)
         for channel in channels_data:
             jikkyo_id = channel['id']
             if jikkyo_id in cls.JIKKYO_CHANNEL_ID_MAP:
                 for thread in channel['threads']:
-                    thread_start_time = datetime.fromisoformat(thread['start_at'])
-                    thread_end_time = datetime.fromisoformat(thread['end_at'])
-
-                    # NX-Jikkyo から取得した時刻文字列にタイムゾーン情報がない場合でも、
-                    # サーバー内部の時刻基準と一致させるため JST aware datetime に正規化する
-                    if thread_start_time.tzinfo is None:
-                        thread_start_time = thread_start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
-                    if thread_end_time.tzinfo is None:
-                        thread_end_time = thread_end_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                    # NX-Jikkyo から取得した時刻文字列を、サーバー内部の時刻基準と一致させるため JST aware datetime に正規化する
+                    thread_start_time = ParseDatetimeStringToJST(thread['start_at'])
+                    thread_end_time = ParseDatetimeStringToJST(thread['end_at'])
 
                     if thread_start_time <= current_time <= thread_end_time:
                         cls.__jikkyo_channels_statuses[jikkyo_id] = {

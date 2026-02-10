@@ -5,7 +5,6 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, ClassVar, Literal, cast
-from zoneinfo import ZoneInfo
 
 import typer
 from biim.mpeg2ts import ts
@@ -14,7 +13,7 @@ from rich import print
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
-from app.constants import LIBRARY_PATH
+from app.constants import JST, LIBRARY_PATH
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.utils import ClosestMultiple
 from app.utils.TSInformation import TSInformation
@@ -486,15 +485,15 @@ class MetadataAnalyzer:
             return None
 
         # 録画ファイル情報を表すモデルを作成
-        now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
+        now = datetime.now(tz=JST)
         stat_info = self.recorded_file_path.stat()
         recorded_video = schemas.RecordedVideo(
             status = 'Recorded',  # この時点では録画済みとしておく
             file_path = str(self.recorded_file_path),
             file_hash = file_hash,
             file_size = stat_info.st_size,
-            file_created_at = datetime.fromtimestamp(stat_info.st_ctime, tz=ZoneInfo('Asia/Tokyo')),
-            file_modified_at = datetime.fromtimestamp(stat_info.st_mtime, tz=ZoneInfo('Asia/Tokyo')),
+            file_created_at = datetime.fromtimestamp(stat_info.st_ctime, tz=JST),
+            file_modified_at = datetime.fromtimestamp(stat_info.st_mtime, tz=JST),
             recording_start_time = None,
             recording_end_time = None,
             duration = duration,
@@ -577,7 +576,7 @@ class MetadataAnalyzer:
             else:
                 recording_start_time = datetime.fromtimestamp(
                     self.recorded_file_path.stat().st_mtime,
-                    tz = ZoneInfo('Asia/Tokyo'),
+                    tz = JST,
                 ) - timedelta(seconds=recorded_video.duration)
             ## 拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
             title = TSInformation.formatString(self.recorded_file_path.stem)
@@ -589,8 +588,8 @@ class MetadataAnalyzer:
                 duration = recorded_video.duration,
                 # 必須フィールドのため作成日時・更新日時は適当に現在時刻を入れている
                 # この値は参照されず、DB の値は別途自動生成される
-                created_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
-                updated_at = datetime.now(tz=ZoneInfo('Asia/Tokyo')),
+                created_at = datetime.now(tz=JST),
+                updated_at = datetime.now(tz=JST),
             )
 
         # この時点で番組情報を正常に取得できており、かつ録画開始時刻・録画終了時刻の両方が取得できている場合

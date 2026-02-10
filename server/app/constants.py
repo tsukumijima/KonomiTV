@@ -6,6 +6,7 @@ import secrets
 import sys
 from pathlib import Path
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import httpx
 from cryptography.fernet import Fernet
@@ -15,6 +16,10 @@ from pydantic import BaseModel, PositiveInt
 
 # バージョン
 VERSION = '0.13.0'
+
+# 日本標準時 (JST, UTC+9) の ZoneInfo
+## KonomiTV は日本向けのアプリケーションのため、日時は JST で統一して扱う
+JST = ZoneInfo('Asia/Tokyo')
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent

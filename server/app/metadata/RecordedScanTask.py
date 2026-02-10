@@ -7,7 +7,6 @@ import pathlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar, Literal, cast
-from zoneinfo import ZoneInfo
 
 import anyio
 from fastapi import HTTPException, status
@@ -16,7 +15,7 @@ from watchfiles import Change, awatch
 
 from app import logging, schemas
 from app.config import Config
-from app.constants import THUMBNAILS_DIR
+from app.constants import JST, THUMBNAILS_DIR
 from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
@@ -512,10 +511,10 @@ class RecordedScanTask:
 
                 # ファイルの状態をチェック
                 stat = await file_path.stat()
-                now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
+                now = datetime.now(tz=JST)
                 file_size = stat.st_size
-                file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=ZoneInfo('Asia/Tokyo'))
-                file_modified_at = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
+                file_created_at = datetime.fromtimestamp(stat.st_ctime, tz=JST)
+                file_modified_at = datetime.fromtimestamp(stat.st_mtime, tz=JST)
 
                 # 全く録画できていない0バイトのファイルをスキップ
                 if file_size == 0:
@@ -1111,8 +1110,8 @@ class RecordedScanTask:
         try:
             # ファイルの状態をチェック
             stat = await file_path.stat()
-            last_modified = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
-            now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
+            last_modified = datetime.fromtimestamp(stat.st_mtime, tz=JST)
+            now = datetime.now(tz=JST)
             file_size = stat.st_size
 
             # 既に録画中とマークされているファイルの処理
@@ -1235,7 +1234,7 @@ class RecordedScanTask:
 
         while self._is_running:
             try:
-                now = datetime.now(tz=ZoneInfo('Asia/Tokyo'))
+                now = datetime.now(tz=JST)
                 completed_files: list[anyio.Path] = []
 
                 # 録画中ファイルをチェック
@@ -1243,7 +1242,7 @@ class RecordedScanTask:
                     try:
                         # ファイルの現在の状態を取得
                         stat = await file_path.stat()
-                        current_modified = datetime.fromtimestamp(stat.st_mtime, tz=ZoneInfo('Asia/Tokyo'))
+                        current_modified = datetime.fromtimestamp(stat.st_mtime, tz=JST)
                         current_size = stat.st_size
 
                         # RECORDING_COMPLETE_SECONDS 秒以上更新がなく、かつファイルサイズが変化していない場合は録画完了と判断

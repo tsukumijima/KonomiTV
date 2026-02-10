@@ -2,7 +2,6 @@
 import json
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal, cast
-from zoneinfo import ZoneInfo
 
 import ariblib.constants
 from fastapi import APIRouter, Body, Depends, Query
@@ -11,8 +10,10 @@ from tortoise import connections
 
 from app import logging, schemas
 from app.config import Config
+from app.constants import JST
 from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
+from app.utils import NormalizeToJSTDatetime, ParseDatetimeStringToJST
 from app.utils.edcb import EventInfo, ReserveDataRequired, SearchKeyInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
@@ -72,7 +73,7 @@ def DecodeEDCBEventInfo(event_info: EventInfo) -> schemas.Program:
 
     # 番組開始時刻
     ## 万が一取得できなかった場合は 1970/1/1 9:00 とする
-    start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo')))
+    start_time = NormalizeToJSTDatetime(event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=JST)))
 
     # 番組終了時刻
     ## 終了時間未定の場合、とりあえず5分とする
@@ -242,15 +243,14 @@ async def TimeTableAPI(
     """
 
     # 現在時刻
-    now = datetime.now(ZoneInfo('Asia/Tokyo'))
+    now = datetime.now(JST)
 
     # 開始時刻のデフォルト値: 現在時刻
     if start_time is None:
         start_time = now
 
     # タイムゾーンが指定されていない場合は JST として扱う
-    if start_time.tzinfo is None:
-        start_time = start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+    start_time = NormalizeToJSTDatetime(start_time)
 
     # データベースの生のコネクションを取得
     connection = connections.get('default')
@@ -264,16 +264,12 @@ async def TimeTableAPI(
 
     # 日付文字列を datetime に変換 (SQLite は文字列で保存されている)
     if earliest_str:
-        earliest = datetime.fromisoformat(earliest_str.replace(' ', 'T'))
-        if earliest.tzinfo is None:
-            earliest = earliest.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+        earliest = ParseDatetimeStringToJST(earliest_str)
     else:
         earliest = now
 
     if latest_str:
-        latest = datetime.fromisoformat(latest_str.replace(' ', 'T'))
-        if latest.tzinfo is None:
-            latest = latest.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+        latest = ParseDatetimeStringToJST(latest_str)
     else:
         latest = now + timedelta(days=7)
 
@@ -282,8 +278,7 @@ async def TimeTableAPI(
         end_time = latest
 
     # タイムゾーンが指定されていない場合は JST として扱う
-    if end_time.tzinfo is None:
-        end_time = end_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+    end_time = NormalizeToJSTDatetime(end_time)
 
     # チャンネル ID リストをパース
     target_channel_ids: list[str] | None = None
@@ -456,9 +451,7 @@ async def TimeTableAPI(
                 recording_check_end = now + timedelta(hours=2)
 
                 for reserve_data in reserve_data_list:
-                    reserve_start_time = reserve_data['start_time']
-                    if reserve_start_time.tzinfo is None:
-                        reserve_start_time = reserve_start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                    reserve_start_time = NormalizeToJSTDatetime(reserve_data['start_time'])
                     reserve_end_time = reserve_start_time + timedelta(seconds=reserve_data['duration_second'])
 
                     # 番組 ID を構築
@@ -519,12 +512,8 @@ async def TimeTableAPI(
 
             # SQLite から取得した番組開始・終了時刻を JST aware datetime に正規化する
             ## DB には基本的に UTC+9 を保存しているが、将来のデータ混在に備えてタイムゾーンなしでも JST を補う
-            program_start_time = datetime.fromisoformat(program_row['start_time'].replace(' ', 'T'))
-            program_end_time = datetime.fromisoformat(program_row['end_time'].replace(' ', 'T'))
-            if program_start_time.tzinfo is None:
-                program_start_time = program_start_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
-            if program_end_time.tzinfo is None:
-                program_end_time = program_end_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+            program_start_time = ParseDatetimeStringToJST(program_row['start_time'])
+            program_end_time = ParseDatetimeStringToJST(program_row['end_time'])
             program_row['start_time'] = program_start_time.isoformat()
             program_row['end_time'] = program_end_time.isoformat()
 

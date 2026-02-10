@@ -379,8 +379,12 @@ async def EncodeEDCBSearchKeyInfo(
         'content_list': content_list,
         'date_list': date_list,
         'service_list': service_list,
-        'video_list': [],  # 内部で未使用らしい
-        'audio_list': [],  # 内部で未使用らしい
+        # KonomiTV の番組検索 UI では映像 / 音声コンポーネント条件を提供していないため、
+        # video_list / audio_list は常に空配列で送信する
+        ## EDCB 側実装では条件が入っていれば検索フィルタとして評価されるが、
+        ## EpgTimer 標準 UI でも通常は設定されない項目であり、現時点では非対応とする
+        'video_list': [],
+        'audio_list': [],
         'aimai_flag': program_search_condition.is_fuzzy_search_enabled,
         'not_contet_flag': program_search_condition.is_exclude_genre_ranges,
         'not_date_flag': program_search_condition.is_exclude_date_ranges,

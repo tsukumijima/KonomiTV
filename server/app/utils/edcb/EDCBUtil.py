@@ -177,6 +177,9 @@ class EDCBUtil:
     @staticmethod
     def datetimeToFileTime(dt: datetime.datetime, tz: datetime.timezone = datetime.UTC) -> int:
         """ FILETIME 時間 (1601 年からの 100 ナノ秒時刻) に変換する """
+        # 注意: tz には datetime.timezone (固定オフセット) のみ指定可能
+        ## ZoneInfo は utcoffset(None) が None を返すため、ここで AttributeError になる
+        ## ZoneInfo を使いたい場合は utcoffset() に datetime インスタンスを渡す実装への変更が必要
         return int((dt.timestamp() + tz.utcoffset(None).total_seconds()) * 10000000) + 116444736000000000
 
     @staticmethod

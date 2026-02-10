@@ -4,7 +4,6 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 from typing import Annotated, Any
-from zoneinfo import ZoneInfo
 
 import anyio
 import httpx
@@ -15,11 +14,11 @@ from tortoise import connections
 
 from app import logging, schemas
 from app.config import Config
-from app.constants import HTTPX_CLIENT, LOGO_DIR, VERSION
+from app.constants import HTTPX_CLIENT, JST, LOGO_DIR, VERSION
 from app.models.Channel import Channel
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
-from app.utils import GetMirakurunAPIEndpointURL
+from app.utils import GetMirakurunAPIEndpointURL, ParseDatetimeStringToJST
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.JikkyoClient import JikkyoClient
@@ -64,7 +63,7 @@ async def ChannelsAPI():
     """
 
     # 現在時刻
-    now = datetime.now(ZoneInfo('Asia/Tokyo'))
+    now = datetime.now(JST)
 
     # タスク
     tasks = []
@@ -217,20 +216,20 @@ async def ChannelsAPI():
             # JSON データで格納されているカラムをデコードする
             ## ついでに SQL 文で設定した is_present / program_order フィールドを削除
             ## 現在の番組か次の番組かを判定するために使っているフィールドだが、もう判定は終わったので必要ない
-            ## あとなぜか DateTime 型の文字列値が正しい ISO8601 フォーマットになっていないので、ここで整形する
+            ## DB 由来の日時文字列は utils 側で JST aware datetime に正規化してから ISO8601 文字列にする
             ## 真偽値も SQLite では 0/1 で管理されているため、bool 型に変換する
             if channel_dict['program_present'] is not None:
                 channel_dict['program_present']['detail'] = json.loads(channel_dict['program_present']['detail'])
-                channel_dict['program_present']['start_time'] = channel_dict['program_present']['start_time'].replace(' ', 'T')
-                channel_dict['program_present']['end_time'] = channel_dict['program_present']['end_time'].replace(' ', 'T')
+                channel_dict['program_present']['start_time'] = ParseDatetimeStringToJST(channel_dict['program_present']['start_time']).isoformat()
+                channel_dict['program_present']['end_time'] = ParseDatetimeStringToJST(channel_dict['program_present']['end_time']).isoformat()
                 channel_dict['program_present']['is_free'] = bool(channel_dict['program_present']['is_free'])
                 channel_dict['program_present']['genres'] = json.loads(channel_dict['program_present']['genres'])
                 channel_dict['program_present'].pop('is_present')
                 channel_dict['program_present'].pop('program_order')
             if channel_dict['program_following'] is not None:
                 channel_dict['program_following']['detail'] = json.loads(channel_dict['program_following']['detail'])
-                channel_dict['program_following']['start_time'] = channel_dict['program_following']['start_time'].replace(' ', 'T')
-                channel_dict['program_following']['end_time'] = channel_dict['program_following']['end_time'].replace(' ', 'T')
+                channel_dict['program_following']['start_time'] = ParseDatetimeStringToJST(channel_dict['program_following']['start_time']).isoformat()
+                channel_dict['program_following']['end_time'] = ParseDatetimeStringToJST(channel_dict['program_following']['end_time']).isoformat()
                 channel_dict['program_following']['is_free'] = bool(channel_dict['program_following']['is_free'])
                 channel_dict['program_following']['genres'] = json.loads(channel_dict['program_following']['genres'])
                 channel_dict['program_following'].pop('is_present')

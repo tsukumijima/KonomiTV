@@ -3,8 +3,45 @@ import asyncio
 import platform
 import sys
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
+
+from app.constants import JST
+
+
+def NormalizeToJSTDatetime(value: datetime) -> datetime:
+    """
+    datetime を JST aware な datetime に正規化する。
+
+    Args:
+        value (datetime): 正規化対象の datetime
+
+    Returns:
+        datetime: JST aware な datetime
+    """
+
+    # タイムゾーンが未指定の datetime は DB の運用ルールに合わせて JST として扱う
+    if value.tzinfo is None:
+        return value.replace(tzinfo=JST)
+
+    # すでにタイムゾーンを持つ datetime は JST に変換して返す
+    return value.astimezone(JST)
+
+
+def ParseDatetimeStringToJST(value: str) -> datetime:
+    """
+    文字列の日時を解析し、JST aware な datetime に正規化して返す。
+
+    Args:
+        value (str): ISO8601 互換の日時文字列
+
+    Returns:
+        datetime: JST aware な datetime
+    """
+
+    # Python 3.11 の datetime.fromisoformat() は区切り文字として半角スペースも扱える
+    return NormalizeToJSTDatetime(datetime.fromisoformat(value))
 
 
 def ClosestMultiple(n: int, multiple: int) -> int:

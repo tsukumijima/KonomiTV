@@ -7,9 +7,9 @@ import re
 import time
 from datetime import datetime
 from typing import Any, ClassVar, Literal
-from zoneinfo import ZoneInfo
 
 from app import logging, schemas
+from app.constants import JST
 from app.models.TwitterAccount import TwitterAccount
 from app.utils.TwitterScrapeBrowser import (
     BrowserBinaryNotFoundError,
@@ -855,7 +855,7 @@ class TwitterGraphQLAPI:
                 id=raw_tweet_object['legacy']['id_str'],
                 created_at=datetime.strptime(
                     raw_tweet_object['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y'
-                ).astimezone(ZoneInfo('Asia/Tokyo')),
+                ).astimezone(JST),
                 user=schemas.TweetUser(
                     id=raw_tweet_object['core']['user_results']['result']['rest_id'],
                     name=raw_tweet_object['core']['user_results']['result']['core']['name'],

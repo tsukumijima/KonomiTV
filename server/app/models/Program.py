@@ -10,7 +10,6 @@ import json
 import time
 from datetime import datetime, timedelta
 from typing import Any, cast
-from zoneinfo import ZoneInfo
 
 import ariblib.constants
 import httpx
@@ -20,7 +19,7 @@ from tortoise.models import Model as TortoiseModel
 
 from app import logging
 from app.config import Config, LoadConfig
-from app.constants import DATABASE_CONFIG, HTTPX_CLIENT
+from app.constants import DATABASE_CONFIG, HTTPX_CLIENT, JST
 from app.models.Channel import Channel
 from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL
@@ -176,7 +175,7 @@ class Program(TortoiseModel):
             """
 
             # タイムゾーンを UTC+9（日本時間）に指定する
-            return datetime.fromtimestamp(millisecond / 1000, tz=ZoneInfo('Asia/Tokyo'))
+            return datetime.fromtimestamp(millisecond / 1000, tz=JST)
 
         # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
@@ -271,7 +270,7 @@ class Program(TortoiseModel):
                     end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
                     # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
-                    if datetime.now(ZoneInfo('Asia/Tokyo')) - end_time > timedelta(hours=12):
+                    if datetime.now(JST) - end_time > timedelta(hours=12):
                         continue
 
                     # ***** ここからは 追加・更新・更新不要 のいずれか *****
@@ -568,7 +567,7 @@ class Program(TortoiseModel):
 
                         # 番組開始時刻
                         ## 万が一取得できなかった場合は 1970/1/1 9:00 とする
-                        start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=ZoneInfo('Asia/Tokyo')))
+                        start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=JST))
 
                         # 番組終了時刻
                         ## 終了時間未定の場合、とりあえず5分とする

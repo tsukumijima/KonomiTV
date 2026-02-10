@@ -10,11 +10,11 @@ import sys
 import time
 from collections.abc import Callable
 from typing import Literal, TypeVar, cast
-from zoneinfo import ZoneInfo
 
 import aiofiles
 from pydantic_core import Url
 
+from app.constants import JST
 from app.utils.edcb import (
     AudioComponentInfo,
     AudioComponentInfoData,
@@ -61,7 +61,7 @@ class CtrlCmdUtil:
     """
 
     # EDCB の日付は OS のタイムゾーンに関わらず常に UTC+9
-    TZ = ZoneInfo('Asia/Tokyo')
+    TZ = JST
 
     # 読み取った日付が不正なときや既定値に使う UNIX エポック
     UNIX_EPOCH = datetime.datetime(1970, 1, 1, 9, tzinfo=TZ)

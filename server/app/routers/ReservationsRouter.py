@@ -10,8 +10,10 @@ from tortoise import transactions
 
 from app import logging, schemas
 from app.config import Config
+from app.constants import JST
 from app.models.Channel import Channel
 from app.models.Program import Program
+from app.utils import NormalizeToJSTDatetime
 from app.utils.edcb import (
     EventInfo,
     RecFileSetInfoRequired,
@@ -463,7 +465,8 @@ def DecodeEDCBRecSettingData(rec_settings_data: RecSettingDataRequired) -> schem
     is_exact_recording_enabled: bool = rec_settings_data['pittari_flag']
 
     # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
-    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるそうだが、EpgTimer の UI ですら設定できない隠し機能のため無視する
+    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるが、EpgTimer 標準 UI でも設定経路がなく、
+    ## KonomiTV でも UI 設計上 0/1 のみを扱う方針のため、2 は非対応とする
     is_oneseg_separate_output_enabled: bool = rec_settings_data['partial_rec_flag'] == 1
 
     # 同一チャンネルで時間的に隣接した録画予約がある場合に、それらを同一の録画ファイルに続けて出力するかどうか
@@ -617,7 +620,8 @@ def EncodeEDCBRecSettingData(record_settings: schemas.RecordSettings) -> RecSett
     continue_rec_flag: bool = record_settings.is_sequential_recording_in_single_file_enabled
 
     # 録画対象のチャンネルにワンセグ放送が含まれる場合、ワンセグ放送を別ファイルに同時録画するかどうか
-    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるそうだが、EpgTimer の UI ですら設定できない隠し機能のため無視する
+    ## partial_rec_flag が 2 の時はワンセグ放送だけを出力できるが、EpgTimer 標準 UI でも設定経路がなく、
+    ## KonomiTV でも UI 設計上 0/1 のみを扱う方針のため、2 は非対応とする
     partial_rec_flag: int = 1 if record_settings.is_oneseg_separate_output_enabled is True else 0
 
     # チューナーを強制指定する際のチューナー ID / 自動選択の場合は 0 を指定
@@ -809,9 +813,10 @@ async def GetServiceEventInfo(
     ## EIT[p/f] と EIT[schedule] の更新タイミング差で番組開始時刻がずれることがあるため、
     ## まずは番組開始時刻近傍で探索し、それで見つからなければ現在時刻近傍の広い範囲で再探索する
     assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
-    current_time = datetime.now(timezone(timedelta(hours=9)))
+    current_time = datetime.now(JST)
+    program_start_time = NormalizeToJSTDatetime(program.start_time)
     search_ranges = [
-        (program.start_time, program.start_time + timedelta(minutes=1), 'program_time_window'),
+        (program_start_time, program_start_time + timedelta(minutes=1), 'program_time_window'),
         (current_time - timedelta(hours=6), current_time + timedelta(hours=6), 'current_time_wide_window'),
     ]
     latest_service_event_info_list: list[ServiceEventInfo] = []
@@ -824,6 +829,8 @@ async def GetServiceEventInfo(
             ## (network_id << 32 | transport_stream_id << 16 | service_id) の形式で指定しなければならないらしい
             channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id,
             # 絞り込み対象の番組開始時刻の最小値
+            ## datetimeToFileTime() は内部で tz.utcoffset(None) を呼ぶため、
+            ## ZoneInfo ではなく固定オフセットの datetime.timezone を渡す必要がある
             EDCBUtil.datetimeToFileTime(start_time, timezone(timedelta(hours=9))),
             # 絞り込み対象の番組開始時刻の最大値
             EDCBUtil.datetimeToFileTime(end_time, timezone(timedelta(hours=9))),
@@ -855,7 +862,7 @@ async def GetServiceEventInfo(
 
     # イベント ID が一致しないとき、番組が既に終了扱いなら現在放送中イベントへフェイルオーバーする
     ## 長時間延長などで EPG の切り替わりが遅延したケースでは、指定 EID が実態とずれていることがある
-    requested_program_end_time = program.start_time + timedelta(seconds=max(int(program.duration), 1))
+    requested_program_end_time = program_start_time + timedelta(seconds=max(int(program.duration), 1))
     if latest_service_event_info_list and current_time >= requested_program_end_time:
         on_air_event = FindOnAirEvent(latest_service_event_info_list, current_time)
         if on_air_event is not None:
@@ -1000,14 +1007,14 @@ async def AddReservationAPI(
     ## 当然 TSInformation.formatString() はかけずにそのままの情報を使う
     ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
     title: str = program.title
-    start_time: datetime = program.start_time
+    start_time: datetime = NormalizeToJSTDatetime(program.start_time)
     duration_second: int = max(int(program.duration), 1)
     station_name: str = service_event_info['service_info']['service_name']
     event_id: int = program.event_id
     if 'short_info' in event_info and 'event_name' in event_info['short_info']:
         title = event_info['short_info']['event_name']
     if 'start_time' in event_info:
-        start_time = event_info['start_time']
+        start_time = NormalizeToJSTDatetime(event_info['start_time'])
     if 'duration_sec' in event_info:
         duration_second = max(event_info['duration_sec'], 1)
     if 'eid' in event_info:
@@ -1052,7 +1059,7 @@ async def AddReservationAPI(
     result = await edcb.sendAddReserve([add_reserve_data])
     if result is False:
         # EDCB が「現在時刻で既に放送終了扱い」と判断した可能性がある場合のみ、時刻補正して 1 回だけ再試行する
-        current_time = datetime.now(timezone(timedelta(hours=9)))
+        current_time = datetime.now(JST)
         reserve_end_time = start_time + timedelta(seconds=max(duration_second, 1))
         if current_time >= reserve_end_time:
             retry_duration_second = max(int((current_time - start_time).total_seconds()) + 120, 120)

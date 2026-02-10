@@ -4,7 +4,6 @@ import pathlib
 import uuid
 from datetime import datetime, timedelta
 from typing import Annotated, BinaryIO
-from zoneinfo import ZoneInfo
 
 import anyio
 from fastapi import (
@@ -27,6 +26,7 @@ from app import logging, schemas
 from app.constants import (
     ACCOUNT_ICON_DEFAULT_DIR,
     ACCOUNT_ICON_DIR,
+    JST,
     JWT_SECRET_KEY,
     PASSWORD_CONTEXT,
 )
@@ -61,9 +61,9 @@ def GenerateAccessToken(user_id: int) -> str:
         # ユーザーの識別子 (ユーザー ID を文字列化したもの)
         'sub': f'{user_id}',
         # JWT の発行時間
-        'iat': datetime.now(ZoneInfo('Asia/Tokyo')),
+        'iat': datetime.now(JST),
         # JWT の有効期限 (JWT の発行から 180 日間)
-        'exp': datetime.now(ZoneInfo('Asia/Tokyo')) + timedelta(days=180),
+        'exp': datetime.now(JST) + timedelta(days=180),
         # JWT ごとの一意な ID (UUID v4)
         'jti': str(uuid.uuid4()),
     }
