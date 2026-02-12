@@ -1,6 +1,7 @@
 
 import * as Comlink from 'comlink';
 import DPlayer from 'dplayer';
+import { isEqual } from 'ohash';
 import { AribKeyCode, BMLBrowser, BMLBrowserFontFace } from 'web-bml';
 
 import router from '@/router';
@@ -451,10 +452,16 @@ class LiveDataBroadcastingManager implements PlayerManager {
             // 番組情報イベント (KonomiTV の UI 表示用)
             // 現在放送中/次に放送される番組情報を ChannelsStore を経由し UI 側にリアルタイムに反映する
             if (message.type === 'IProgramPF') {
+                // EIT[p/f] は同一番組情報が高頻度で流れてくることがあるため、
+                // 変更がない場合は store への再代入を抑止し、watcher が過剰に呼び出される連鎖を防ぐ
                 if (message.present_or_following === 'Present') {
-                    channels_store.current_program_present = message.program;
+                    if (isEqual(channels_store.current_program_present, message.program) === false) {
+                        channels_store.current_program_present = message.program;
+                    }
                 } else if (message.present_or_following === 'Following') {
-                    channels_store.current_program_following = message.program;
+                    if (isEqual(channels_store.current_program_following, message.program) === false) {
+                        channels_store.current_program_following = message.program;
+                    }
                 }
             }
         }));
