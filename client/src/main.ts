@@ -90,7 +90,35 @@ const { updateServiceWorker } = useRegisterSW({
 // 設定データの変更を監視する
 // Pinia の $subscribe() は app.mount() の後に呼び出す必要がある
 const settings_store = useSettingsStore();
+let is_updating_watched_history = false;
 settings_store.$subscribe(async () => {
+
+    // 視聴履歴の保持件数を変更した際に、既存の視聴履歴件数が上限を超えている場合は即時に古い履歴から削除する
+    // これにより、履歴追加時だけでなく設定値の縮小時にも常に上限件数を維持できる
+    const watched_history_max_count = Number.isFinite(settings_store.settings.video_watched_history_max_count) ?
+        Math.max(1, Math.floor(settings_store.settings.video_watched_history_max_count)) : 1;
+    const watched_history = settings_store.settings.watched_history;
+    if (is_updating_watched_history === false && watched_history.length > watched_history_max_count) {
+
+        // 配列を直接 sort() / splice() で破壊せず、コピー側で削除対象のみを算出する
+        const remove_count = watched_history.length - watched_history_max_count;
+        const remove_targets = new Set(
+            [...watched_history]
+                .sort((a, b) => a.updated_at - b.updated_at)
+                .slice(0, remove_count),
+        );
+
+        // 元の配列順序を維持したまま、削除対象だけを除外した新しい配列を作成する
+        const watched_history_trimmed = watched_history.filter(history => remove_targets.has(history) === false);
+
+        // $subscribe の再入で同じロジックが連続実行されないようにガードしつつ代入する
+        is_updating_watched_history = true;
+        try {
+            settings_store.settings.watched_history = watched_history_trimmed;
+        } finally {
+            is_updating_watched_history = false;
+        }
+    }
 
     // 現在 LocalStorage に保存されている設定データを取得
     const current_saved_settings = getNormalizedLocalClientSettings(getLocalStorageSettings());
