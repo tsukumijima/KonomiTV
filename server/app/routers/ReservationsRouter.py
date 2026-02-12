@@ -40,7 +40,12 @@ _bitrate_ini_cache: dict[str, int] | None = None
 _bitrate_ini_cache_timestamp: float | None = None
 
 
-async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: list[Channel] | None = None, programs: dict[tuple[int, int, int], Program] | None = None) -> schemas.Reservation:
+async def DecodeEDCBReserveData(
+    reserve_data: ReserveDataRequired,
+    channels: list[Channel] | None = None,
+    programs: dict[tuple[int, int, int], Program] | None = None,
+    is_recording_in_progress: bool = False,
+) -> schemas.Reservation:
     """
     EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換する
 
@@ -48,6 +53,7 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         reserve_data (ReserveDataRequired): EDCB の ReserveData オブジェクト
         channels (list[Channel] | None): あらかじめ全てのチャンネル情報を取得しておく場合はそのリスト、そうでない場合は None
         programs (dict[tuple[int, int, int], Program] | None): あらかじめ取得しておいた番組情報の辞書 (network_id, service_id, event_id) -> Program
+        is_recording_in_progress (bool): 録画中かどうか
 
     Returns:
         schemas.Reservation: schemas.Reservation オブジェクト
@@ -309,11 +315,6 @@ async def DecodeEDCBReserveData(reserve_data: ReserveDataRequired, channels: lis
         program.start_time = start_time
         program.end_time = end_time
         program.duration = duration
-
-    # 録画予約が現在進行中かどうか
-    ## CtrlCmdUtil.sendGetRecFilePath() で「録画中かつ視聴予約でない予約の録画ファイルパス」が返ってくる場合は True、それ以外は False
-    ## 歴史的経緯でこう取得することになっているらしい
-    is_recording_in_progress: bool = type(await CtrlCmdUtil().sendGetRecFilePath(reserve_id)) is str
 
     # 実際に録画可能かどうか: 全編録画可能 / チューナー不足のため部分的にのみ録画可能 (一部録画できない) / チューナー不足のため全編録画不可能
     # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
@@ -738,7 +739,19 @@ async def GetReserveData(
     reservation_id: Annotated[int, Path(description='録画予約 ID 。')],
     edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ) -> ReserveDataRequired:
-    """ 指定された録画予約の情報を取得する """
+    """
+    指定された録画予約の情報を取得する
+
+    Args:
+        reservation_id (int): 録画予約 ID
+        edcb (CtrlCmdUtil): EDCB API クライアント
+
+    Returns:
+        ReserveDataRequired: EDCB の ReserveData オブジェクト
+
+    Raises:
+        HTTPException: 指定された録画予約が見つからなかった場合
+    """
 
     # 指定された録画予約の情報を取得
     for reserve_data in await GetReserveDataList(edcb):
@@ -881,6 +894,55 @@ async def GetServiceEventInfo(
     )
 
 
+def ShouldCheckRecordingInProgress(reserve_data: ReserveDataRequired) -> bool:
+    """
+    録画中判定のために EDCB へ追加問い合わせを行うべきかを判定する。
+
+    Args:
+        reserve_data (ReserveDataRequired): 判定対象の予約情報
+
+    Returns:
+        bool: 追加問い合わせが必要な場合は True
+    """
+
+    # 無効予約・視聴予約は録画ファイルパスが存在しないため、判定 API を呼ばない
+    rec_mode = reserve_data.get('rec_setting', {}).get('rec_mode', 1)
+    if rec_mode >= 5 or rec_mode == 4:
+        return False
+
+    # 録画中判定を行う時間範囲 (現在時刻の2時間前〜2時間後)
+    # 番組延長や繰り上げを考慮しつつ、現在時刻から大きく離れた予約には高コストな追加問い合わせを行わない
+    current_time = datetime.now(tz=JST)
+    recording_check_start = current_time - timedelta(hours=2)
+    recording_check_end = current_time + timedelta(hours=2)
+
+    reserve_start_time = NormalizeToJSTDatetime(reserve_data['start_time'])
+    reserve_end_time = reserve_start_time + timedelta(seconds=reserve_data['duration_second'])
+
+    return reserve_start_time <= recording_check_end and reserve_end_time >= recording_check_start
+
+
+async def GetIsRecordingInProgress(reserve_data: ReserveDataRequired, edcb: CtrlCmdUtil) -> bool:
+    """
+    指定された予約が現在録画中かどうかを判定する。
+
+    Args:
+        reserve_data (ReserveDataRequired): 判定対象の予約情報
+        edcb (CtrlCmdUtil): EDCB API クライアント
+
+    Returns:
+        bool: 録画中の場合は True
+    """
+
+    # 録画中判定が不要な予約では追加問い合わせを行わない
+    if ShouldCheckRecordingInProgress(reserve_data) is False:
+        return False
+
+    # CtrlCmdUtil.sendGetRecFilePath() で「録画中かつ視聴予約でない予約の録画ファイルパス」が返ってくる場合は True、それ以外は False
+    ## 歴史的経緯でこう取得することになっているらしい
+    return isinstance(await edcb.sendGetRecFilePath(reserve_data['reserve_id']), str)
+
+
 @router.get(
     '',
     summary = '録画予約情報一覧 API',
@@ -909,8 +971,22 @@ async def ReservationsAPI(
         # 高速化のため、録画予約に必要な番組情報を一括取得しておく
         programs = await GetRequiredProgramsForReservations(reserve_data_list)
 
+        # 録画中判定が必要な予約のみ EDCB へ問い合わせる
+        # 必要最小限の予約に絞ることで、視聴中の定期更新時の EDCB 負荷を抑える
+        is_recording_in_progress_by_reserve_id: dict[int, bool] = {}
+        for reserve_data in reserve_data_list:
+            is_recording_in_progress_by_reserve_id[reserve_data['reserve_id']] = await GetIsRecordingInProgress(reserve_data, edcb)
+
         # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換
-        reserves = await asyncio.gather(*(DecodeEDCBReserveData(reserve_data, channels, programs) for reserve_data in reserve_data_list))
+        reserves = await asyncio.gather(*(
+            DecodeEDCBReserveData(
+                reserve_data,
+                channels,
+                programs,
+                is_recording_in_progress = is_recording_in_progress_by_reserve_id[reserve_data['reserve_id']],
+            )
+            for reserve_data in reserve_data_list
+        ))
 
     # 録画予約番組の番組開始時刻でソート
     reserves.sort(key=lambda reserve: reserve.program.start_time)
@@ -1129,13 +1205,17 @@ async def AddReservationAPI(
 )
 async def ReservationAPI(
     reserve_data: Annotated[ReserveDataRequired, Depends(GetReserveData)],
+    edcb: Annotated[CtrlCmdUtil, Depends(GetCtrlCmdUtil)],
 ):
     """
     指定された録画予約の情報を取得する。
     """
 
     # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換して返す
-    return await DecodeEDCBReserveData(reserve_data)
+    return await DecodeEDCBReserveData(
+        reserve_data,
+        is_recording_in_progress = await GetIsRecordingInProgress(reserve_data, edcb),
+    )
 
 
 @router.put(
@@ -1168,7 +1248,11 @@ async def UpdateReservationAPI(
         )
 
     # 更新された録画予約の情報を schemas.Reservation オブジェクトに変換して返す
-    return await DecodeEDCBReserveData(await GetReserveData(reserve_data['reserve_id'], edcb))
+    updated_reserve_data = await GetReserveData(reserve_data['reserve_id'], edcb)
+    return await DecodeEDCBReserveData(
+        updated_reserve_data,
+        is_recording_in_progress = await GetIsRecordingInProgress(updated_reserve_data, edcb),
+    )
 
 
 @router.delete(
