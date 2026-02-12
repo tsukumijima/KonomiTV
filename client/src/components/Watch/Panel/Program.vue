@@ -150,8 +150,11 @@ export default defineComponent({
             show_stop_recording_dialog: false,
             // 録画開始中 → 録画中の遷移を検知するためのポーリングタイマー ID (3秒間隔)
             polling_timer_id: null as ReturnType<typeof setInterval> | null,
-            // 外部からの予約追加や番組変更を検知するためのバックグラウンドポーリングタイマー ID (30秒間隔)
+            // 外部からの予約追加や番組変更を検知するためのバックグラウンドポーリングタイマー ID (60秒間隔)
             background_polling_timer_id: null as ReturnType<typeof setInterval> | null,
+            // バックグラウンドポーリングの実行中かどうか
+            // API 応答遅延時にポーリング処理が多重実行されるのを防ぐ
+            is_background_polling_in_progress: false,
             // 録画予約状態取得の最新リクエストを識別するトークン
             // 非同期通信の完了順が前後しても、最新の番組状態だけを反映するために使う
             reservation_status_request_token: 0,
@@ -185,11 +188,18 @@ export default defineComponent({
         isRecordButtonClickable(): boolean {
             return this.isRecording || (this.isEDCBBackend && !this.hasReservation && !this.is_starting_recording);
         },
+
+        // 録画予約状態チェック用の現在番組 ID
+        // program オブジェクト全体を監視すると同一番組内の微小更新でも watch が発火し API が過剰呼び出しされるため、
+        // 予約照合に必要な最小単位である番組 ID のみに絞って監視する
+        currentProgramPresentIdForReservationCheck(): string | null {
+            return this.channelsStore.current_program_present?.id ?? null;
+        },
     },
     watch: {
-        // PSI/SI デコード結果の変化を監視
-        // PSI/SI 到着時にはより正確な event_id で予約状態を再チェックする
-        'channelsStore.current_program_present'() {
+        // PSI/SI デコード結果のうち、番組 ID が変化した場合のみ監視する
+        // 同一番組内での更新で毎秒 API が発火しないようにしつつ、番組切り替わり時の再チェックは維持する
+        currentProgramPresentIdForReservationCheck() {
             this.invalidateReservationStatusRequest();
             this.stopPolling();
             // PSI/SI デコード結果が更新されたので、より正確な番組 ID で予約状態を再チェック
@@ -365,7 +375,7 @@ export default defineComponent({
 
         /**
          * 外部からの予約追加や番組変更を検知するためのバックグラウンドポーリングを開始する
-         * 30秒間隔で録画予約状態をチェックし、外部から追加された予約や録画状態の変化を反映する
+         * 60秒間隔で録画予約状態をチェックし、外部から追加された予約や録画状態の変化を反映する
          */
         startBackgroundPolling(): void {
             // Mirakurun バックエンドの場合は録画予約 API が使えないためポーリング不要
@@ -373,9 +383,23 @@ export default defineComponent({
                 return;
             }
             this.stopBackgroundPolling();
-            this.background_polling_timer_id = setInterval(() => {
-                this.checkReservationStatus();
-            }, 30000);
+            this.background_polling_timer_id = setInterval(async () => {
+                // 録画開始待ちの短周期ポーリング中は、重複して全予約取得を行わない
+                if (this.polling_timer_id !== null || this.is_starting_recording === true) {
+                    return;
+                }
+                // API 応答が遅い環境では次周期が先に到来して多重実行されるため、実行中はスキップする
+                if (this.is_background_polling_in_progress === true) {
+                    return;
+                }
+
+                this.is_background_polling_in_progress = true;
+                try {
+                    await this.checkReservationStatus();
+                } finally {
+                    this.is_background_polling_in_progress = false;
+                }
+            }, 60000);
         },
 
         /**
@@ -386,6 +410,7 @@ export default defineComponent({
                 clearInterval(this.background_polling_timer_id);
                 this.background_polling_timer_id = null;
             }
+            this.is_background_polling_in_progress = false;
         },
 
         /**
