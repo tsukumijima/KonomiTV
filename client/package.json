@@ -20,7 +20,7 @@
         "@microsoft/fetch-event-source": "^2.0.1",
         "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.2",
         "assert": "^2.1.0",
-        "axios": "^1.12.0",
+        "axios": "^1.13.5",
         "buffer": "^6.0.3",
         "comlink": "^4.4.1",
         "copy-image-clipboard": "^2.1.2",
