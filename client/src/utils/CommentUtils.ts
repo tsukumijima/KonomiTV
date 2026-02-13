@@ -19,7 +19,7 @@ export class CommentUtils {
     private static readonly mute_consecutive_same_characters_comments_pattern = /(.)\1{7,}/;
 
     // ニコ生の特殊コマンド付きコメントのフィルタ正規表現
-    private static readonly special_command_comments_pattern = /\/[a-z]+ /;
+    private static readonly special_command_comments_pattern = /^\/[a-z][a-z0-9_-]*(?:\s|$)/;
 
     // 迷惑な統計コメントのフィルタ正規表現
     private static readonly annoying_statistical_comments_pattern = /最高\d+米\/|計\d+ＩＤ|総\d+米/;
@@ -107,6 +107,49 @@ export class CommentUtils {
 
 
     /**
+     * ミュートキーワード照合向けにコメントを正規化する
+     * 英数字・記号の全角半角を半角に統一し、英字の大文字を小文字へ統一する
+     * @param text 正規化対象の文字列
+     * @returns 正規化した文字列
+     */
+    static normalizeCommentKeyword(text: string): string {
+        let normalized_text = '';
+        for (const character of text) {
+            const code_point = character.codePointAt(0);
+            if (code_point === 0x3000) {
+                normalized_text += ' ';
+            } else if (code_point !== undefined && code_point >= 0xFF01 && code_point <= 0xFF5E) {
+                normalized_text += String.fromCodePoint(code_point - 0xFEE0);
+            } else {
+                normalized_text += character;
+            }
+        }
+        return normalized_text.replace(/[A-Z]/g, (matched_character) => matched_character.toLowerCase());
+    }
+
+
+    /**
+     * コメントがニコ生の運営コマンド付きコメントかどうかを判定する
+     * @param comment コメント本文
+     * @param premium コメントの premium フラグ
+     * @returns ニコ生の運営コマンド付きコメントなら true
+     */
+    static isSpecialCommandComment(comment: string, premium?: string | number | null): boolean {
+        if (CommentUtils.special_command_comments_pattern.test(comment) === false) {
+            return false;
+        }
+
+        // premium フラグが付与されている場合は、運営コメント (premium=3) のみを特殊コマンドとして扱う
+        if (premium !== undefined && premium !== null) {
+            return `${premium}` === '3';
+        }
+
+        // premium フラグが欠落している場合、運営コメントかどうかを判定できないため特殊コマンドとして扱わない
+        return false;
+    }
+
+
+    /**
      * ニコニコのコメントコマンドを解析する
      * @param comment_mail ニコニコのコメントコマンド
      * @returns コメントの色、位置、サイズ
@@ -158,9 +201,17 @@ export class CommentUtils {
         color?: string,
         position?: 'top' | 'right' | 'bottom',
         size?: 'big' | 'medium' | 'small',
+        premium?: string | number | null,
     ): boolean {
 
         const settings_store = useSettingsStore();
+
+        // 指定されている場合、事前に英数字・記号の全角半角を正規化した上でキーワードミュート処理を行う
+        const should_normalize_comment_keywords =
+            settings_store.settings.mute_comment_keywords_normalize_alphanumeric_width_case === true;
+        const comment_for_keyword_matching = should_normalize_comment_keywords === true
+            ? CommentUtils.normalizeCommentKeyword(comment)
+            : comment;
 
         // ユーザー ID ミュート処理
         if (settings_store.settings.muted_niconico_user_ids.includes(user_id)) {
@@ -168,7 +219,7 @@ export class CommentUtils {
         }
 
         // ニコ生の特殊コマンド付きコメント (/nicoad, /emotion など) を一括で弾く
-        if (CommentUtils.special_command_comments_pattern.test(comment)) {
+        if (CommentUtils.isSpecialCommandComment(comment, premium)) {
             return true;
         }
 
@@ -220,28 +271,44 @@ export class CommentUtils {
             switch (muted_comment_keyword.match) {
                 // 部分一致
                 case 'partial':
-                    if (comment.includes(muted_comment_keyword.pattern)) {
+                    if (comment_for_keyword_matching.includes(
+                        should_normalize_comment_keywords === true
+                            ? CommentUtils.normalizeCommentKeyword(muted_comment_keyword.pattern)
+                            : muted_comment_keyword.pattern,
+                    )) {
                         console.log('[CommentUtils] Muted comment (partial): ' + comment);
                         return true;
                     }
                     break;
                 // 前方一致
                 case 'forward':
-                    if (comment.startsWith(muted_comment_keyword.pattern)) {
+                    if (comment_for_keyword_matching.startsWith(
+                        should_normalize_comment_keywords === true
+                            ? CommentUtils.normalizeCommentKeyword(muted_comment_keyword.pattern)
+                            : muted_comment_keyword.pattern,
+                    )) {
                         console.log('[CommentUtils] Muted comment (forward): ' + comment);
                         return true;
                     }
                     break;
                 // 後方一致
                 case 'backward':
-                    if (comment.endsWith(muted_comment_keyword.pattern)) {
+                    if (comment_for_keyword_matching.endsWith(
+                        should_normalize_comment_keywords === true
+                            ? CommentUtils.normalizeCommentKeyword(muted_comment_keyword.pattern)
+                            : muted_comment_keyword.pattern,
+                    )) {
                         console.log('[CommentUtils] Muted comment (backward): ' + comment);
                         return true;
                     }
                     break;
                 // 完全一致
                 case 'exact':
-                    if (comment === muted_comment_keyword.pattern) {
+                    if (comment_for_keyword_matching === (
+                        should_normalize_comment_keywords === true
+                            ? CommentUtils.normalizeCommentKeyword(muted_comment_keyword.pattern)
+                            : muted_comment_keyword.pattern
+                    )) {
                         console.log('[CommentUtils] Muted comment (exact): ' + comment);
                         return true;
                     }
@@ -276,8 +343,16 @@ export class CommentUtils {
 
         // すでにまったく同じミュート済みキーワードが追加済みの場合は何もしない
         const settings_store = useSettingsStore();
+        const should_normalize_comment_keywords =
+            settings_store.settings.mute_comment_keywords_normalize_alphanumeric_width_case === true;
+        const normalized_comment = should_normalize_comment_keywords === true
+            ? CommentUtils.normalizeCommentKeyword(comment)
+            : comment;
         for (const muted_comment_keyword of settings_store.settings.muted_comment_keywords) {
-            if (muted_comment_keyword.match === 'exact' && muted_comment_keyword.pattern === comment) {
+            const normalized_muted_comment_keyword = should_normalize_comment_keywords === true
+                ? CommentUtils.normalizeCommentKeyword(muted_comment_keyword.pattern)
+                : muted_comment_keyword.pattern;
+            if (muted_comment_keyword.match === 'exact' && normalized_muted_comment_keyword === normalized_comment) {
                 return;
             }
         }

@@ -538,30 +538,6 @@ class JikkyoClient:
 
 
     @staticmethod
-    def isSpecialCommandComment(comment: str, premium: str | None = None) -> bool:
-        """
-        コメントがニコ生の運営コマンド付きコメントかどうかを判定する
-
-        Args:
-            comment (str): コメント本文
-            premium (str | None, optional): コメントの premium フラグ
-
-        Returns:
-            bool: ニコ生の運営コマンド付きコメントなら True
-        """
-
-        if JikkyoClient.SPECIAL_COMMAND_COMMENT_PATTERN.match(comment) is None:
-            return False
-
-        # premium フラグが付与されている場合は、運営コメント (premium=3) のみを特殊コマンドとして扱う
-        if premium is not None:
-            return str(premium) == '3'
-
-        # premium フラグが欠落している場合、運営コメントかどうかを判定できないため特殊コマンドとして扱わない
-        return False
-
-
-    @staticmethod
     def getCommentColor(color: str) -> str | None:
         """
         ニコニコの色指定を 16 進数カラーコードに置換する
@@ -613,6 +589,30 @@ class JikkyoClient:
 
         sizes: dict[str, Literal['big', 'medium', 'small']] = {'big': 'big', 'medium': 'medium', 'small': 'small'}
         return sizes.get(size)
+
+
+    @staticmethod
+    def isSpecialCommandComment(comment: str, premium: str | None = None) -> bool:
+        """
+        コメントがニコ生の運営コマンド付きコメントかどうかを判定する
+
+        Args:
+            comment (str): コメント本文
+            premium (str | None, optional): コメントの premium フラグ
+
+        Returns:
+            bool: ニコ生の運営コマンド付きコメントなら True
+        """
+
+        if JikkyoClient.SPECIAL_COMMAND_COMMENT_PATTERN.match(comment) is None:
+            return False
+
+        # premium フラグが付与されている場合は、運営コメント (premium=3) のみを特殊コマンドとして扱う
+        if premium is not None:
+            return str(premium) == '3'
+
+        # premium フラグが欠落している場合、運営コメントかどうかを判定できないため特殊コマンドとして扱わない
+        return False
 
 
     @staticmethod
