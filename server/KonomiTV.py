@@ -33,12 +33,12 @@ from app.constants import (
     BASE_DIR,
     DATABASE_CONFIG,
     KONOMITV_ACCESS_LOG_PATH,
-    KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
     LOGGING_CONFIG,
     RESTART_REQUIRED_LOCK_PATH,
     VERSION,
 )
+from app.utils.LogRotation import SplitServerLogByDate
 
 
 # passlib が送出する bcrypt のバージョン差異による警告を無視
@@ -58,16 +58,19 @@ def main(
     version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
 ):
 
-    # 前回のログをすべて削除する
+    # 前回のログのうち、アクセスログと Akebi のログのみ削除する
+    ## サーバーログは起動時に日付別分割されるため、ここでは削除しない
     try:
-        if KONOMITV_SERVER_LOG_PATH.exists():
-            KONOMITV_SERVER_LOG_PATH.unlink()
         if KONOMITV_ACCESS_LOG_PATH.exists():
             KONOMITV_ACCESS_LOG_PATH.unlink()
         if AKEBI_LOG_PATH.exists():
             AKEBI_LOG_PATH.unlink()
     except PermissionError:
         pass
+
+    # サーバーログに過去日付のエントリが含まれている場合、日付別アーカイブに分割する
+    ## DailyRotatingFileHandler がファイルを開く前に分割を完了させるために、ロガーの初期化前に実行する必要がある
+    SplitServerLogByDate()
 
     # もし何らかの理由でロックファイルが残っていた場合は削除する
     if RESTART_REQUIRED_LOCK_PATH.exists():
