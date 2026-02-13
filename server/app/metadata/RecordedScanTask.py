@@ -462,6 +462,14 @@ class RecordedScanTask:
                     except Exception as ex:
                         logging.error(f'{file_path}: Failed to reanalyze known hash collision file:', exc_info=ex)
 
+        # メタデータ解析に失敗した録画ファイルの数をログ出力
+        analysis_failed_count = await RecordedVideo.filter(status='AnalysisFailed').count()
+        if analysis_failed_count > 0:
+            logging.warning(
+                f'Batch scan completed with files in AnalysisFailed status. '
+                f'count: {analysis_failed_count}. '
+                f'Re-run metadata analysis after checking source files.',
+            )
         logging.info('Batch scan of recording folders has been completed.')
         self._is_batch_scan_running = False
 
