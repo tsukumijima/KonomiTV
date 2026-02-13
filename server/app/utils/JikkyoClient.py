@@ -102,6 +102,9 @@ class JikkyoClient:
         'black2': '#666666',
     }
 
+    # ニコ生の特殊コマンド付きコメントのフィルタ正規表現
+    SPECIAL_COMMAND_COMMENT_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'^/[a-z][a-z0-9_-]*(?:\s|$)')
+
     # 実況チャンネルのステータスをキャッシュするための辞書
     __jikkyo_channels_statuses: ClassVar[dict[str, JikkyoChannelStatus]] = {}
 
@@ -506,7 +509,7 @@ class JikkyoClient:
                 continue
 
             # 運営コメントは今のところ全て弾く
-            if re.match(r'\/[a-z]+ ', comment):
+            if self.isSpecialCommandComment(comment, raw_jikkyo_comment['chat'].get('premium')):
                 continue
 
             # コメントコマンドをパース
@@ -532,6 +535,30 @@ class JikkyoClient:
             comments = jikkyo_comments,
             detail = '過去ログコメントを取得しました。',
         )
+
+
+    @staticmethod
+    def isSpecialCommandComment(comment: str, premium: str | None = None) -> bool:
+        """
+        コメントがニコ生の運営コマンド付きコメントかどうかを判定する
+
+        Args:
+            comment (str): コメント本文
+            premium (str | None, optional): コメントの premium フラグ
+
+        Returns:
+            bool: ニコ生の運営コマンド付きコメントなら True
+        """
+
+        if JikkyoClient.SPECIAL_COMMAND_COMMENT_PATTERN.match(comment) is None:
+            return False
+
+        # premium フラグが付与されている場合は、運営コメント (premium=3) のみを特殊コマンドとして扱う
+        if premium is not None:
+            return str(premium) == '3'
+
+        # premium フラグが欠落している場合、運営コメントかどうかを判定できないため特殊コマンドとして扱わない
+        return False
 
 
     @staticmethod
