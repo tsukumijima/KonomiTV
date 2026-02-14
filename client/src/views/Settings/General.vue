@@ -70,7 +70,7 @@
                 <label class="settings__item-heading" for="tv_channel_up_down_buttons_reverse">チャンネル切り替えボタンとショートカットキーの上下方向をテレビリモコン準拠にする</label>
                 <label class="settings__item-label" for="tv_channel_up_down_buttons_reverse">
                     オンにすると、視聴画面のチャンネル切り替えボタン <Icon icon="fluent:ios-arrow-left-24-filled" style="transform: rotate(90deg); margin-bottom: -4px;" /> <Icon icon="fluent:ios-arrow-right-24-filled" style="transform: rotate(90deg); margin-top: -4px;" /> とショートカットキーの上下キーの動作が反転します。デフォルトはオフです。<br>
-                    テレビのリモコンと同じように、<Icon icon="fluent:ios-arrow-left-24-filled" style="transform: rotate(90deg); margin-bottom: -4px;" /> ボタン/キーでチャンネル番号が上がり、<Icon icon="fluent:ios-arrow-right-24-filled" style="transform: rotate(90deg); margin-top: -4px;" /> ボタン/キーでチャンネル番号が下がる動作に慣れている方におすすめです。<br>
+                    一般的なテレビリモコンと同じように、<Icon icon="fluent:ios-arrow-left-24-filled" style="transform: rotate(90deg); margin-bottom: -4px;" /> ボタン/キーでチャンネル番号を上げ、<Icon icon="fluent:ios-arrow-right-24-filled" style="transform: rotate(90deg); margin-top: -4px;" /> ボタン/キーでチャンネル番号を下げたい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_channel_up_down_buttons_reverse" hide-details
                     v-model="settingsStore.settings.tv_channel_up_down_buttons_reverse">
