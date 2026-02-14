@@ -263,7 +263,9 @@ const hasRealReservation = computed(() => hasReservation.value && !isMockReserva
 const displayProgram = computed(() => props.reservation?.program ?? props.program ?? null);
 
 // EDCB バックエンドかどうか
-const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+// サーバー設定がまだ取得されていない場合は EDCB と判定しない
+// (デフォルト値が 'EDCB' のため、未取得状態で誤って true を返すと Mirakurun バックエンドでも予約操作が有効化されてしまう)
+const isEDCBBackend = computed(() => serverSettingsStore.is_loaded === true && serverSettings.value.general.backend === 'EDCB');
 
 // 録画設定タブを表示するかどうか
 // - 実際の予約がある場合: 表示 (既存予約の設定編集)

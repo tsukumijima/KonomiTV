@@ -151,7 +151,9 @@ const serverSettingsStore = useServerSettingsStore();
 const serverSettings = computed(() => serverSettingsStore.server_settings);
 
 // EDCB バックエンドかどうか
-const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+// サーバー設定がまだ取得されていない場合は EDCB と判定しない
+// (デフォルト値が 'EDCB' のため、未取得状態で誤って true を返すと Mirakurun バックエンドでも予約操作が有効化されてしまう)
+const isEDCBBackend = computed(() => serverSettingsStore.is_loaded === true && serverSettings.value.general.backend === 'EDCB');
 
 // UI 状態
 const isSettingsDialogOpen = ref(false);
