@@ -65,7 +65,8 @@
             </template>
             <template v-else>
                 <VirtuaList ref="virtua_scroller" class="comment-list" :data="comment_list" #default="{ item }">
-                    <div class="comment" :class="{'comment--my-post': item.my_post}">
+                    <div class="comment comment--seekable" :class="{'comment--my-post': item.my_post}"
+                        @click="seekToComment(item)">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
                         <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
@@ -568,6 +569,18 @@ export default defineComponent({
         },
 
         /**
+         * 録画再生時、コメントをクリックしてその再生位置までシークする
+         * @param comment クリックされたコメント
+         */
+        seekToComment(comment: ICommentData): void {
+            if (this.playback_mode !== 'Video') return;
+            if (comment.playback_position === undefined) return;
+            this.playerStore.event_emitter.emit('SeekRequest', {
+                playback_position: comment.playback_position,
+            });
+        },
+
+        /**
          * 自動スクロールボタンがクリックされたときの処理
          */
         handleAutoScrollButtonClick(): void {
@@ -747,6 +760,13 @@ export default defineComponent({
                 min-height: 28px;
                 padding-top: 6px;
                 word-break: break-word;
+                &--seekable {
+                    cursor: pointer;
+                    transition: color 0.15s ease;
+                    &:hover {
+                        color: rgb(var(--v-theme-primary));
+                    }
+                }
                 &--my-post {
                     color: rgb(var(--v-theme-secondary-lighten-2));
                 }
