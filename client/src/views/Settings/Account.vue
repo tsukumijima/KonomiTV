@@ -60,8 +60,8 @@
                     <div class="account-feature">
                         <Icon class="account-feature__icon" icon="fluent:arrow-sync-20-filled" />
                         <div class="account-feature__info">
-                            <span class="account-feature__info-heading">設定をデバイス間で同期</span>
-                            <span class="account-feature__info-text">ピン留めしたチャンネルなど、ブラウザに保存されている各種設定をブラウザやデバイスをまたいで同期できます。</span>
+                            <span class="account-feature__info-heading" style="white-space: nowrap;">設定・マイリスト・視聴履歴などを<wbr>デバイス間で同期</span>
+                            <span class="account-feature__info-text">ピン留めしたチャンネル、マイリスト、視聴履歴など、ブラウザに保存されている各種設定をブラウザやデバイスをまたいで同期できます。</span>
                         </div>
                     </div>
                     <div class="account-feature">
@@ -86,7 +86,10 @@
                     <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
                     <label class="settings__item-label" for="sync_settings">
                         KonomiTV では、設定を同じアカウントでログインしているデバイス間で同期できます！<br>
-                        同期をオンにすると、同期をオンにしているすべてのデバイスで共通の設定が使えます。ピン留めしたチャンネル・マイリスト・視聴履歴・ハッシュタグリストなども一緒に同期されます。<br>
+                        同期をオンにすると、<strong>同期をオンにしているすべてのデバイスで共通の設定が使えます。</strong><br>
+                    </label>
+                    <label class="settings__item-label" for="sync_settings">
+                        <strong>ピン留めしたチャンネル・マイリスト・視聴履歴・ハッシュタグリストなども一緒に同期されます。</strong><br>
                         なお、デバイス固有の設定（画質設定など）は、同期後も各デバイスで個別に反映されます。<br>
                     </label>
                     <v-switch class="settings__item-switch" color="primary" id="sync_settings" hide-details
