@@ -121,16 +121,22 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // ***** 全般 *****
 
-            // ↑: ライブ視聴: 前のチャンネルに切り替える
+            // ↑: ライブ視聴: チャンネル切り替え設定に応じて前/次のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowUp', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
-                router.push({path: `/tv/watch/${channels_store.channel.previous.display_channel_id}`});
+                const switch_channel = settings_store.settings.tv_channel_up_down_buttons_reverse
+                    ? channels_store.channel.next
+                    : channels_store.channel.previous;
+                router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
             }},
 
-            // ↓: ライブ視聴: 次のチャンネルに切り替える
+            // ↓: ライブ視聴: チャンネル切り替え設定に応じて次/前のチャンネルに切り替える
             {mode: 'Live', key: 'ArrowDown', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
                 player_store.is_zapping = true;  // ザッピング状態にする
-                router.push({path: `/tv/watch/${channels_store.channel.next.display_channel_id}`});
+                const switch_channel = settings_store.settings.tv_channel_up_down_buttons_reverse
+                    ? channels_store.channel.previous
+                    : channels_store.channel.next;
+                router.push({path: `/tv/watch/${switch_channel.display_channel_id}`});
             }},
 
             // /(？): キーボードショートカットの一覧を表示する

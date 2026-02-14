@@ -84,6 +84,18 @@
                         v-model="settingsStore.settings.mute_consecutive_same_characters_comments">
                     </v-switch>
                 </div>
+                <div class="settings__item settings__item--switch">
+                    <label class="settings__item-heading" for="mute_comment_keywords_normalize_alphanumeric_width_case">
+                        ミュート対象キーワード内の英数字・記号を、大文字小文字や全角半角の違いを無視して判定する
+                    </label>
+                    <label class="settings__item-label" for="mute_comment_keywords_normalize_alphanumeric_width_case">
+                        オンにすると、ミュート対象キーワードの判定時に、英数字・記号を正規化し、大文字/小文字・全角/半角の違いを無視した上でミュート判定を行います。デフォルトはオンです。<br>
+                        例えば、「NTR」と「ｎｔｒ」、「33-4」と「３３－４」が同じキーワードとして判定されるようになります。<br>
+                    </label>
+                    <v-switch class="settings__item-switch" color="primary" id="mute_comment_keywords_normalize_alphanumeric_width_case" hide-details
+                        v-model="settingsStore.settings.mute_comment_keywords_normalize_alphanumeric_width_case">
+                    </v-switch>
+                </div>
                 <div class="text-subtitle-1 d-flex align-center font-weight-bold mt-4">
                     <Icon icon="fluent:comment-dismiss-20-filled" width="24px" />
                     <span class="ml-2 mr-2">ミュート済みのキーワード</span>

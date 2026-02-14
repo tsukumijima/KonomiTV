@@ -44,6 +44,8 @@ export interface IClientSettings {
     timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
+    tv_channel_sort_by_jikkyo_force: boolean;
+    tv_channel_up_down_buttons_reverse: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
     show_original_broadcast_time_during_playback: boolean;
@@ -84,6 +86,7 @@ export interface IClientSettings {
     mute_fixed_comments: boolean;
     mute_colored_comments: boolean;
     mute_consecutive_same_characters_comments: boolean;
+    mute_comment_keywords_normalize_alphanumeric_width_case: boolean;
     muted_comment_keywords: IMutedCommentKeywords[];
     muted_niconico_user_ids: string[];
     fold_panel_after_sending_tweet: boolean;

@@ -482,6 +482,7 @@ class PlayerController {
                                     time: Utils.apply28HourClock(dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss')),
                                     playback_position: comment.time,
                                     user_id: comment.author,
+                                    premium: null,
                                     my_post: false,
                                 })),
                             });

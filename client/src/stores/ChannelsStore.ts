@@ -177,6 +177,34 @@ const useChannelsStore = defineStore('channels', {
         channels_list_with_pinned(): Map<ChannelTypePretty, ILiveChannel[]> {
             const settings_store = useSettingsStore();
 
+            // チャンネル番号をメイン番号とサブ番号に分割する
+            const parseChannelNumber = (channel_number: string): {main: number; sub: number} => {
+                const matched_channel_number = channel_number.match(/^(\d+)(?:-(\d+))?$/);
+                if (matched_channel_number === null) {
+                    return {
+                        main: Number.MAX_SAFE_INTEGER,
+                        sub: Number.MAX_SAFE_INTEGER,
+                    };
+                }
+                return {
+                    main: Number(matched_channel_number[1]),
+                    sub: Number(matched_channel_number[2] ?? '0'),
+                };
+            };
+
+            // チャンネル番号を昇順で比較する
+            const compareChannelNumberAsc = (a: ILiveChannel, b: ILiveChannel): number => {
+                const a_channel_number = parseChannelNumber(a.channel_number);
+                const b_channel_number = parseChannelNumber(b.channel_number);
+                if (a_channel_number.main !== b_channel_number.main) {
+                    return a_channel_number.main - b_channel_number.main;
+                }
+                if (a_channel_number.sub !== b_channel_number.sub) {
+                    return a_channel_number.sub - b_channel_number.sub;
+                }
+                return a.channel_number.localeCompare(b.channel_number, 'ja');
+            };
+
             // 事前に Map を定義しておく
             // Map にしていたのは、確か連想配列の順序を保証してくれるからだったはず
             const channels_list_with_pinned = new Map<ChannelTypePretty, ILiveChannel[]>();
@@ -249,6 +277,31 @@ const useChannelsStore = defineStore('channels', {
                 const index_b = settings_store.settings.pinned_channel_ids.indexOf(b.id);
                 return index_a - index_b;
             }));
+
+            // 「チャンネル一覧を実況勢いが強い順に並べる」がオンかつ、実況勢いが1つでも取得できている場合のみ、
+            // ピン留めタブを含む全チャンネルリストを実況勢い順で並び替える
+            // すべての実況勢いが 0 または取得できない（null）場合は、従来の並び順をそのまま維持する
+            if (settings_store.settings.tv_channel_sort_by_jikkyo_force === true) {
+                const has_non_zero_jikkyo_force = Array.from(channels_list_with_pinned.values())
+                    .flat()
+                    .some((channel) => (channel.jikkyo_force ?? 0) > 0);
+                if (has_non_zero_jikkyo_force === true) {
+                    for (const [channel_type, channels] of channels_list_with_pinned) {
+                        channels_list_with_pinned.set(channel_type, [...channels].sort((a, b) => {
+                            const a_jikkyo_force = a.jikkyo_force ?? 0;
+                            const b_jikkyo_force = b.jikkyo_force ?? 0;
+                            if (a_jikkyo_force !== b_jikkyo_force) {
+                                return b_jikkyo_force - a_jikkyo_force;
+                            }
+                            const channel_number_compare_result = compareChannelNumberAsc(a, b);
+                            if (channel_number_compare_result !== 0) {
+                                return channel_number_compare_result;
+                            }
+                            return a.id.localeCompare(b.id, 'ja');
+                        }));
+                    }
+                }
+            }
 
             // 最後に、チャンネルが1つもないチャンネルタイプのタブを除外する (ピン留めタブを除く)
             for (const [channel_type, channels] of channels_list_with_pinned) {

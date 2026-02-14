@@ -274,6 +274,13 @@ export default defineComponent({
         },
     },
     created() {
+        // チャンネル切り替えボタンとショートカットキーの上下方向を反転する設定が有効なら、
+        // キーボードショートカット一覧の表示文言を反転方向に合わせる
+        if (this.settingsStore.settings.tv_channel_up_down_buttons_reverse === true) {
+            this.live_shortcut_list.left_column[0].shortcuts[2].name = '次のチャンネルに切り替える';
+            this.live_shortcut_list.left_column[0].shortcuts[3].name = '前のチャンネルに切り替える';
+        }
+
         // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する設定が有効なら、
         // キーボードショートカット一覧に反映する
         if (this.settingsStore.settings.tv_channel_selection_requires_alt_key === true) {

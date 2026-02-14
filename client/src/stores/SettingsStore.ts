@@ -64,6 +64,8 @@ export interface ILocalClientSettings extends IClientSettings {
     timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
+    tv_channel_sort_by_jikkyo_force: boolean;
+    tv_channel_up_down_buttons_reverse: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
     show_original_broadcast_time_during_playback: boolean;
@@ -104,6 +106,7 @@ export interface ILocalClientSettings extends IClientSettings {
     mute_fixed_comments: boolean;
     mute_colored_comments: boolean;
     mute_consecutive_same_characters_comments: boolean;
+    mute_comment_keywords_normalize_alphanumeric_width_case: boolean;
     muted_comment_keywords: IMutedCommentKeywords[];
     muted_niconico_user_ids: string[];
     fold_panel_after_sending_tweet: boolean;
@@ -190,6 +193,10 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     show_player_background_image: true,
     // プレイヤー表示領域の背景色を完全な黒にする (Default: オフ)
     use_pure_black_player_background: false,
+    // チャンネル一覧を実況勢いが強い順に並び替える (Default: オフ)
+    tv_channel_sort_by_jikkyo_force: false,
+    // チャンネル切り替えボタンとショートカットキーの上下方向をテレビリモコン準拠にする (Default: オフ)
+    tv_channel_up_down_buttons_reverse: false,
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
     // 時刻を 28 時間表記で表示する (Default: オフ)
@@ -294,6 +301,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     mute_colored_comments: false,
     // 8文字以上同じ文字が連続しているコメントをミュートする (Default: ミュートしない)
     mute_consecutive_same_characters_comments: false,
+    // ミュート対象キーワード内の英数字・記号を、大文字小文字や全角半角の違いを無視して判定する (Default: オン)
+    mute_comment_keywords_normalize_alphanumeric_width_case: true,
     // ミュート済みのコメントのキーワードが入るリスト
     muted_comment_keywords: [],
     // ミュート済みのニコニコユーザー ID が入るリスト
@@ -337,6 +346,8 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'timetable_genre_colors',
     'show_player_background_image',
     'use_pure_black_player_background',
+    'tv_channel_sort_by_jikkyo_force',
+    'tv_channel_up_down_buttons_reverse',
     'tv_channel_selection_requires_alt_key',
     'use_28hour_clock',
     'show_original_broadcast_time_during_playback',
@@ -377,6 +388,7 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'mute_fixed_comments',
     'mute_colored_comments',
     'mute_consecutive_same_characters_comments',
+    'mute_comment_keywords_normalize_alphanumeric_width_case',
     'muted_comment_keywords',
     'muted_niconico_user_ids',
     'fold_panel_after_sending_tweet',

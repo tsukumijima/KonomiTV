@@ -24,6 +24,33 @@ export class CommentUtils {
     // 迷惑な統計コメントのフィルタ正規表現
     private static readonly annoying_statistical_comments_pattern = /最高\d+米\/|計\d+ＩＤ|総\d+米/;
 
+    // ハイフン・ダッシュ・長音系の文字を半角ハイフンマイナス (U+002D) に統一するマップ
+    // ミュートキーワード照合の文脈では、キーワード・コメントの両方に同じ正規化がかかるため、
+    // 長音記号 ー (U+30FC) や波ダッシュ ～ (U+FF5E) なども - に変換しても照合結果に影響しない
+    // 一方、「33-4」と「３３ー４」「３３−４」のような微妙に異なる文字によるミュート貫通を防止できる
+    private static readonly hyphen_like_char_map = new Map<number, string>([
+        [0x02D7, '-'],  // ˗ Modifier Letter Minus Sign
+        [0x2010, '-'],  // ‐ Hyphen
+        [0x2011, '-'],  // ‑ Non-Breaking Hyphen
+        [0x2012, '-'],  // ‒ Figure Dash
+        [0x2013, '-'],  // – En Dash
+        [0x2014, '-'],  // — Em Dash
+        [0x2015, '-'],  // ― Horizontal Bar
+        [0x2043, '-'],  // ⁃ Hyphen Bullet
+        [0x2212, '-'],  // − Minus Sign
+        [0x23AF, '-'],  // ⎯ Horizontal Line Extension
+        [0x23E4, '-'],  // ⏤ Straightness
+        [0x2500, '-'],  // ─ Box Drawings Light Horizontal
+        [0x2501, '-'],  // ━ Box Drawings Heavy Horizontal
+        [0x2E3A, '-'],  // ⸺ Two-Em Dash
+        [0x2E3B, '-'],  // ⸻ Three-Em Dash
+        [0x30FC, '-'],  // ー Katakana-Hiragana Prolonged Sound Mark
+        [0xFF70, '-'],  // ｰ Halfwidth Katakana-Hiragana Prolonged Sound Mark
+        [0x007E, '-'],  // ~ Tilde
+        [0xFF5E, '-'],  // ～ Fullwidth Tilde
+        [0x301C, '-'],  // 〜 Wave Dash
+    ]);
+
     // ニコニコの色指定を 16 進数カラーコードに置換するテーブル
     private static readonly color_table: {[key: string]: string} = {
         'white': '#FFEAEA',
@@ -108,18 +135,33 @@ export class CommentUtils {
 
     /**
      * ミュートキーワード照合向けにコメントを正規化する
-     * 英数字・記号の全角半角を半角に統一し、英字の大文字を小文字へ統一する
+     * まず NFKC 正規化で丸囲み数字・ローマ数字・上付き数字・合字・単位記号・全角英数字などを統一し、
+     * 次に文字単位で全角スペース→半角スペース、ハイフン・ダッシュ・長音系の類似文字→半角ハイフンマイナスへ変換する
+     * 最後に英字の大文字を小文字へ統一する
      * @param text 正規化対象の文字列
      * @returns 正規化した文字列
      */
     static normalizeCommentKeyword(text: string): string {
+        // NFKC 正規化: 全角英数字→半角・丸囲み数字 (①→1)・ローマ数字 (Ⅲ→III)・
+        // 上付き数字 (²→2)・三点リーダ (…→...)・合字 (ﬁ→fi)・単位記号 (㎡→m2) などを正規化する
+        // NFKC は全角→半角 ASCII 変換もカバーするが、ハイフン系の統一は行わないため後段の処理が必要
+        const nfkc_normalized_text = text.normalize('NFKC');
         let normalized_text = '';
-        for (const character of text) {
+        for (const character of nfkc_normalized_text) {
             const code_point = character.codePointAt(0);
-            if (code_point === 0x3000) {
+            if (code_point === undefined) {
+                normalized_text += character;
+            // 全角スペース (U+3000) → 半角スペース
+            } else if (code_point === 0x3000) {
                 normalized_text += ' ';
-            } else if (code_point !== undefined && code_point >= 0xFF01 && code_point <= 0xFF5E) {
+            // 全角英数字・記号 (U+FF01〜U+FF5D) → 半角英数字・記号
+            // NFKC で大部分は変換済みだが、NFKC で漏れた文字へのフォールバックとして残す
+            // ただし U+FF5E (～, Fullwidth Tilde) は hyphen_like_char_map で - に変換するためここでは除外
+            } else if (code_point >= 0xFF01 && code_point <= 0xFF5D) {
                 normalized_text += String.fromCodePoint(code_point - 0xFEE0);
+            // ハイフン・ダッシュ・長音系の類似文字 → 半角ハイフンマイナス (U+002D)
+            } else if (CommentUtils.hyphen_like_char_map.has(code_point)) {
+                normalized_text += CommentUtils.hyphen_like_char_map.get(code_point)!;
             } else {
                 normalized_text += character;
             }

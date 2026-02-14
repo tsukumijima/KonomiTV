@@ -75,6 +75,8 @@ class ClientSettings(BaseModel):
     }
     show_player_background_image: bool = True
     use_pure_black_player_background: bool = False
+    tv_channel_sort_by_jikkyo_force: bool = False
+    tv_channel_up_down_buttons_reverse: bool = False
     tv_channel_selection_requires_alt_key: bool = False
     use_28hour_clock: bool = False
     show_original_broadcast_time_during_playback: bool = False
@@ -115,6 +117,7 @@ class ClientSettings(BaseModel):
     mute_fixed_comments: bool = False
     mute_colored_comments: bool = False
     mute_consecutive_same_characters_comments: bool = False
+    mute_comment_keywords_normalize_alphanumeric_width_case: bool = True
     muted_comment_keywords: list[dict[str, str]] = []
     muted_niconico_user_ids: list[str] = []
     fold_panel_after_sending_tweet: bool = False
