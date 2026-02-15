@@ -138,7 +138,8 @@ async def DecodeEDCBReserveData(
                 ini_text = bitrate_ini_data.decode('shift_jis', errors='ignore')
 
             # ConfigParser で解析
-            config = configparser.ConfigParser()
+            ## interpolation=None を指定して補間を無効化する (値に % が含まれている場合の安全策)
+            config = configparser.ConfigParser(interpolation=None)
             config.read_string(ini_text)
 
             # BITRATE セクションからビットレート情報を取得してキャッシュに保存
