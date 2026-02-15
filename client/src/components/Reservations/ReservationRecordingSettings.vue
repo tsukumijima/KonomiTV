@@ -238,6 +238,7 @@
 </template>
 <script lang="ts" setup>
 
+import { objectHash } from 'ohash';
 import { ref, computed, watch, onMounted, toRaw } from 'vue';
 
 import { type IReservation, type IRecordSettings, type IRecordSettingsPresets } from '@/services/Reservations';
@@ -401,13 +402,24 @@ const postRecordingOptions = computed(() => {
 });
 
 // 変更があるかどうかを計算
+// ohash を使ってオブジェクトのハッシュ値を比較することで、より信頼性の高い変更検知を実現
 const hasChangesComputed = computed(() => {
-    return JSON.stringify(settings.value) !== JSON.stringify(initialSettings.value);
+    return objectHash(settings.value) !== objectHash(initialSettings.value);
 });
 
 // 変更を監視
 watch(hasChangesComputed, (newValue) => {
     emit('changesDetected', newValue);
+});
+
+// 保存後に initialSettings を更新（親から hasChanges が false になったことを監視）
+// これにより、保存後は保存した状態が新しい基準となり、その状態からの差分で変更検知が行われる
+watch(() => props.hasChanges, (newValue, oldValue) => {
+    // hasChanges が true から false に変わったとき（保存完了時）
+    if (oldValue === true && newValue === false) {
+        // 現在の設定を新しい初期設定として保存
+        initialSettings.value = structuredClone(toRaw(settings.value));
+    }
 });
 
 // 変更時の処理（settings.value の変更を親に通知）
