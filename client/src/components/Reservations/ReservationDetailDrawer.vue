@@ -65,6 +65,7 @@
             <div v-if="activeTab === 'settings' && reservation" class="reservation-detail-drawer__settings">
                 <ReservationRecordingSettings
                     :reservation="reservation"
+                    :presets="presets"
                     :has-changes="hasChanges"
                     @update-settings="handleUpdateSettings"
                     @changes-detected="hasChanges = $event" />
@@ -191,7 +192,7 @@ import ReservationRecordingSettings from '@/components/Reservations/ReservationR
 import Message from '@/message';
 import { type IChannel } from '@/services/Channels';
 import { type IProgram } from '@/services/Programs';
-import Reservations, { type IReservation, type IRecordSettings } from '@/services/Reservations';
+import Reservations, { type IReservation, type IRecordSettings, type IRecordSettingsPresets } from '@/services/Reservations';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import { ProgramUtils } from '@/utils';
 
@@ -248,6 +249,9 @@ const showDeleteDialog = ref(false);
 // 閉じる確認ダイアログの表示状態
 const showCloseConfirmDialog = ref(false);
 
+// 録画設定プリセット一覧 (EDCB バックエンド時のみ取得される)
+const presets = ref<IRecordSettingsPresets | null>(null);
+
 // 予約があるかどうか (null でなければ予約がある)
 // ただし id === -1 の場合は mock の予約なので、実際には予約がない状態
 const hasReservation = computed(() => props.reservation !== null);
@@ -298,9 +302,13 @@ const isPartialRecording = computed(() => recordingAvailability.value === 'Parti
 // チューナー不足（録画不可）
 const isUnavailableRecording = computed(() => recordingAvailability.value === 'Unavailable');
 
-// サーバー設定を取得
+// サーバー設定を取得し、EDCB バックエンドの場合は録画設定プリセットも取得する
 onMounted(async () => {
     await serverSettingsStore.fetchServerSettingsOnce();
+    // EDCB バックエンドの場合のみプリセットを取得
+    if (isEDCBBackend.value) {
+        presets.value = await Reservations.fetchRecordingPresets();
+    }
 });
 
 // ドロワーが開かれた時の処理

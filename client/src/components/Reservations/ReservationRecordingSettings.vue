@@ -8,6 +8,26 @@
             </span>
         </div>
 
+        <!-- 録画設定プリセット選択（プリセットが2つ以上ある場合のみ表示） -->
+        <div v-if="presets !== null && presets.presets.length >= 2" class="reservation-recording-settings__section">
+            <div class="reservation-recording-settings__label">録画設定プリセット</div>
+            <div class="reservation-recording-settings__description">
+                EDCB の録画設定プリセットから設定値を読み込みます。プリセットの追加・変更・削除は EpgTimer から行ってください。
+            </div>
+            <v-select
+                :disabled="reservation.is_recording_in_progress"
+                v-model="selectedPresetId"
+                :items="presetOptions"
+                item-title="title"
+                item-value="value"
+                color="primary"
+                variant="outlined"
+                density="compact"
+                hide-details
+                @update:model-value="handlePresetChange">
+            </v-select>
+        </div>
+
         <!-- 録画予約の有効/無効 -->
         <div class="reservation-recording-settings__section">
             <div class="reservation-recording-settings__header">
@@ -108,7 +128,7 @@
                 </v-checkbox>
                 <label class="reservation-recording-settings__margin-default-text" for="use-default-margin"
                     style="user-select: none;">
-                    デフォルト設定を使う
+                    {{ marginDefaultLabel }}
                 </label>
             </div>
             <div class="reservation-recording-settings__margin-controls">
@@ -220,12 +240,13 @@
 
 import { ref, computed, watch, onMounted, toRaw } from 'vue';
 
-import { type IReservation, type IRecordSettings } from '@/services/Reservations';
+import { type IReservation, type IRecordSettings, type IRecordSettingsPresets } from '@/services/Reservations';
 import useVersionStore from '@/stores/VersionStore';
 
 // Props
 const props = defineProps<{
     reservation: IReservation;
+    presets: IRecordSettingsPresets | null;
     hasChanges: boolean;
 }>();
 
@@ -294,30 +315,90 @@ const useDefaultMargin = ref(
     settings.value.recording_start_margin === null && settings.value.recording_end_margin === null
 );
 
+// プリセット一覧のプルダウン選択肢
+// プリセットが2つ以上ある場合のみ表示される
+const presetOptions = computed(() => {
+    if (props.presets === null) return [];
+    return props.presets.presets.map(preset => ({
+        title: preset.name,
+        value: preset.id,
+    }));
+});
+
+// 現在選択中のプリセット ID
+const selectedPresetId = ref<number | null>(null);
+
+// プリセットの選択が変更された時の処理
+// フォーム全体をプリセットの録画設定値でリセットする
+const handlePresetChange = (presetId: number) => {
+    if (props.presets === null) return;
+    const preset = props.presets.presets.find(p => p.id === presetId);
+    if (!preset) return;
+
+    // プリセットの録画設定をフォームに反映
+    settings.value = structuredClone(toRaw(preset.record_settings));
+    // デフォルトマージン使用フラグも再計算
+    useDefaultMargin.value = (
+        settings.value.recording_start_margin === null && settings.value.recording_end_margin === null
+    );
+    handleChange();
+};
+
+// 録画後動作モードの日本語ラベルマッピング
+const postRecordingModeLabels: Record<string, string> = {
+    'Nothing': '何もしない',
+    'Standby': 'スタンバイ',
+    'StandbyAndReboot': 'スタンバイ(復帰後再起動)',
+    'Suspend': 'サスペンド',
+    'SuspendAndReboot': 'サスペンド(復帰後再起動)',
+    'Shutdown': 'シャットダウン',
+};
+
 // 字幕録画のオプション
-const captionRecordingOptions = [
-    { title: 'デフォルト設定を使う', value: 'Default' },
-    { title: '録画する', value: 'Enable' },
-    { title: '録画しない', value: 'Disable' },
-];
+// グローバルデフォルト値が取得できている場合は括弧書きで実際の値を表示
+const captionRecordingOptions = computed(() => {
+    const globalDefaults = props.presets?.global_defaults;
+    const defaultLabel = globalDefaults
+        ? `デフォルト設定を使う (${globalDefaults.caption_recording_mode === 'Enable' ? '録画する' : '録画しない'})`
+        : 'デフォルト設定を使う';
+    return [
+        { title: defaultLabel, value: 'Default' },
+        { title: '録画する', value: 'Enable' },
+        { title: '録画しない', value: 'Disable' },
+    ];
+});
 
 // データ放送録画のオプション
-const dataBroadcastingRecordingOptions = [
-    { title: 'デフォルト設定を使う', value: 'Default' },
-    { title: '録画する', value: 'Enable' },
-    { title: '録画しない', value: 'Disable' },
-];
+// グローバルデフォルト値が取得できている場合は括弧書きで実際の値を表示
+const dataBroadcastingRecordingOptions = computed(() => {
+    const globalDefaults = props.presets?.global_defaults;
+    const defaultLabel = globalDefaults
+        ? `デフォルト設定を使う (${globalDefaults.data_broadcasting_recording_mode === 'Enable' ? '録画する' : '録画しない'})`
+        : 'デフォルト設定を使う';
+    return [
+        { title: defaultLabel, value: 'Default' },
+        { title: '録画する', value: 'Enable' },
+        { title: '録画しない', value: 'Disable' },
+    ];
+});
 
 // 録画後動作のオプション
-const postRecordingOptions = [
-    { title: 'デフォルト設定を使う', value: 'Default' },
-    { title: '何もしない', value: 'Nothing' },
-    { title: 'スタンバイ', value: 'Standby' },
-    { title: 'スタンバイ(復帰後再起動)', value: 'StandbyAndReboot' },
-    { title: 'サスペンド', value: 'Suspend' },
-    { title: 'サスペンド(復帰後再起動)', value: 'SuspendAndReboot' },
-    { title: 'シャットダウン', value: 'Shutdown' },
-];
+// グローバルデフォルト値が取得できている場合は括弧書きで実際の値を表示
+const postRecordingOptions = computed(() => {
+    const globalDefaults = props.presets?.global_defaults;
+    const defaultLabel = globalDefaults
+        ? `デフォルト設定を使う (${postRecordingModeLabels[globalDefaults.post_recording_mode] ?? globalDefaults.post_recording_mode})`
+        : 'デフォルト設定を使う';
+    return [
+        { title: defaultLabel, value: 'Default' },
+        { title: '何もしない', value: 'Nothing' },
+        { title: 'スタンバイ', value: 'Standby' },
+        { title: 'スタンバイ(復帰後再起動)', value: 'StandbyAndReboot' },
+        { title: 'サスペンド', value: 'Suspend' },
+        { title: 'サスペンド(復帰後再起動)', value: 'SuspendAndReboot' },
+        { title: 'シャットダウン', value: 'Shutdown' },
+    ];
+});
 
 // 変更があるかどうかを計算
 const hasChangesComputed = computed(() => {
@@ -334,14 +415,27 @@ const handleChange = () => {
     emit('updateSettings', settings.value);
 };
 
+// マージンの「デフォルト設定を使う」ラベル
+// グローバルデフォルト値が取得できている場合は括弧書きで実際の値を表示
+const marginDefaultLabel = computed(() => {
+    const globalDefaults = props.presets?.global_defaults;
+    if (globalDefaults) {
+        return `デフォルト設定を使う (開始 ${globalDefaults.recording_start_margin} 秒前 / 終了 ${globalDefaults.recording_end_margin} 秒後)`;
+    }
+    return 'デフォルト設定を使う';
+});
+
 // マージンデフォルト設定の変更
+// デフォルト → カスタムに切り替えた際は、グローバルデフォルト値を初期値として設定する
 const handleMarginDefaultChange = () => {
     if (useDefaultMargin.value) {
         settings.value.recording_start_margin = null;
         settings.value.recording_end_margin = null;
     } else {
-        settings.value.recording_start_margin = 10;
-        settings.value.recording_end_margin = 5;
+        // グローバルデフォルト値が取得できている場合はその値を使い、取得できていない場合はフォールバック値を使う
+        const globalDefaults = props.presets?.global_defaults;
+        settings.value.recording_start_margin = globalDefaults?.recording_start_margin ?? 5;
+        settings.value.recording_end_margin = globalDefaults?.recording_end_margin ?? 2;
     }
     handleChange();
 };
@@ -351,6 +445,12 @@ watch(() => props.reservation, (newReservation) => {
     settings.value = structuredClone(toRaw(newReservation.record_settings));
     initialSettings.value = structuredClone(toRaw(newReservation.record_settings));
     // フォルダパス等は computed で自動的に更新される
+    // プリセット選択状態とデフォルトマージン使用フラグもリセット
+    selectedPresetId.value = null;
+    useDefaultMargin.value = (
+        newReservation.record_settings.recording_start_margin === null &&
+        newReservation.record_settings.recording_end_margin === null
+    );
 }, { deep: true });
 
 // コンポーネントマウント時にバージョン情報を取得

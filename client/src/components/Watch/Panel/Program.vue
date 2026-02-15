@@ -128,7 +128,7 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import Message from '@/message';
-import Reservations, { IRecordSettingsDefault, IReservation } from '@/services/Reservations';
+import Reservations, { IReservation } from '@/services/Reservations';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
@@ -308,7 +308,8 @@ export default defineComponent({
             }
             this.is_starting_recording = true;
             try {
-                const result = await Reservations.addReservation(programPresent.id, IRecordSettingsDefault);
+                const defaultSettings = await Reservations.fetchDefaultRecordSettings();
+                const result = await Reservations.addReservation(programPresent.id, defaultSettings);
                 // 予約状態を再チェックして UI を更新
                 // 予約追加に失敗した場合も、外部で既に予約済みの可能性があるため状態を再取得する
                 await this.checkReservationStatus();
