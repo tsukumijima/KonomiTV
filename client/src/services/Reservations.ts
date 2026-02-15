@@ -73,8 +73,37 @@ export interface IReservationUpdateRequest {
 }
 
 /**
- * 録画設定のデフォルト値
- * 新規予約追加時に使用する
+ * 録画設定プリセット一覧 API のレスポンス
+ */
+export interface IRecordSettingsPresets {
+    global_defaults: IRecordSettingsGlobalDefaults;
+    presets: IRecordSettingsPreset[];
+}
+
+/**
+ * 録画設定プリセット
+ */
+export interface IRecordSettingsPreset {
+    id: number;
+    name: string;
+    record_settings: IRecordSettings;
+}
+
+/**
+ * 録画設定のグローバルデフォルト値
+ * EpgTimerSrv.ini の [SET] セクションから取得した、各設定の「デフォルト設定を使う」選択時に適用される実際の値
+ */
+export interface IRecordSettingsGlobalDefaults {
+    recording_start_margin: number;
+    recording_end_margin: number;
+    caption_recording_mode: 'Enable' | 'Disable';
+    data_broadcasting_recording_mode: 'Enable' | 'Disable';
+    post_recording_mode: 'Nothing' | 'Standby' | 'StandbyAndReboot' | 'Suspend' | 'SuspendAndReboot' | 'Shutdown';
+}
+
+/**
+ * 録画設定のデフォルト値 (フォールバック用)
+ * プリセット API の取得に失敗した場合に使用する
  */
 export const IRecordSettingsDefault: IRecordSettings = {
     is_enabled: true,
@@ -99,6 +128,7 @@ export const IRecordSettingsDefault: IRecordSettings = {
  * 録画予約に関する API 操作を提供するクラス
  */
 class Reservations {
+
     /**
      * すべての録画予約の情報を取得する
      * @returns 録画予約情報のリスト、取得失敗時は null
@@ -232,6 +262,41 @@ class Reservations {
         }
 
         return true;
+    }
+
+    /**
+     * 録画設定プリセット一覧を取得する
+     * EpgTimerSrv.ini から録画設定プリセットとグローバルデフォルト値を返す
+     * @returns 録画設定プリセット一覧、取得失敗時は null
+     */
+    static async fetchRecordingPresets(): Promise<IRecordSettingsPresets | null> {
+        const response = await APIClient.get<IRecordSettingsPresets>('/recording/presets');
+
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画設定プリセット一覧の取得に失敗しました。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+    /**
+     * デフォルトの録画設定を取得する
+     * プリセット API から ID=0 のデフォルトプリセットを取得し、失敗時は IRecordSettingsDefault にフォールバックする
+     * @returns デフォルトの録画設定
+     */
+    static async fetchDefaultRecordSettings(): Promise<IRecordSettings> {
+        const presets = await Reservations.fetchRecordingPresets();
+        if (presets !== null) {
+            // ID=0 のデフォルトプリセットを探す
+            const defaultPreset = presets.presets.find(preset => preset.id === 0);
+            if (defaultPreset) {
+                return defaultPreset.record_settings;
+            }
+        }
+
+        // プリセット API の取得に失敗した場合はハードコードされたデフォルト値にフォールバック
+        return structuredClone(IRecordSettingsDefault);
     }
 }
 
