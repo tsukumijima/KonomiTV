@@ -158,6 +158,9 @@ server/static/interlaced_*
 # thirdparty
 server/thirdparty/*
 
+# encoder coredup
+server/core.*
+
 # subproject
 /EDCB/
 
