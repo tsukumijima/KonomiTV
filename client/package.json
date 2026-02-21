@@ -36,7 +36,7 @@
         "pinia": "^2.2.2",
         "pwa-install-handler": "^2.6.0",
         "seamless-scroll-polyfill": "^2.3.4",
-        "swiper": "^11.1.11",
+        "swiper": "^12.1.2",
         "tslib": "^2.7.0",
         "virtua": "^0.39.3",
         "vue": "^3.4.38",
