@@ -140,8 +140,12 @@ def Updater(version: str) -> None:
     # Python の実行ファイルのパス (Windows と Linux で異なる)
     ## Linux-Docker では利用されない
     python_executable_path = ''
+    venv_python_executable_path: str | Path = ''
     if platform_type == 'Windows':
         python_executable_path = update_path / 'server/thirdparty/Python/python.exe'
+        # Windows サービス管理スクリプトは Poetry 経由ではなく、仮想環境の Python 実行ファイルを直接実行する
+        ## Poetry 経由だと Windows で shell 解釈の影響を受け、引数中の記号が崩れる可能性がある
+        venv_python_executable_path = update_path / 'server/.venv/Scripts/python.exe'
     elif platform_type == 'Linux':
         python_executable_path = update_path / 'server/thirdparty/Python/bin/python'
 
@@ -155,7 +159,7 @@ def Updater(version: str) -> None:
         progress.add_task('', total=None)
         with progress:
             service_stop_result = subprocess.run(
-                args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'stop'],
+                args = [venv_python_executable_path, 'KonomiTV-Service.py', 'stop'],
                 cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
@@ -454,7 +458,7 @@ def Updater(version: str) -> None:
         progress.add_task('', total=None)
         with progress:
             service_start_result = subprocess.run(
-                args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'start'],
+                args = [venv_python_executable_path, 'KonomiTV-Service.py', 'start'],
                 cwd = update_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                 stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない

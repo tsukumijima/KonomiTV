@@ -1003,6 +1003,10 @@ def Installer(version: str) -> None:
 
     if platform_type == 'Windows':
 
+        # Windows サービス管理スクリプトは Poetry 経由ではなく、仮想環境の Python 実行ファイルを直接実行する
+        ## Poetry 経由だと Windows で shell 解釈の影響を受け、パスワード中の記号が崩れる可能性がある
+        venv_python_executable_path = install_path / 'server/.venv/Scripts/python.exe'
+
         # 現在ログオン中のユーザー名を取得
         ## PowerShell の [Environment]::UserName を使う
         current_user_name_default = subprocess.run(
@@ -1059,7 +1063,7 @@ def Installer(version: str) -> None:
             with progress:
                 service_install_result = subprocess.run(
                     args = [
-                        python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'install',
+                        venv_python_executable_path, 'KonomiTV-Service.py', 'install',
                         '--username', current_user_name, '--password', current_user_password,
                     ],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
@@ -1082,7 +1086,7 @@ def Installer(version: str) -> None:
             progress.add_task('', total=None)
             with progress:
                 service_start_result = subprocess.run(
-                    args = [python_executable_path, '-m', 'poetry', 'run', 'python', 'KonomiTV-Service.py', 'start'],
+                    args = [venv_python_executable_path, 'KonomiTV-Service.py', 'start'],
                     cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
                     stdout = subprocess.PIPE,  # 標準出力をキャプチャする
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
