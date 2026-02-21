@@ -125,17 +125,10 @@ async def DecodeEDCBReserveData(
                 logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty.')
                 return 19456
 
-            # バイナリデータを文字列に変換 (UTF-16 BOM つきまたは UTF-8)
-            try:
-                # UTF-16 BOM つきの場合
-                if bitrate_ini_data.startswith(b'\xff\xfe'):
-                    ini_text = bitrate_ini_data.decode('utf-16')
-                else:
-                    # UTF-8 として試行
-                    ini_text = bitrate_ini_data.decode('utf-8')
-            except UnicodeDecodeError:
-                # システムデフォルトエンコーディングで試行
-                ini_text = bitrate_ini_data.decode('shift_jis', errors='ignore')
+            # バイナリデータを文字列に変換
+            ## Linux 版 EDCB では UTF-8 (BOM なし) で返る場合があるため、
+            ## EDCBUtil 側の BOM 判定 + UTF-8 優先 + 既定エンコーディングフォールバックに統一する
+            ini_text = EDCBUtil.convertBytesToString(bitrate_ini_data)
 
             # ConfigParser で解析
             ## interpolation=None を指定して補間を無効化する (値に % が含まれている場合の安全策)

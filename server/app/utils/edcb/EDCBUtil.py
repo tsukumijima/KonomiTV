@@ -56,6 +56,9 @@ class EDCBUtil:
         現在の EDCB (EpgTimerSrv) の動作ステータスを取得する
         Unknown が返る場合はおそらく EpgTimerSrv が起動していない
 
+        Args:
+            edcb_url (Url | None): EDCB の接続先 URL (指定されなかった場合は Config().general.edcb_url から取得する)
+
         Returns:
             Literal['Normal', 'Recording', 'EPGGathering', 'Unknown']: EDCB (EpgTimerSrv) の動作ステータス
         """
@@ -79,7 +82,19 @@ class EDCBUtil:
 
     @staticmethod
     def convertBytesToString(buffer: bytes | bytearray | memoryview, default_encoding: str = 'cp932') -> str:
-        """ BOM に基づいて Bytes データを文字列に変換する """
+        """
+        BOM と文字列内容に基づいて Bytes データを文字列に変換する
+
+        BOM がない場合は UTF-8 (strict) を優先し、失敗時のみ既定エンコーディングでデコードする。
+        Linux 環境の EDCB は UTF-8 (BOM なし) で ini を返すケースがあるため、そのケースを吸収する。
+
+        Args:
+            buffer (bytes | bytearray | memoryview): 文字列化対象のバイナリデータ
+            default_encoding (str): UTF-8 判定に失敗した場合に利用するフォールバックエンコーディング
+
+        Returns:
+            str: デコードされた文字列
+        """
         if len(buffer) == 0:
             return ''
         elif len(buffer) >= 2 and buffer[0] == 0xff and buffer[1] == 0xfe:
@@ -87,11 +102,22 @@ class EDCBUtil:
         elif len(buffer) >= 3 and buffer[0] == 0xef and buffer[1] == 0xbb and buffer[2] == 0xbf:
             return str(memoryview(buffer)[3:], 'utf_8', 'replace')
         else:
-            return str(buffer, default_encoding, 'replace')
+            try:
+                return str(buffer, 'utf_8', 'strict')
+            except UnicodeDecodeError:
+                return str(buffer, default_encoding, 'replace')
 
     @staticmethod
     def parseChSet5(chset5_txt: str) -> list[ChSet5Item]:
-        """ ChSet5.txt を解析する """
+        """
+        ChSet5.txt を解析する
+
+        Args:
+            chset5_txt (str): ChSet5.txt のテキスト内容
+
+        Returns:
+            list[ChSet5Item]: サービス情報のリスト
+        """
         result: list[ChSet5Item] = []
         for line in chset5_txt.splitlines():
             field = line.split('\t')
@@ -118,7 +144,17 @@ class EDCBUtil:
 
     @staticmethod
     def getLogoIDFromLogoDataIni(logo_data_ini: str, network_id: int, service_id: int) -> int:
-        """ LogoData.ini をもとにロゴ識別を取得する。失敗のとき負値を返す """
+        """
+        LogoData.ini をもとにロゴ識別を取得する
+
+        Args:
+            logo_data_ini (str): LogoData.ini のテキスト内容
+            network_id (int): ネットワーク ID
+            service_id (int): サービス ID
+
+        Returns:
+            int: ロゴ識別 ID (取得できなかった場合は負値)
+        """
         target = f'{network_id:04X}{service_id:04X}'
         for line in logo_data_ini.splitlines():
             key_value = line.split('=', 1)
@@ -131,7 +167,18 @@ class EDCBUtil:
 
     @staticmethod
     def getLogoFileNameFromDirectoryIndex(logo_dir_index: str, network_id: int, logo_id: int, logo_type: int) -> str | None:
-        """ ファイルリストをもとにロゴファイル名を取得する """
+        """
+        ファイルリストをもとにロゴファイル名を取得する
+
+        Args:
+            logo_dir_index (str): LogoData ディレクトリのインデックス内容
+            network_id (int): ネットワーク ID
+            logo_id (int): ロゴ識別 ID
+            logo_type (int): ロゴ種別
+
+        Returns:
+            str | None: ロゴファイル名 (見つからなかった場合は None)
+        """
         target = f'{network_id:04X}_{logo_id:03X}_'
         target_type = f'_{logo_type:02d}.'
         for line in logo_dir_index.splitlines():
@@ -144,7 +191,15 @@ class EDCBUtil:
 
     @staticmethod
     def parseProgramExtendedText(extended_text: str) -> dict[str, str]:
-        """ 詳細情報テキストを解析して項目ごとの辞書を返す """
+        """
+        詳細情報テキストを解析して項目ごとの辞書を返す
+
+        Args:
+            extended_text (str): EDCB の番組詳細テキスト
+
+        Returns:
+            dict[str, str]: 見出しをキー、本文を値とする辞書
+        """
         extended_text = extended_text.replace('\r', '')
         result: dict[str, str] = {}
         head = ''
@@ -176,7 +231,16 @@ class EDCBUtil:
 
     @staticmethod
     def datetimeToFileTime(dt: datetime.datetime, tz: datetime.timezone = datetime.UTC) -> int:
-        """ FILETIME 時間 (1601 年からの 100 ナノ秒時刻) に変換する """
+        """
+        FILETIME 時間 (1601 年からの 100 ナノ秒時刻) に変換する
+
+        Args:
+            dt (datetime.datetime): 変換対象の日時
+            tz (datetime.timezone): FILETIME へ変換する際の固定オフセットタイムゾーン
+
+        Returns:
+            int: FILETIME 値
+        """
         # 注意: tz には datetime.timezone (固定オフセット) のみ指定可能
         ## ZoneInfo は utcoffset(None) が None を返すため、ここで AttributeError になる
         ## ZoneInfo を使いたい場合は utcoffset() に datetime インスタンスを渡す実装への変更が必要
@@ -184,7 +248,16 @@ class EDCBUtil:
 
     @staticmethod
     async def openViewStream(process_id: int, timeout_sec: float = 10.0) -> tuple[asyncio.StreamReader, asyncio.StreamWriter] | None:
-        """ View アプリの SrvPipe ストリームの転送を開始する """
+        """
+        View アプリの SrvPipe ストリームの転送を開始する
+
+        Args:
+            process_id (int): 対象 View プロセス ID
+            timeout_sec (float): 接続試行のタイムアウト秒数
+
+        Returns:
+            tuple[asyncio.StreamReader, asyncio.StreamWriter] | None: ストリーム接続 (取得できなかった場合は None)
+        """
         edcb = CtrlCmdUtil()
         edcb.setConnectTimeOutSec(timeout_sec)
         to = time.monotonic() + timeout_sec
@@ -200,7 +273,18 @@ class EDCBUtil:
 
     @staticmethod
     async def openPipeStream(process_id: int, buffering: int = -1, timeout_sec: float = 10.0, dir: str | None = None) -> PipeStreamReader | None:
-        """ システムに存在する SrvPipe ストリームを開き、PipeStreamReader を返す """
+        """
+        システムに存在する SrvPipe ストリームを開き、PipeStreamReader を返す
+
+        Args:
+            process_id (int): 対象プロセス ID
+            buffering (int): open() に渡すバッファリング設定
+            timeout_sec (float): 接続試行のタイムアウト秒数
+            dir (str | None): FIFO / Named Pipe の探索先ディレクトリ (指定されなかった場合は既定パス)
+
+        Returns:
+            PipeStreamReader | None: オープンしたストリームリーダー (取得できなかった場合は None)
+        """
         to = time.monotonic() + timeout_sec
         wait = 0.1
         while time.monotonic() < to:
