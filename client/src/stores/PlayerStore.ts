@@ -78,7 +78,7 @@ const usePlayerStore = defineStore('player', {
 
         // 現在視聴中の録画番組の情報
         // 視聴中の録画番組がない場合は IRecordedProgramDefault を設定すべき (初期値も IRecordedProgramDefault にしている)
-        recorded_program: IRecordedProgramDefault as IRecordedProgram,
+        recorded_program: structuredClone(IRecordedProgramDefault) as IRecordedProgram,
 
         // 仮想キーボードが表示されているか
         // 既定で表示されていない想定
@@ -207,7 +207,7 @@ const usePlayerStore = defineStore('player', {
         reset(): void {
             this.is_watching = false;
             this.is_player_initialized = false;
-            this.recorded_program = IRecordedProgramDefault;
+            this.recorded_program = structuredClone(IRecordedProgramDefault);
             this.is_virtual_keyboard_display = false;
             this.is_fullscreen = false;
             this.is_document_pip = false;

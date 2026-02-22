@@ -411,8 +411,9 @@ export function getLocalStorageSettings(): {[key: string]: any} {
         return JSON.parse(settings);
     } else {
         // もし LocalStorage に KonomiTV-Settings キーがまだない場合、あらかじめデフォルトの設定値を保存しておく
-        setLocalStorageSettings(ILocalClientSettingsDefault);
-        return ILocalClientSettingsDefault;
+        const default_settings = structuredClone(ILocalClientSettingsDefault);
+        setLocalStorageSettings(default_settings);
+        return default_settings;
     }
 }
 
@@ -439,8 +440,9 @@ export function getNormalizedLocalClientSettings(settings: {[key: string]: any})
             normalized_settings[default_settings_key] = settings[default_settings_key];
         } else {
             // 後のバージョンで追加されたなどの理由で現状の KonomiTV-Settings に存在しない設定キーの場合
-            // その設定キーのデフォルト値を取得する
-            normalized_settings[default_settings_key] = ILocalClientSettingsDefault[default_settings_key];
+            // その設定キーのデフォルト値をディープコピーして取得する
+            // (配列などの参照型を直接代入すると ILocalClientSettingsDefault が汚染される恐れがあるため)
+            normalized_settings[default_settings_key] = structuredClone(ILocalClientSettingsDefault[default_settings_key]);
         }
     }
 
@@ -464,8 +466,9 @@ export function getSyncableClientSettings(settings: {[key: string]: any}): IClie
             syncable_settings[sync_settings_key as string] = settings[sync_settings_key];
         } else {
             // 後から追加された設定キーなどの理由で設定キーが現状の KonomiTV-Settings に存在しない場合
-            // その設定キーのデフォルト値を取得する
-            syncable_settings[sync_settings_key as string] = ILocalClientSettingsDefault[sync_settings_key];
+            // その設定キーのデフォルト値をディープコピーして取得する
+            // (配列などの参照型を直接代入すると ILocalClientSettingsDefault が汚染される恐れがあるため)
+            syncable_settings[sync_settings_key as string] = structuredClone(ILocalClientSettingsDefault[sync_settings_key]);
         }
     }
 
@@ -562,8 +565,9 @@ const useSettingsStore = defineStore('settings', {
         async resetClientSettings(): Promise<void> {
 
             // デフォルトの設定に現在設定の同期がオンになっているかだけ反映した設定データ
+            // structuredClone() でディープコピーし、配列やオブジェクト型プロパティの参照共有を防ぐ
             const default_settings_modified: ILocalClientSettings = {
-                ...ILocalClientSettingsDefault,
+                ...structuredClone(ILocalClientSettingsDefault),
                 sync_settings: this.settings.sync_settings,
             };
 

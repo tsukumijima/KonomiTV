@@ -63,9 +63,9 @@ const useChannelsStore = defineStore('channels', {
             // 初回のチャンネル情報更新がまだ実行されていない or 実行中のときは、情報取得中であることを示すダミーのチャンネル情報を返す
             if (this.is_channels_list_initial_updated === false) {
                 return {
-                    previous: ILiveChannelDefault,
-                    current: ILiveChannelDefault,
-                    next: ILiveChannelDefault,
+                    previous: structuredClone(ILiveChannelDefault),
+                    current: structuredClone(ILiveChannelDefault),
+                    next: structuredClone(ILiveChannelDefault),
                 };
             }
 
