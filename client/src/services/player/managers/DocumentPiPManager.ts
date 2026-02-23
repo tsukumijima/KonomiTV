@@ -143,7 +143,7 @@ class DocumentPiPManager implements PlayerManager {
             pip_window.document.body.classList.add('watch-container--fullscreen');
 
             // player_store.is_control_display が変更された時に .watch-container--control-display クラスを追加・削除する
-            watch(() => player_store.is_control_display, (value) => {
+            const stop_control_display_watcher = watch(() => player_store.is_control_display, (value) => {
                 if (value) {
                     pip_window.document.body.classList.add('watch-container--control-display');
                 } else {
@@ -199,6 +199,8 @@ class DocumentPiPManager implements PlayerManager {
             // すでに登録されている場合は上書きされる
             pip_window.onpagehide = async () => {
                 player_store.is_document_pip = false;
+                // is_control_display の watcher を停止
+                stop_control_display_watcher();
                 // キーボードショートカットを削除
                 keyboard_shortcut_manager.destroy();  // 完了を待たない
                 // メインウインドウ側の「ピクチャー イン ピクチャーを再生しています」テキストを削除

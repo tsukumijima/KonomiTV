@@ -401,7 +401,9 @@ const useChannelsStore = defineStore('channels', {
 
                 // ただし、最終更新日時が1分以上前の場合は非同期で更新する
                 if (Utils.time() - this.last_updated_at > 60) {
-                    update();
+                    update().catch((error) => {
+                        console.error('[ChannelsStore] Background update failed:', error);
+                    });
                 }
 
                 return;
