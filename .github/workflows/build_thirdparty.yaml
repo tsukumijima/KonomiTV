@@ -41,6 +41,13 @@ env:
   NVENCC_VERSION: '9.10'
   VCEENCC_VERSION: '9.01'  # ドライバのバージョン要件が上げられているので当面 9.01 で固定
   RKMPPENC_VERSION: '0.17'
+  # QSVEncC 向け Intel Media Stack の固定バージョン
+  ## 正常動作する各ライブラリの組み合わせを固定することで、master 追従による互換性破壊を防ぐ
+  ## Intel Media Driver のみクラッシュ修正を含むフォークブランチを利用している（ジョブ内でハードコード）
+  INTEL_GMMLIB_TAG: 'intel-gmmlib-22.9.0'
+  INTEL_LIBVA_TAG: '2.23.0'
+  INTEL_ONEVPL_TAG: 'v2.16.0'
+  INTEL_ONEVPL_GPU_TAG: 'intel-onevpl-26.1.2'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
@@ -298,7 +305,7 @@ jobs:
           chmod a+x ../thirdparty/Akebi/akebi-https-server.elf
           cp License.txt ../thirdparty/Akebi/
 
-      # FFmpeg・QSVEncC・NVEncC・VCEEncC のアーカイブのダウンロードと配置
+      # FFmpeg・QSVEncC・NVEncC・VCEEncC のアーカイブのダウンロードと配置 (x64 のみ)
       # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
       - name: Download and Deploy Encoder Archives (for x64)
         if: matrix.arch == 'amd64'
@@ -336,13 +343,121 @@ jobs:
           cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g'
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
+
+          # QSVEncC が依存する Intel Media Stack を Ubuntu 20.04 ベースで自前ビルドして同梱
+          ## 依存ライブラリの世代差異を吸収するため、gmmlib/libva/media-driver/oneVPL/oneVPL-intel-gpu を同一時点で揃える
+          ## ビルド順序には依存関係があるため、下記の順番を維持する必要がある
+          ## - media-driver は gmmlib と libva の両方に依存し、どちらかが未インストールだと configure に失敗する
+          ## - oneVPL-intel-gpu は oneVPL のヘッダ・ABI を前提にビルドされる
+          ## 将来のメンテナンス時に順序を入れ替える場合は、各プロジェクトの依存関係を再確認すること
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c '
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends \
+              ca-certificates git curl pkg-config build-essential ninja-build cmake meson python3 python3-setuptools python3-pip \
+              libdrm-dev libx11-dev libxext-dev libxfixes-dev libxrandr-dev libxrender-dev libxinerama-dev libxcursor-dev libxi-dev \
+              wayland-protocols libwayland-dev libwayland-egl-backend-dev libffi-dev libglib2.0-dev libpciaccess-dev libudev-dev libtbb-dev
+
+            mkdir -p intel-media-stack/src intel-media-stack/prefix
+            cd intel-media-stack/src
+
+            # gmmlib
+            git clone --depth=1 --branch "${{ env.INTEL_GMMLIB_TAG }}" https://github.com/intel/gmmlib.git
+            cmake -S gmmlib -B gmmlib/build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix
+            ninja -C gmmlib/build -j"$(nproc)"
+            ninja -C gmmlib/build install
+
+            # libva
+            git clone --depth=1 --branch "${{ env.INTEL_LIBVA_TAG }}" https://github.com/intel/libva.git
+            meson setup libva/build libva --buildtype=release \
+              --prefix=/work/intel-media-stack/prefix \
+              --libdir=lib/x86_64-linux-gnu \
+              -Dwith_x11=no \
+              -Dwith_wayland=no \
+              -Dwith_glx=no \
+              -Ddisable_drm=false
+            ninja -C libva/build -j"$(nproc)"
+            ninja -C libva/build install
+
+            # media-driver (patched fork branch)
+            ## ref: https://github.com/intel/media-driver/pull/1988
+            git clone --depth=1 --branch "fix/vp-vebox-30p-di-surface-config-crash" "https://github.com/tsukumijima/media-driver.git" media-driver
+            export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
+            cmake -S media-driver -B media-driver/build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+              -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
+              -DBS_DIR_GMMLIB=/work/intel-media-stack/src/gmmlib \
+              -DBUILD_CMRTLIB=ON \
+              -DARL=ON \
+              -DBMG=ON \
+              -DNVL=OFF
+            ninja -C media-driver/build -j"$(nproc)"
+            ninja -C media-driver/build install
+
+            # oneVPL dispatcher
+            git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_TAG }}" https://github.com/oneapi-src/oneVPL.git
+            cmake -S oneVPL -B oneVPL/build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+              -DBUILD_SHARED_LIBS=ON \
+              -DBUILD_TESTS=OFF \
+              -DBUILD_EXAMPLES=OFF
+            ninja -C oneVPL/build -j"$(nproc)"
+            ninja -C oneVPL/build install
+
+            # oneVPL-intel-gpu (libmfx-gen runtime)
+            git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_GPU_TAG }}" https://github.com/oneapi-src/oneVPL-intel-gpu.git
+            export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
+            cmake -S oneVPL-intel-gpu -B oneVPL-intel-gpu/build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+              -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
+              -DMFX_HOME=/work/intel-media-stack/src/oneVPL-intel-gpu \
+              -DBUILD_RUNTIME=ON \
+              -DBUILD_TOOLS=OFF \
+              -DBUILD_TESTS=OFF \
+              -DBUILD_TUTORIALS=OFF \
+              -DENABLE_OPENCL=OFF
+            ninja -C oneVPL-intel-gpu/build -j"$(nproc)"
+            ninja -C oneVPL-intel-gpu/build install
+
+            # 成果物を thirdparty/Library にコピー
+            mkdir -p /work/thirdparty/Library/dri
+            mkdir -p /work/thirdparty/Library/libmfx-gen
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libigdgmm.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libva.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libva-drm.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libvpl.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libigfxcmrt.so* /work/thirdparty/Library/
+            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/dri/iHD_drv_video.so /work/thirdparty/Library/dri/
+            # iHD_drv_video.so / libigdgmm.so はデバッグシンボルを含むとファイルサイズが大きくなるため、同梱前に削減する
+            ## strip --strip-debug は動的シンボルを保持したままデバッグ情報のみを除去できる
+            strip --strip-debug /work/thirdparty/Library/libigdgmm.so*
+            strip --strip-debug /work/thirdparty/Library/dri/iHD_drv_video.so
+            if [ -d /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen ]; then
+              cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen/* /work/thirdparty/Library/libmfx-gen/
+            fi
+            # root 所有で残ると後続の patchelf で書き換えできないため、所有者を戻す
+            OWNER_UID_GID="$(stat -c "%u:%g" /work)"
+            chown -R "$OWNER_UID_GID" /work/thirdparty/Library /work/intel-media-stack
+          '
+
           cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
           cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/usr/
           rm -rf thirdparty/Library/pkgconfig
-          find thirdparty/Library/*.so* -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' $fn; done
-          find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
+          find thirdparty/Library -name '*.so*' -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' $fn; done
+          find thirdparty/Library -name '*.so*' -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
           curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb
@@ -379,7 +494,7 @@ jobs:
           rm -rf lib/
           chmod a+x thirdparty/Library/libmediainfo.so*
 
-      # FFmpeg・rkmppenc のアーカイブのダウンロードと配置
+      # FFmpeg・rkmppenc のアーカイブのダウンロードと配置 (arm64 のみ)
       # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
       - name: Download and Deploy Encoder Archives (for arm64)
         if: matrix.arch == 'arm64'
