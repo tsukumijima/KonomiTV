@@ -392,6 +392,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
               -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+              -DLIBVA_DRIVERS_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/dri \
               -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
               -DBS_DIR_GMMLIB=/work/intel-media-stack/src/gmmlib \
               -DBUILD_CMRTLIB=ON \
