@@ -376,6 +376,7 @@ jobs:
             meson setup libva/build libva --buildtype=release \
               --prefix=/work/intel-media-stack/prefix \
               --libdir=lib/x86_64-linux-gnu \
+              -Ddriverdir='$ORIGIN/../Library/dri' \
               -Dwith_x11=no \
               -Dwith_wayland=no \
               -Dwith_glx=no \
