@@ -242,6 +242,15 @@ jobs:
       - name: Create Thirdparty Folder
         run: mkdir thirdparty/
 
+      # Intel Media Stack ビルド成果物のキャッシュを復元 (x64 のみ)
+      # 同一バージョン構成であれば再ビルドを省略し、CI 時間を短縮する
+      - name: Restore Intel Media Stack Build Cache (for x64)
+        if: matrix.arch == 'amd64'
+        uses: actions/cache@v4
+        with:
+          path: intel-media-stack/prefix
+          key: intel-media-stack-${{ matrix.arch }}-${{ env.INTEL_GMMLIB_TAG }}-${{ env.INTEL_LIBVA_TAG }}-${{ env.INTEL_ONEVPL_TAG }}-${{ env.INTEL_ONEVPL_GPU_TAG }}-media-driver-fix-vp-vebox-30p-di-surface-config-crash
+
       # tsreadex のビルド
       - name: Build tsreadex
         run: |
@@ -350,108 +359,114 @@ jobs:
           ## - media-driver は gmmlib と libva の両方に依存し、どちらかが未インストールだと configure に失敗する
           ## - oneVPL-intel-gpu は oneVPL のヘッダ・ABI を前提にビルドされる
           ## 将来のメンテナンス時に順序を入れ替える場合は、各プロジェクトの依存関係を再確認すること
-          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c '
-            set -euo pipefail
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update
-            apt-get install -y --no-install-recommends \
-              ca-certificates git curl pkg-config build-essential ninja-build cmake meson python3 python3-setuptools python3-pip \
-              libdrm-dev libx11-dev libxext-dev libxfixes-dev libxrandr-dev libxrender-dev libxinerama-dev libxcursor-dev libxi-dev \
-              wayland-protocols libwayland-dev libwayland-egl-backend-dev libffi-dev libglib2.0-dev libpciaccess-dev libudev-dev libtbb-dev
+          # Intel Media Stack をキャッシュから復元できない場合のみビルドする
+          if [ ! -e intel-media-stack/prefix/lib/x86_64-linux-gnu/dri/iHD_drv_video.so ] || [ ! -e intel-media-stack/prefix/lib/x86_64-linux-gnu/libva.so.2 ]; then
+            docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c '
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                ca-certificates git curl pkg-config build-essential ninja-build cmake meson python3 python3-setuptools python3-pip \
+                libdrm-dev libx11-dev libxext-dev libxfixes-dev libxrandr-dev libxrender-dev libxinerama-dev libxcursor-dev libxi-dev \
+                wayland-protocols libwayland-dev libwayland-egl-backend-dev libffi-dev libglib2.0-dev libpciaccess-dev libudev-dev libtbb-dev
 
-            mkdir -p intel-media-stack/src intel-media-stack/prefix
-            cd intel-media-stack/src
+              mkdir -p intel-media-stack/src intel-media-stack/prefix
+              cd intel-media-stack/src
 
-            # gmmlib
-            git clone --depth=1 --branch "${{ env.INTEL_GMMLIB_TAG }}" https://github.com/intel/gmmlib.git
-            cmake -S gmmlib -B gmmlib/build -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
-              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix
-            ninja -C gmmlib/build -j"$(nproc)"
-            ninja -C gmmlib/build install
+              # gmmlib
+              git clone --depth=1 --branch "${{ env.INTEL_GMMLIB_TAG }}" https://github.com/intel/gmmlib.git
+              cmake -S gmmlib -B gmmlib/build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+                -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix
+              ninja -C gmmlib/build -j"$(nproc)"
+              ninja -C gmmlib/build install
 
-            # libva
-            git clone --depth=1 --branch "${{ env.INTEL_LIBVA_TAG }}" https://github.com/intel/libva.git
-            meson setup libva/build libva --buildtype=release \
-              --prefix=/work/intel-media-stack/prefix \
-              --libdir=lib/x86_64-linux-gnu \
-              -Ddriverdir='$ORIGIN/../Library/dri' \
-              -Dwith_x11=no \
-              -Dwith_wayland=no \
-              -Dwith_glx=no \
-              -Ddisable_drm=false
-            ninja -C libva/build -j"$(nproc)"
-            ninja -C libva/build install
+              # libva
+              git clone --depth=1 --branch "${{ env.INTEL_LIBVA_TAG }}" https://github.com/intel/libva.git
+              meson setup libva/build libva --buildtype=release \
+                --prefix=/work/intel-media-stack/prefix \
+                --libdir=lib/x86_64-linux-gnu \
+                -Ddriverdir='$ORIGIN/../Library/dri' \
+                -Dwith_x11=no \
+                -Dwith_wayland=no \
+                -Dwith_glx=no \
+                -Ddisable_drm=false
+              ninja -C libva/build -j"$(nproc)"
+              ninja -C libva/build install
 
-            # media-driver (patched fork branch)
-            ## ref: https://github.com/intel/media-driver/pull/1988
-            git clone --depth=1 --branch "fix/vp-vebox-30p-di-surface-config-crash" "https://github.com/tsukumijima/media-driver.git" media-driver
-            export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
-            cmake -S media-driver -B media-driver/build -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
-              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
-              -DLIBVA_DRIVERS_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/dri \
-              -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
-              -DBS_DIR_GMMLIB=/work/intel-media-stack/src/gmmlib \
-              -DBUILD_CMRTLIB=ON \
-              -DARL=ON \
-              -DBMG=ON \
-              -DNVL=OFF
-            ninja -C media-driver/build -j"$(nproc)"
-            ninja -C media-driver/build install
+              # media-driver (patched fork branch)
+              ## ref: https://github.com/intel/media-driver/pull/1988
+              git clone --depth=1 --branch "fix/vp-vebox-30p-di-surface-config-crash" "https://github.com/tsukumijima/media-driver.git" media-driver
+              export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
+              cmake -S media-driver -B media-driver/build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+                -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+                -DLIBVA_DRIVERS_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/dri \
+                -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
+                -DBS_DIR_GMMLIB=/work/intel-media-stack/src/gmmlib \
+                -DBUILD_CMRTLIB=ON \
+                -DARL=ON \
+                -DBMG=ON \
+                -DNVL=OFF
+              ninja -C media-driver/build -j"$(nproc)"
+              ninja -C media-driver/build install
 
-            # oneVPL dispatcher
-            git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_TAG }}" https://github.com/oneapi-src/oneVPL.git
-            cmake -S oneVPL -B oneVPL/build -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
-              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
-              -DBUILD_SHARED_LIBS=ON \
-              -DBUILD_TESTS=OFF \
-              -DBUILD_EXAMPLES=OFF
-            ninja -C oneVPL/build -j"$(nproc)"
-            ninja -C oneVPL/build install
+              # oneVPL dispatcher
+              git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_TAG }}" https://github.com/oneapi-src/oneVPL.git
+              cmake -S oneVPL -B oneVPL/build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+                -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+                -DBUILD_SHARED_LIBS=ON \
+                -DBUILD_TESTS=OFF \
+                -DBUILD_EXAMPLES=OFF
+              ninja -C oneVPL/build -j"$(nproc)"
+              ninja -C oneVPL/build install
 
-            # oneVPL-intel-gpu (libmfx-gen runtime)
-            git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_GPU_TAG }}" https://github.com/oneapi-src/oneVPL-intel-gpu.git
-            export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
-            cmake -S oneVPL-intel-gpu -B oneVPL-intel-gpu/build -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
-              -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
-              -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
-              -DMFX_HOME=/work/intel-media-stack/src/oneVPL-intel-gpu \
-              -DBUILD_RUNTIME=ON \
-              -DBUILD_TOOLS=OFF \
-              -DBUILD_TESTS=OFF \
-              -DBUILD_TUTORIALS=OFF \
-              -DENABLE_OPENCL=OFF
-            ninja -C oneVPL-intel-gpu/build -j"$(nproc)"
-            ninja -C oneVPL-intel-gpu/build install
+              # oneVPL-intel-gpu (libmfx-gen runtime)
+              git clone --depth=1 --branch "${{ env.INTEL_ONEVPL_GPU_TAG }}" https://github.com/oneapi-src/oneVPL-intel-gpu.git
+              export PKG_CONFIG_PATH=/work/intel-media-stack/prefix/lib/x86_64-linux-gnu/pkgconfig:${PKG_CONFIG_PATH:-}
+              cmake -S oneVPL-intel-gpu -B oneVPL-intel-gpu/build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/work/intel-media-stack/prefix \
+                -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+                -DCMAKE_PREFIX_PATH=/work/intel-media-stack/prefix \
+                -DMFX_HOME=/work/intel-media-stack/src/oneVPL-intel-gpu \
+                -DBUILD_RUNTIME=ON \
+                -DBUILD_TOOLS=OFF \
+                -DBUILD_TESTS=OFF \
+                -DBUILD_TUTORIALS=OFF \
+                -DENABLE_OPENCL=OFF
+              ninja -C oneVPL-intel-gpu/build -j"$(nproc)"
+              ninja -C oneVPL-intel-gpu/build install
 
-            # 成果物を thirdparty/Library にコピー
-            mkdir -p /work/thirdparty/Library/dri
-            mkdir -p /work/thirdparty/Library/libmfx-gen
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libigdgmm.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libva.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libva-drm.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libvpl.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libigfxcmrt.so* /work/thirdparty/Library/
-            cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/dri/iHD_drv_video.so /work/thirdparty/Library/dri/
-            # iHD_drv_video.so / libigdgmm.so はデバッグシンボルを含むとファイルサイズが大きくなるため、同梱前に削減する
-            ## strip --strip-debug は動的シンボルを保持したままデバッグ情報のみを除去できる
-            strip --strip-debug /work/thirdparty/Library/libigdgmm.so*
-            strip --strip-debug /work/thirdparty/Library/dri/iHD_drv_video.so
-            if [ -d /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen ]; then
-              cp -a /work/intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen/* /work/thirdparty/Library/libmfx-gen/
-            fi
-            # root 所有で残ると後続の patchelf で書き換えできないため、所有者を戻す
-            OWNER_UID_GID="$(stat -c "%u:%g" /work)"
-            chown -R "$OWNER_UID_GID" /work/thirdparty/Library /work/intel-media-stack
-          '
+              # root 所有で残るとキャッシュ保存時に扱いづらいため、所有者を戻す
+              OWNER_UID_GID="$(stat -c "%u:%g" /work)"
+              chown -R "$OWNER_UID_GID" /work/intel-media-stack
+            '
+          else
+            echo 'Intel Media Stack build cache hit. Skip rebuilding Intel Media Stack.'
+          fi
+
+          # Intel Media Stack の成果物を thirdparty/Library にコピー
+          mkdir -p thirdparty/Library/dri
+          mkdir -p thirdparty/Library/libmfx-gen
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libigdgmm.so* thirdparty/Library/
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libva.so* thirdparty/Library/
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libva-drm.so* thirdparty/Library/
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libvpl.so* thirdparty/Library/
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen.so* thirdparty/Library/
+          cp -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libigfxcmrt.so* thirdparty/Library/
+          cp -f intel-media-stack/prefix/lib/x86_64-linux-gnu/dri/iHD_drv_video.so thirdparty/Library/dri/
+          # iHD_drv_video.so / libigdgmm.so はデバッグシンボルを含むとファイルサイズが大きくなるため、同梱前に削減する
+          ## strip --strip-debug は動的シンボルを保持したままデバッグ情報のみを除去できる
+          strip --strip-debug thirdparty/Library/libigdgmm.so*
+          strip --strip-debug thirdparty/Library/dri/iHD_drv_video.so
+          if [ -d intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen ]; then
+            cp -a intel-media-stack/prefix/lib/x86_64-linux-gnu/libmfx-gen/* thirdparty/Library/libmfx-gen/
+          fi
 
           cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
