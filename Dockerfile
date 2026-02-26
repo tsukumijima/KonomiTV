@@ -91,7 +91,7 @@ RUN apt-get update && \
         # フォント関連のライブラリ
         libfontconfig1 libfreetype6 libfribidi0 \
         # Intel GPU 関連のライブラリ
-        intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2 ocl-icd-opencl-dev \
+        intel-media-va-driver-non-free intel-opencl-icd libigfxcmrt7 libmfx1 libmfxgen1 libva-drm2 libva-x11-2 \
         # NVIDIA GPU 関連のライブラリ
         cuda-nvrtc-12-8 libnpp-12-8 \
         # AMD GPU 関連のライブラリ
