@@ -152,21 +152,21 @@ class CtrlCmdConnectionCheckUtil:
     UNIX_EPOCH = datetime.datetime(1970, 1, 1, 9, tzinfo=TZ)
 
     __connect_timeout_sec: float
+    __pipe_dir: str
     __pipe_name: str
     __host: str | None
     __port: int
 
     def __init__(self, hostname: str, port: int | None) -> None:
         self.__connect_timeout_sec = 10  # 10秒でタイムアウト
-        self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
+
+        # 初期値は名前付きパイプモード
+        self.__pipe_dir = '\\\\.\\pipe\\' if os.name == 'nt' else '/var/local/edcb/'
+        self.__pipe_name = 'EpgTimerSrvNoWaitPipe' if os.name == 'nt' else 'EpgTimerSrvPipe'
         self.__host = None
         self.__port = 0
 
-        if hostname == 'edcb-namedpipe':
-            # 特別に名前付きパイプモードにする
-            self.__pipe_name = 'EpgTimerSrvNoWaitPipe'
-            self.__host = None
-        else:
+        if hostname != 'edcb-namedpipe':
             # TCP/IP モードにする
             self.__host = hostname
             self.__port = cast(int, port)
@@ -196,11 +196,11 @@ class CtrlCmdConnectionCheckUtil:
 
     async def __sendAndReceive(self, buf: bytearray) -> tuple[int | None, bytes]:
         to = time.monotonic() + self.__connect_timeout_sec
-        if self.__host is None:
+        if os.name == 'nt' and self.__host is None:
             # 名前付きパイプモード
             while True:
                 try:
-                    async with aiofiles.open('\\\\.\\pipe\\' + self.__pipe_name, mode='r+b') as f:
+                    async with aiofiles.open(self.__pipe_dir + self.__pipe_name, mode='r+b') as f:
                         await f.write(buf)
                         await f.flush()
                         rbuf = await f.read(8)
@@ -222,9 +222,13 @@ class CtrlCmdConnectionCheckUtil:
                     break
             return None, b''
 
-        # TCP/IP モード
+        # UNIX ドメインソケットまたは TCP/IP モード
         try:
-            connection = await asyncio.wait_for(asyncio.open_connection(self.__host, self.__port), max(to - time.monotonic(), 0.))
+            if self.__host is None:
+                connection_future = asyncio.open_unix_connection(self.__pipe_dir + self.__pipe_name)
+            else:
+                connection_future = asyncio.open_connection(self.__host, self.__port)
+            connection = await asyncio.wait_for(connection_future, max(to - time.monotonic(), 0.))
             reader: asyncio.StreamReader = connection[0]
             writer: asyncio.StreamWriter = connection[1]
         except Exception:
