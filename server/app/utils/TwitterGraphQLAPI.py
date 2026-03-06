@@ -1015,7 +1015,7 @@ class TwitterGraphQLAPI:
 
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
-        variables['rawQuery'] = query.strip() + ' exclude:replies lang:ja'
+        variables['rawQuery'] = query.strip() + ' lang:ja -filter:replies'
         if cursor_id is None:
             ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 20
