@@ -55,6 +55,9 @@ class TwitterGraphQLAPI:
 
     # ツイートの最小送信間隔 (秒)
     MINIMUM_TWEET_INTERVAL = 20  # 必ずアカウントごとに 20 秒以上間隔を空けてツイートする
+    # ツイート送信時、最小送信間隔ちょうどで毎回送られて不自然にならないように加える追加待機時間 (秒)
+    MINIMUM_TWEET_INTERVAL_JITTER_MIN = 0.1
+    MINIMUM_TWEET_INTERVAL_JITTER_MAX = 4.0
 
     # ヘッドレスブラウザの自動シャットダウンまでの無操作時間 (秒)
     BROWSER_IDLE_TIMEOUT = 60
@@ -509,7 +512,13 @@ class TwitterGraphQLAPI:
             current_time = time.time()
             wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - self._last_tweet_time))
             if wait_time > 0:
-                await asyncio.sleep(wait_time)
+                # 最小送信間隔ちょうどで毎回送信されると等間隔になって不自然なため、
+                # 0.001 秒単位で 0.1〜4.0 秒のランダムな追加待機時間を加えて送信タイミングをわずかに揺らす
+                additional_wait_time = round(random.uniform(
+                    self.MINIMUM_TWEET_INTERVAL_JITTER_MIN,
+                    self.MINIMUM_TWEET_INTERVAL_JITTER_MAX,
+                ), 3)
+                await asyncio.sleep(wait_time + additional_wait_time)
 
             # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
             media_entities: list[dict[str, Any]] = []
