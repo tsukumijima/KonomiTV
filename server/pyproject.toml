@@ -54,7 +54,7 @@ uvicorn = {version = ">=0.34.0,<1.0.0", extras = ["standard"]}
 uvloop = {version = ">=0.21.0,<1.0.0", platform = "linux"}
 watchfiles = "^1.0.4"
 winloop = {version = ">=0.1.8,<1.0.0", platform = "win32"}
-zendriver = ">=0.15.0,<1.0.0"
+zendriver = ">=0.15.3,<1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.403"
