@@ -97,9 +97,14 @@ export interface ILocalClientSettings extends IClientSettings {
     capture_copy_to_clipboard: boolean;
     sync_settings: boolean;
     prefer_posting_to_nicolive: boolean;
+    show_comment_number: boolean;
+    show_comment_user_id: boolean;
+    show_comment_premium: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
+    show_panel_comment_input: boolean;
+    panel_display_width: number;
     mute_vulgar_comments: boolean;
     mute_abusive_discriminatory_prejudiced_comments: boolean;
     mute_big_size_comments: boolean;
@@ -280,12 +285,22 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // 可能であればニコニコ実況にコメントする (Default: オン)
     prefer_posting_to_nicolive: true,
+    // コメントタブにコメ番を表示するか (Default: オフ)
+    show_comment_number: false,
+    // コメントタブにユーザーIDを表示するか (Default: オフ)
+    show_comment_user_id: false,
+    // コメントタブにプレミアム情報を表示するか (Default: オフ)
+    show_comment_premium: false,
     // コメントの速さ (Default: 1倍)
     comment_speed_rate: 1,
     // コメントのフォントサイズ (Default: 34px)
     comment_font_size: 34,
     // コメント送信後にコメント入力フォームを閉じる (Default: オン)
     close_comment_form_after_sending: true,
+    // パネルのコメントタブにコメント入力バーを表示する (Default: オン)
+    show_panel_comment_input: true,
+    // パネルの表示幅 (Default: 352px)
+    panel_display_width: 352,
 
     // ***** 設定 → ニコニコ実況 (ミュート設定) *****
 
@@ -379,9 +394,14 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
     'prefer_posting_to_nicolive',
+    'show_comment_number',
+    'show_comment_user_id',
+    'show_comment_premium',
     'comment_speed_rate',
     'comment_font_size',
     'close_comment_form_after_sending',
+    'show_panel_comment_input',
+    'panel_display_width',
     'mute_vulgar_comments',
     'mute_abusive_discriminatory_prejudiced_comments',
     'mute_big_size_comments',

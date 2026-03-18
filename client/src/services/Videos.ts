@@ -178,6 +178,7 @@ export interface IJikkyoComment {
     color: string;
     author: string;
     text: string;
+    premium: boolean;
 }
 
 /** 過去ログコメントのリストを表すインターフェース */

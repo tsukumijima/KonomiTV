@@ -1,6 +1,8 @@
 <template>
-    <div class="watch-panel"
+    <div class="watch-panel" :style="panelWidthStyle"
          @mousemove="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})">
+        <div class="panel-resize-handle"
+             @mousedown="startResize"></div>
         <div class="watch-panel__header">
             <div v-ripple class="panel-close-button" @click="playerStore.is_panel_display = false">
                 <Icon class="panel-close-button__icon" icon="akar-icons:chevron-right" width="25px" />
@@ -35,6 +37,50 @@
                 :modelValue="(panel_active_tab === 'Program' || panel_active_tab === 'Channel') && playerStore.is_remocon_display === true"
                 @update:modelValue="playerStore.is_remocon_display = $event" />
         </div>
+        <section class="comment-input-bar" v-if="playback_mode === 'Live' && panel_active_tab === 'Comment' && settingsStore.settings.show_panel_comment_input">
+            <div class="comment-input-bar__container">
+                <v-text-field class="comment-input-bar__input" variant="outlined" density="compact" hide-details
+                    placeholder="コメントを入力..." v-model="comment_text"
+                    @keydown.enter="sendCommentFromPanel()" :disabled="is_sending_comment" />
+                <v-menu v-model="comment_settings_menu" :close-on-content-click="false" location="top end">
+                    <template v-slot:activator="{ props }">
+                        <v-btn class="comment-input-bar__settings-button" v-bind="props"
+                            icon variant="tonal" density="compact" size="small">
+                            <Icon icon="fluent:settings-20-filled" height="16px" />
+                        </v-btn>
+                    </template>
+                    <v-card class="comment-input-bar__settings-card" min-width="200">
+                        <v-card-text class="pa-3">
+                            <div class="comment-input-bar__settings-label">色</div>
+                            <div class="comment-input-bar__color-list">
+                                <button v-for="c in available_colors" :key="c.hex"
+                                    class="comment-input-bar__color-button"
+                                    :class="{'comment-input-bar__color-button--active': settingsStore.settings.panel_comment_color === c.hex}"
+                                    :style="{background: c.hex}" :title="c.name"
+                                    @click="settingsStore.settings.panel_comment_color = c.hex" />
+                            </div>
+                            <div class="comment-input-bar__settings-label mt-3">位置</div>
+                            <v-btn-toggle v-model="settingsStore.settings.panel_comment_position" mandatory density="compact" color="primary" class="comment-input-bar__toggle">
+                                <v-btn value="top" size="small">上</v-btn>
+                                <v-btn value="right" size="small">中(流)</v-btn>
+                                <v-btn value="bottom" size="small">下</v-btn>
+                            </v-btn-toggle>
+                            <div class="comment-input-bar__settings-label mt-3">サイズ</div>
+                            <v-btn-toggle v-model="settingsStore.settings.panel_comment_size" mandatory density="compact" color="primary" class="comment-input-bar__toggle">
+                                <v-btn value="small" size="small">小</v-btn>
+                                <v-btn value="medium" size="small">中</v-btn>
+                                <v-btn value="big" size="small">大</v-btn>
+                            </v-btn-toggle>
+                        </v-card-text>
+                    </v-card>
+                </v-menu>
+                <v-btn class="comment-input-bar__send-button" icon variant="flat" density="compact" size="small"
+                    color="primary" :disabled="is_sending_comment || comment_text.trim() === ''"
+                    @click="sendCommentFromPanel()">
+                    <Icon icon="fluent:send-20-filled" height="16px" />
+                </v-btn>
+            </div>
+        </section>
         <div class="watch-panel__navigation">
             <div v-ripple class="panel-navigation-button" v-if="playback_mode === 'Live'"
                  :class="{'panel-navigation-button--active': panel_active_tab === 'Program'}"
@@ -90,6 +136,7 @@ import Series from '@/components/Watch/Panel/Series.vue';
 import Twitter from '@/components/Watch/Panel/Twitter.vue';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
 export default defineComponent({
@@ -113,10 +160,31 @@ export default defineComponent({
         return {
             // ユーティリティをテンプレートで使えるように
             Utils: Object.freeze(Utils),
+            // リサイズ中かどうか
+            is_resizing: false,
+            // リサイズ開始時の X 座標
+            resize_start_x: 0,
+            // リサイズ開始時のパネル幅
+            resize_start_width: 0,
+
+            // コメント入力バー関連
+            comment_text: '',
+            comment_settings_menu: false,
+            is_sending_comment: false,
+            available_colors: [
+                { hex: '#FFEAEA', name: '白' },
+                { hex: '#F02840', name: '赤' },
+                { hex: '#FD7E80', name: 'ピンク' },
+                { hex: '#FDA708', name: 'オレンジ' },
+                { hex: '#FFE133', name: '黄' },
+                { hex: '#64DD17', name: '緑' },
+                { hex: '#00D4F5', name: '水色' },
+                { hex: '#4763FF', name: '青' },
+            ],
         };
     },
     computed: {
-        ...mapStores(useChannelsStore, usePlayerStore),
+        ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore),
 
         // ライブ視聴なら tv_panel_active_tab を、ビデオ視聴なら video_panel_active_tab を返す
         panel_active_tab() {
@@ -125,8 +193,77 @@ export default defineComponent({
             } else {
                 return this.playerStore.video_panel_active_tab;
             }
-        }
-    }
+        },
+
+        panelWidthStyle() {
+            return { '--panel-width': `${this.settingsStore.settings.panel_width}px` };
+        },
+    },
+    beforeUnmount() {
+        // リサイズ中にコンポーネントが破棄された場合のリスナーのクリーンアップ
+        document.removeEventListener('mousemove', this.onResize);
+        document.removeEventListener('mouseup', this.stopResize);
+        this.is_resizing = false;
+    },
+    methods: {
+        // パネルのコメント入力バーからコメントを送信する
+        sendCommentFromPanel(): void {
+            const text = this.comment_text.trim();
+            if (text === '' || this.is_sending_comment) return;
+
+            this.is_sending_comment = true;
+
+            // コールバックが呼ばれなかった場合のフォールバックタイマー (10秒)
+            const fallback_timer = window.setTimeout(() => {
+                this.is_sending_comment = false;
+            }, 10000);
+
+            try {
+                this.playerStore.event_emitter.emit('SendComment', {
+                    text: text,
+                    color: this.settingsStore.settings.panel_comment_color,
+                    type: this.settingsStore.settings.panel_comment_position,
+                    size: this.settingsStore.settings.panel_comment_size,
+                    onSuccess: () => {
+                        window.clearTimeout(fallback_timer);
+                        this.comment_text = '';
+                        this.is_sending_comment = false;
+                    },
+                    onError: (message: string) => {
+                        window.clearTimeout(fallback_timer);
+                        this.is_sending_comment = false;
+                        this.playerStore.event_emitter.emit('SendNotification', {
+                            message: message,
+                            duration: 4000,
+                            color: '#FF6F6A',
+                        });
+                    },
+                });
+            } catch {
+                window.clearTimeout(fallback_timer);
+                this.is_sending_comment = false;
+            }
+        },
+        startResize(event: MouseEvent) {
+            event.preventDefault();
+            this.is_resizing = true;
+            this.resize_start_x = event.clientX;
+            this.resize_start_width = this.settingsStore.settings.panel_width;
+            document.addEventListener('mousemove', this.onResize);
+            document.addEventListener('mouseup', this.stopResize);
+        },
+        onResize(event: MouseEvent) {
+            // 左にドラッグ = 正の値 = 幅が増える
+            const delta = this.resize_start_x - event.clientX;
+            const new_width = Math.min(600, Math.max(352, this.resize_start_width + delta));
+            this.settingsStore.settings.panel_width = new_width;
+        },
+        stopResize() {
+            this.is_resizing = false;
+            document.removeEventListener('mousemove', this.onResize);
+            document.removeEventListener('mouseup', this.stopResize);
+        },
+    },
 });
 
 </script>
@@ -136,7 +273,8 @@ export default defineComponent({
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    width: 352px;
+    position: relative;
+    width: var(--panel-width, 352px);
     height: 100%;
     background: rgb(var(--v-theme-background));
     @include tablet-vertical {
@@ -156,6 +294,31 @@ export default defineComponent({
     // タッチデバイスのみ、content-visibility: hidden でパネルを折り畳んでいるときの描画パフォーマンスを上げる
     @media (hover: none) {
         content-visibility: hidden;
+    }
+
+    .panel-resize-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        cursor: col-resize;
+        z-index: 25;
+        transition: background-color 0.15s;
+
+        &:hover, &:active {
+            background: rgb(var(--v-theme-primary));
+        }
+
+        @include tablet-vertical {
+            display: none;
+        }
+        @include smartphone-horizontal {
+            display: none;
+        }
+        @include smartphone-vertical {
+            display: none;
+        }
     }
 
     .watch-panel__header {
@@ -290,6 +453,86 @@ export default defineComponent({
         }
     }
 
+    .comment-input-bar {
+        flex-shrink: 0;
+        width: 100%;
+        padding: 8px 16px;
+        border-top: 1px solid rgb(var(--v-theme-background-lighten-2));
+        @include tablet-vertical {
+            padding: 8px 24px;
+        }
+        @include smartphone-horizontal {
+            padding: 6px 16px;
+        }
+        @include smartphone-vertical {
+            padding: 6px 16px;
+        }
+
+        &__container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        &__input {
+            flex: 1;
+            min-width: 0;
+            :deep(.v-field) {
+                font-size: 13px;
+                min-height: 32px;
+            }
+            :deep(.v-field__input) {
+                padding-top: 4px;
+                padding-bottom: 4px;
+                min-height: 32px;
+            }
+        }
+
+        &__settings-button, &__send-button {
+            flex-shrink: 0;
+        }
+
+        &__settings-card {
+            background: rgb(var(--v-theme-background-lighten-1)) !important;
+        }
+
+        &__settings-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: rgb(var(--v-theme-text-darken-1));
+            margin-bottom: 6px;
+        }
+
+        &__color-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        &__color-button {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.15s;
+            &:hover {
+                opacity: 0.8;
+            }
+            &--active {
+                border-color: rgb(var(--v-theme-primary));
+            }
+        }
+
+        &__toggle {
+            width: 100%;
+            :deep(.v-btn) {
+                flex: 1;
+                font-size: 12px;
+            }
+        }
+    }
+
     .watch-panel__navigation {
         display: flex;
         align-items: center;
@@ -297,6 +540,7 @@ export default defineComponent({
         flex-shrink: 0;
         height: 77px;
         background: rgb(var(--v-theme-background-lighten-1));
+        border-top: 1px solid rgb(var(--v-theme-background-lighten-2));
         @include tablet-vertical {
             height: 66px;
             background: rgb(var(--v-theme-background));

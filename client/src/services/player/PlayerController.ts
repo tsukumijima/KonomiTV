@@ -782,6 +782,34 @@ class PlayerController {
             this.player.notice(event.message, event.duration, event.opacity, event.color);
         });
 
+        // UI コンポーネントからコメントの送信を要求されたときのイベントハンドラーを登録する
+        // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
+        player_store.event_emitter.off('SendComment');  // SendComment イベントの全てのイベントハンドラーを削除
+        player_store.event_emitter.on('SendComment', (event) => {
+            if (this.destroyed === true || this.player === null) {
+                event.onError('プレイヤーが初期化されていません。');
+                return;
+            }
+            // 既存の LiveCommentManager.sendComment() フローを再利用
+            for (const player_manager of this.player_managers) {
+                if (player_manager instanceof LiveCommentManager) {
+                    player_manager.sendComment({
+                        data: {
+                            text: event.text,
+                            color: event.color,
+                            type: event.type,
+                            size: event.size,
+                            time: 0,
+                        },
+                        success: () => event.onSuccess(),
+                        error: (msg) => event.onError(msg ?? 'コメントの送信に失敗しました。'),
+                    });
+                    return;
+                }
+            }
+            event.onError('コメント送信マネージャーが見つかりません。');
+        });
+
         // PlayerManager からプレイヤーの再起動が必要になったことを通知されたときのイベントハンドラーを登録する
         // このイベントは常にアプリケーション上で1つだけ登録されていなければならない
         // さもなければ使い終わった破棄済みの PlayerController が再起動イベントにより復活し、現在利用中の PlayerController と競合してしまう

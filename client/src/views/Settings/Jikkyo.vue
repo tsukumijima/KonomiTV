@@ -66,6 +66,33 @@
                     v-model="settingsStore.settings.prefer_posting_to_nicolive">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_comment_number">コメントリストにコメ番を表示する</label>
+                <label class="settings__item-label" for="show_comment_number">
+                    この設定をオンにすると、コメントリストの各コメントの先頭にコメ番（コメント番号）が表示されます。
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_comment_number" hide-details
+                    v-model="settingsStore.settings.show_comment_number">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_comment_user_id">コメントリストにユーザーIDを表示する</label>
+                <label class="settings__item-label" for="show_comment_user_id">
+                    この設定をオンにすると、コメントリストの各コメントにユーザーIDが表示されます。
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_comment_user_id" hide-details
+                    v-model="settingsStore.settings.show_comment_user_id">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_comment_premium">コメントリストにプレミアム情報を表示する</label>
+                <label class="settings__item-label" for="show_comment_premium">
+                    この設定をオンにすると、プレミアム会員が投稿したコメントに「P」マークが表示されます。
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_comment_premium" hide-details
+                    v-model="settingsStore.settings.show_comment_premium">
+                </v-switch>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントのミュート設定</div>
                 <div class="settings__item-label">

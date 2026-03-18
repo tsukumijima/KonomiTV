@@ -77,9 +77,14 @@ export interface IClientSettings {
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
     prefer_posting_to_nicolive: boolean;
+    show_comment_number: boolean;
+    show_comment_user_id: boolean;
+    show_comment_premium: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
+    show_panel_comment_input: boolean;
+    panel_display_width: number;
     mute_vulgar_comments: boolean;
     mute_abusive_discriminatory_prejudiced_comments: boolean;
     mute_big_size_comments: boolean;

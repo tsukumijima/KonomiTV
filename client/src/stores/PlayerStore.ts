@@ -56,6 +56,15 @@ export type PlayerEvents = {
     SeekRequest: {
         playback_position: number;  // シーク先の再生位置 (秒)
     }
+    // UI コンポーネントからコメントの送信を要求する
+    SendComment: {
+        text: string;  // コメントテキスト
+        color: string;  // '#FFEAEA' 等の hex カラーコード
+        type: 'top' | 'right' | 'bottom';  // コメントの位置
+        size: 'big' | 'medium' | 'small';  // コメントのサイズ
+        onSuccess: () => void;  // 送信成功時のコールバック
+        onError: (message: string) => void;  // 送信失敗時のコールバック
+    }
 };
 
 

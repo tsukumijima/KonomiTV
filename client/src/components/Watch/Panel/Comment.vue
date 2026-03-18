@@ -6,10 +6,22 @@
                 <span class="comment-header__title-text">コメント</span>
             </h2>
             <button v-ripple class="comment-header__button ml-auto" @click="comment_mute_settings_modal = !comment_mute_settings_modal">
-                <Icon icon="heroicons-solid:filter" height="11px" />
-                <span class="ml-1">ミュート設定</span>
+                <Icon icon="fluent:settings-20-filled" height="11px" />
+                <span class="ml-1">コメント設定</span>
             </button>
         </section>
+        <div class="comment-column-header" v-if="hasColumnHeaders" :style="columnWidthStyles">
+            <span class="comment-column-header__no" v-if="settingsStore.settings.show_comment_number">
+                No
+                <div class="comment-column-header__resize" @mousedown="startColumnResize($event, 'no')"></div>
+            </span>
+            <span class="comment-column-header__user-id" v-if="settingsStore.settings.show_comment_user_id">
+                ユーザーID
+                <div class="comment-column-header__resize" @mousedown="startColumnResize($event, 'user_id')"></div>
+            </span>
+            <span class="comment-column-header__text">コメント</span>
+            <span class="comment-column-header__time">時間</span>
+        </div>
         <section class="comment-list-wrapper" ref="comment_list_wrapper">
             <div class="comment-list-dropdown" :class="{'comment-list-dropdown--display': is_comment_list_dropdown_display}"
                 :style="{'--comment-list-dropdown-top': `${comment_list_dropdown_top}px`}">
@@ -43,10 +55,13 @@
             <div class="comment-list-cover" :class="{'comment-list-cover--display': is_comment_list_dropdown_display}"
                 @click="hideCommentListDropdown()"></div>
             <template v-if="playback_mode === 'Live'">
-                <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34">
+                <DynamicScroller class="comment-list" :direction="'vertical'" :items="comment_list" :min-item-size="34" :style="columnWidthStyles">
                     <template v-slot="{item, active}">
                     <DynamicScrollerItem :item="item" :active="active" :size-dependencies="[item.text]">
                         <div class="comment" :class="{'comment--my-post': item.my_post}">
+                            <span class="comment__no" v-if="settingsStore.settings.show_comment_number">{{item.id}}</span>
+                            <span class="comment__user-id" v-if="settingsStore.settings.show_comment_user_id">{{formatUserId(item.user_id)}}</span>
+                            <span class="comment__premium" v-if="settingsStore.settings.show_comment_premium && item.premium">P</span>
                             <span class="comment__text">{{item.text}}</span>
                             <span class="comment__time">{{item.time}}</span>
                             <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
@@ -65,9 +80,12 @@
                 </DynamicScroller>
             </template>
             <template v-else>
-                <VirtuaList ref="virtua_scroller" class="comment-list" :data="comment_list" #default="{ item }">
+                <VirtuaList ref="virtua_scroller" class="comment-list" :data="comment_list" :item-size="34" :style="columnWidthStyles" #default="{ item }">
                     <div class="comment comment--seekable" :class="{'comment--my-post': item.my_post}"
                         @click="seekToComment(item)">
+                        <span class="comment__no" v-if="settingsStore.settings.show_comment_number">{{item.id}}</span>
+                        <span class="comment__user-id" v-if="settingsStore.settings.show_comment_user_id">{{formatUserId(item.user_id)}}</span>
+                        <span class="comment__premium" v-if="settingsStore.settings.show_comment_premium && item.premium">P</span>
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
                         <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
@@ -116,7 +134,7 @@
              :class="{'comment-scroll-button--display': is_manual_scroll}">
             <Icon icon="fluent:arrow-down-12-filled" height="29px" />
         </div>
-        <CommentMuteSettings :modelValue="comment_mute_settings_modal" @update:modelValue="comment_mute_settings_modal = $event" />
+        <CommentMuteSettings :modelValue="comment_mute_settings_modal" @update:modelValue="comment_mute_settings_modal = $event" initialTab="display" />
     </div>
 </template>
 <script lang="ts">
@@ -129,6 +147,7 @@ import CommentMuteSettings from '@/components/Settings/CommentMuteSettings.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { CommentUtils } from '@/utils';
 
 export default defineComponent({
@@ -185,10 +204,31 @@ export default defineComponent({
                     offset?: number;
                 }) => void;
             } | null,
+
+            // カラムリサイズ用の状態
+            column_resize_key: null as string | null,
+            column_resize_start_x: 0,
+            column_resize_start_width: 0,
+
         };
     },
     computed: {
-        ...mapStores(useChannelsStore, usePlayerStore),
+        ...mapStores(useChannelsStore, usePlayerStore, useSettingsStore),
+
+        // NCV カラムヘッダーを表示するかどうか
+        hasColumnHeaders(): boolean {
+            const s = this.settingsStore.settings;
+            return s.show_comment_number || s.show_comment_user_id;
+        },
+
+        // カラム幅の CSS 変数
+        columnWidthStyles(): Record<string, string> {
+            const w = this.settingsStore.settings.comment_column_widths;
+            return {
+                '--col-no-width': `${w.no}px`,
+                '--col-user-id-width': `${w.user_id}px`,
+            };
+        },
     },
     watch: {
 
@@ -408,10 +448,51 @@ export default defineComponent({
             this.playerStore.event_emitter.off('PlaybackPositionChanged');
         }
 
+        // カラムリサイズ中のリスナーのクリーンアップ
+        document.removeEventListener('mousemove', this.onColumnResize);
+        document.removeEventListener('mouseup', this.stopColumnResize);
+
         // コメントリストをクリア
         this.comment_list = [];
     },
     methods: {
+
+        // カラムリサイズ開始
+        startColumnResize(event: MouseEvent, key: string) {
+            event.preventDefault();
+            this.column_resize_key = key;
+            this.column_resize_start_x = event.clientX;
+            this.column_resize_start_width = this.settingsStore.settings.comment_column_widths[key];
+            document.addEventListener('mousemove', this.onColumnResize);
+            document.addEventListener('mouseup', this.stopColumnResize);
+        },
+
+        // カラムリサイズ中
+        onColumnResize(event: MouseEvent) {
+            if (this.column_resize_key === null) return;
+            const delta = event.clientX - this.column_resize_start_x;
+            const min_widths: Record<string, number> = { no: 25, user_id: 40 };
+            const max_widths: Record<string, number> = { no: 80, user_id: 200 };
+            const min_w = min_widths[this.column_resize_key] ?? 25;
+            const max_w = max_widths[this.column_resize_key] ?? 200;
+            const new_width = Math.min(max_w, Math.max(min_w, this.column_resize_start_width + delta));
+            this.settingsStore.settings.comment_column_widths[this.column_resize_key] = new_width;
+        },
+
+        // カラムリサイズ終了
+        stopColumnResize() {
+            this.column_resize_key = null;
+            document.removeEventListener('mousemove', this.onColumnResize);
+            document.removeEventListener('mouseup', this.stopColumnResize);
+        },
+
+        // ユーザー ID からプレフィックス (nicolive:) を除去して表示用に整形する
+        formatUserId(user_id: string): string {
+            if (user_id.startsWith('nicolive:')) {
+                return user_id.slice(9);
+            }
+            return user_id;
+        },
 
         // ドロップダウンメニューを表示する
         showCommentListDropdown(event: Event, comment: ICommentData) {
@@ -684,6 +765,87 @@ export default defineComponent({
         }
     }
 
+    .comment-column-header {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        height: 24px;
+        padding-left: 16px;
+        padding-right: 4px;
+        margin-top: 12px;
+        border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
+        font-size: 10px;
+        font-weight: bold;
+        color: rgb(var(--v-theme-text-darken-1));
+        user-select: none;
+        @include tablet-vertical {
+            padding-left: 24px;
+            padding-right: 10px;
+            margin-top: 16px;
+        }
+        @include smartphone-horizontal {
+            margin-top: 8px;
+        }
+        @include smartphone-vertical {
+            margin-top: 10px;
+        }
+
+        // カラムリサイズハンドル
+        &__resize {
+            position: absolute;
+            top: 0;
+            right: -2px;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 5;
+            &:hover, &:active {
+                background: rgb(var(--v-theme-primary));
+                opacity: 0.5;
+            }
+            @include tablet-vertical { display: none; }
+            @include smartphone-horizontal { display: none; }
+            @include smartphone-vertical { display: none; }
+        }
+
+        &__no {
+            position: relative;
+            flex-shrink: 0;
+            width: var(--col-no-width, 38px);
+            margin-right: 6px;
+            text-align: center;
+        }
+        &__user-id {
+            position: relative;
+            flex-shrink: 0;
+            width: var(--col-user-id-width, 80px);
+            margin-right: 6px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        &__text {
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+        }
+        &__time {
+            flex-shrink: 0;
+            padding-left: 4px;
+            text-align: center;
+            // データ行の時間テキスト幅 + メニューアイコン分の余白 (20px + 2px margin) に合わせる
+            padding-right: 22px;
+            // "HH:MM:SS" テキスト幅に合わせた最小幅（データ行の __time + __icon と揃える）
+            min-width: 80px;
+        }
+    }
+
+    // カラムヘッダー直後はマージンを縮小
+    .comment-column-header + .comment-list-wrapper {
+        margin-top: 0px;
+    }
+
     .comment-list-wrapper {
         position: relative;
         width: 100%;
@@ -761,7 +923,7 @@ export default defineComponent({
                 align-items: center;
                 min-height: 28px;
                 padding-top: 6px;
-                word-break: break-word;
+                word-break: break-all;
                 &--seekable {
                     cursor: pointer;
                     transition: color 0.15s ease;
@@ -773,7 +935,44 @@ export default defineComponent({
                     color: rgb(var(--v-theme-secondary-lighten-2));
                 }
 
+                &__no {
+                    flex-shrink: 0;
+                    width: var(--col-no-width, 38px);
+                    margin-right: 6px;
+                    color: rgb(var(--v-theme-text-darken-1));
+                    font-family: 'Open Sans', 'YakuHanJPs', 'Twemoji', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+                    font-size: 10px;
+                    text-align: right;
+                }
+
+                &__user-id {
+                    flex-shrink: 0;
+                    width: var(--col-user-id-width, 80px);
+                    margin-right: 6px;
+                    color: rgb(var(--v-theme-text-darken-1));
+                    font-family: 'Open Sans', monospace;
+                    font-size: 10px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                &__premium {
+                    flex-shrink: 0;
+                    margin-right: 4px;
+                    padding: 0 3px;
+                    color: #DAA520;
+                    font-family: 'Open Sans', sans-serif;
+                    font-size: 9px;
+                    font-weight: bold;
+                    line-height: 1.6;
+                    border: 1px solid #DAA520;
+                    border-radius: 2px;
+                }
+
                 &__text {
+                    flex: 1;
+                    min-width: 0;
                     font-size: 13px;
                 }
 

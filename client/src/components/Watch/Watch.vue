@@ -1,6 +1,6 @@
 <template>
     <div class="route-container">
-        <main class="watch-container" :class="{
+        <main class="watch-container" :style="panelWidthStyle" :class="{
                 'watch-container--control-display': playerStore.is_control_display,
                 'watch-container--panel-display': Utils.isSmartphoneVertical() || Utils.isTabletVertical() ? true : playerStore.is_panel_display,
                 'watch-container--fullscreen': playerStore.is_fullscreen,
@@ -61,6 +61,9 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
+        panelWidthStyle() {
+            return { '--panel-width': `${this.settingsStore.settings.panel_display_width}px` };
+        },
     },
     watch: {
         // 前回視聴画面を開いた際にパネルが表示されていたかどうかを随時保存する
@@ -364,7 +367,7 @@ export default defineComponent({
 
 .watch-container {
     display: flex;
-    width: calc(100% + 352px);  // パネルの幅分はみ出す
+    width: calc(100% + var(--panel-width, 352px));  // パネルの幅分はみ出す
     height: 100%;
     transition: width 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
     @include tablet-vertical {
