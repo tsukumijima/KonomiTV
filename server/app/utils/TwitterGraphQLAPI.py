@@ -8,6 +8,8 @@ import time
 from datetime import datetime
 from typing import Any, ClassVar, Literal
 
+from fastapi import UploadFile
+
 from app import logging, schemas
 from app.constants import JST
 from app.models.TwitterAccount import TwitterAccount
@@ -100,9 +102,10 @@ class TwitterGraphQLAPI:
             # GraphQL API の前回呼び出し時刻 (UNIX 時間)
             instance._last_graphql_api_call_time = 0.0
 
-            # ツイート送信時の排他制御用のロック
+            # ツイート送信時の排他制御用のロック (最小送信間隔の制御に使用)
             instance._tweet_lock = asyncio.Lock()
-            # 前回ツイートを送信した時刻 (UNIX 時間)
+            # 最小送信間隔の基準となる時刻
+            # compose で送信ボタンが押せた直前など、投稿が行われた可能性が高いタイミング (UNIX 時間)
             instance._last_tweet_time = 0.0
 
             # 生成したインスタンスを登録する
@@ -273,13 +276,12 @@ class TwitterGraphQLAPI:
                 return str(ex)
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
-        browser = self._browser
         try:
             logging.info(f'{self.log_prefix} Requesting {endpoint_name} GraphQL API ...')
             logging.debug(f'{self.log_prefix} Request variables: {variables}')
             if additional_flags is not None:
                 logging.debug(f'{self.log_prefix} Additional flags: {additional_flags}')
-            raw_response = await browser.invokeGraphQLAPI(
+            raw_response = await self._browser.invokeGraphQLAPI(
                 endpoint_name=endpoint_name,
                 variables=variables,
                 additional_flags=additional_flags,
@@ -291,7 +293,7 @@ class TwitterGraphQLAPI:
             # GraphQL API リクエスト完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
             ## こうすることでヘッドレスブラウザと DB 間で Cookie の変更が同期されるはず
             ## この処理は API リクエストの成功・失敗に関わらず API リクエスト完了後に常に実行すべき
-            cookies_txt_content = await browser.saveTwitterCookiesToNetscapeFormat()
+            cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
             # Cookie を暗号化してから DB に反映する
             self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
             await self.twitter_account.save()  # これで変更が DB に反映される
@@ -303,11 +305,11 @@ class TwitterGraphQLAPI:
             await self.__scheduleShutdownTask()
 
         # 生のレスポンスデータを取得
-        parsed_response = raw_response['parsedResponse']
-        status_code = raw_response['statusCode']
-        response_text = raw_response['responseText']
-        headers = raw_response['headers']
-        request_error = raw_response['requestError']
+        parsed_response = raw_response.parsed_response
+        status_code = raw_response.status_code
+        response_text = raw_response.response_text
+        headers = raw_response.headers
+        request_error = raw_response.request_error
 
         # リクエストエラーが発生した場合（接続エラー）
         if request_error:
@@ -316,7 +318,7 @@ class TwitterGraphQLAPI:
 
         # JSON でないレスポンスが返ってきた場合
         ## charset=utf-8 が付いている場合もあるので完全一致ではなく部分一致で判定
-        if headers and isinstance(headers, dict):
+        if headers is not None:
             content_type = headers.get('content-type', '')
             if content_type and 'application/json' not in content_type:
                 logging.error(f'{self.log_prefix} Response is not JSON. (Content-Type: {content_type})')
@@ -493,105 +495,186 @@ class TwitterGraphQLAPI:
     async def createTweet(
         self,
         tweet: str,
-        media_ids: list[str] = [],
+        images: list[UploadFile],
     ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
-        ツイートを送信する
+        Twitter Web App の compose UI を通じてツイートを送信する
+        読み取り系 API (invokeGraphQLAPI) と異なり、Twitter Web App の正規 UI 経路を通すため、
+        user_flow.json の scribe イベント (new_tweet_button click, compose show, send_tweet 等) が自然に発火する
+        画像アップロードも Twitter Web App の UI の自動操作で行うため、フィンガープリントの不一致が発生しないようになっている
 
         Args:
             tweet (str): ツイート内容
-            media_ids (list[str], optional): 添付するメディアの ID のリスト (デフォルトは空リスト)
+            images (list[UploadFile]): 添付する画像（無いときは空リスト）
 
         Returns:
             schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
         """
 
+        logging.info(f'{self.log_prefix} Posting tweet: {tweet} ({len(images)} images)')
+        for image in images:
+            logging.debug(
+                f'{self.log_prefix} Attached image file: {image.filename or "capture.jpg"} '
+                f'(content-type: {image.content_type or "image/jpeg"})',
+            )
+
         # ツイートの最小送信間隔を守るためにロックを取得
         async with self._tweet_lock:
+            logging.info(f'{self.log_prefix} Acquired tweet lock.')
+
             # 最後のツイート時刻から最小送信間隔を経過していない場合は待機
             current_time = time.time()
             wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - self._last_tweet_time))
             if wait_time > 0:
                 # 最小送信間隔ちょうどで毎回送信されると等間隔になって不自然なため、
                 # 0.001 秒単位で 0.1〜4.0 秒のランダムな追加待機時間を加えて送信タイミングをわずかに揺らす
+                logging.info(f'{self.log_prefix} Waiting for minimum tweet interval...')
                 additional_wait_time = round(random.uniform(
                     self.MINIMUM_TWEET_INTERVAL_JITTER_MIN,
                     self.MINIMUM_TWEET_INTERVAL_JITTER_MAX,
                 ), 3)
                 await asyncio.sleep(wait_time + additional_wait_time)
+                logging.info(f'{self.log_prefix} Minimum tweet interval elapsed.')
 
-            # 画像の media_id をリストに格納 (画像がない場合は空のリストになる)
-            media_entities: list[dict[str, Any]] = []
-            for media_id in media_ids:
-                media_entities.append({'media_id': media_id, 'tagged_users': []})
-
-            # ツイート ID を取得できない場合 (スパム判定されたケースが多い) に備え、最大2回までリトライする
-            ## リトライ時は 3〜5 秒のランダムな間隔で待機してから再送信する (経験的にこの範囲で待つと成功しやすい)
-            MAX_RETRY_COUNT = 2
-            RETRY_WAIT_SECONDS_MIN = 3.0
-            RETRY_WAIT_SECONDS_MAX = 5.0
-            for retry_count in range(MAX_RETRY_COUNT + 1):
-
-                # Twitter GraphQL API にリクエスト
-                response = await self.invokeGraphQLAPI(
-                    endpoint_name='CreateTweet',
-                    variables={
-                        'tweet_text': tweet,
-                        'dark_request': False,
-                        'media': {
-                            'media_entities': media_entities,
-                            'possibly_sensitive': False,
-                        },
-                        'semantic_annotation_ids': [],
-                        'disallowed_reply_options': None,
-                    },
-                    error_message_prefix='ツイートの送信に失敗しました。',
-                )
-
-                # 最後のツイート時刻を更新
-                self._last_tweet_time = time.time()
-
-                # 戻り値が str の場合、ツイートの送信に失敗している (エラーメッセージが返ってくる)
-                # この場合は明示的な API エラーなのでリトライせずにそのまま返す
-                if isinstance(response, str):
-                    logging.error(f'{self.log_prefix} Failed to create tweet: {response}')
+            # ヘッドレスブラウザがまだ起動していない場合、セットアップ処理を実行
+            if self._browser.is_setup_complete is not True:
+                try:
+                    await self._browser.setup()
+                except (BrowserBinaryNotFoundError, BrowserConnectionFailedError) as ex:
+                    logging.error(f'{self.log_prefix} Failed to setup browser:', exc_info=ex)
                     return schemas.TwitterAPIResult(
                         is_success=False,
-                        detail=response,  # エラーメッセージをそのまま返す
+                        detail=str(ex),
                     )
 
-                # おそらくツイートに成功しているはずなので、可能であれば送信したツイートの ID を取得
-                tweet_id: str
-                try:
-                    tweet_id = str(response['create_tweet']['tweet_results']['result']['rest_id'])
-                except Exception as ex:
-                    # API レスポンスが変わっているか、スパム判定でツイート ID を取得できなかった
-                    logging.error(f'{self.log_prefix} Failed to get tweet ID (attempt {retry_count + 1}/{MAX_RETRY_COUNT + 1}):', exc_info=ex)
-                    logging.error(f'{self.log_prefix} Response: {response}')
-                    # まだリトライ回数が残っている場合は待機してから再送信する
-                    if retry_count < MAX_RETRY_COUNT:
-                        retry_wait_seconds = random.uniform(RETRY_WAIT_SECONDS_MIN, RETRY_WAIT_SECONDS_MAX)
-                        logging.info(f'{self.log_prefix} Retrying tweet after {retry_wait_seconds:.1f} seconds...')
-                        await asyncio.sleep(retry_wait_seconds)
-                        continue
-                    # リトライ回数を使い切った場合はエラーを返す
-                    return schemas.PostTweetResult(
-                        is_success=False,
-                        detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
-                        tweet_url='https://x.com/i/status/__error__',
-                    )
+            # compose フロー開始前にアイドルシャットダウンタスクをキャンセルする
+            ## compose フローは画像アップロード待ち (最大60秒) + CreateTweet 待ち (最大30秒) で
+            ## BROWSER_IDLE_TIMEOUT (60秒) を超える場合があるため、
+            ## 再スケジュールせずキャンセルのみ行い、フロー完了後の finally で再スケジュールする
+            async with self._shutdown_task_lock:
+                if self._shutdown_task is not None:
+                    if not self._shutdown_task.done():
+                        self._shutdown_task.cancel()
+                    self._shutdown_task = None
 
-                return schemas.PostTweetResult(
-                    is_success=True,
-                    detail='ツイートを送信しました。',
-                    tweet_url=f'https://x.com/i/status/{tweet_id}',
+            # compose UI を通じてツイートを送信する
+            try:
+                logging.info(f'{self.log_prefix} Posting tweet via compose UI...')
+                compose_ui_result = await self._browser.postTweetViaComposeUI(
+                    tweet_text=tweet,
+                    images=images,
+                )
+            except Exception as ex:
+                logging.error(f'{self.log_prefix} Failed to post tweet via compose UI:', exc_info=ex)
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail='ツイートの送信に失敗しました。Twitter API に接続できませんでした。',
+                )
+            finally:
+                # ツイート送信完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
+                cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
+                self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
+                await self.twitter_account.save()
+
+                # GraphQL API の前回呼び出し時刻を更新
+                self._last_graphql_api_call_time = time.time()
+
+                # 一定時間後にヘッドレスブラウザをシャットダウンするタスクを再スケジュールする
+                await self.__scheduleShutdownTask()
+
+            # ツイート送信ボタンをクリックしたが、なんらかの理由でレスポンスがタイムアウトした可能性も考えられる
+            # その場合でもすでに Twitter 側でツイート送信が完了している可能性があるため、
+            # ツイート送信ボタンのクリック時刻を前回のツイート送信時刻として記録する
+            if compose_ui_result.compose_submitted_at is not None:
+                self._last_tweet_time = compose_ui_result.compose_submitted_at
+
+            # compose UI でのツイート送信に失敗した場合
+            if compose_ui_result.is_success is not True:
+                error_message = compose_ui_result.error_message or '不明なエラー'
+                logging.error(f'{self.log_prefix} Failed to create tweet via compose UI: {error_message}')
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail=f'ツイートの送信に失敗しました。{error_message}',
                 )
 
-            # ここに到達することはないが、型チェッカーのために念のため返す
+            # CreateTweet のレスポンスを解析する
+            graphql_api_result = compose_ui_result.graphql_api_result
+            if graphql_api_result is None:
+                logging.error(f'{self.log_prefix} Failed to get CreateTweet response: graphql_api_result is None')
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail='ツイートの送信に失敗しました。CreateTweet のレスポンスが取得できませんでした。',
+                )
+
+            parsed_response = graphql_api_result.parsed_response
+            status_code = graphql_api_result.status_code
+
+            # HTTP ステータスコードが 200 系以外の場合
+            if status_code is not None and not (200 <= status_code < 300):
+                logging.error(f'{self.log_prefix} CreateTweet returned HTTP {status_code}.')
+                logging.error(f'{self.log_prefix} Response: {parsed_response}')
+
+                # エラーレスポンスから Twitter API エラーコードを抽出する
+                if isinstance(parsed_response, dict) and 'errors' in parsed_response:
+                    error_info = parsed_response['errors'][0]
+                    error_code = error_info.get('code', -1)
+                    error_message = self.ERROR_MESSAGES.get(
+                        error_code,
+                        f'Code: {error_code} / Message: {error_info.get("message", "Unknown error")}',
+                    )
+                    return schemas.TwitterAPIResult(
+                        is_success=False,
+                        detail=f'ツイートの送信に失敗しました。{error_message}',
+                    )
+
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail=f'ツイートの送信に失敗しました。Twitter API から HTTP {status_code} エラーが返されました。',
+                )
+
+            # レスポンスから data を取り出す
+            if not isinstance(parsed_response, dict):
+                logging.error(f'{self.log_prefix} Failed to extract tweet ID from response: parsed_response is not a dict')
+                logging.error(f'{self.log_prefix} Response: {parsed_response}')
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail='ツイートの送信に失敗しました。レスポンスの形式が不正です。',
+                )
+
+            # エラーが含まれていて data がない場合
+            if 'errors' in parsed_response and 'data' not in parsed_response:
+                error_info = parsed_response['errors'][0]
+                error_code = error_info.get('code', -1)
+                error_message = self.ERROR_MESSAGES.get(
+                    error_code,
+                    f'Code: {error_code} / Message: {error_info.get("message", "Unknown error")}',
+                )
+                logging.error(f'{self.log_prefix} CreateTweet API error: {error_message}')
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail=f'ツイートの送信に失敗しました。{error_message}',
+                )
+
+            # data キーからツイート ID を抽出する
+            response_data = parsed_response.get('data', parsed_response)
+            try:
+                tweet_id = str(response_data['create_tweet']['tweet_results']['result']['rest_id'])
+            except Exception as ex:
+                # この時点で HTTP 200 + errors なし + data キーありのため、ツイート自体は送信済みと判断する
+                ## rest_id が取得できないのはレスポンス構造の変更やスパム判定の特殊ケース
+                logging.error(f'{self.log_prefix} Failed to extract tweet ID from response:', exc_info=ex)
+                logging.error(f'{self.log_prefix} Response: {parsed_response}')
+                return schemas.PostTweetResult(
+                    is_success=True,
+                    detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。',
+                    tweet_url='https://x.com/i/status/__error__',
+                )
+
+            logging.info(f'{self.log_prefix} Tweet posted successfully. tweet_id: {tweet_id}')
             return schemas.PostTweetResult(
-                is_success=False,
-                detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。開発者に修正を依頼してください。',
-                tweet_url='https://x.com/i/status/__error__',
+                is_success=True,
+                detail='ツイートを送信しました。',
+                tweet_url=f'https://x.com/i/status/{tweet_id}',
             )
 
     async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
@@ -947,6 +1030,7 @@ class TwitterGraphQLAPI:
             variables['count'] = 40
         if cursor_id is not None:
             variables['cursor'] = cursor_id
+        variables['enableRanking'] = False   # 常に最新ツイートを取得する
         variables['includePromotedContent'] = True
         variables['latestControlAvailable'] = True
         if cursor_id is None:
