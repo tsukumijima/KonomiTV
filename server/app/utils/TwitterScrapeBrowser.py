@@ -35,7 +35,7 @@ class TwitterBrowserGraphQLAPIResult(BaseModel):
     request_error: str | None = None
 
 class PostTweetViaComposeUIResult(BaseModel):
-    """compose UI 自動操作によるツイート送信の結果。"""
+    """ツイート送信モーダルの自動操作によるツイート送信の結果。"""
 
     is_success: bool
     error_message: str | None = None
@@ -345,16 +345,19 @@ class TwitterScrapeBrowser:
         self,
         tweet_text: str,
         images: list[UploadFile],
+        throttle_remaining_seconds: float,
     ) -> PostTweetViaComposeUIResult:
         """
-        Twitter Web App の compose UI を DOM 操作で自動化し、ツイートを送信する
-        "n" キーのショートカットで compose モーダルを開き、テキスト入力・画像添付・送信ボタンクリックを行う
+        Twitter Web App のツイート送信モーダルを DOM 操作で自動化し、ツイートを送信する
+        "n" キーのショートカットで compose モーダルを開き、compose を開いたまま自然な待機を入れた後、
+        テキスト入力・画像添付・Ctrl+Enter 送信を行う
         読み取り系 API と異なり、Web App の正規 UI 経路を通すため user_flow.json の scribe イベントが自然に発火する
         画像アップロードの完了と CreateTweet のレスポンスは CDP Network ドメインで監視する
 
         Args:
             tweet_text (str): ツイートの本文
             images (list[UploadFile]): 添付する画像（無いときは空リスト）
+            throttle_remaining_seconds (float): compose モーダルを開いた後に吸収したいスロットル残り時間
 
         Returns:
             PostTweetViaComposeUIResult: ツイート送信結果
@@ -365,6 +368,7 @@ class TwitterScrapeBrowser:
             raise RuntimeError('Browser or page is not initialized.')
 
         page = self._page
+        compose_flow_started_at = time.time()
 
         # CDP Network 監視の状態管理
         ## CreateTweet のレスポンスと画像アップロードの完了を CDP Network ドメインで監視する
@@ -517,10 +521,16 @@ class TwitterScrapeBrowser:
                 compose_submitted_at=compose_submitted_at,
             )
 
-        try:
-            # ===========================================
-            # Step 1: CDP Network 監視を有効化する
-            # ===========================================
+        # CDP Network 監視を有効化するヘルパー関数
+        ## 画像アップロードの FINALIZE 監視と CreateTweet レスポンスの取得に使用する
+        ## compose モーダルを開く → テキスト paste の間は Network 監視不要なので、
+        ## 必要になる直前まで遅延させることで、Twitter Web App のバックグラウンド通信
+        ## (TL 更新、badge_count、user_flow.json 等) による CDP イベントハンドラの呼び出しを抑制し、
+        ## asyncio イベントループの輻輳を防ぐ
+        async def EnableNetworkMonitoring() -> None:
+            nonlocal is_network_monitoring_active
+            if is_network_monitoring_active is True:
+                return
             logging.info(f'{self.log_prefix} Enabling CDP Network monitoring...')
             await page.send(cdp.network.enable())
             is_network_monitoring_active = True
@@ -528,8 +538,17 @@ class TwitterScrapeBrowser:
             page.add_handler(cdp.network.LoadingFinished, OnLoadingFinished)
             page.add_handler(cdp.network.LoadingFailed, OnLoadingFailed)
 
+        async def OpenComposeModal() -> PostTweetViaComposeUIResult | None:
+            """
+            compose モーダルを開き、送信前の待機に入れる状態まで遷移させる。
+
+            Returns:
+                PostTweetViaComposeUIResult | None: 失敗時はエラー結果、成功時は None
+            """
+
             # ===========================================
-            # Step 2: "n" キーのショートカットで compose モーダルを開く
+            # Step 1: "n" キーのショートカットで compose モーダルを開く
+            # (この時点では CDP Network 監視はまだ有効化しない)
             # ===========================================
             # "n" キーは Twitter Web App のキーボードショートカットで、compose ダイアログを開く
             # SideNav ボタンのクリックと異なり、ビューポートサイズに依存しない
@@ -567,7 +586,7 @@ class TwitterScrapeBrowser:
             ))
 
             # ===========================================
-            # Step 3: compose モーダルが開くのを待機する
+            # Step 2: compose モーダルが開くのを待機する
             # ===========================================
             # /home のタイムライン上部にもインラインの tweetTextarea_0 が存在するため、
             # 単に tweetTextarea_0 の存在をチェックするだけではモーダルが開いたことを正しく判定できない
@@ -602,17 +621,29 @@ class TwitterScrapeBrowser:
                 return MakeErrorResult('compose モーダルが開きませんでした。')
 
             logging.debug(f'{self.log_prefix} Compose modal opened.')
+            return None
+
+        async def SubmitTweet() -> PostTweetViaComposeUIResult:
+            """
+            開いている compose モーダルに対して内容を入力し、送信レスポンスまで待機する。
+
+            Returns:
+                PostTweetViaComposeUIResult: ツイート送信結果
+            """
+
+            # 外側の compose_submitted_at を更新するために nonlocal 宣言が必要
+            ## SubmitTweet() は内部関数なので、nonlocal なしだと新しいローカル変数が作られてしまい、
+            ## MakeErrorResult() が参照する compose_submitted_at が None のままになる
+            nonlocal compose_submitted_at
 
             # ===========================================
-            # Step 4: ClipboardEvent paste でテキストを入力する
+            # Step 3: ClipboardEvent paste でテキストを入力する
             # ===========================================
             # Draft.js エディタに対しては ClipboardEvent paste が最も安定して動作する
             # document.execCommand('insertText') は React の DOM 管理と衝突して error_log.json にエラーが送信されてしまう
             # ClipboardEvent paste なら Draft.js の _onPaste ハンドラが正規経路でテキストを処理するため、
             # エラーが発生せず、interaction detector の totalPasteCount も自然にインクリメントされる
             if tweet_text:
-                # compose モーダルが開いてから人間がテキストを入力し始めるまでの自然な遅延を模倣
-                await asyncio.sleep(random.uniform(0.3, 0.7))
                 logging.info(f'{self.log_prefix} Pasting tweet text ({len(tweet_text)} chars)...')
                 paste_result, paste_exception = await page.send(cdp.runtime.evaluate(
                     expression=f'''
@@ -643,50 +674,74 @@ class TwitterScrapeBrowser:
                 logging.debug(f'{self.log_prefix} Tweet text pasted.')
 
             # ===========================================
-            # Step 5: 画像をアップロードする (画像がある場合)
+            # Step 4: 画像をアップロードする (画像がある場合)
             # ===========================================
             if len(images) > 0:
-                # テキスト入力後から画像を添付するまでの自然な遅延を模倣
-                await asyncio.sleep(random.uniform(0.7, 1.5))
+                # テキスト入力後から画像を添付するまでの自然な遅延 (sleep) と、
+                # 画像の Base64 エンコード + ブラウザへのプリロードを並列実行する
+                ## sleep 中はイベントループがアイドルになるため、その間に画像データをブラウザ側の
+                ## グローバル変数に転送しておくことで、後の fileInput 設定を軽量化する
+                ## (Base64 データを JS 式に埋め込んで runtime.evaluate するコストを sleep の裏側に隠す)
+                async def PreloadImagesToBrowser() -> None:
+                    """
+                    画像を Base64 エンコードし、ブラウザのグローバル変数にプリロードする。
+                    """
+
+                    images_json_array: list[dict[str, str]] = []
+                    for image in images:
+                        image_bytes = await image.read()
+                        mime_type = image.content_type or 'image/jpeg'
+                        filename = image.filename or 'capture.jpg'
+                        image_base64 = base64.b64encode(image_bytes).decode('ascii')
+                        images_json_array.append({
+                            'base64': image_base64,
+                            'mimeType': mime_type,
+                            'fileName': filename,
+                        })
+                    # ブラウザ側のグローバル変数に Base64 データを格納する
+                    ## このタイミングでは CDP WebSocket 経由で数百 KB 〜数 MB のデータが転送される
+                    await page.send(cdp.runtime.evaluate(
+                        expression=f'window.__preloadedImages = {json.dumps(images_json_array, ensure_ascii=False)}',
+                        return_by_value=True,
+                    ))
+
+                # 画像のアップロードを待機（最低でも 0.2 ~ 0.4 秒は待つ）
+                logging.debug(f'{self.log_prefix} Pre-loading {len(images)} image(s) to browser during sleep...')
+                await asyncio.gather(
+                    asyncio.sleep(random.uniform(0.2, 0.4)),
+                    PreloadImagesToBrowser(),
+                )
+
+                # CDP Network 監視を有効化する (画像アップロードの FINALIZE を監視するために必要)
+                ## compose モーダルを開く → テキスト paste の間は Network 監視が不要なので、ここまで遅延させている
+                await EnableNetworkMonitoring()
+
+                # プリロード済みデータからファイルを生成して fileInput に設定する
+                ## 重い Base64 データの転送は sleep 中に完了しているため、ここでは File オブジェクト生成 + change 発火のみ
                 logging.info(f'{self.log_prefix} Uploading {len(images)} image(s) via fileInput...')
-
-                # 全画像を Base64 エンコードして JSON 配列として JavaScript に渡す
-                images_json_array: list[dict[str, str]] = []
-                for image in images:
-                    image_bytes = await image.read()
-                    mime_type = image.content_type or 'image/jpeg'
-                    filename = image.filename or 'capture.jpg'
-                    image_base64 = base64.b64encode(image_bytes).decode('ascii')
-                    images_json_array.append({
-                        'base64': image_base64,
-                        'mimeType': mime_type,
-                        'fileName': filename,
-                    })
-
-                # DataTransfer API で File オブジェクトを生成し fileInput に設定する
-                ## Twitter Web App の fileInput は multiple 属性を持つので一括追加できる
-                upload_js = f'''
-                (() => {{
-                    const images = {json.dumps(images_json_array, ensure_ascii=False)};
-                    const fileInput = document.querySelector('[role="dialog"] [data-testid="fileInput"]');
-                    if (!fileInput) return 'fileInput not found';
-                    const dt = new DataTransfer();
-                    for (const img of images) {{
-                        const binaryString = atob(img.base64);
-                        const bytes = new Uint8Array(binaryString.length);
-                        for (let i = 0; i < binaryString.length; i++) {{
-                            bytes[i] = binaryString.charCodeAt(i);
-                        }}
-                        const file = new File([bytes], img.fileName, {{ type: img.mimeType }});
-                        dt.items.add(file);
-                    }}
-                    fileInput.files = dt.files;
-                    fileInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    return true;
-                }})()
-                '''
                 upload_result, upload_exception = await page.send(cdp.runtime.evaluate(
-                    expression=upload_js,
+                    expression='''
+                    (() => {
+                        const images = window.__preloadedImages;
+                        delete window.__preloadedImages;
+                        if (!images) return 'preloaded images not found';
+                        const fileInput = document.querySelector('[role="dialog"] [data-testid="fileInput"]');
+                        if (!fileInput) return 'fileInput not found';
+                        const dt = new DataTransfer();
+                        for (const img of images) {
+                            const binaryString = atob(img.base64);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            const file = new File([bytes], img.fileName, { type: img.mimeType });
+                            dt.items.add(file);
+                        }
+                        fileInput.files = dt.files;
+                        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    })()
+                    ''',
                     return_by_value=True,
                 ))
 
@@ -738,10 +793,10 @@ class TwitterScrapeBrowser:
                 logging.info(f'{self.log_prefix} All image uploads completed.')
 
             # ===========================================
-            # Step 6: tweetButton が有効になるまで待機する
+            # Step 5: tweetButton が有効になるまで待機する
             # ===========================================
             # 画像アップロード完了後も tweetButton が有効になるまで少し時間がかかる場合がある
-            # タイムラインのインライン compose UI ではなく、モーダル内の tweetButton を対象にする
+            # タイムラインのインライン投稿欄ではなく、ツイート送信モーダル内の tweetButton を対象にする
             logging.info(f'{self.log_prefix} Waiting for tweetButton to become enabled...')
             _, button_ready_exception = await page.send(cdp.runtime.evaluate(
                 expression='''
@@ -771,35 +826,76 @@ class TwitterScrapeBrowser:
             logging.debug(f'{self.log_prefix} tweetButton is enabled.')
 
             # ===========================================
-            # Step 7: tweetButton をクリックする
+            # Step 6: Ctrl+Enter でツイートを送信する
             # ===========================================
-            # 画像アップロード完了後/テキスト入力後から送信ボタンを押すまでの自然な遅延を模倣
-            await asyncio.sleep(random.uniform(0.1, 0.2))
-            logging.info(f'{self.log_prefix} Clicking tweetButton...')
-            click_result, click_exception = await page.send(cdp.runtime.evaluate(
+            # 画像がなかった場合、ここで初めて CDP Network 監視を有効化する
+            ## (CreateTweet レスポンスを監視するために必要)
+            await EnableNetworkMonitoring()
+
+            # Ctrl+Enter 送信前に、compose textarea にフォーカスが戻っていることを確認する
+            ## 画像添付後は fileInput 側へフォーカスが移る場合があるため、明示的に compose textarea を再 focus する
+            logging.info(f'{self.log_prefix} Ensuring compose textarea is focused...')
+            focus_result, focus_exception = await page.send(cdp.runtime.evaluate(
                 expression='''
                 (() => {
-                    const tweetBtn = document.querySelector('[role="dialog"] [data-testid="tweetButton"]');
-                    if (tweetBtn) {
-                        tweetBtn.click();
-                        return true;
+                    const textarea = document.querySelector('[role="dialog"] [data-testid="tweetTextarea_0"]');
+                    if (!textarea) {
+                        return false;
                     }
-                    return false;
+                    if (document.activeElement !== textarea) {
+                        textarea.focus();
+                    }
+                    return document.activeElement === textarea;
                 })()
                 ''',
                 return_by_value=True,
             ))
 
-            if click_exception is not None or (click_result and click_result.value is not True):
-                logging.error(f'{self.log_prefix} Failed to click tweetButton: {click_exception}')
+            if focus_exception is not None or (focus_result and focus_result.value is not True):
+                logging.error(f'{self.log_prefix} Failed to focus compose textarea: {focus_exception}')
                 await CloseComposeModal()
-                return MakeErrorResult('ツイートボタンのクリックに失敗しました。')
+                return MakeErrorResult('compose テキストエリアへのフォーカスに失敗しました。')
 
-            # ツイートボタンをクリックした時刻を記録し、最小送信間隔の基準に使う
+            logging.info(f'{self.log_prefix} Submitting tweet via Ctrl+Enter...')
+            await page.send(cdp.input_.dispatch_key_event(
+                type_='keyDown',
+                modifiers=2,
+                key='Control',
+                code='ControlLeft',
+                windows_virtual_key_code=17,
+                native_virtual_key_code=17,
+            ))
+            await page.send(cdp.input_.dispatch_key_event(
+                type_='keyDown',
+                modifiers=2,
+                key='Enter',
+                code='Enter',
+                text='\r',
+                unmodified_text='\r',
+                windows_virtual_key_code=13,
+                native_virtual_key_code=13,
+            ))
+            await page.send(cdp.input_.dispatch_key_event(
+                type_='keyUp',
+                modifiers=2,
+                key='Enter',
+                code='Enter',
+                windows_virtual_key_code=13,
+                native_virtual_key_code=13,
+            ))
+            await page.send(cdp.input_.dispatch_key_event(
+                type_='keyUp',
+                key='Control',
+                code='ControlLeft',
+                windows_virtual_key_code=17,
+                native_virtual_key_code=17,
+            ))
+
+            # Ctrl+Enter で送信した時刻を記録し、最小送信間隔の基準に使う
             compose_submitted_at = time.time()
 
             # ===========================================
-            # Step 8: CDP Network 監視で CreateTweet のレスポンスを待機する
+            # Step 7: CDP Network 監視で CreateTweet のレスポンスを待機する
             # ===========================================
             logging.info(f'{self.log_prefix} Waiting for CreateTweet response via CDP Network...')
             try:
@@ -823,8 +919,30 @@ class TwitterScrapeBrowser:
                 compose_submitted_at=compose_submitted_at,
             )
 
+        try:
+            # ツイート送信モーダルを開く
+            open_compose_result = await OpenComposeModal()
+            if open_compose_result is not None:
+                return open_compose_result
+
+            # compose を開いた後に、まだ必要なスロットル待機だけを残して自然な「考え中」時間として吸収する
+            ## OpenComposeModal() の実行時間を差し引き、compose が開いた直後に即 paste しないよう最低限の待機も確保する
+            elapsed_seconds = time.time() - compose_flow_started_at
+            compose_throttle_remaining_seconds = max(0.0, throttle_remaining_seconds - elapsed_seconds)
+            minimum_thinking_seconds = round(random.uniform(1.0, 2.0), 3)
+            compose_thinking_wait_seconds = max(compose_throttle_remaining_seconds, minimum_thinking_seconds)
+            logging.info(
+                f'{self.log_prefix} Waiting before compose submission. '
+                f'throttle remaining: {compose_throttle_remaining_seconds:.3f}s, '
+                f'thinking wait: {compose_thinking_wait_seconds:.3f}s',
+            )
+            await asyncio.sleep(compose_thinking_wait_seconds)
+
+            # ツイートを送信し、結果を返す
+            return await SubmitTweet()
+
         except Exception as ex:
-            logging.error(f'{self.log_prefix} Unexpected error during compose UI posting:', exc_info=ex)
+            logging.error(f'{self.log_prefix} Unexpected error during tweet posting via modal:', exc_info=ex)
             # エラー発生時はモーダルを閉じてクリーンアップする
             await CloseComposeModal()
             return MakeErrorResult(f'ツイート送信中に予期しないエラーが発生しました。({ex})')

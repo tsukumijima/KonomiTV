@@ -498,7 +498,7 @@ class TwitterGraphQLAPI:
         images: list[UploadFile],
     ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
-        Twitter Web App の compose UI を通じてツイートを送信する
+        Twitter Web App のツイート送信モーダルを通じてツイートを送信する
         読み取り系 API (invokeGraphQLAPI) と異なり、Twitter Web App の正規 UI 経路を通すため、
         user_flow.json の scribe イベント (new_tweet_button click, compose show, send_tweet 等) が自然に発火する
         画像アップロードも Twitter Web App の UI の自動操作で行うため、フィンガープリントの不一致が発生しないようになっている
@@ -518,23 +518,26 @@ class TwitterGraphQLAPI:
                 f'(content-type: {image.content_type or "image/jpeg"})',
             )
 
-        # ツイートの最小送信間隔を守るためにロックを取得
+        # ツイートの最小送信間隔を守る、またステートフルなヘッドレスブラウザの状態整合性を保つため、ロックを取得
         async with self._tweet_lock:
             logging.info(f'{self.log_prefix} Acquired tweet lock.')
 
-            # 最後のツイート時刻から最小送信間隔を経過していない場合は待機
+            # 最後のツイート時刻から最小送信間隔を経過していない場合のスロットル期限を計算する
             current_time = time.time()
-            wait_time = max(0, self.MINIMUM_TWEET_INTERVAL - (current_time - self._last_tweet_time))
-            if wait_time > 0:
+            minimum_tweet_interval_end = self._last_tweet_time + self.MINIMUM_TWEET_INTERVAL
+            throttle_deadline = current_time
+            if current_time < minimum_tweet_interval_end:
                 # 最小送信間隔ちょうどで毎回送信されると等間隔になって不自然なため、
                 # 0.001 秒単位で 0.1〜4.0 秒のランダムな追加待機時間を加えて送信タイミングをわずかに揺らす
-                logging.info(f'{self.log_prefix} Waiting for minimum tweet interval...')
                 additional_wait_time = round(random.uniform(
                     self.MINIMUM_TWEET_INTERVAL_JITTER_MIN,
                     self.MINIMUM_TWEET_INTERVAL_JITTER_MAX,
                 ), 3)
-                await asyncio.sleep(wait_time + additional_wait_time)
-                logging.info(f'{self.log_prefix} Minimum tweet interval elapsed.')
+                throttle_deadline = minimum_tweet_interval_end + additional_wait_time
+                logging.info(
+                    f'{self.log_prefix} Minimum tweet interval is active. '
+                    f'throttle deadline in: {max(0.0, throttle_deadline - current_time):.3f}s',
+                )
 
             # ヘッドレスブラウザがまだ起動していない場合、セットアップ処理を実行
             if self._browser.is_setup_complete is not True:
@@ -557,15 +560,17 @@ class TwitterGraphQLAPI:
                         self._shutdown_task.cancel()
                     self._shutdown_task = None
 
-            # compose UI を通じてツイートを送信する
+            # ツイート送信モーダルを通じてツイートを送信する
             try:
-                logging.info(f'{self.log_prefix} Posting tweet via compose UI...')
+                throttle_remaining_seconds = max(0.0, throttle_deadline - time.time())
+                logging.info(f'{self.log_prefix} Posting tweet via tweet posting modal...')
                 compose_ui_result = await self._browser.postTweetViaComposeUI(
                     tweet_text=tweet,
                     images=images,
+                    throttle_remaining_seconds=throttle_remaining_seconds,
                 )
             except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to post tweet via compose UI:', exc_info=ex)
+                logging.error(f'{self.log_prefix} Failed to post tweet via tweet posting modal:', exc_info=ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ツイートの送信に失敗しました。Twitter API に接続できませんでした。',
@@ -582,16 +587,16 @@ class TwitterGraphQLAPI:
                 # 一定時間後にヘッドレスブラウザをシャットダウンするタスクを再スケジュールする
                 await self.__scheduleShutdownTask()
 
-            # ツイート送信ボタンをクリックしたが、なんらかの理由でレスポンスがタイムアウトした可能性も考えられる
+            # Ctrl+Enter で送信したが、なんらかの理由でレスポンスがタイムアウトした可能性も考えられる
             # その場合でもすでに Twitter 側でツイート送信が完了している可能性があるため、
-            # ツイート送信ボタンのクリック時刻を前回のツイート送信時刻として記録する
+            # ツイート送信モーダル操作時のツイート送信完了時刻を前回のツイート送信時刻として記録する
             if compose_ui_result.compose_submitted_at is not None:
                 self._last_tweet_time = compose_ui_result.compose_submitted_at
 
-            # compose UI でのツイート送信に失敗した場合
+            # ツイート送信モーダルからのツイート送信に失敗した場合
             if compose_ui_result.is_success is not True:
                 error_message = compose_ui_result.error_message or '不明なエラー'
-                logging.error(f'{self.log_prefix} Failed to create tweet via compose UI: {error_message}')
+                logging.error(f'{self.log_prefix} Failed to create tweet via tweet posting modal: {error_message}')
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail=f'ツイートの送信に失敗しました。{error_message}',
