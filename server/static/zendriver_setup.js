@@ -218,38 +218,119 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
         return originalPush(chunk);
     };
 
-    // ===========================================
-    // HomeLatestTimeline の enableRanking を強制的に false にする XHR フック
-    // ===========================================
-    // Twitter Web App が HomeLatestTimeline を呼ぶ際、デフォルトでは enableRanking=true (人気順) になる
-    // これを false (最新順) に強制することで、「フォロー中」タブの「最新」ソートを維持する
-    // Control Panel for Twitter (https://github.com/insin/control-panel-for-twitter) と同じ手法
-    // ref: script.js line 30-48
+    // ======================================================================================
+    // アナリティクス (user_flow.json 等) のブロック & HomeLatestTimeline の enableRanking 強制
+    // ======================================================================================
+    // 以下の 2 つの機能を main.js 実行前に設置する (main.js が参照をキャプチャする前にフックする必要がある)
     //
-    // このフックは main.js 実行前 (webpack チャンクフック設置直後) に設置する
-    // await setupCompletePromise の後に置くと main.js 実行中の初回 HomeLatestTimeline リクエストを
-    // 捕捉できないため、最初期に設置する必要がある
+    // 【アナリティクスブロック】
+    // Twitter Web App が送信する、アナリティクス/テレメトリーリクエストをブロックする
+    // EasyPrivacy フィルタリストでブロックされるパターンに加え、
+    // jot → graphql/user_flow に移行された新エンドポイントもブロックする
+    // これらを一括でブロックすることで、広告ブロッカー導入済みブラウザに近いフィンガープリントを実現する
+    // fetch / XHR / sendBeacon の 3 経路すべてをカバーする
+    //
+    // 【enableRanking 強制】
+    // HomeLatestTimeline の enableRanking を false (最新順) に強制する
+    // Control Panel for Twitter (https://github.com/insin/control-panel-for-twitter) と同じ手法を採用した
+
+    // EasyPrivacy でブロックされるパターン + 新エンドポイント
+    // EasyPrivacy (https://easylist.to/easylist/easyprivacy.txt) の
+    // ||twitter.com / ||x.com / ||platform.twitter.com 系ルールを網羅する
+    // 加えて、jot → graphql/user_flow に移行された新エンドポイントもブロックする
+    const analyticsBlockPatterns = [
+        '/graphql/user_flow.json',   // 新: scribe イベント (rweb_home_jot_migrate_enabled=true 時)
+        '/graphql/error_log.json',   // 新: エラーログ (同上)
+        '/jot',                      // 旧: /1.1/jot, /i/jot, /i/api/1.1/jot, jot.html 等を網羅
+        '/log.json',                 // 広告インプレッション追跡 (promoted_content/log.json 等)
+        '/oct.js',                   // 旧: Twitter のトラッキングスクリプト
+        '/scribe/',                  // 旧: scribe エンドポイント
+        '/csp_report',               // CSP 違反レポート
+        '/1.1/attribution',          // アトリビューション追跡
+        '/9/measurement/',           // 広告計測
+        '/impressions.js',           // platform.twitter.com の広告インプレッション追跡
+    ];
+
+    // URL がブロック対象のアナリティクスエンドポイントかどうかを判定する
+    const isAnalyticsUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        return analyticsBlockPatterns.some(pattern => url.includes(pattern));
+    };
+
+    // --- fetch フック ---
+    // Twitter Web App の軽量ロガー (経路 A) は fetch で直接 user_flow.json に送信する
+    // main.js 実行前にフックすることで、Twitter のコードが fetch 参照をキャプチャしてもフック済みの版を使う
+    const OriginalFetch = window.fetch;
+    window.fetch = function(input) {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        if (isAnalyticsUrl(url)) {
+            // 空の 200 レスポンスを返し、scribe client にはリクエスト成功と認識させる
+            // これにより reenqueueOnFailure によるリトライループを防ぐ
+            return Promise.resolve(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+        }
+        return OriginalFetch.apply(this, arguments);
+    };
+
+    // --- XHR フック ---
+    // Twitter Web App の Rt クラス (経路 B) は apiClient.post() 経由で XHR を使用する
     const OriginalXHROpen = XMLHttpRequest.prototype.open;
+    const OriginalXHRSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-        if (url && typeof url === 'string' && url.includes('/HomeLatestTimeline')) {
-            try {
-                const parsedUrl = new URL(url);
-                const params = new URLSearchParams(parsedUrl.search);
-                const variablesRaw = params.get('variables');
-                if (variablesRaw) {
-                    const variables = JSON.parse(decodeURIComponent(variablesRaw));
-                    if (typeof variables.enableRanking === 'boolean' && variables.enableRanking !== false) {
-                        variables.enableRanking = false;
-                        params.set('variables', JSON.stringify(variables));
-                        url = `${parsedUrl.origin}${parsedUrl.pathname}?${params.toString()}`;
-                        console.log('[zendriver_setup] HomeLatestTimeline: forced enableRanking=false');
+        if (typeof url === 'string') {
+            // アナリティクス URL をブロック対象としてマークする
+            if (isAnalyticsUrl(url)) {
+                this.__analyticsBlocked = true;
+            }
+            // Twitter Web App が HomeLatestTimeline を呼ぶ際、デフォルトでは enableRanking=true (人気順) になる
+            // これを false (最新順) に強制することで、「フォロー中」タブの「最新」ソートを維持する
+            if (url.includes('/HomeLatestTimeline')) {
+                try {
+                    const parsedUrl = new URL(url);
+                    const params = new URLSearchParams(parsedUrl.search);
+                    const variablesRaw = params.get('variables');
+                    if (variablesRaw) {
+                        const variables = JSON.parse(decodeURIComponent(variablesRaw));
+                        if (typeof variables.enableRanking === 'boolean' && variables.enableRanking !== false) {
+                            variables.enableRanking = false;
+                            params.set('variables', JSON.stringify(variables));
+                            url = `${parsedUrl.origin}${parsedUrl.pathname}?${params.toString()}`;
+                        }
                     }
+                } catch (_) {
+                    // URL パースや JSON パースに失敗してもアプリケーションを壊さない
                 }
-            } catch (_) {
-                // URL パースや JSON パースに失敗してもアプリケーションを壊さない
             }
         }
         return OriginalXHROpen.call(this, method, url, ...rest);
+    };
+    XMLHttpRequest.prototype.send = function(body) {
+        if (this.__analyticsBlocked) {
+            // XHR の send を呼ばず、非同期で成功レスポンスをシミュレートする
+            // Object.defineProperty でインスタンスにデータプロパティを定義し、プロトタイプの getter を shadow する
+            const self = this;
+            setTimeout(() => {
+                Object.defineProperty(self, 'readyState', { value: 4, configurable: true });
+                Object.defineProperty(self, 'status', { value: 200, configurable: true });
+                Object.defineProperty(self, 'statusText', { value: 'OK', configurable: true });
+                Object.defineProperty(self, 'responseText', { value: '{}', configurable: true });
+                Object.defineProperty(self, 'response', { value: '{}', configurable: true });
+                self.dispatchEvent(new Event('readystatechange'));
+                self.dispatchEvent(new ProgressEvent('load'));
+                self.dispatchEvent(new Event('loadend'));
+            }, 0);
+            return;
+        }
+        return OriginalXHRSend.call(this, body);
+    };
+
+    // --- sendBeacon フック ---
+    // ページ離脱時 (visibilitychange: hidden, pagehide) に navigator.sendBeacon() でアナリティクスが送信されうるため、これらをブロックする
+    const OriginalSendBeacon = navigator.sendBeacon;
+    navigator.sendBeacon = function(url, data) {
+        if (isAnalyticsUrl(url)) {
+            return true;  // 送信成功を偽装する
+        }
+        return OriginalSendBeacon.call(this, url, data);
     };
 
     // ===========================================
