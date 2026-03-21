@@ -219,6 +219,40 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
     };
 
     // ===========================================
+    // HomeLatestTimeline の enableRanking を強制的に false にする XHR フック
+    // ===========================================
+    // Twitter Web App が HomeLatestTimeline を呼ぶ際、デフォルトでは enableRanking=true (人気順) になる
+    // これを false (最新順) に強制することで、「フォロー中」タブの「最新」ソートを維持する
+    // Control Panel for Twitter (https://github.com/insin/control-panel-for-twitter) と同じ手法
+    // ref: script.js line 30-48
+    //
+    // このフックは main.js 実行前 (webpack チャンクフック設置直後) に設置する
+    // await setupCompletePromise の後に置くと main.js 実行中の初回 HomeLatestTimeline リクエストを
+    // 捕捉できないため、最初期に設置する必要がある
+    const OriginalXHROpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        if (url && typeof url === 'string' && url.includes('/HomeLatestTimeline')) {
+            try {
+                const parsedUrl = new URL(url);
+                const params = new URLSearchParams(parsedUrl.search);
+                const variablesRaw = params.get('variables');
+                if (variablesRaw) {
+                    const variables = JSON.parse(decodeURIComponent(variablesRaw));
+                    if (typeof variables.enableRanking === 'boolean' && variables.enableRanking !== false) {
+                        variables.enableRanking = false;
+                        params.set('variables', JSON.stringify(variables));
+                        url = `${parsedUrl.origin}${parsedUrl.pathname}?${params.toString()}`;
+                        console.log('[zendriver_setup] HomeLatestTimeline: forced enableRanking=false');
+                    }
+                }
+            } catch (_) {
+                // URL パースや JSON パースに失敗してもアプリケーションを壊さない
+            }
+        }
+        return OriginalXHROpen.call(this, method, url, ...rest);
+    };
+
+    // ===========================================
     // セットアップ完了待機
     // ===========================================
 

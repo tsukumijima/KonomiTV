@@ -273,6 +273,62 @@ class TwitterScrapeBrowser:
                 self.is_setup_complete = False
                 raise ex
 
+            # ===========================================
+            # タイムラインタブを「フォロー中」に切り替える
+            # ===========================================
+            # デフォルトでは「おすすめ」タブが選択されているが、KonomiTV では HomeLatestTimeline API
+            # (フォロー中の最新ツイート) を使用するため、ページの状態を合わせる必要がある
+            ## タブを切り替えることで以下のメリットがある:
+            ## - Web App が自然に HomeLatestTimeline API を呼び、正しい scribe イベントが発火する
+            ## - 以降の invokeGraphQLAPI による HomeLatestTimeline 呼び出しがタブ状態と矛盾しない
+            ## - ツイート送信時も「最新 TL を見ながらツイート」という自然なフローになる
+            ## enableRanking=false の強制は zendriver_setup.js 側の XHR フックで行うため、
+            ## ドロップダウン UI の操作は不要 (Control Panel for Twitter と同じ手法)
+            logging.info(f'{self.log_prefix} Switching to "Following" timeline tab...')
+            try:
+                _, tab_switch_exception = await self._page.send(cdp.runtime.evaluate(
+                    expression='''
+                    new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('Timeout: Following tab not found')), 10000);
+                        const check = () => {
+                            // タイムラインタブリストの2番目のタブ (「フォロー中」) を探す
+                            const tabList = document.querySelector('nav div[role="tablist"]');
+                            if (!tabList) {
+                                requestAnimationFrame(check);
+                                return;
+                            }
+                            const followingTab = tabList.querySelector('div:nth-child(2) > [role="tab"]');
+                            if (!followingTab) {
+                                requestAnimationFrame(check);
+                                return;
+                            }
+                            // 既に「フォロー中」タブが選択されている場合はそのまま完了
+                            if (followingTab.getAttribute('aria-selected') === 'true') {
+                                clearTimeout(timeout);
+                                resolve('already_selected');
+                                return;
+                            }
+                            // 「フォロー中」タブをクリックして切り替える
+                            followingTab.click();
+                            clearTimeout(timeout);
+                            resolve('switched');
+                        };
+                        check();
+                    })
+                    ''',
+                    await_promise=True,
+                    return_by_value=True,
+                ))
+                if tab_switch_exception is not None:
+                    logging.warning(f'{self.log_prefix} Failed to switch to Following tab: {tab_switch_exception}')
+                else:
+                    logging.info(f'{self.log_prefix} Following tab is active.')
+                    # タブ切り替え後、Web App が HomeLatestTimeline を自動的に呼ぶのを少し待つ
+                    await asyncio.sleep(2.0)
+            except Exception as ex:
+                # タブ切り替えの失敗はセットアップ全体を失敗させるほどのものではない
+                logging.warning(f'{self.log_prefix} Error switching timeline tab:', exc_info=ex)
+
     async def invokeGraphQLAPI(
         self,
         endpoint_name: str,
