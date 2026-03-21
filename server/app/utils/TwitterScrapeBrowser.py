@@ -1,11 +1,13 @@
 import asyncio
+import atexit
 import base64
 import json
 import random
 import time
-from typing import Any
+from typing import Any, ClassVar
 
 import anyio
+import psutil
 from fastapi import UploadFile
 from pydantic import BaseModel
 from zendriver import Browser, Tab, cdp
@@ -49,6 +51,9 @@ class TwitterScrapeBrowser:
     ヘッドレスブラウザのセットアップ処理や、ブラウザインスタンス自身の低レベル操作を隠蔽する
     """
 
+    # Python プロセス終了時に取り残しなくブラウザを回収するため、起動したブラウザ親プロセスを保持する
+    _active_browser_processes: ClassVar[dict[int, psutil.Process]] = {}
+
     def __init__(self, twitter_account: TwitterAccount) -> None:
         """
         TwitterScrapeBrowser を初期化する
@@ -63,6 +68,9 @@ class TwitterScrapeBrowser:
         self._browser: Browser | None = None
         # 現在アクティブなタブ（ページ）インスタンス
         self._page: Tab | None = None
+        # 起動中ブラウザの親プロセス
+        ## Browser.stop() が失敗した場合でもプロセスツリーを直接 terminate / kill できるように保持する
+        self._browser_process: psutil.Process | None = None
 
         # セットアップ処理が完了したかどうかのフラグ
         self.is_setup_complete = False
@@ -140,194 +148,241 @@ class TwitterScrapeBrowser:
                 else:
                     logging.error(f'{self.log_prefix} Error starting browser:', exc_info=ex)
                     raise ex
+
+            # Zendriver はブラウザ親プロセスの PID を public API として公開していないため、
+            # 終了保証のためにここだけ内部属性を参照する
+            browser_process_id = self._browser._process_pid  # pyright: ignore[reportPrivateUsage]
+            # _process_pid が未設定でも Popen は保持されている場合があるため、その場合は pid を直接参照する
+            if browser_process_id is None and self._browser._process is not None:  # pyright: ignore[reportPrivateUsage]
+                browser_process_id = self._browser._process.pid  # pyright: ignore[reportPrivateUsage]
+            self._browser_process = None
+
+            # 後続の shutdown() / atexit から同じブラウザ親プロセスを安全に回収できるよう、psutil.Process を保持する
+            if browser_process_id is not None:
+                try:
+                    self._browser_process = psutil.Process(browser_process_id)
+                    self._active_browser_processes[browser_process_id] = self._browser_process
+                except psutil.NoSuchProcess:
+                    self._browser_process = None
+                except psutil.Error as ex:
+                    logging.warning(f'{self.log_prefix} Failed to capture browser process metadata:', exc_info=ex)
+                    self._browser_process = None
+
             logging.info(f'{self.log_prefix} Browser started.')
 
-            # まず空のタブを開く
-            self._page = await self._browser.get('about:blank')
-            logging.debug(f'{self.log_prefix} Blank page opened.')
-
-            # 物理ウィンドウサイズも設定する (非ヘッドレスモードでのデバッグ時に正しいサイズで表示されるように)
+            # Browser.create() 成功後に例外が起きた場合でも、以降の処理で起動済みプロセスを取りこぼさないようにする
             try:
-                # get_window_for_target() は (WindowID, Bounds) のタプルを返す
-                window_id, _ = await self._page.send(cdp.browser.get_window_for_target())
-                await self._page.send(cdp.browser.set_window_bounds(
-                    window_id=window_id,
-                    bounds=cdp.browser.Bounds(width=1920, height=1080),
-                ))
-            except Exception as ex:
-                # ヘッドレスモードではウィンドウサイズ操作が失敗する場合があるが、
-                # set_device_metrics_override で CSS ビューポートは確保されているので無視して問題ない
-                logging.debug(f'{self.log_prefix} Failed to set window bounds (expected in headless mode):', exc_info=ex)
+                # まず空のタブを開く
+                self._page = await self._browser.get('about:blank')
+                logging.debug(f'{self.log_prefix} Blank page opened.')
 
-            # DB から復号した cookies.txt の内容をパースし、ヘッドレスブラウザの Cookie に設定
-            cookies_txt_content = self.twitter_account.decryptAccessTokenSecret()
-            if cookies_txt_content:
-                cookie_params = self.parseNetscapeCookieFile(cookies_txt_content)
-                logging.debug(f'{self.log_prefix} Found {len(cookie_params)} cookies in cookies.txt.')
-                # 読み込んだ CookieParam のリストを CookieJar に一括で設定
+                # 物理ウィンドウサイズも設定する (非ヘッドレスモードでのデバッグ時に正しいサイズで表示されるように)
                 try:
-                    await self._browser.cookies.set_all(cookie_params)
-                    logging.info(f'{self.log_prefix} Successfully set {len(cookie_params)} cookies.')
+                    # get_window_for_target() は (WindowID, Bounds) のタプルを返す
+                    window_id, _ = await self._page.send(cdp.browser.get_window_for_target())
+                    await self._page.send(cdp.browser.set_window_bounds(
+                        window_id=window_id,
+                        bounds=cdp.browser.Bounds(width=1920, height=1080),
+                    ))
                 except Exception as ex:
-                    logging.error(f'{self.log_prefix} Error setting cookies:', exc_info=ex)
-            else:
-                logging.warning(f'{self.log_prefix} cookies.txt content is empty, skipping Cookie loading.')
+                    # ヘッドレスモードではウィンドウサイズ操作が失敗する場合があるが、
+                    # set_device_metrics_override で CSS ビューポートは確保されているので無視して問題ない
+                    logging.debug(f'{self.log_prefix} Failed to set window bounds (expected in headless mode):', exc_info=ex)
 
-            # Debugger を有効化
-            await self._page.send(cdp.debugger.enable())
-
-            # zendriver_setup.js の内容を読み込む
-            setup_js_path = anyio.Path(STATIC_DIR / 'zendriver_setup.js')
-            setup_js_code = await setup_js_path.read_text(encoding='utf-8')
-
-            # Debugger.paused イベントをリッスン
-            async def on_paused(event: cdp.debugger.Paused) -> None:
-                logging.debug(f'{self.log_prefix} Pause event fired.')
-                assert self._page is not None
-                page = self._page
-                try:
-                    # ブレークポイント停止中に zendriver_setup.js のコードをブラウザタブ側に設置する
-                    ## await_promise は指定しない（デフォルトは False）ので、スクリプトは設置されるが待機しない
-                    ## その後、ブレークポイントから実行を再開すると、設置されたスクリプトが実行される
-                    _, exception = await page.send(
-                        cdp.runtime.evaluate(
-                            expression=setup_js_code,
-                            return_by_value=True,
-                        )
-                    )
-                    logging.debug(f'{self.log_prefix} zendriver_setup.js executed.')
-                    if exception is not None:
-                        # 実行中になんらかの例外が発生した場合
-                        setup_complete_future.set_exception(
-                            Exception(f'Failed to execute zendriver_setup.js: {exception}')
-                        )
-                except Exception as ex:
-                    setup_complete_future.set_exception(ex)
-                finally:
-                    # ブレークポイントから実行を再開
-                    await page.send(cdp.debugger.resume())
+                # DB から復号した cookies.txt の内容をパースし、ヘッドレスブラウザの Cookie に設定
+                cookies_txt_content = self.twitter_account.decryptAccessTokenSecret()
+                if cookies_txt_content:
+                    cookie_params = self.parseNetscapeCookieFile(cookies_txt_content)
+                    logging.debug(f'{self.log_prefix} Found {len(cookie_params)} cookies in cookies.txt.')
+                    # 読み込んだ CookieParam のリストを CookieJar に一括で設定
                     try:
-                        # 再開後に少し待つ (でないと window.__invokeGraphQLAPISetupPromise 自体がまだセットされていない可能性がある)
-                        await asyncio.sleep(1)
-                        logging.info(f'{self.log_prefix} Waiting for zendriver_setup.js to be resolved...')
-                        # 再開後、window.__invokeGraphQLAPISetupPromise の Promise が解決されるまで待つ
-                        result, exception = await page.send(
+                        await self._browser.cookies.set_all(cookie_params)
+                        logging.info(f'{self.log_prefix} Successfully set {len(cookie_params)} cookies.')
+                    except Exception as ex:
+                        logging.error(f'{self.log_prefix} Error setting cookies:', exc_info=ex)
+                else:
+                    logging.warning(f'{self.log_prefix} cookies.txt content is empty, skipping Cookie loading.')
+
+                # Debugger を有効化
+                await self._page.send(cdp.debugger.enable())
+
+                # zendriver_setup.js の内容を読み込む
+                setup_js_path = anyio.Path(STATIC_DIR / 'zendriver_setup.js')
+                setup_js_code = await setup_js_path.read_text(encoding='utf-8')
+
+                # Debugger.paused イベントをリッスン
+                async def on_paused(event: cdp.debugger.Paused) -> None:
+                    logging.debug(f'{self.log_prefix} Pause event fired.')
+                    assert self._page is not None
+                    page = self._page
+                    try:
+                        # ブレークポイント停止中に zendriver_setup.js のコードをブラウザタブ側に設置する
+                        ## await_promise は指定しない（デフォルトは False）ので、スクリプトは設置されるが待機しない
+                        ## その後、ブレークポイントから実行を再開すると、設置されたスクリプトが実行される
+                        _, exception = await page.send(
                             cdp.runtime.evaluate(
-                                expression='window.__invokeGraphQLAPISetupPromise',
-                                await_promise=True,
+                                expression=setup_js_code,
                                 return_by_value=True,
                             )
                         )
-                        logging.debug(f'{self.log_prefix} zendriver_setup.js evaluated.')
+                        logging.debug(f'{self.log_prefix} zendriver_setup.js executed.')
                         if exception is not None:
+                            # 実行中になんらかの例外が発生した場合
                             setup_complete_future.set_exception(
-                                Exception(f'Failed to wait for setup promise: {exception}')
+                                Exception(f'Failed to execute zendriver_setup.js: {exception}')
                             )
-                        else:
-                            # result.value が厳密に True であることを確認（undefined の可能性を排除）
-                            if result.value is True:
-                                logging.debug(f'{self.log_prefix} zendriver_setup.js resolved.')
-                                setup_complete_future.set_result(True)
-                            else:
-                                setup_complete_future.set_exception(
-                                    Exception(f'Setup promise did not return true. Got: {result.value}')
-                                )
                     except Exception as ex:
                         setup_complete_future.set_exception(ex)
+                    finally:
+                        # ブレークポイントから実行を再開
+                        await page.send(cdp.debugger.resume())
+                        try:
+                            # 再開後に少し待つ (でないと window.__invokeGraphQLAPISetupPromise 自体がまだセットされていない可能性がある)
+                            await asyncio.sleep(1)
+                            logging.info(f'{self.log_prefix} Waiting for zendriver_setup.js to be resolved...')
+                            # 再開後、window.__invokeGraphQLAPISetupPromise の Promise が解決されるまで待つ
+                            result, exception = await page.send(
+                                cdp.runtime.evaluate(
+                                    expression='window.__invokeGraphQLAPISetupPromise',
+                                    await_promise=True,
+                                    return_by_value=True,
+                                )
+                            )
+                            logging.debug(f'{self.log_prefix} zendriver_setup.js evaluated.')
+                            if exception is not None:
+                                setup_complete_future.set_exception(
+                                    Exception(f'Failed to wait for setup promise: {exception}')
+                                )
+                            else:
+                                # result.value が厳密に True であることを確認（undefined の可能性を排除）
+                                if result.value is True:
+                                    logging.debug(f'{self.log_prefix} zendriver_setup.js resolved.')
+                                    setup_complete_future.set_result(True)
+                                else:
+                                    setup_complete_future.set_exception(
+                                        Exception(f'Setup promise did not return true. Got: {result.value}')
+                                    )
+                        except Exception as ex:
+                            setup_complete_future.set_exception(ex)
 
-            self._page.add_handler(cdp.debugger.Paused, on_paused)
+                self._page.add_handler(cdp.debugger.Paused, on_paused)
 
-            # x.com の main.js の1行目にブレークポイントを設定
-            ## ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
-            ## 正規表現はパスが main.<hash>.js 形式のファイルのみにマッチするように厳密化している
-            breakpoint_id, _ = await self._page.send(
-                cdp.debugger.set_breakpoint_by_url(
-                    line_number=0,  # 0-based なので 1行目は 0
-                    url_regex=r'^.*?main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
+                # x.com の main.js の1行目にブレークポイントを設定
+                ## ブレークポイントが発火すると on_paused ハンドラーが呼ばれ、zendriver_setup.js が実行される
+                ## 正規表現はパスが main.<hash>.js 形式のファイルのみにマッチするように厳密化している
+                breakpoint_id, _ = await self._page.send(
+                    cdp.debugger.set_breakpoint_by_url(
+                        line_number=0,  # 0-based なので 1行目は 0
+                        url_regex=r'^.*?main\.[a-fA-F0-9]+\.js$',  # main.<hash>.js を厳密にマッチさせる正規表現
+                    )
                 )
-            )
-            logging.debug(f'{self.log_prefix} Breakpoint set. id: {breakpoint_id}')
+                logging.debug(f'{self.log_prefix} Breakpoint set. id: {breakpoint_id}')
 
-            # x.com に移動
-            ## x.com/home だと万が一 Cookie セッションが revoke されている場合にログインモーダルが表示されて
-            ## セットアップが解決できないっぽいので、ログイン前の画面がそのまま出てくる x.com/ 直下である必要がある
-            self._page = await self._browser.get('https://x.com/')
-            await self._page.activate()
+                # x.com に移動
+                ## x.com/home だと万が一 Cookie セッションが revoke されている場合にログインモーダルが表示されて
+                ## セットアップが解決できないっぽいので、ログイン前の画面がそのまま出てくる x.com/ 直下である必要がある
+                self._page = await self._browser.get('https://x.com/')
+                await self._page.activate()
 
-            # zendriver_setup.js に記述したセットアップ処理が完了するまで待つ
-            try:
-                await asyncio.wait_for(setup_complete_future, timeout=15.0)
-                logging.info(f'{self.log_prefix} Setup completed.')
-                # セットアップ完了後、もうブレークポイントを打つ必要はないのでデバッガを無効化
+                # zendriver_setup.js に記述したセットアップ処理が完了するまで待つ
                 try:
-                    await self._page.send(cdp.debugger.disable())
+                    await asyncio.wait_for(setup_complete_future, timeout=15.0)
+                    logging.info(f'{self.log_prefix} Setup completed.')
+                    # セットアップ完了後、もうブレークポイントを打つ必要はないのでデバッガを無効化
+                    try:
+                        await self._page.send(cdp.debugger.disable())
+                    except Exception as ex:
+                        logging.error(f'{self.log_prefix} Error disabling debugger:', exc_info=ex)
+                    self.is_setup_complete = True
+                except TimeoutError as ex:
+                    logging.error(f'{self.log_prefix} Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.')
+                    self.is_setup_complete = False
+                    raise ex
                 except Exception as ex:
-                    logging.error(f'{self.log_prefix} Error disabling debugger:', exc_info=ex)
-                self.is_setup_complete = True
-            except TimeoutError as ex:
-                logging.error(f'{self.log_prefix} Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.')
-                self.is_setup_complete = False
-                raise ex
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Error during setup:', exc_info=ex)
-                self.is_setup_complete = False
-                raise ex
+                    logging.error(f'{self.log_prefix} Error during setup:', exc_info=ex)
+                    self.is_setup_complete = False
+                    raise ex
 
-            # ===========================================
-            # タイムラインタブを「フォロー中」に切り替える
-            # ===========================================
-            # デフォルトでは「おすすめ」タブが選択されているが、KonomiTV では HomeLatestTimeline API
-            # (フォロー中の最新ツイート) を使用するため、ページの状態を合わせる必要がある
-            ## タブを切り替えることで以下のメリットがある:
-            ## - Web App が自然に HomeLatestTimeline API を呼び、正しい scribe イベントが発火する
-            ## - 以降の invokeGraphQLAPI による HomeLatestTimeline 呼び出しがタブ状態と矛盾しない
-            ## - ツイート送信時も「最新 TL を見ながらツイート」という自然なフローになる
-            ## enableRanking=false の強制は zendriver_setup.js 側の XHR フックで行うため、
-            ## ドロップダウン UI の操作は不要 (Control Panel for Twitter と同じ手法)
-            logging.info(f'{self.log_prefix} Switching to "Following" timeline tab...')
-            try:
-                _, tab_switch_exception = await self._page.send(cdp.runtime.evaluate(
-                    expression='''
-                    new Promise((resolve, reject) => {
-                        const timeout = setTimeout(() => reject(new Error('Timeout: Following tab not found')), 10000);
-                        const check = () => {
-                            // タイムラインタブリストの2番目のタブ (「フォロー中」) を探す
-                            const tabList = document.querySelector('nav div[role="tablist"]');
-                            if (!tabList) {
-                                requestAnimationFrame(check);
-                                return;
-                            }
-                            const followingTab = tabList.querySelector('div:nth-child(2) > [role="tab"]');
-                            if (!followingTab) {
-                                requestAnimationFrame(check);
-                                return;
-                            }
-                            // 既に「フォロー中」タブが選択されている場合はそのまま完了
-                            if (followingTab.getAttribute('aria-selected') === 'true') {
+                # ===========================================
+                # タイムラインタブを「フォロー中」に切り替える
+                # ===========================================
+                # デフォルトでは「おすすめ」タブが選択されているが、KonomiTV では HomeLatestTimeline API
+                # (フォロー中の最新ツイート) を使用するため、ページの状態を合わせる必要がある
+                ## タブを切り替えることで以下のメリットがある:
+                ## - Web App が自然に HomeLatestTimeline API を呼び、正しい scribe イベントが発火する
+                ## - 以降の invokeGraphQLAPI による HomeLatestTimeline 呼び出しがタブ状態と矛盾しない
+                ## - ツイート送信時も「最新 TL を見ながらツイート」という自然なフローになる
+                ## enableRanking=false の強制は zendriver_setup.js 側の XHR フックで行うため、
+                ## ドロップダウン UI の操作は不要 (Control Panel for Twitter と同じ手法)
+                logging.info(f'{self.log_prefix} Switching to "Following" timeline tab...')
+                try:
+                    _, tab_switch_exception = await self._page.send(cdp.runtime.evaluate(
+                        expression='''
+                        new Promise((resolve, reject) => {
+                            const timeout = setTimeout(() => reject(new Error('Timeout: Following tab not found')), 10000);
+                            const check = () => {
+                                // タイムラインタブリストの2番目のタブ (「フォロー中」) を探す
+                                const tabList = document.querySelector('nav div[role="tablist"]');
+                                if (!tabList) {
+                                    requestAnimationFrame(check);
+                                    return;
+                                }
+                                const followingTab = tabList.querySelector('div:nth-child(2) > [role="tab"]');
+                                if (!followingTab) {
+                                    requestAnimationFrame(check);
+                                    return;
+                                }
+                                // 既に「フォロー中」タブが選択されている場合はそのまま完了
+                                if (followingTab.getAttribute('aria-selected') === 'true') {
+                                    clearTimeout(timeout);
+                                    resolve('already_selected');
+                                    return;
+                                }
+                                // 「フォロー中」タブをクリックして切り替える
+                                followingTab.click();
                                 clearTimeout(timeout);
-                                resolve('already_selected');
-                                return;
-                            }
-                            // 「フォロー中」タブをクリックして切り替える
-                            followingTab.click();
-                            clearTimeout(timeout);
-                            resolve('switched');
-                        };
-                        check();
-                    })
-                    ''',
-                    await_promise=True,
-                    return_by_value=True,
-                ))
-                if tab_switch_exception is not None:
-                    logging.warning(f'{self.log_prefix} Failed to switch to Following tab: {tab_switch_exception}')
-                else:
-                    logging.info(f'{self.log_prefix} Following tab is active.')
-                    # タブ切り替え後、Web App が HomeLatestTimeline を自動的に呼ぶのを少し待つ
-                    await asyncio.sleep(2.0)
-            except Exception as ex:
-                # タブ切り替えの失敗はセットアップ全体を失敗させるほどのものではない
-                logging.warning(f'{self.log_prefix} Error switching timeline tab:', exc_info=ex)
+                                resolve('switched');
+                            };
+                            check();
+                        })
+                        ''',
+                        await_promise=True,
+                        return_by_value=True,
+                    ))
+                    if tab_switch_exception is not None:
+                        logging.warning(f'{self.log_prefix} Failed to switch to Following tab: {tab_switch_exception}')
+                    else:
+                        logging.info(f'{self.log_prefix} Following tab is active.')
+                        # タブ切り替え後、Web App が HomeLatestTimeline を自動的に呼ぶのを少し待つ
+                        await asyncio.sleep(2.0)
+                except Exception as ex:
+                    # タブ切り替えの失敗はセットアップ全体を失敗させるほどのものではない
+                    logging.warning(f'{self.log_prefix} Error switching timeline tab:', exc_info=ex)
+
+            except BaseException:
+                # セットアップ途中で失敗した場合、作成済みのブラウザプロセスをここで確実に回収する
+                ## ここで回収しないと KonomiTV サービス再起動時に古いヘッドレスブラウザが残りうる
+                self.is_setup_complete = False
+                try:
+                    # まずは Zendriver の正規停止を試し、接続が生きているケースでは穏当に終了させる
+                    if self._browser is not None:
+                        await asyncio.wait_for(self._browser.stop(), timeout=5.0)
+                except Exception as ex:
+                    logging.error(f'{self.log_prefix} Error while cleaning up browser after setup failure:', exc_info=ex)
+
+                # Browser.stop() が失敗・タイムアウトしても、親プロセスが分かっていれば OS レベルで回収する
+                if self._browser_process is not None:
+                    await asyncio.to_thread(
+                        self._terminateBrowserProcessTree,
+                        self._browser_process,
+                        self.log_prefix,
+                    )
+                    self._active_browser_processes.pop(self._browser_process.pid, None)
+
+                self._browser = None
+                self._page = None
+                self._browser_process = None
+                raise
 
     async def invokeGraphQLAPI(
         self,
@@ -1029,24 +1084,41 @@ class TwitterScrapeBrowser:
         # セットアップ・シャットダウン処理の排他制御
         ## シャットダウン中に setup が呼ばれると状態が競合するため、同じロックを使用する
         async with self._setup_lock:
-            if self._browser is None:
+            if self._browser is None and self._browser_process is None:
                 logging.warning(f'{self.log_prefix} Browser is not initialized, skipping shutdown.')
                 return
+
+            # 停止対象をローカル変数へ退避しておくことで、後段のクリーンアップで参照を明確にする
+            browser = self._browser
+            browser_process = self._browser_process
 
             # セットアップ完了フラグをリセット（シャットダウン開始時点でセットアップ状態を無効化）
             ## これにより、シャットダウン中に setup が呼ばれた場合でも、シャットダウン完了後に再度セットアップが必要になる
             self.is_setup_complete = False
 
             # ヘッドレスブラウザを停止
-            logging.info(f'{self.log_prefix} Waiting for browser to terminate...')
-            try:
-                await self._browser.stop()
-                logging.info(f'{self.log_prefix} Browser terminated.')
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Error while terminating browser:', exc_info=ex)
+            # まずは Zendriver の正規停止を試し、通常の終了処理で片付くケースを優先する
+            if browser is not None:
+                logging.info(f'{self.log_prefix} Waiting for browser to terminate...')
+                try:
+                    await asyncio.wait_for(browser.stop(), timeout=5.0)
+                    logging.info(f'{self.log_prefix} Browser terminated.')
+                except Exception as ex:
+                    logging.error(f'{self.log_prefix} Error while terminating browser:', exc_info=ex)
 
+            # Browser.stop() の成否にかかわらず、親プロセスが残っていれば最後に OS レベルで残骸を掃除する
+            if browser_process is not None:
+                await asyncio.to_thread(
+                    self._terminateBrowserProcessTree,
+                    browser_process,
+                    self.log_prefix,
+                )
+                self._active_browser_processes.pop(browser_process.pid, None)
+
+            # 参照を明示的に破棄し、以後は新しい setup() でのみ再利用される状態に戻す
             self._browser = None
             self._page = None
+            self._browser_process = None
 
     async def saveTwitterCookiesToNetscapeFormat(self) -> str:
         """
@@ -1149,3 +1221,81 @@ class TwitterScrapeBrowser:
                 )
             )
         return cookie_params
+
+    @classmethod
+    def _terminateBrowserProcessTree(cls, browser_process: psutil.Process, log_prefix: str) -> None:
+        """
+        指定されたブラウザプロセスツリーを同期的に terminate / kill する。
+
+        Args:
+            browser_process (psutil.Process): 終了したいブラウザ親プロセス
+            log_prefix (str): ログ出力用のプレフィックス
+        """
+
+        try:
+            # PID 再利用対策は psutil.Process 側が持っているため、保持済みの Process をそのまま起点にする
+            if browser_process.is_running() is not True:
+                return
+            root_process = browser_process
+            # Chrome 系ブラウザは親プロセスの配下に複数の子プロセスをぶら下げるため、必ずプロセスツリーごと回収する
+            target_processes = root_process.children(recursive=True)
+            target_processes.append(root_process)
+        except psutil.NoSuchProcess:
+            return
+        except psutil.Error as ex:
+            logging.warning(f'{log_prefix} Failed to enumerate browser process tree. pid: {browser_process.pid}', exc_info=ex)
+            return
+
+        logging.warning(
+            f'{log_prefix} Force terminating browser process tree. '
+            f'pid: {browser_process.pid}, descendants: {len(target_processes) - 1}',
+        )
+
+        # 子から順に terminate することで、親だけ先に落として子プロセスが孤児化する可能性を下げる
+        for target_process in reversed(target_processes):
+            try:
+                target_process.terminate()
+            except psutil.NoSuchProcess:
+                continue
+            except psutil.Error as ex:
+                logging.warning(f'{log_prefix} Failed to terminate browser process. pid: {target_process.pid}', exc_info=ex)
+
+        # まずは穏当な terminate を試し、通常の終了シーケンスに乗れるプロセスはそのまま終了させる
+        _, alive_processes = psutil.wait_procs(target_processes, timeout=5.0)
+        if len(alive_processes) == 0:
+            return
+
+        logging.warning(f'{log_prefix} Browser process tree did not exit after terminate(). Killing survivors...')
+        # terminate で落ちなかったプロセスだけ kill に切り替え、残骸を確実に掃除する
+        for alive_process in alive_processes:
+            try:
+                alive_process.kill()
+            except psutil.NoSuchProcess:
+                continue
+            except psutil.Error as ex:
+                logging.warning(f'{log_prefix} Failed to kill browser process. pid: {alive_process.pid}', exc_info=ex)
+
+        _, still_alive_processes = psutil.wait_procs(alive_processes, timeout=2.0)
+        if len(still_alive_processes) > 0:
+            still_alive_pids = [process.pid for process in still_alive_processes]
+            logging.error(f'{log_prefix} Browser process tree is still alive after kill(). pids: {still_alive_pids}')
+
+    @classmethod
+    def cleanupBrowserProcessesAtExit(cls) -> None:
+        """
+        Python プロセス終了時に、未回収のヘッドレスブラウザをすべて強制終了する。
+        """
+
+        # atexit 中に辞書を書き換えながら走査しないよう、現在の回収対象を先にスナップショット化する
+        active_processes = list(cls._active_browser_processes.values())
+        cls._active_browser_processes.clear()
+
+        for browser_process in active_processes:
+            cls._terminateBrowserProcessTree(
+                browser_process=browser_process,
+                log_prefix='[TwitterScrapeBrowser][ProcessExit]',
+            )
+
+
+# 通常の shutdown 経路に入れなかった場合でも、Python プロセス終了時に最後の保険として必ず回収する
+atexit.register(TwitterScrapeBrowser.cleanupBrowserProcessesAtExit)
