@@ -64,7 +64,11 @@ class Twitter {
     static async auth(twitter_auth_request: ITwitterCookieAuthRequest): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post('/twitter/auth', twitter_auth_request);
+        const response = await APIClient.post('/twitter/auth', twitter_auth_request, {
+            // サーバー側でヘッドレスブラウザのセットアップが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
@@ -190,7 +194,11 @@ class Twitter {
     static async retweet(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
         // API リクエストを実行
-        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, undefined);
+        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, undefined, {
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
@@ -218,7 +226,11 @@ class Twitter {
     static async cancelRetweet(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
         // API リクエストを実行
-        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`);
+        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/retweet`, {
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
@@ -246,7 +258,11 @@ class Twitter {
     static async favorite(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
         // API リクエストを実行
-        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, undefined);
+        const response = await APIClient.put<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, undefined, {
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
@@ -274,7 +290,11 @@ class Twitter {
     static async cancelFavorite(screen_name: string, tweet_id: string): Promise<ITwitterAPIResult | null> {
 
         // API リクエストを実行
-        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`);
+        const response = await APIClient.delete<ITwitterAPIResult>(`/twitter/accounts/${screen_name}/tweets/${tweet_id}/favorite`, {
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
+        });
 
         // エラー処理
         if (response.type === 'error') {
@@ -304,6 +324,9 @@ class Twitter {
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/timeline`, {
             params: { cursor_id },
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
         });
 
         // エラー処理
@@ -335,6 +358,9 @@ class Twitter {
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/search`, {
             params: { query, cursor_id },
+            // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
+            // タイムアウトを 60 秒に設定
+            timeout: 60 * 1000,
         });
 
         // エラー処理
