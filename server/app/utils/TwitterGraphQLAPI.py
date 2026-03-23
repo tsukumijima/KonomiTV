@@ -16,6 +16,7 @@ from app.models.TwitterAccount import TwitterAccount
 from app.utils.TwitterScrapeBrowser import (
     BrowserBinaryNotFoundError,
     BrowserConnectionFailedError,
+    BrowserSetupTimeoutError,
     TwitterScrapeBrowser,
 )
 
@@ -271,8 +272,9 @@ class TwitterGraphQLAPI:
         if self._browser.is_setup_complete is not True:
             try:
                 await self._browser.setup()
-            except (BrowserBinaryNotFoundError, BrowserConnectionFailedError) as ex:
-                # Chrome / Brave 未導入時やブラウザ起動失敗時は、日本語のエラーメッセージをそのまま返す
+            except (BrowserBinaryNotFoundError, BrowserConnectionFailedError, BrowserSetupTimeoutError) as ex:
+                # Chrome / Brave 未導入時やブラウザ起動失敗時、セットアップタイムアウト時は、
+                # 日本語のエラーメッセージをそのまま返す
                 return str(ex)
 
         # TwitterScrapeBrowser 経由で GraphQL API に HTTP リクエストを送信
@@ -288,15 +290,66 @@ class TwitterGraphQLAPI:
             )
         except Exception as ex:
             logging.error(f'{self.log_prefix} Failed to connect to Twitter GraphQL API:', exc_info=ex)
-            return error_message_prefix + 'Twitter API に接続できませんでした。'
+
+            # ページナビゲーション等で zendriver_setup.js のフック関数が消失した場合
+            ## アカウントのロックやセッション失効により x.com が captcha 画面やログイン画面に
+            ## リダイレクトされると、注入済みの window.__invokeGraphQLAPI 関数が消滅する
+            ## この場合、ブラウザを再起動して1回だけリトライを試みる
+            if '__invokeGraphQLAPI is not a function' in str(ex):
+                logging.warning(
+                    f'{self.log_prefix} JS hook function lost (page may have navigated away from x.com). '
+                    f'Restarting browser and retrying...',
+                )
+                # ブラウザ再起動前に、既存の idle-shutdown タイマーをキャンセルする
+                ## このタイマーが残っていると、shutdown() / setup() の最中に OnShutdown タスクが発火し、
+                ## 新しく再作成されたブラウザが直後に shutdown されるレースコンディションが起きうる
+                async with self._shutdown_task_lock:
+                    if self._shutdown_task is not None:
+                        if not self._shutdown_task.done():
+                            self._shutdown_task.cancel()
+                        self._shutdown_task = None
+                # ブラウザを shutdown して再セットアップを試みる
+                self._browser.is_setup_complete = False
+                try:
+                    await self._browser.shutdown()
+                except Exception as shutdown_ex:
+                    logging.warning(f'{self.log_prefix} Error during browser shutdown for retry:', exc_info=shutdown_ex)
+                # 再セットアップ
+                try:
+                    await self._browser.setup()
+                except (BrowserBinaryNotFoundError, BrowserConnectionFailedError, BrowserSetupTimeoutError) as setup_ex:
+                    # 再セットアップも失敗した場合は、ロック等の可能性が高いのでそのエラーメッセージを返す
+                    return str(setup_ex)
+                except Exception as setup_ex:
+                    logging.error(f'{self.log_prefix} Browser re-setup failed:', exc_info=setup_ex)
+                    return error_message_prefix + f'ヘッドレスブラウザの再セットアップに失敗しました。({setup_ex})'
+                # 再セットアップ成功 → API 呼び出しをリトライ
+                try:
+                    logging.info(f'{self.log_prefix} Retrying {endpoint_name} GraphQL API after browser restart...')
+                    logging.debug(f'{self.log_prefix} Request variables: {variables}')
+                    raw_response = await self._browser.invokeGraphQLAPI(
+                        endpoint_name=endpoint_name,
+                        variables=variables,
+                        additional_flags=additional_flags,
+                    )
+                except Exception as retry_ex:
+                    logging.error(f'{self.log_prefix} Retry also failed:', exc_info=retry_ex)
+                    return error_message_prefix + 'ヘッドレスブラウザを再起動しましたが、Twitter API に接続できませんでした。'
+            else:
+                return error_message_prefix + 'Twitter API に接続できませんでした。'
         finally:
             # GraphQL API リクエスト完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
             ## こうすることでヘッドレスブラウザと DB 間で Cookie の変更が同期されるはず
             ## この処理は API リクエストの成功・失敗に関わらず API リクエスト完了後に常に実行すべき
-            cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
-            # Cookie を暗号化してから DB に反映する
-            self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
-            await self.twitter_account.save()  # これで変更が DB に反映される
+            ## ただし、ブラウザが壊れた状態 (shutdown 後、re-setup 失敗後など) では Cookie 保存をスキップする
+            if self._browser.is_setup_complete is True:
+                try:
+                    cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
+                    # Cookie を暗号化してから DB に反映する
+                    self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
+                    await self.twitter_account.save()  # これで変更が DB に反映される
+                except Exception as ex:
+                    logging.warning(f'{self.log_prefix} Failed to save cookies after API call:', exc_info=ex)
 
             # GraphQL API の前回呼び出し時刻を更新
             self._last_graphql_api_call_time = time.time()
@@ -543,7 +596,7 @@ class TwitterGraphQLAPI:
             if self._browser.is_setup_complete is not True:
                 try:
                     await self._browser.setup()
-                except (BrowserBinaryNotFoundError, BrowserConnectionFailedError) as ex:
+                except (BrowserBinaryNotFoundError, BrowserConnectionFailedError, BrowserSetupTimeoutError) as ex:
                     logging.error(f'{self.log_prefix} Failed to setup browser:', exc_info=ex)
                     return schemas.TwitterAPIResult(
                         is_success=False,
@@ -577,9 +630,14 @@ class TwitterGraphQLAPI:
                 )
             finally:
                 # ツイート送信完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
-                cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
-                self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
-                await self.twitter_account.save()
+                ## ブラウザが壊れた状態 (shutdown 後、re-setup 失敗後など) では Cookie 保存をスキップする
+                if self._browser.is_setup_complete is True:
+                    try:
+                        cookies_txt_content = await self._browser.saveTwitterCookiesToNetscapeFormat()
+                        self.twitter_account.access_token_secret = self.twitter_account.encryptAccessTokenSecret(cookies_txt_content)
+                        await self.twitter_account.save()
+                    except Exception as ex:
+                        logging.warning(f'{self.log_prefix} Failed to save cookies after tweet posting:', exc_info=ex)
 
                 # GraphQL API の前回呼び出し時刻を更新
                 self._last_graphql_api_call_time = time.time()

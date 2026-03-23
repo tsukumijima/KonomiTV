@@ -27,6 +27,13 @@ class BrowserConnectionFailedError(RuntimeError):
     Chrome / Brave はおそらく起動できたが、ブラウザインスタンスへの接続に失敗した場合に送出される例外
     """
 
+class BrowserSetupTimeoutError(RuntimeError):
+    """
+    ヘッドレスブラウザは起動できたが、x.com のセットアップ処理がタイムアウトした場合に送出される例外
+    Cookie セッションの有効期限切れやアカウントのロック・一時制限により、通常の x.com ページではなく
+    captcha 画面やログイン画面が表示された結果、main.js のブレークポイントが hit せずにタイムアウトするケースが該当する
+    """
+
 class TwitterBrowserGraphQLAPIResult(BaseModel):
     """ヘッドレスブラウザ経由の GraphQL API レスポンスの生データ。"""
 
@@ -294,10 +301,14 @@ class TwitterScrapeBrowser:
                     except Exception as ex:
                         logging.error(f'{self.log_prefix} Error disabling debugger:', exc_info=ex)
                     self.is_setup_complete = True
-                except TimeoutError as ex:
+                except TimeoutError:
                     logging.error(f'{self.log_prefix} Timeout: Breakpoint was not hit or setup did not complete within 15 seconds.')
                     self.is_setup_complete = False
-                    raise ex
+                    raise BrowserSetupTimeoutError(
+                        'ヘッドレスブラウザのセットアップがタイムアウトしました。'
+                        'Cookie セッションの有効期限が切れたか、アカウントがロック・一時制限されている可能性があります。'
+                        'ブラウザで Twitter (x.com) にアクセスして状態を確認してください。'
+                    )
                 except Exception as ex:
                     logging.error(f'{self.log_prefix} Error during setup:', exc_info=ex)
                     self.is_setup_complete = False
