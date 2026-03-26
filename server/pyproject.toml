@@ -38,7 +38,7 @@ pymediainfo = "^6.1.0"
 python-jose = {version = "^3.4.0", extras = ["cryptography"]}
 python-multipart = ">=0.0.20,<1.0.0"
 pywin32 = {version = "^311", platform = "win32"}
-requests = "^2.32.4"
+requests = "^2.33.0"
 rich = "^13.9.4"
 "ruamel.yaml" = "==0.18.12"
 sse-starlette = "^2.1.3"
