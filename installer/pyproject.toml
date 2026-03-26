@@ -28,7 +28,7 @@ pyinstaller = [
     { platform = "linux", version = "5.13.0", source = "pypi" },
 ]
 pyright = "^1.1.403"
-requests = "^2.32.4"
+requests = "^2.33.0"
 rich = "^13.9.3"
 "ruamel.yaml" = "==0.18.12"
 ruff = ">=0.9.1,<1.0.0"
