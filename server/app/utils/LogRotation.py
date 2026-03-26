@@ -1,3 +1,4 @@
+import io
 import re
 import sys
 import tempfile
@@ -67,6 +68,28 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
         # 後続の cleanup で使用する保持日数を保持しておく
         self.retention_days = retention_days
 
+    def _open(self) -> io.TextIOWrapper:
+        """
+        ログファイルを開き、ファイルの権限を緩和する。
+
+        Docker 上のサーバープロセスは root で実行されるため、ログファイルがデフォルト権限 (0o600) で
+        作成されると、一般ユーザー権限ではログの閲覧ができない。
+        ファイルオープン時（初回・ローテーション後の両方）に権限を緩和して、
+        ログ確認を容易にする。
+
+        Returns:
+            io.TextIOWrapper: 開かれたログファイルストリーム
+        """
+
+        stream = super()._open()
+        # ログファイルを誰でも読み書きできるようにする
+        ## アーカイブファイルの権限緩和 (doRollover 内の chmod(0o777)) と一貫した対応
+        try:
+            Path(self.baseFilename).chmod(0o666)
+        except (NotImplementedError, OSError):
+            pass
+        return stream
+
     @staticmethod
     def _namer(default_name: str) -> str:
         """
@@ -129,7 +152,6 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
                 self.rotate(self.baseFilename, archive_name)
             except OSError:
                 # 同一ログファイルに複数ハンドラーが接続されている場合、Windows で共有違反が発生することがある
-                ## 別ハンドラーが先にローテーションを完了したケースもあるため、例外時は警告を出さずに継続する
                 pass
 
         # delay=False の場合は、次ログ書き込みに備えて stream を再オープンする
@@ -139,14 +161,18 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
         # 次回ローテーション時刻を再計算する
         self.rolloverAt = self.computeRollover(current_time)
 
-        # ローカル操作性を優先し、アーカイブ側の権限を緩める
-        ## pm2 などで root 実行されるケースでは、一般ユーザー権限でログの閲覧・削除ができない問題への対策
-        for permission_target_path in (LOGS_ARCHIVES_DIR, archive_path):
-            try:
-                permission_target_path.chmod(0o777)
-            # Windows を含む環境差異で権限変更に失敗しても、ローテーション成功自体は維持する
-            except (NotImplementedError, OSError):
-                continue
+        # ログファイルとアーカイブ側の権限を緩める
+        ## Docker 上のサーバープロセスは root で実行されるため、一般ユーザー権限ではログの閲覧・削除ができない問題への対策
+        try:
+            # ディレクトリにはトラバーサルに必要な x ビットを含む 0o777 を付与する
+            LOGS_ARCHIVES_DIR.chmod(0o777)
+        except (NotImplementedError, OSError):
+            pass
+        try:
+            # ファイルには x ビット不要のため 0o666 を付与する
+            archive_path.chmod(0o666)
+        except (NotImplementedError, OSError):
+            pass
 
         # ローテーション完了後に期限切れアーカイブを整理する
         CleanupOldArchiveLogs(self.retention_days)
@@ -368,12 +394,18 @@ def SplitServerLogByDate() -> None:
             if today_temp_path is not None:
                 today_temp_path.replace(KONOMITV_SERVER_LOG_PATH)
 
-            # 手作業でログ確認しやすいよう、生成したアーカイブに緩い権限を付与する
-            ## pm2 などで root 実行されるケースでは、一般ユーザー権限でログの閲覧・削除ができない問題への対策
-            for permission_target_path in [LOGS_ARCHIVES_DIR, *archived_paths]:
+            # ログファイルとアーカイブ側の権限を緩める
+            ## Docker 上のサーバープロセスは root で実行されるため、一般ユーザー権限ではログの閲覧・削除ができない問題への対策
+            # ディレクトリにはトラバーサルに必要な x ビットを含む 0o777 を付与する
+            try:
+                LOGS_ARCHIVES_DIR.chmod(0o777)
+            except (NotImplementedError, OSError):
+                pass
+            # アーカイブファイルには x ビット不要のため 0o666 を付与する
+            for archived_path in archived_paths:
                 try:
-                    permission_target_path.chmod(0o777)
-                # Windows を含む環境差異で権限変更に失敗しても、分割そのものは成功扱いとする
+                    archived_path.chmod(0o666)
+                # 権限変更に失敗しても分割そのものは成功扱いとする
                 except (NotImplementedError, OSError):
                     continue
 
