@@ -705,18 +705,20 @@ async def GetRequiredProgramsForReservations(reserve_data_list: list[ReserveData
 
     # SQL の検索条件を生成
     ## network_id, service_id, event_id は整数値で SQL インジェクションの心配はないので直接埋め込む
-    ## Tortoise ORM の Model.raw() がパラメーターバインディング自体に対応していないのも理由
-    safe_conditions = []
+    ## 以前は OR 条件を大量に連結していたが、完全全録環境のように予約件数が多いと
+    ## SQLite の式木深さ上限 (maximum depth 1000) に到達して予約一覧 API が 500 エラーになる
+    ## そのため、同じ複合キー検索を row-value IN で表現し、式木が深くなりすぎないようにする
+    safe_program_keys = []
     for network_id, service_id, event_id in program_keys:
-        safe_conditions.append(f'(network_id = {network_id} AND service_id = {service_id} AND event_id = {event_id})')
-    if not safe_conditions:
+        safe_program_keys.append(f'({network_id}, {service_id}, {event_id})')
+    if not safe_program_keys:
         return {}
 
     # 高速化のため生 SQL クエリを実行
     sql = f'''
         SELECT *
         FROM programs
-        WHERE {' OR '.join(safe_conditions)}
+        WHERE (network_id, service_id, event_id) IN ({', '.join(safe_program_keys)})
     '''
     programs = cast(list[Program], await Program.raw(sql))
 
