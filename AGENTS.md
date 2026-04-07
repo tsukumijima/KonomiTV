@@ -4,8 +4,41 @@
 
 - yarn や poetry はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
 - サーバー側では poetry を使っているので、python コマンドは必ず全て poetry run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
-- 開発サーバーは `yarn dev` で起動します。
-- クライアントの開発サーバーは `https://my.local.konomi.tv:7001` でリッスンされるので (Akebi HTTPS Server による HTTPS リバースプロキシが同時に起動されるため) 、Chrome DevTools MCP では `https://my.local.konomi.tv:7001` を使ってアクセスしてください。
+
+## 開発環境構成
+
+### サーバー API (port 7000、常にユーザー管理)
+
+- 依頼を受けた時点で、サーバー API は次のいずれかの状態で常駐しています。**いずれもユーザーが管理しているプロセスであり、エージェントが直接起動・停止すべきではありません**
+  - **リロードモード**: `server/` で `poetry run task dev` で起動。コード変更が hot reload されます。基本的にこの状態で依頼が来ます
+  - **リロードなしの開発サーバー**: `server/` で `poetry run task serve` で起動。hot reload なしのユーザー権限プロセスです
+  - **pm2 常駐**: `sudo pm2 start KonomiTV` で起動。KonomiTV は root 側の pm2 プロファイルにしかインストールされていないため、`pm2` コマンドの実行には必ず `sudo` が必要であり、**エージェントがユーザーの許可なく `pm2` を実行することはできません**
+- FastAPI の listen ポートは常に 7000 で固定です (Akebi HTTPS Server が `127.0.0.77:7010` をリバースプロキシしています)
+- サーバー側コードを変更して挙動を確認したい場合の手順:
+  - リロードモードで動いている場合は、変更が自動で反映されます
+  - リロードなし開発サーバー / pm2 常駐で動いている場合は、**ユーザーに「リロードモードでの起動への切り替え、もしくはサーバー再起動」を依頼してください**
+- エージェントが直接 `python KonomiTV.py` や `poetry run python KonomiTV.py` を実行するのは禁止です。サーバーの起動には必ず taskipy で定義済みの `poetry run task serve` / `poetry run task dev` を使用してください (それでも、上記の通り既存プロセスとの衝突を避けるためエージェント自身が起動することは原則避けてください)
+
+### クライアント開発サーバー (port 7001、必要ならエージェントが起動可)
+
+- クライアントの開発サーバーは普段は起動していません
+- UI を検証する必要がある場合は、`client/` で `yarn dev` をエージェントが起動して構いません
+  - 起動すると port 7001 で Akebi HTTPS Server 経由でリッスンされます (内部の Vite は `127.0.0.77:7011` でリッスンします)
+- **重複起動は禁止**です。起動前に必ず `ps -ef | grep vite` などで既存プロセスの有無を確認してください
+- `yarn dev` で起動するクライアントは、開発モード時のみ同じドメインの `:7000` のサーバー API を直接叩くようハードコードされています ([client/src/utils/Utils.ts](client/src/utils/Utils.ts) の `Utils.api_base_url` を参照)。Vite の proxy 設定は不要です
+- Chrome DevTools MCP からの検証時は `https://my.local.konomi.tv:7001` にアクセスしてください
+- クライアント開発サーバー経由で API リクエストが想定通りに動かない場合でも、**サーバーを立て直そうとしないでください**。まず `Utils.api_base_url` の DEV 分岐の挙動を読み直し、port 7000 で動いているサーバー側の状態を `ps -ef | grep KonomiTV` などで確認してください
+
+### Docker 版ステージング (port 7100、別物)
+
+- `/Develop/KonomiTV-Docker` 以下には別途 Docker 版のステージング環境があります (port 7100、内部 HTTP は `127.0.0.77:7110`)
+- 本リポジトリの開発環境とは独立した別プロセスです
+
+### HTTPS が必須な理由
+
+- KonomiTV はクリップボードなど Secure Context (HTTPS) でしか動作しない API を使用しています
+- localhost 以外でも正規の HTTPS で提供できるよう、Akebi HTTPS Server が `akebi.konomi.tv` の keyless server を経由してリバースプロキシを行っています
+- HTTP に直接アクセスされると Secure Context API が動かず混乱を招くため、内部の HTTP は `127.0.0.77` でリッスンする構成になっています
 
 ## 技術スタック
 
