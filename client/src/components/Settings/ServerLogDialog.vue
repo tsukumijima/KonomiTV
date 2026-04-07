@@ -27,6 +27,7 @@
                             color="primary"
                             density="compact"
                             hide-details
+                            aria-label="自動スクロール"
                         ></v-switch>
                     </div>
                 </div>
@@ -271,16 +272,30 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    column-gap: 12px;
     margin-top: 16px;
+    // スマホ縦画面では横幅が極端に狭く、メインラベルと自動スクロール UI が同じ行に並びきらないため、
+    // 縦並び (メインラベルを上、自動スクロール UI を下) にレイアウトを切り替える
+    @include smartphone-vertical {
+        flex-direction: column;
+        align-items: stretch;
+        column-gap: 0;
+    }
 }
 
 .server-log-dialog__label {
+    flex: 1 1 auto;
+    min-width: 0;
     color: rgb(var(--v-theme-text-darken-1));
     font-size: 13.5px;
     line-height: 1.6;
     @include smartphone-horizontal {
         font-size: 11px;
         line-height: 1.7;
+    }
+    @include smartphone-vertical {
+        font-size: 12px;
+        line-height: 1.6;
     }
 }
 
@@ -330,16 +345,27 @@ onBeforeUnmount(() => {
 
 .server-log-dialog__auto-scroll-control {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
+    // スマホ縦画面では下段に配置されるので、ラベル + スイッチを行末に右寄せで詰める
+    @include smartphone-vertical {
+        justify-content: flex-end;
+    }
 }
 
 .server-log-dialog__auto-scroll-label {
+    flex-shrink: 0;
     color: rgb(var(--v-theme-text-darken-1));
     font-size: 13.5px;
     line-height: 1.6;
+    white-space: nowrap;
     @include smartphone-horizontal {
         font-size: 11px;
         line-height: 1.7;
+    }
+    @include smartphone-vertical {
+        font-size: 12px;
+        line-height: 1.6;
     }
 }
 
