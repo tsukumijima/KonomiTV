@@ -11,6 +11,7 @@ from typing import ClassVar, Literal, cast
 import anyio
 from fastapi import HTTPException, status
 from tortoise import transactions
+from tortoise.exceptions import IntegrityError
 from watchfiles import Change, awatch
 
 from app import logging, schemas
@@ -25,6 +26,7 @@ from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.ProcessLimiter import ProcessLimiter
+from app.utils.TSInformation import TSInformation
 
 
 @dataclass(slots=True)
@@ -146,6 +148,8 @@ class RecordedScanTask:
         self._file_locks: dict[anyio.Path, asyncio.Lock] = {}
         # _file_locks 辞書自体へのアクセスを保護するためのロック
         self._file_locks_dict_lock = asyncio.Lock()
+        # 録画専用チャンネルの枝番計算と保存を直列化するためのロック
+        self._recording_only_channels_lock = asyncio.Lock()
 
         # 初期化済みフラグをセット
         self._initialized = True
@@ -688,15 +692,19 @@ class RecordedScanTask:
                     # status を Recorded に設定
                     # MetadataAnalyzer 側で既に Recorded に設定されているが、念のため
                     recorded_program.recorded_video.status = 'Recorded'
-                    # 録画完了後のバックグラウンド解析タスクを開始
-                    if file_path not in self._background_tasks:
-                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
-                        self._background_tasks[file_path] = task
 
                 # DB に永続化
                 # メタデータ解析後の最新のデータベース情報を使う
                 await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video_after_analyze)
                 logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video_after_analyze else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
+
+                # DB への永続化が完了したら、録画完了後のバックグラウンド解析タスクを開始
+                ## "Recording" 状態の録画ファイルはまだ録画が完了していないので、サムネイル生成などの解析タスクは実行しない
+                ## DB 保存に失敗した状態で開始すると、RecordedVideo が存在しないままサムネイル生成だけが進んでしまうため、この処理は永続化後に実行する必要がある
+                if recorded_program.recorded_video.status == 'Recorded':
+                    if file_path not in self._background_tasks:
+                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                        self._background_tasks[file_path] = task
 
                 # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
                 # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
@@ -788,7 +796,33 @@ class RecordedScanTask:
 
 
     @staticmethod
+    def __populateChannelModelFromSchema(db_channel: Channel, channel_schema: schemas.Channel) -> None:
+        """
+        Pydantic スキーマから Channel モデルへ属性を転写する。
+
+        Args:
+            db_channel (Channel): 値を設定する DB モデル
+            channel_schema (schemas.Channel): 転写元のチャンネル情報
+        """
+
+        # 録画メタデータ解析結果のチャンネル情報を、そのまま DB モデルへ反映する
+        db_channel.id = channel_schema.id
+        db_channel.display_channel_id = channel_schema.display_channel_id
+        db_channel.network_id = channel_schema.network_id
+        db_channel.service_id = channel_schema.service_id
+        db_channel.transport_stream_id = channel_schema.transport_stream_id
+        db_channel.remocon_id = channel_schema.remocon_id
+        db_channel.channel_number = channel_schema.channel_number
+        db_channel.type = channel_schema.type
+        db_channel.name = channel_schema.name
+        db_channel.jikkyo_force = channel_schema.jikkyo_force
+        db_channel.is_subchannel = channel_schema.is_subchannel
+        db_channel.is_radiochannel = channel_schema.is_radiochannel
+        db_channel.is_watchable = channel_schema.is_watchable
+
+
     async def __saveRecordedMetadataToDB(
+        self,
         recorded_program: schemas.RecordedProgram,
         existing_db_recorded_video: RecordedVideo | None,
     ) -> None:
@@ -809,21 +843,49 @@ class RecordedScanTask:
             if recorded_program.channel is not None:
                 db_channel = await Channel.get_or_none(id=recorded_program.channel.id)
                 if db_channel is None:
-                    db_channel = Channel()
-                    db_channel.id = recorded_program.channel.id
-                    db_channel.display_channel_id = recorded_program.channel.display_channel_id
-                    db_channel.network_id = recorded_program.channel.network_id
-                    db_channel.service_id = recorded_program.channel.service_id
-                    db_channel.transport_stream_id = recorded_program.channel.transport_stream_id
-                    db_channel.remocon_id = recorded_program.channel.remocon_id
-                    db_channel.channel_number = recorded_program.channel.channel_number
-                    db_channel.type = recorded_program.channel.type
-                    db_channel.name = recorded_program.channel.name
-                    db_channel.jikkyo_force = recorded_program.channel.jikkyo_force
-                    db_channel.is_subchannel = recorded_program.channel.is_subchannel
-                    db_channel.is_radiochannel = recorded_program.channel.is_radiochannel
-                    db_channel.is_watchable = recorded_program.channel.is_watchable
-                    await db_channel.save()
+                    # 録画専用の地デジチャンネルは、地方違いの TS ファイルを並行解析すると枝番衝突が発生しうる
+                    # そのため、ここで保存直前に最新の DB 状態を見て枝番を再計算し、保存処理自体も直列化する
+                    if recorded_program.channel.type == 'GR' and recorded_program.channel.is_watchable is False:
+                        async with self._recording_only_channels_lock:
+                            db_channel = await Channel.get_or_none(id=recorded_program.channel.id)
+                            if db_channel is None:
+                                for retry_count in range(2):
+                                    recalculated_channel_number = await TSInformation.calculateChannelNumber(
+                                        recorded_program.channel.type,
+                                        recorded_program.channel.network_id,
+                                        recorded_program.channel.service_id,
+                                        recorded_program.channel.remocon_id,
+                                    )
+                                    recorded_program.channel.channel_number = recalculated_channel_number
+                                    recorded_program.channel.display_channel_id = (
+                                        recorded_program.channel.type.lower() + recalculated_channel_number
+                                    )
+
+                                    db_channel = Channel()
+                                    self.__populateChannelModelFromSchema(db_channel, recorded_program.channel)
+                                    try:
+                                        await db_channel.save()
+                                        # 初回の INSERT で競合した場合のみ、リトライで解消されたことをログに残す
+                                        if retry_count > 0:
+                                            logging.info(
+                                                f'{recorded_program.recorded_video.file_path}: '
+                                                f'Recorded-only channel save recovered after retry. '
+                                                f'retry_count: {retry_count}, '
+                                                f'display_channel_id: {db_channel.display_channel_id}'
+                                            )
+                                        break
+                                    except IntegrityError as ex:
+                                        if retry_count == 0:
+                                            logging.warning(
+                                                f'{recorded_program.recorded_video.file_path}: '
+                                                f'Retrying recording-only channel save due to display_channel_id conflict.'
+                                            )
+                                            continue
+                                        raise ex
+                    else:
+                        db_channel = Channel()
+                        self.__populateChannelModelFromSchema(db_channel, recorded_program.channel)
+                        await db_channel.save()
 
             # RecordedProgram の保存または更新
             if existing_db_recorded_video is not None:

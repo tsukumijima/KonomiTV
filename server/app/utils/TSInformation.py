@@ -611,25 +611,41 @@ class TSInformation:
                     await Tortoise.init(config=DATABASE_CONFIG)
                     cleanup_required = True
 
-            # 同じチャンネル番号のサービスのカウントを DB から取得
+            # 同じベースチャンネル番号を持つサービスを DB から取得
             ## network_id と service_id の組み合わせは (CATV を除き日本全国で一意) なので、
             ## これらが異なる場合は同じリモコン番号/チャンネル番号でも別チャンネルになる
             ## ex: tvk1 (gr031) / NHK総合1・福岡 (gr031)
-            same_channel_number_count = await Channel.filter(
+            ## ここでは gr011 に対して gr011 / gr011-1 / gr011-2 ... をまとめて取得し、
+            ## 既存の枝番も考慮したうえで次に空いている枝番を決定する
+            same_channel_numbers = cast(list[str], await Channel.filter(
                 ~(Q(network_id=network_id) & Q(service_id=service_id)),  # network_id と service_id の組み合わせが異なる
-                channel_number=channel_number,  # チャンネル番号が同じ
+                Q(channel_number=channel_number) | Q(channel_number__startswith=f'{channel_number}-'),
                 type='GR',  # 地デジのみ
-            ).count()
+            ).values_list('channel_number', flat=True))
 
             # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
             # コネクションを閉じないと Ctrl+C を押下しても終了できない
             if cleanup_required is True:
                 await Tortoise.close_connections()
 
-            # 異なる NID-SID で同じチャンネル番号のサービスが複数ある場合、枝番をつける
-            ## same_channel_number_count は自身を含まないため、1 以上の場合は枝番をつける
-            if same_channel_number_count >= 1:
-                channel_number += '-' + str(same_channel_number_count)
+            # 異なる NID-SID で同じベースチャンネル番号のサービスが複数ある場合、枝番をつける
+            ## 以前はベース番号と完全一致するレコード数だけを数えていたため、
+            ## すでに 011 / 011-1 が存在する状態で次の録画専用チャンネルにも 011-1 を再割り当てしてしまっていた
+            ## ここでは既存の枝番をすべて集め、最初に空いている枝番を割り当てる
+            is_base_channel_number_used = False
+            used_branch_numbers: set[int] = set()
+            for same_channel_number in same_channel_numbers:
+                if same_channel_number == channel_number:
+                    is_base_channel_number_used = True
+                    continue
+                branch_number_match = re.fullmatch(rf'{re.escape(channel_number)}-(\d+)', same_channel_number)
+                if branch_number_match is not None:
+                    used_branch_numbers.add(int(branch_number_match.group(1)))
+            if is_base_channel_number_used is True or len(used_branch_numbers) > 0:
+                branch_number = 1
+                while branch_number in used_branch_numbers:
+                    branch_number += 1
+                channel_number += '-' + str(branch_number)
 
         # SKY: サービス ID を 1024 で割った余りをチャンネル番号とする
         ## SPHD (network_id=10) のチャンネル番号は service_id - 32768 、
