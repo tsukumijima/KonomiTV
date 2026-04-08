@@ -151,6 +151,9 @@ class LiveStream:
             # 実行中の LiveEncodingTask のタスクへの参照
             # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
             instance._live_encoding_task_ref = None
+            # 終了待機がタイムアウトした古い LiveEncodingTask のタスクへの参照
+            # イベントループ上の Task は弱参照で管理されるため、自然終了するまでここで強参照を保持する
+            instance._detached_live_encoding_task_refs = set()
 
             # PSI/SI データアーカイバーのインスタンス
             ## LiveStreamsRouter からアクセスする必要があるためここに設置している
@@ -192,9 +195,43 @@ class LiveStream:
         self._updated_at: float
         self._stream_data_written_at: float
         self._live_encoding_task_ref: asyncio.Task[None] | None
+        self._detached_live_encoding_task_refs: set[asyncio.Task[None]]
         self.psi_data_archiver: LivePSIDataArchiver | None
         self.tuner: EDCBTuner | None
         self._tuner_lock: asyncio.Lock
+
+
+    def __registerLiveEncodingTaskRef(self, live_encoding_task_ref: asyncio.Task[None]) -> None:
+        """
+        LiveEncodingTask の完了時に不要な参照を解放するコールバックを登録する
+
+        Args:
+            live_encoding_task_ref (asyncio.Task[None]): 参照管理対象の LiveEncodingTask
+        """
+
+        def OnLiveEncodingTaskDone(done_task: asyncio.Task[None]) -> None:
+            self._detached_live_encoding_task_refs.discard(done_task)
+            # 現在実行中の LiveEncodingTask のタスクが終了待機を打ち切ったタスクだった場合は、その参照を None にする
+            if self._live_encoding_task_ref == done_task:
+                self._live_encoding_task_ref = None
+
+        live_encoding_task_ref.add_done_callback(OnLiveEncodingTaskDone)
+
+
+    def __detachLiveEncodingTaskRef(self, live_encoding_task_ref: asyncio.Task[None]) -> None:
+        """
+        終了待機を打ち切った LiveEncodingTask のタスクへの参照を保持する
+
+        Args:
+            live_encoding_task_ref (asyncio.Task[None]): 自然終了待ちに移行する LiveEncodingTask
+        """
+
+        # すでに完了済みのタスクなら done callback 側で参照は解放済みなので、保持し直す必要はない
+        if live_encoding_task_ref.done() is True:
+            return
+
+        # 終了待機を打ち切った LiveEncodingTask のタスクへの参照を保持する
+        self._detached_live_encoding_task_refs.add(live_encoding_task_ref)
 
 
     @classmethod
@@ -370,20 +407,23 @@ class LiveStream:
 
                         # 実行中のタスクがあればキャンセルする
                         if live_stream._live_encoding_task_ref is not None:
-                            live_stream._live_encoding_task_ref.cancel()
+                            old_live_encoding_task = live_stream._live_encoding_task_ref
+                            old_live_encoding_task.cancel()
 
                             # タスクの完了を最大 10 秒待つ
                             ## エンコーダープロセスの kill とバックグラウンドタスクの完了を含め、通常は 0.5 秒程度で完了する
                             ## EDCB との通信ハングなどで無期限にブロックされることを防ぐためにタイムアウトを設ける
                             ## asyncio.wait() はタスクの状態を変更しないため、タイムアウトしても旧タスクは自然終了を続ける
                             done, _ = await asyncio.wait(
-                                {live_stream._live_encoding_task_ref},
+                                {old_live_encoding_task},
                                 timeout=10.0,
                             )
                             if not done:
+                                live_stream.__detachLiveEncodingTaskRef(old_live_encoding_task)
                                 logging.warning(f'[Live: {live_stream.live_stream_id}] Encoding task cleanup did not complete within 10 seconds.')
 
-                            live_stream._live_encoding_task_ref = None
+                            if live_stream._live_encoding_task_ref == old_live_encoding_task:
+                                live_stream._live_encoding_task_ref = None
 
                         # チューナーインスタンスを移譲する
                         self.tuner = live_stream.tuner
@@ -425,6 +465,7 @@ class LiveStream:
             if should_start_task is True:
                 instance = LiveEncodingTask(self)
                 self._live_encoding_task_ref = asyncio.create_task(instance.run())
+                self.__registerLiveEncodingTaskRef(self._live_encoding_task_ref)
 
         # ***** クライアントの登録 *****
 

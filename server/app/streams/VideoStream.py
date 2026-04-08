@@ -1,4 +1,3 @@
-# ruff: noqa: RUF006 <= 将来改修予定
 
 # Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142
@@ -99,8 +98,16 @@ class VideoStream:
             # HLS セグメントを格納するリスト
             instance._segments = []
 
-            # 現在実行中のエンコードタスク
-            instance._encoding_task = VideoEncodingTask(instance)
+            # 現在実行中の VideoEncodingTask のインスタンス
+            instance._video_encoding_task = VideoEncodingTask(instance)
+            # セグメント要求の多重実行時に、エンコードタスクの停止と起動が競合しないよう直列化する
+            instance._video_encoding_task_lock = asyncio.Lock()
+            # 現在実行中の VideoEncodingTask のタスクへの参照
+            # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+            instance._video_encoding_task_ref = None
+            # 終了待機がタイムアウトした古い VideoEncodingTask のタスクへの参照
+            # イベントループ上の Task は弱参照で管理されるため、自然終了するまでここで強参照を保持する
+            instance._detached_video_encoding_task_refs = set()
 
             # キャンセルされない限り SESSION_TIMEOUT 秒後にインスタンスを破棄するタイマー
             # cancel_destroy_timer() を呼び出すことでタイマーをキャンセルできる
@@ -144,7 +151,10 @@ class VideoStream:
         self.quality: QUALITY_TYPES
         self._base_dts: int
         self._segments: list[VideoStreamSegment]
-        self._encoding_task: VideoEncodingTask
+        self._video_encoding_task: VideoEncodingTask
+        self._video_encoding_task_lock: asyncio.Lock
+        self._video_encoding_task_ref: asyncio.Task[None] | None
+        self._detached_video_encoding_task_refs: set[asyncio.Task[None]]
         self._cancel_destroy_timer: Callable[[], None]
 
 
@@ -164,6 +174,39 @@ class VideoStream:
         基本一度 VideoStream 内部でセットされたら外部から変更されるべきではないので、読み取り専用にしている
         """
         return tuple(self._segments)
+
+
+    def __registerVideoEncodingTaskRef(self, video_encoding_task_ref: asyncio.Task[None]) -> None:
+        """
+        VideoEncodingTask の完了時に不要な参照を解放するコールバックを登録する
+
+        Args:
+            video_encoding_task_ref (asyncio.Task[None]): 参照管理対象の VideoEncodingTask
+        """
+
+        def OnVideoEncodingTaskDone(done_task: asyncio.Task[None]) -> None:
+            self._detached_video_encoding_task_refs.discard(done_task)
+            # 現在実行中の VideoEncodingTask のタスクが終了待機を打ち切ったタスクだった場合は、その参照を None にする
+            if self._video_encoding_task_ref == done_task:
+                self._video_encoding_task_ref = None
+
+        video_encoding_task_ref.add_done_callback(OnVideoEncodingTaskDone)
+
+
+    def __detachVideoEncodingTaskRef(self, video_encoding_task_ref: asyncio.Task[None]) -> None:
+        """
+        終了待機を打ち切った VideoEncodingTask のタスクへの参照を保持する
+
+        Args:
+            video_encoding_task_ref (asyncio.Task[None]): 自然終了待ちに移行する VideoEncodingTask
+        """
+
+        # すでに完了済みのタスクなら done callback 側で参照は解放済みなので、保持し直す必要はない
+        if video_encoding_task_ref.done() is True:
+            return
+
+        # 終了待機を打ち切った VideoEncodingTask のタスクへの参照を保持する
+        self._detached_video_encoding_task_refs.add(video_encoding_task_ref)
 
 
     def keepAlive(self) -> None:
@@ -346,17 +389,22 @@ class VideoStream:
 
         # 当該セグメントのエンコードがまだ完了していない場合は、エンコードタスクを非同期で開始する
         if segment.encode_status == 'Pending':
-            # 既存のエンコードタスクをキャンセル
-            await self._encoding_task.cancel()
-            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
+            async with self._video_encoding_task_lock:
+                # ロック待ちの間に他のリクエストがすでにエンコードを開始している可能性があるため再確認する
+                if segment.encode_status == 'Pending':
+                    # シーク処理は録画再生の critical path なので、
+                    ## 旧エンコードタスクの完全終了を待たずに即座に detach して新しいタスクを起動する
+                    await self.__cancelVideoEncodingTask(should_wait_for_runner = False)
+                    logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
 
-            # 新しいエンコードタスクのインスタンスを初期化
-            ## エンコードタスクは基本使い回せないので、再度新しく初期化する
-            self._encoding_task = VideoEncodingTask(self)
+                    # 新しいエンコードタスクのインスタンスを初期化
+                    ## エンコードタスクは基本使い回せないので、再度新しく初期化する
+                    self._video_encoding_task = VideoEncodingTask(self)
 
-            # 新しいエンコードタスクを開始
-            asyncio.create_task(self._encoding_task.run(segment_sequence))
-            logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
+                    # 新しいエンコードタスクを開始
+                    self._video_encoding_task_ref = asyncio.create_task(self._video_encoding_task.run(segment_sequence))
+                    self.__registerVideoEncodingTaskRef(self._video_encoding_task_ref)
+                    logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
@@ -373,6 +421,59 @@ class VideoStream:
         return encoded_segment_ts
 
 
+    async def __cancelVideoEncodingTask(
+        self,
+        should_wait_for_runner: bool = True,
+        timeout_seconds: float = 0.5,
+    ) -> None:
+        """
+        現在のエンコードタスクをキャンセルし、必要に応じて短時間だけ終了を待機する
+
+        Args:
+            should_wait_for_runner (bool): エンコードタスク本体の終了を待機するかどうか
+            timeout_seconds (float): エンコードタスクの終了を待機する最大時間 (秒)
+        """
+
+        # 現在実行中のエンコードタスクをキャンセルする
+        await self._video_encoding_task.cancel()
+
+        # この時点で既にエンコードタスクが実行中でない場合は何もしない
+        if self._video_encoding_task_ref is None:
+            return
+
+        # 待機対象をローカル変数に退避しておく
+        ## cancelEncodingTask() 完了後に新しいタスクへ差し替えられても、旧タスクの参照を見失わないようにする
+        encoding_task_runner = self._video_encoding_task_ref
+
+        # 録画再生の critical path では旧タスクの完全終了を待たず、
+        ## 強参照だけ detached set に移して自然終了に任せる
+        if should_wait_for_runner is False:
+            self.__detachVideoEncodingTaskRef(encoding_task_runner)
+            if self._video_encoding_task_ref == encoding_task_runner:
+                self._video_encoding_task_ref = None
+            return
+
+        # エンコードタスクの終了を待機する
+        try:
+            await asyncio.wait_for(asyncio.shield(encoding_task_runner), timeout=timeout_seconds)
+        except TimeoutError:
+            # タイムアウト後も旧タスクは自然終了を続ける可能性があるため、
+            # 新しいタスクを起動する前に強参照を別管理へ移し、完了時に解放する
+            self.__detachVideoEncodingTaskRef(encoding_task_runner)
+            if self._video_encoding_task_ref == encoding_task_runner:
+                self._video_encoding_task_ref = None
+            logging.warning(f'{self.log_prefix} Encoding task shutdown timed out. Proceeding with restart.')
+        except Exception as ex:
+            # 予期しない例外で終了待機に失敗した場合も、旧タスクの参照を見失うと dangling-task が再発する
+            self.__detachVideoEncodingTaskRef(encoding_task_runner)
+            if self._video_encoding_task_ref == encoding_task_runner:
+                self._video_encoding_task_ref = None
+            logging.error(f'{self.log_prefix} Error while waiting for encoding task shutdown:', exc_info=ex)
+        finally:
+            if encoding_task_runner.done() and self._video_encoding_task_ref == encoding_task_runner:
+                self._video_encoding_task_ref = None
+
+
     async def destroy(self) -> None:
         """
         録画視聴セッションで実行中のエンコードなどの処理を終了し、録画視聴セッションを破棄する
@@ -381,7 +482,8 @@ class VideoStream:
 
         # 起動中のエンコードタスクがあればキャンセルする
         # この時点ですでにエンコードを完了して終了している場合もある
-        await self._encoding_task.cancel()
+        async with self._video_encoding_task_lock:
+            await self.__cancelVideoEncodingTask()
 
         # すべての HLS セグメントを削除する
         self._segments = []

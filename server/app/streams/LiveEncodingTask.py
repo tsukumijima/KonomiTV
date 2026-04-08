@@ -600,15 +600,24 @@ class LiveEncodingTask:
         tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
 
         # tsreadex のプロセスを非同期で作成・実行
-        tsreadex = await asyncio.subprocess.create_subprocess_exec(
-            *[LIBRARY_PATH['tsreadex'], *tsreadex_options],
-            stdin = asyncio.subprocess.PIPE,  # 受信した放送波を書き込む
-            stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-            stderr = asyncio.subprocess.DEVNULL,  # 利用しない
-        )
-
-        # tsreadex の書き込み用パイプを閉じる
-        os.close(tsreadex_write_pipe)
+        try:
+            tsreadex = await asyncio.subprocess.create_subprocess_exec(
+                *[LIBRARY_PATH['tsreadex'], *tsreadex_options],
+                stdin = asyncio.subprocess.PIPE,  # 受信した放送波を書き込む
+                stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                stderr = asyncio.subprocess.DEVNULL,  # 利用しない
+            )
+        except BaseException:
+            # tsreadex の起動自体に失敗した場合は、この時点ではまだ tsreadex_read_pipe を誰にも渡していない
+            ## ここで close しないと run() が例外で脱出した際に read 側 FD だけが残る
+            try:
+                os.close(tsreadex_read_pipe)
+            except OSError:
+                pass
+            raise
+        finally:
+            # tsreadex の書き込み用パイプは子プロセスに渡したので、親プロセス側ではクローズする
+            os.close(tsreadex_write_pipe)
 
         # ***** エンコーダープロセスの作成と実行 *****
 
@@ -635,12 +644,24 @@ class LiveEncodingTask:
             logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
-            encoder = await asyncio.subprocess.create_subprocess_exec(
-                *[LIBRARY_PATH['FFmpeg'], *encoder_options],
-                stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                stderr = asyncio.subprocess.PIPE,  # ログ出力
-            )
+            try:
+                encoder = await asyncio.subprocess.create_subprocess_exec(
+                    *[LIBRARY_PATH['FFmpeg'], *encoder_options],
+                    stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                    stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                    stderr = asyncio.subprocess.PIPE,  # ログ出力
+                )
+            except BaseException:
+                # tsreadex の起動後にエンコーダーの起動に失敗した場合、
+                ## このままでは親プロセスが例外で脱出して tsreadex だけ残留するため、ここで回収する
+                try:
+                    tsreadex.kill()
+                except Exception:
+                    pass
+                raise
+            finally:
+                # tsreadex の読み込み用パイプは子プロセスに渡したので、親プロセス側ではクローズする
+                os.close(tsreadex_read_pipe)
 
         # HWEncC
         else:
@@ -650,15 +671,24 @@ class LiveEncodingTask:
             logging.info(f'[Live: {self.live_stream.live_stream_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
-            encoder = await asyncio.subprocess.create_subprocess_exec(
-                *[LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
-                stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                stderr = asyncio.subprocess.PIPE,  # ログ出力
-            )
-
-        # tsreadex の読み込み用パイプを閉じる
-        os.close(tsreadex_read_pipe)
+            try:
+                encoder = await asyncio.subprocess.create_subprocess_exec(
+                    *[LIBRARY_PATH[ENCODER_TYPE], *encoder_options],
+                    stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                    stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                    stderr = asyncio.subprocess.PIPE,  # ログ出力
+                )
+            except BaseException:
+                # tsreadex の起動後にエンコーダーの起動に失敗した場合、
+                ## このままでは親プロセスが例外で脱出して tsreadex だけ残留するため、ここで回収する
+                try:
+                    tsreadex.kill()
+                except Exception:
+                    pass
+                raise
+            finally:
+                # tsreadex の読み込み用パイプは子プロセスに渡したので、親プロセス側ではクローズする
+                os.close(tsreadex_read_pipe)
 
         # ***** チューナーの起動と接続 *****
 

@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import math
 import os
 import sys
+import threading
 from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 from biim.mpeg2ts import ts
@@ -55,7 +57,20 @@ class VideoEncodingTask:
         self._psisimux_process: asyncio.subprocess.Process | None = None
         self._tsreadex_process: asyncio.subprocess.Process | None = None
         self._encoder_process: asyncio.subprocess.Process | None = None
+
+        # tsreadex への入力パイプの書き込みタスク
         self._tsreadex_feed_task: asyncio.Future[None] | None = None
+        # tsreadex の stdin の書き込み用ファイルディスクリプタと、それがどの世代のパイプかを示すトークン
+        ## FeedTSStream() では run_in_executor() からワーカースレッドでこれらを参照し、
+        ## cancel() や finally ブロックではイベントループのスレッドでこれらを書き換えるため、
+        ## この2つの値は常にセットで正しい状態を保つ必要がある
+        self._tsreadex_stdin_write_fd: int | None = None
+        self._tsreadex_stdin_write_generation_token: object | None = None
+        # _tsreadex_stdin_write_fd と _tsreadex_stdin_write_generation_token を、スレッド間で安全に扱うための排他ロック
+        ## ワーカースレッドからは asyncio.Lock が使えないため、threading.Lock を利用している
+        ## このロック内では値の比較や参照の更新だけを行い、os.close() などのシステムコールはロックの外で実行することで、
+        ## イベントループのスレッドをできるだけ長く止めないように工夫している
+        self._tsreadex_stdin_write_lock = threading.Lock()
 
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
@@ -396,6 +411,12 @@ class VideoEncodingTask:
         # 切り出した HLS セグメント用 MPEG-TS パケットを一時的に保持するバッファ
         encoded_segment = bytearray()
 
+        # 例外経路で未回収の raw pipe FD が残らないように、現在の反復で確保した read 側 FD を保持する
+        ## 通常経路では create_subprocess_exec() の直後に close されるが、起動失敗時は finally 句まで到達しないため
+        ## 最外側の finally 句で保険として回収できるようにしておく
+        psisimux_read_pipe: int | None = None
+        tsreadex_read_pipe: int | None = None
+
         try:
             # 最大 MAX_RETRY_COUNT 回までリトライする
             while self._retry_count < self.MAX_RETRY_COUNT:
@@ -417,6 +438,7 @@ class VideoEncodingTask:
                 # 録画ファイルが MPEG-4 形式の場合、psisimux で MPEG-TS に変換し、
                 # TS ファイル入力の代わりに psisimux からの出力を tsreadex への入力として渡す
                 psisimux_read_pipe = None
+                tsreadex_read_pipe = None
                 # MPEG-TS のすべてのセグメントで PAT/PMT を確実に取得するための前処理用
                 initial_pat_pmt_data: bytes | None = None
                 if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-4':
@@ -447,15 +469,16 @@ class VideoEncodingTask:
                     psisimux_read_pipe, psisimux_write_pipe = os.pipe()
 
                     # psisimux のプロセスを作成・実行
-                    self._psisimux_process = await asyncio.subprocess.create_subprocess_exec(
-                        LIBRARY_PATH['psisimux'], *psisimux_options,
-                        stdin = asyncio.subprocess.DEVNULL,  # 利用しない
-                        stdout = psisimux_write_pipe,  # tsreadex に繋ぐ
-                        stderr = asyncio.subprocess.DEVNULL,  # 利用しない
-                    )
-
-                    # psisimux の書き込み用パイプを閉じる
-                    os.close(psisimux_write_pipe)
+                    try:
+                        self._psisimux_process = await asyncio.subprocess.create_subprocess_exec(
+                            LIBRARY_PATH['psisimux'], *psisimux_options,
+                            stdin = asyncio.subprocess.DEVNULL,  # 利用しない
+                            stdout = psisimux_write_pipe,  # tsreadex に繋ぐ
+                            stderr = asyncio.subprocess.DEVNULL,  # 利用しない
+                        )
+                    finally:
+                        # psisimux の書き込み用パイプは子プロセスに渡したので、親プロセス側ではクローズする
+                        os.close(psisimux_write_pipe)
                 else:
                     assert file is not None
 
@@ -610,86 +633,128 @@ class VideoEncodingTask:
                 # tsreadex の読み込み用パイプと書き込み用パイプを作成
                 tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
 
-                # MPEG-TS を処理する場合で、直前に PAT/PMT を抽出できた場合
-                # PAT/PMT を先頭に加えて tsreadex に入力する
-                if initial_pat_pmt_data is not None:
-                    # PAT/PMT を先頭に加えた TS データ用の読み込み用パイプと書き込み用パイプを作成
-                    tsreadex_stdin_read, tsreadex_stdin_write = os.pipe()
-                    pat_pmt_data: bytes = initial_pat_pmt_data
+                try:
+                    # MPEG-TS を処理する場合で、直前に PAT/PMT を抽出できた場合
+                    # PAT/PMT を先頭に加えて tsreadex に入力する
+                    if initial_pat_pmt_data is not None:
+                        # PAT/PMT を先頭に加えた TS データ用の読み込み用パイプと書き込み用パイプを作成
+                        tsreadex_stdin_read, tsreadex_stdin_write = os.pipe()
+                        tsreadex_stdin_write_generation_token = self.__registerTSReadExInputPipe(tsreadex_stdin_write)
+                        pat_pmt_data: bytes = initial_pat_pmt_data
 
-                    def FeedTSStream() -> None:
-                        """PAT/PMT を先頭に付加したデータを tsreadex のパイプに流し込む (同期関数)"""
+                        def FeedTSStream() -> None:
+                            """PAT/PMT を先頭に付加したデータを tsreadex のパイプに流し込む (同期関数)"""
 
-                        def WriteAllToPipe(pipe_fd: int, data: bytes) -> None:
-                            """パイプに対して全バイトを書き込む"""
-                            offset_local = 0
-                            while offset_local < len(data):
-                                written_bytes = os.write(pipe_fd, data[offset_local:])
-                                if written_bytes == 0:
-                                    raise RuntimeError('Failed to write data to tsreadex pipe.')
-                                offset_local += written_bytes
+                            def WriteAllToPipe(pipe_fd: int, data: bytes) -> bool:
+                                """パイプに対して全バイトを書き込む"""
+                                offset_local = 0
+                                while offset_local < len(data):
+                                    # 旧世代の feed スレッドが、新しく再利用された FD に書き込まないようにする
+                                    if self.__isTSReadExInputPipeCurrent(
+                                        pipe_fd,
+                                        tsreadex_stdin_write_generation_token,
+                                    ) is False:
+                                        return False
+                                    written_bytes = os.write(pipe_fd, data[offset_local:])
+                                    if written_bytes == 0:
+                                        raise RuntimeError('Failed to write data to tsreadex pipe.')
+                                    offset_local += written_bytes
+                                return True
 
-                        try:
-                            # まず PAT/PMT を書き込む
-                            WriteAllToPipe(tsreadex_stdin_write, pat_pmt_data)
-                            # 次にファイルから読み込んだデータを書き込む
-                            ## initial_pat_pmt_data が作られているのは MPEG-TS のときだから
-                            ## psisimux からの入力を想定する必要はない
-                            assert file is not None
-                            chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
-                            while True:
-                                # tsreadex プロセス終了時は速やかにループを抜ける
-                                if self._tsreadex_process is None or self._tsreadex_process.returncode is not None:
-                                    break
-                                chunk = file.read(chunk_size)
-                                if not chunk:
-                                    break
-                                WriteAllToPipe(tsreadex_stdin_write, chunk)
-                        except BrokenPipeError:
-                            # tsreadex プロセスが終了した場合（正常なシャットダウン or エラー）
-                            pass
-                        except ValueError as ex:
-                            # ファイルが閉じられた場合（サーバーシャットダウン時など）
-                            if 'closed file' in str(ex):
-                                pass  # 正常なシャットダウンなので何もしない
-                            else:
-                                logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
-                        except Exception as ex:
-                            logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
-                        finally:
                             try:
-                                os.close(tsreadex_stdin_write)
-                            except Exception:
+                                # まず PAT/PMT を書き込む
+                                if WriteAllToPipe(tsreadex_stdin_write, pat_pmt_data) is False:
+                                    return
+                                # 次にファイルから読み込んだデータを書き込む
+                                ## initial_pat_pmt_data が作られているのは MPEG-TS のときだから
+                                ## psisimux からの入力を想定する必要はない
+                                assert file is not None
+                                chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
+                                while True:
+                                    # tsreadex プロセス終了時は速やかにループを抜ける
+                                    if (
+                                        self._tsreadex_process is None or
+                                        self._tsreadex_process.returncode is not None or
+                                        self.__isTSReadExInputPipeCurrent(
+                                            tsreadex_stdin_write,
+                                            tsreadex_stdin_write_generation_token,
+                                        ) is False
+                                    ):
+                                        break
+                                    chunk = file.read(chunk_size)
+                                    if not chunk:
+                                        break
+                                    if WriteAllToPipe(tsreadex_stdin_write, chunk) is False:
+                                        break
+                            except BrokenPipeError:
+                                # tsreadex プロセスが終了した場合（正常なシャットダウン or エラー）
                                 pass
+                            except OSError as ex:
+                                # キャンセル処理やリトライ処理でパイプを閉じた直後は、
+                                ## Linux / Windows ともに Invalid argument / Bad file descriptor が返ることがある
+                                if (
+                                    self._is_cancelled is True or
+                                    self._tsreadex_process is None or
+                                    self._tsreadex_process.returncode is not None or
+                                    self.__isTSReadExInputPipeCurrent(
+                                        tsreadex_stdin_write,
+                                        tsreadex_stdin_write_generation_token,
+                                    ) is False
+                                ) and ex.errno in (errno.EBADF, errno.EINVAL):
+                                    pass
+                                else:
+                                    logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                            except ValueError as ex:
+                                # ファイルが閉じられた場合（サーバーシャットダウン時など）
+                                if 'closed file' in str(ex):
+                                    pass  # 正常なシャットダウンなので何もしない
+                                else:
+                                    logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                            except Exception as ex:
+                                logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                            finally:
+                                # キャンセル処理側で既に同じ pipe を閉じている可能性があるため、
+                                ## 世代 token が一致する場合のみこのスレッドが close を担当する
+                                self.__closeTSReadExInputPipe(
+                                    expected_pipe_fd = tsreadex_stdin_write,
+                                    expected_generation_token = tsreadex_stdin_write_generation_token,
+                                )
 
-                    # tsreadex のプロセスを作成・実行
-                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
-                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
-                        stdin = tsreadex_stdin_read,  # PAT/PMT が付加されたデータ
-                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-                        stderr = asyncio.subprocess.DEVNULL,
-                    )
+                        # tsreadex のプロセスを作成・実行
+                        try:
+                            self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                                LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                                stdin = tsreadex_stdin_read,  # PAT/PMT が付加されたデータ
+                                stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                                stderr = asyncio.subprocess.DEVNULL,
+                            )
+                        finally:
+                            # パイプの read 側は子プロセスに渡したので、親プロセス側でクローズする
+                            # 子プロセスに FD を渡した後、親プロセス側で使わない FD はクローズする必要がある
+                            # これを忘れるとファイルディスクリプタがリークする
+                            os.close(tsreadex_stdin_read)
 
-                    # パイプの read 側は子プロセスに渡したので、親プロセス側でクローズする
-                    # 子プロセスに FD を渡した後、親プロセス側で使わない FD はクローズする必要がある
-                    # これを忘れるとファイルディスクリプタがリークする
-                    os.close(tsreadex_stdin_read)
-
-                    # tsreadex に PAT/PMT を先頭に付加した TS ストリームを流し込むタスクを ThreadPoolExecutor で実行
-                    # 同期関数のため run_in_executor() を使ってスレッドプールに投げることで、非同期で実行する
-                    loop = asyncio.get_running_loop()
-                    self._tsreadex_feed_task = loop.run_in_executor(None, FeedTSStream)
-                else:
-                    # tsreadex のプロセスを作成・実行
-                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
-                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
-                        stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
-                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-                        stderr = asyncio.subprocess.DEVNULL,
-                    )
-
-                # tsreadex の書き込み用パイプを閉じる
-                os.close(tsreadex_write_pipe)
+                        # tsreadex に PAT/PMT を先頭に付加した TS ストリームを流し込むタスクを ThreadPoolExecutor で実行
+                        # 同期関数のため run_in_executor() を使ってスレッドプールに投げることで、非同期で実行する
+                        loop = asyncio.get_running_loop()
+                        self._tsreadex_feed_task = loop.run_in_executor(None, FeedTSStream)
+                    else:
+                        # tsreadex のプロセスを作成・実行
+                        try:
+                            self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                                LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                                stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
+                                stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                                stderr = asyncio.subprocess.DEVNULL,
+                            )
+                        finally:
+                            # psisimux の read 側は子プロセスに渡したので、親プロセス側で使わない場合はクローズする
+                            if psisimux_read_pipe is not None:
+                                os.close(psisimux_read_pipe)
+                                psisimux_read_pipe = None
+                finally:
+                    # tsreadex の書き込み用パイプは子プロセスに渡したので、親プロセス側では必ずクローズする
+                    os.close(tsreadex_write_pipe)
 
                 # FFmpeg
                 if ENCODER_TYPE == 'FFmpeg':
@@ -698,12 +763,17 @@ class VideoEncodingTask:
                     logging.info(f'{self.video_stream.log_prefix} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
                     # エンコーダープロセスを作成・実行
-                    self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
-                        LIBRARY_PATH['FFmpeg'], *encoder_options,
-                        stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                        stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                        stderr = asyncio.subprocess.PIPE,  # ストリーム出力
-                    )
+                    try:
+                        self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
+                            LIBRARY_PATH['FFmpeg'], *encoder_options,
+                            stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                            stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                            stderr = asyncio.subprocess.PIPE,  # ストリーム出力
+                        )
+                    finally:
+                        # tsreadex の read 側は子プロセスに渡したので、親プロセス側でクローズする
+                        os.close(tsreadex_read_pipe)
+                        tsreadex_read_pipe = None
 
                 # HWEncC
                 else:
@@ -712,12 +782,17 @@ class VideoEncodingTask:
                     logging.info(f'{self.video_stream.log_prefix} {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
                     # エンコーダープロセスを作成・実行
-                    self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
-                        LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
-                        stdin = tsreadex_read_pipe,  # tsreadex からの入力
-                        stdout = asyncio.subprocess.PIPE,  # ストリーム出力
-                        stderr = asyncio.subprocess.PIPE,  # ストリーム出力
-                    )
+                    try:
+                        self._encoder_process = await asyncio.subprocess.create_subprocess_exec(
+                            LIBRARY_PATH[ENCODER_TYPE], *encoder_options,
+                            stdin = tsreadex_read_pipe,  # tsreadex からの入力
+                            stdout = asyncio.subprocess.PIPE,  # ストリーム出力
+                            stderr = asyncio.subprocess.PIPE,  # ストリーム出力
+                        )
+                    finally:
+                        # tsreadex の read 側は子プロセスに渡したので、親プロセス側でクローズする
+                        os.close(tsreadex_read_pipe)
+                        tsreadex_read_pipe = None
 
                 # エンコーダーの出力を読み取り、MPEG-TS パーサーでパースする
                 assert self._encoder_process is not None and self._encoder_process.stdout is not None
@@ -975,6 +1050,7 @@ class VideoEncodingTask:
                 # tsreadex プロセスを終了
                 if self._tsreadex_process is not None:
                     try:
+                        self.__closeTSReadExInputPipe()
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
                             try:
@@ -1032,6 +1108,7 @@ class VideoEncodingTask:
                         # リトライ前にフィードタスクの完了を待つ
                         if self._tsreadex_feed_task is not None:
                             try:
+                                self.__closeTSReadExInputPipe()
                                 await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                             except TimeoutError:
                                 logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
@@ -1049,21 +1126,69 @@ class VideoEncodingTask:
                 break
 
         finally:
-            if not file:
-                # psisimux プロセスを強制終了する
-                if self._psisimux_process is not None:
-                    try:
+            # tsreadex の stdin 書き込み側が残っていると、例外経路で feed スレッドや tsreadex が EOF を検知できず残留しうる
+            ## 通常経路ではリトライループ内で既に close されているが、起動失敗や途中例外時の保険としてここでも閉じる
+            self.__closeTSReadExInputPipe()
+
+            # 起動途中の例外で create_subprocess_exec() 直後の close に到達できなかった raw pipe FD を回収する
+            ## close 済みであれば OSError になるだけなので握りつぶしてよい
+            if psisimux_read_pipe is not None:
+                try:
+                    os.close(psisimux_read_pipe)
+                except OSError:
+                    pass
+                psisimux_read_pipe = None
+            if tsreadex_read_pipe is not None:
+                try:
+                    os.close(tsreadex_read_pipe)
+                except OSError:
+                    pass
+                tsreadex_read_pipe = None
+
+            # 起動途中の例外で通常の終了処理に到達できなかった場合に備えて、子プロセスを最終的に回収する
+            ## 正常系では既に returncode が設定されているので、この保険は実質 no-op になる
+            if self._encoder_process is not None:
+                try:
+                    if self._encoder_process.returncode is None:
+                        self._encoder_process.kill()
+                        try:
+                            await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)
+                        except (TimeoutError, asyncio.CancelledError):
+                            logging.warning(f'{self.video_stream.log_prefix} Encoder process termination wait timed out or cancelled in final cleanup.')
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process in final cleanup:', exc_info=ex)
+
+            if self._tsreadex_process is not None:
+                try:
+                    if self._tsreadex_process.returncode is None:
+                        self._tsreadex_process.kill()
+                        try:
+                            await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)
+                        except (TimeoutError, asyncio.CancelledError):
+                            logging.warning(f'{self.video_stream.log_prefix} tsreadex process termination wait timed out or cancelled in final cleanup.')
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process in final cleanup:', exc_info=ex)
+
+            if self._psisimux_process is not None:
+                try:
+                    if self._psisimux_process.returncode is None:
                         self._psisimux_process.kill()
-                    except Exception as ex:
-                        logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
-                    self._psisimux_process = None
-            else:
+                        try:
+                            await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)
+                        except (TimeoutError, asyncio.CancelledError):
+                            logging.warning(f'{self.video_stream.log_prefix} psisimux process termination wait timed out or cancelled in final cleanup.')
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process in final cleanup:', exc_info=ex)
+                self._psisimux_process = None
+
+            if file is not None:
                 # フィードタスクが実行中の場合、ファイルをクローズする前に完了を待つ
                 # スレッドで file.read() 実行中に file.close() すると ValueError が発生するため
                 # 通常はリトライループ内で既に完了しているが、念のため再チェック
                 if self._tsreadex_feed_task is not None:
                     try:
                         # 最大2秒待機（通常は tsreadex プロセスの kill により即座に終了する）
+                        self.__closeTSReadExInputPipe()
                         await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                     except TimeoutError:
                         logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout, proceeding to close file.')
@@ -1089,6 +1214,7 @@ class VideoEncodingTask:
             # 通常はリトライループ内で既に完了しているが、念のため再チェック
             if self._tsreadex_feed_task is not None:
                 try:
+                    self.__closeTSReadExInputPipe()
                     await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                 except TimeoutError:
                     logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout in finally cleanup.')
@@ -1141,6 +1267,7 @@ class VideoEncodingTask:
             # tsreadex プロセスを強制終了する
             if self._tsreadex_process is not None:
                 try:
+                    self.__closeTSReadExInputPipe()
                     if self._tsreadex_process.returncode is None:
                         self._tsreadex_process.kill()
                 except Exception as ex:
@@ -1154,8 +1281,89 @@ class VideoEncodingTask:
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
 
-            # 少し待ってから完全に破棄
-            await asyncio.sleep(0.1)
-            self._tsreadex_process = None
-            self._tsreadex_feed_task = None
-            self._encoder_process = None
+
+    def __registerTSReadExInputPipe(self, pipe_fd: int) -> object:
+        """
+        tsreadex への入力パイプの書き込み側を現在の世代として登録する
+
+        Args:
+            pipe_fd (int): 登録する入力パイプの書き込み側 FD
+
+        Returns:
+            object: この入力パイプの世代を識別する token
+        """
+
+        generation_token = object()
+        with self._tsreadex_stdin_write_lock:
+            # fd と generation token は別々のスレッドから同時に参照されることがあるため、
+            # lock でまとめて更新し、「どちらか一方だけが新しい状態」とならないようにする
+            self._tsreadex_stdin_write_fd = pipe_fd
+            self._tsreadex_stdin_write_generation_token = generation_token
+        return generation_token
+
+
+    def __isTSReadExInputPipeCurrent(self, pipe_fd: int, generation_token: object) -> bool:
+        """
+        指定された tsreadex 入力パイプが現在有効な世代かどうかを確認する
+
+        Args:
+            pipe_fd (int): 確認対象の入力パイプの書き込み側 FD
+            generation_token (object): 確認対象の入力パイプの世代 token
+
+        Returns:
+            bool: 指定された入力パイプが現在有効な世代であれば True
+        """
+
+        with self._tsreadex_stdin_write_lock:
+            # 比較する fd と generation token をロック中に同時に取得することで、
+            # 他のスレッドでの close や register による世代の競合が発生しても、正しく世代が判定できるようにしている
+            return (
+                self._tsreadex_stdin_write_fd == pipe_fd and
+                self._tsreadex_stdin_write_generation_token == generation_token
+            )
+
+
+    def __closeTSReadExInputPipe(
+        self,
+        expected_pipe_fd: int | None = None,
+        expected_generation_token: object | None = None,
+    ) -> None:
+        """
+        tsreadex への入力パイプの書き込み側を閉じる
+
+        Args:
+            expected_pipe_fd (int | None): close 対象であることを確認したい FD
+            expected_generation_token (object | None): close 対象であることを確認したい世代 token
+        """
+
+        pipe_fd_to_close: int | None = None
+
+        with self._tsreadex_stdin_write_lock:
+            # expected_pipe_fd と expected_generation_token は、
+            ## 「どちらも指定しない」か「どちらも指定する」かのどちらかでなければならない
+            assert not ((expected_pipe_fd is None) ^ (expected_generation_token is None)), (
+                'expected_pipe_fd and expected_generation_token must be provided together or both be None.'
+            )
+
+            # expected_* が指定されている場合は、その世代の pipe がまだ現役のときだけ close を担当する
+            if expected_pipe_fd is not None or expected_generation_token is not None:
+                if (
+                    self._tsreadex_stdin_write_fd != expected_pipe_fd or
+                    self._tsreadex_stdin_write_generation_token != expected_generation_token
+                ):
+                    return
+
+            # すでに入力パイプの書き込み側が閉じられている場合は何もしない
+            if self._tsreadex_stdin_write_fd is None:
+                return
+
+            pipe_fd_to_close = self._tsreadex_stdin_write_fd
+            self._tsreadex_stdin_write_fd = None
+            self._tsreadex_stdin_write_generation_token = None
+
+        try:
+            # os.close() をロック内で実行すると、worker スレッドで世代の確認を待たせてしまう可能性があるため、
+            # ここではロック中にクローズ対象の fd 番号だけを決めておき、実際のクローズ処理はロック外で行う
+            os.close(pipe_fd_to_close)
+        except OSError:
+            pass
