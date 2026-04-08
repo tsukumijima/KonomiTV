@@ -6,27 +6,27 @@
 tsreplace + QSVEncC/NVEncC のエンコードパターン横断検証スクリプト
 
 指定された生 TS (60i 地デジ前提) を入力として、以下の 12 パターンで tsreplace を使って
-映像のみを再エンコードし、KonomiTV での再生・キーフレーム解析が問題なく動くかを検証する。
+映像のみを再エンコードし、KonomiTV での再生・キーフレーム解析が問題なく動くかを検証する
 
 パターン:
   {H.264, H.265} × {QSVEncC, NVEncC} × {30p normal deinterlace, 24p VFR afs, 60p bob deinterlace}
 
 フェーズ 1 で H.264 系の 6 パターンを並行実行し、終わったらフェーズ 2 で H.265 系を並行実行する
-(GPU とハードウェアエンコーダーの同時利用耐性を加味して、コーデックごとに分けている)。
-メモリ使用量を抑えたい場合は `--concurrency` でコーデックごとの同時実行数を絞れる。
+(GPU とハードウェアエンコーダーの同時利用耐性を加味して、コーデックごとに分けている)
+メモリ使用量を抑えたい場合は `--concurrency` でコーデックごとの同時実行数を絞れる
 
 フェーズ 3 では出力された各 TS に対して ffprobe ベースのキーフレーム解析と PCR 二分探索
 ベンチマークを実行し、KonomiTV のキーフレーム抽出経路と on-demand 探索経路の両方が期待通り
-に動作するかを検証する。
+に動作するかを検証する
 
 設計メモ:
 - エンコードパラメータは rigaya 氏からご提案いただいた KonomiTV 向け録画後再エンコード
-  用設定をベースにしている (HEVC 10bit / --icq 21 / --qvbr 30 / --gop-len 75 など)。
-- tsreplace の -e モードを使い、tsreplace が encoder を直接起動する形にしている。
-  これにより encoder と tsreplace の接続は tsreplace 側に任せられる。
+  用設定をベースにしている (HEVC 10bit / --icq 21 / --qvbr 30 / --gop-len 75 など)
+- tsreplace の -e モードを使い、tsreplace が encoder を直接起動する形にしている
+  これにより encoder と tsreplace の接続は tsreplace 側に任せられる
 - subprocess の stdout/stderr は親プロセスから継承しているため、複数プロセス分のログが
-  そのまま端末に混在する形で流れる (デバッグ目的なので分離は行わない)。
-- 既存の .avc.*.ts / .hevc.*.ts は上書きされる (失敗したら単にもう一度実行すればよい)。
+  そのまま端末に混在する形で流れる (デバッグ目的なので分離は行わない)
+- 既存の .avc.*.ts / .hevc.*.ts は上書きされる (失敗したら単にもう一度実行すればよい)
 """
 
 import json
@@ -160,12 +160,12 @@ class LaunchedProcess:
 
 # ***** エンコーダー引数の組み立て *****
 
-def build_common_encoder_args(codec: Codec) -> list[str]:
+def build_common_encoder_args(pattern: EncodePattern) -> list[str]:
     """
     コーデックによらず両エンコーダーで共通の引数を組み立てる
 
     Args:
-        codec (Codec): 出力コーデック
+        pattern (EncodePattern): エンコードパターン (codec / encoder / fps_mode)
 
     Returns:
         list[str]: 共通引数のリスト
@@ -179,19 +179,31 @@ def build_common_encoder_args(codec: Codec) -> list[str]:
     args += ['--input-format', 'mpegts']
     # 出力は標準出力 (tsreplace が受け取る)
     args += ['-o', '-']
-    # 出力は raw elementary stream (h264/hevc ES)
-    ## VFR (afs drop=on) でもタイミング情報は tsreplace が元 TS の PCR/PTS から復元するので、
-    ## 出力側はタイミング情報なしの raw ES で問題ない
-    args += ['--output-format', 'raw']
+    # 出力は MPEG-TS コンテナにする
+    ## tsreplace README に「置き換え映像は timestamp を保持できる mp4 / mkv / ts 等にし、raw ES は不可」
+    ## と明記されている (ref: https://github.com/rigaya/tsreplace#基本的な使用方法)
+    ## --output-format raw を指定すると raw elementary stream には個別フレームの PTS/DTS が存在しないため、
+    ## tsreplace が元 TS の時間軸にフレームをマッピングできず、生成 TS の全フレームが同一 PTS を持つ
+    ## 壊れた状態になる (ffprobe -select_streams v:0 -show_packets で unique pts が 1 個しか出なくなる)
+    ## mpegts で出力すれば encoder 側の libavformat ts muxer が個別フレーム PTS 付きの中間 TS を出力し、
+    ## tsreplace が元 TS の時間軸にそれを正しくマッピングできる (README の各 HW エンコード例もこの形式)
+    args += ['--output-format', 'mpegts']
 
     # 出力コーデック
-    args += ['-c', codec]
+    args += ['-c', pattern.codec]
 
-    # HEVC は 10bit + fallback モード
-    ## rigaya 氏の推奨設定
-    ## --fallback-bitdepth は 10bit 非対応環境で 8bit にフォールバックする
-    if codec == 'hevc':
-        args += ['--output-depth', '10', '--fallback-bitdepth']
+    # HEVC 10bit エンコードを有効化する条件を判定する
+    ## rigaya 氏の推奨設定では HEVC 10bit (main10) + --vpp-afs の組み合わせを前提としているが、
+    ## Arrow Lake iGPU の iHD driver は「HEVC 10bit + VEBOX deinterlace (--vpp-deinterlace normal/bob)」
+    ## の組み合わせで MFXENCODE の surface alloc に "incompatible video parameters" を返して gpu hang する
+    ## --vpp-afs は VEBOX ではなく shader / CPU 系のフィルタなので、HEVC 10bit でも問題なく動作する
+    ## そのため、HEVC の場合は「--vpp-afs (24p 混合 VFR) を使う場合のみ 10bit にする」というポリシーで分岐する
+    ## NVEncC では 10bit HEVC + deinterlace の組み合わせに制約はないため、どの fps_mode でも 10bit を使える
+    if pattern.codec == 'hevc':
+        use_10bit = (pattern.encoder == 'nvenc') or (pattern.fps_mode == '24p')
+        if use_10bit:
+            # --fallback-bitdepth は 10bit 非対応環境で 8bit にフォールバックする
+            args += ['--output-depth', '10', '--fallback-bitdepth']
 
     # GOP 長 (rigaya 氏推奨値)
     args += ['--gop-len', '75']
@@ -323,7 +335,7 @@ def build_encoder_args(pattern: EncodePattern) -> list[str]:
     args: list[str] = []
 
     # 共通引数
-    args += build_common_encoder_args(pattern.codec)
+    args += build_common_encoder_args(pattern)
 
     # デインタレース/フレームレート変換
     args += build_deinterlace_args(pattern.encoder, pattern.fps_mode)
@@ -641,7 +653,7 @@ def analyze_pcr(path: Path) -> PCRInfo:
                 window *= 2
 
         if found_pcr is None:
-            # この区間には PCR がない想定。前進する
+            # この区間には PCR がない想定なので前進する
             lo = mid
             continue
 
