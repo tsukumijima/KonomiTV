@@ -798,7 +798,7 @@ class RecordedScanTask:
     @staticmethod
     def __populateChannelModelFromSchema(db_channel: Channel, channel_schema: schemas.Channel) -> None:
         """
-        Pydantic スキーマから Channel モデルへ属性を転写する。
+        Pydantic スキーマから Channel モデルへ属性を転写する
 
         Args:
             db_channel (Channel): 値を設定する DB モデル
@@ -829,6 +829,8 @@ class RecordedScanTask:
         """
         録画ファイルのメタデータ解析結果を DB に保存する
         既存レコードがある場合は更新し、ない場合は新規作成する
+        録画専用の地デジチャンネルは、保存直前にメインプロセス側で枝番を再計算する
+        並行保存時の枝番衝突を避けるため、録画専用の地デジチャンネル作成だけは直列化する
 
         Args:
             recorded_program (schemas.RecordedProgram): 保存する録画番組情報
@@ -844,11 +846,13 @@ class RecordedScanTask:
                 db_channel = await Channel.get_or_none(id=recorded_program.channel.id)
                 if db_channel is None:
                     # 録画専用の地デジチャンネルは、地方違いの TS ファイルを並行解析すると枝番衝突が発生しうる
-                    # そのため、ここで保存直前に最新の DB 状態を見て枝番を再計算し、保存処理自体も直列化する
+                    ## そのため、ここで保存直前に最新の DB 状態を見て枝番を再計算し、保存処理自体も直列化する
                     if recorded_program.channel.type == 'GR' and recorded_program.channel.is_watchable is False:
                         async with self._recording_only_channels_lock:
                             db_channel = await Channel.get_or_none(id=recorded_program.channel.id)
                             if db_channel is None:
+                                # 同一プロセス内では lock で競合を防げているが、
+                                ## 別プロセスや想定外の外部介入で display_channel_id が衝突した場合に備えて 1 回だけ再試行する
                                 for retry_count in range(2):
                                     recalculated_channel_number = await TSInformation.calculateChannelNumber(
                                         recorded_program.channel.type,
