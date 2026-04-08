@@ -149,6 +149,9 @@ class LiveStream:
             instance._stream_data_written_at = 0
 
             # 実行中の LiveEncodingTask のタスクへの参照
+            ## ライブ再生では LiveEncodingTask.run() 自体が再起動制御まで内包しており、
+            ## self._live_encoding_task_ref.cancel() は停止が間に合わなかった場合の保険としての非同期タスクキャンセルなので、
+            ## VideoStream と異なり LiveEncodingTask インスタンス自体の参照は保持しない設計としている
             # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
             instance._live_encoding_task_ref = None
             # 終了待機がタイムアウトした古い LiveEncodingTask のタスクへの参照
@@ -614,7 +617,7 @@ class LiveStream:
         return self._stream_data_written_at
 
 
-    async def writeStreamData(self, stream_data: bytes) -> None:
+    def writeStreamData(self, stream_data: bytes) -> None:
         """
         接続している全ての mpegts クライアントの Queue にストリームデータを書き込む
         同時にストリームデータの最終書き込み時刻を更新し、クライアントがタイムアウトしていたら削除する

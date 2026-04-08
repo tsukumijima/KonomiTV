@@ -1239,7 +1239,7 @@ class VideoEncodingTask:
             logging.info(f'{self.video_stream.log_prefix} Finished the Encoding Task.')
 
 
-    async def cancel(self) -> None:
+    def cancel(self) -> None:
         """
         起動中のエンコードタスクをキャンセルし、起動中の外部プロセスを終了する
         """

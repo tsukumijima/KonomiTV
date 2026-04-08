@@ -972,7 +972,7 @@ class LiveEncodingTask:
                             if len(chunk_buffer) >= 65536:
 
                                 # エンコーダーからの出力をライブストリームの Queue に書き込む
-                                await self.live_stream.writeStreamData(bytes(chunk_buffer))
+                                self.live_stream.writeStreamData(bytes(chunk_buffer))
                                 # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
 
                                 # チャンクバッファを空にする（重要）
@@ -1008,7 +1008,7 @@ class LiveEncodingTask:
                         if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
 
                             # エンコーダーからの出力をライブストリームの Queue に書き込む
-                            await self.live_stream.writeStreamData(bytes(chunk_buffer))
+                            self.live_stream.writeStreamData(bytes(chunk_buffer))
                             # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
 
                             # チャンクバッファを空にする（重要）

@@ -49,12 +49,15 @@ class VideoStreamSegment:
         """
         このセグメントの状態をリセットする
         リセットすると保持されている asyncio.Future は初期化され、ステータスも Pending に戻る
-        asyncio.Future を初期化するにはイベントループ上でなければならないらしいので、このメソッドを非同期関数にしている
+        実行中のイベントループ上でのみ呼び出される前提のため、呼び出し側でもその制約が見えるよう敢えて async def で定義している
         """
         if not self.encoded_segment_ts_future.done():
             self.encoded_segment_ts_future.set_result(b'')  # 前の Future がまだ完了していない場合は空のデータで完了させる
         self.encode_status = 'Pending'
-        self.encoded_segment_ts_future = asyncio.Future()  # asyncio.Future を再初期化
+
+        # 新しい Future は、現在実行中のイベントループに明示的に紐付けて再初期化する
+        ## これにより「イベントループ上で呼び出す前提」がコード上でも明確になる
+        self.encoded_segment_ts_future = asyncio.get_running_loop().create_future()
         self.is_encoded_segment_ts_future_readed = False
 
 
@@ -99,6 +102,9 @@ class VideoStream:
             instance._segments = []
 
             # 現在実行中の VideoEncodingTask のインスタンス
+            ## 録画再生時は、シークによりエンコーダーの再起動が必要になる度に、新しい VideoEncodingTask を都度作り直す
+            ## なお、エンコードタスクの停止時は Task.cancel() ではなく VideoEncodingTask.cancel() を使い
+            ## 外部プロセスを即座に停止させる必要があるため、Task への参照とは別に、VideoEncodingTask のインスタンス自体も保持している
             instance._video_encoding_task = VideoEncodingTask(instance)
             # セグメント要求の多重実行時に、エンコードタスクの停止と起動が競合しないよう直列化する
             instance._video_encoding_task_lock = asyncio.Lock()
@@ -245,7 +251,7 @@ class VideoStream:
             return (0, 0)
 
 
-    async def getVirtualPlaylist(self, cache_key: str | None = None) -> str:
+    def getVirtualPlaylist(self, cache_key: str | None = None) -> str:
         """
         仮想 HLS M3U8 プレイリストを取得する
         返却時点では仮想 HLS M3U8 プレイリストに記載されているセグメントのデータは存在せず (「仮想」のゆえん)、随時エンコードされる
@@ -435,7 +441,7 @@ class VideoStream:
         """
 
         # 現在実行中のエンコードタスクをキャンセルする
-        await self._video_encoding_task.cancel()
+        self._video_encoding_task.cancel()
 
         # この時点で既にエンコードタスクが実行中でない場合は何もしない
         if self._video_encoding_task_ref is None:

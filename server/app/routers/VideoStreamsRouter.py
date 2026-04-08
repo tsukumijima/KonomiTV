@@ -77,7 +77,7 @@ async def VideoHLSPlaylistAPI(
     video_stream = VideoStream(session_id, recorded_program, quality)
 
     # 仮想 HLS M3U8 プレイリストを取得
-    virtual_playlist = await video_stream.getVirtualPlaylist(cache_key)
+    virtual_playlist = video_stream.getVirtualPlaylist(cache_key)
     return Response(
         content = virtual_playlist,
         media_type = 'application/vnd.apple.mpegurl',
