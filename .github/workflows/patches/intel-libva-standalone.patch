@@ -1,0 +1,145 @@
+diff --git a/meson.build b/meson.build
+index 66f0c38..b21e03f 100644
+--- a/meson.build
++++ b/meson.build
+@@ -63,7 +63,7 @@ libva_lt_version = '@0@.@1@.@2@'.format(libva_lt_current,
+ 					libva_lt_age,
+ 					libva_lt_revision)
+ 
+-sysconfdir = join_paths(get_option('prefix'), get_option('sysconfdir'))
++sysconfdir = get_option('sysconfdir')
+ 
+ driverdir = get_option('driverdir')
+ if driverdir == ''
+diff --git a/va/va.c b/va/va.c
+index 23edee0..cb33542 100644
+--- a/va/va.c
++++ b/va/va.c
+@@ -73,6 +73,66 @@ static char * secure_getenv(const char *name)
+ }
+ #endif
+ 
++static char *va_getLibraryDirectory(void)
++{
++#if !defined(_WIN32)
++    Dl_info dl_info;
++
++    if (dladdr((void *)va_getLibraryDirectory, &dl_info) == 0 || dl_info.dli_fname == NULL)
++        return NULL;
++
++    char *library_path = realpath(dl_info.dli_fname, NULL);
++    if (!library_path)
++        library_path = strdup(dl_info.dli_fname);
++    if (!library_path)
++        return NULL;
++
++    char *last_slash = strrchr(library_path, '/');
++    if (!last_slash) {
++        free(library_path);
++        return NULL;
++    }
++
++    *last_slash = '\0';
++    return library_path;
++#else
++    return NULL;
++#endif
++}
++
++static char *va_resolvePathFromLibraryDirectory(const char *path)
++{
++    if (!path)
++        return NULL;
++
++#if !defined(_WIN32)
++    if (path[0] == '/')
++        return strdup(path);
++
++    char *library_dir = va_getLibraryDirectory();
++    if (!library_dir)
++        return strdup(path);
++
++    int path_length = snprintf(NULL, 0, "%s/%s", library_dir, path);
++    if (path_length < 0) {
++        free(library_dir);
++        return NULL;
++    }
++
++    char *resolved_path = malloc(path_length + 1);
++    if (!resolved_path) {
++        free(library_dir);
++        return NULL;
++    }
++
++    snprintf(resolved_path, path_length + 1, "%s/%s", library_dir, path);
++    free(library_dir);
++    return resolved_path;
++#else
++    return strdup(path);
++#endif
++}
++
+ /*
+  * read a config "env" for libva.conf or from environment setting
+  * libva.conf has higher priority
+@@ -84,11 +144,15 @@ int va_parseConfig(char *env, char *env_value)
+     char *token, *value, *saveptr;
+     char oneline[1024];
+     FILE *fp = NULL;
++    char *config_path = NULL;
+ 
+     if (env == NULL)
+         return 1;
+ 
+-    fp = fopen(SYSCONFDIR "/libva.conf", "r");
++    config_path = va_resolvePathFromLibraryDirectory(SYSCONFDIR "/libva.conf");
++    if (config_path)
++        fp = fopen(config_path, "r");
++    free(config_path);
+     while (fp && (fgets(oneline, 1024, fp) != NULL)) {
+         if (strlen(oneline) == 1)
+             continue;
+@@ -376,18 +440,24 @@ static VAStatus va_openDriver(VADisplay dpy, char *driver_name)
+     VAStatus vaStatus = VA_STATUS_ERROR_UNKNOWN;
+     char *search_path = NULL;
+     char *saveptr;
+-    char *driver_dir;
++    char *driver_dir = NULL;
++    char *resolved_search_path = NULL;
+ 
+     if (geteuid() == getuid())
+         /* don't allow setuid apps to use LIBVA_DRIVERS_PATH */
+         search_path = secure_getenv("LIBVA_DRIVERS_PATH");
+-    if (!search_path)
+-        search_path = VA_DRIVERS_PATH;
++    if (!search_path) {
++        resolved_search_path = va_resolvePathFromLibraryDirectory(VA_DRIVERS_PATH);
++        if (!resolved_search_path)
++            resolved_search_path = strdup(VA_DRIVERS_PATH);
++        search_path = resolved_search_path;
++    }
+ 
+     search_path = strdup((const char *)search_path);
+     if (!search_path) {
+         va_errorMessage(dpy, "%s L%d Out of memory\n",
+                         __FUNCTION__, __LINE__);
++        free(resolved_search_path);
+         return VA_STATUS_ERROR_ALLOCATION_FAILED;
+     }
+     driver_dir = strtok_r(search_path, ENV_VAR_SEPARATOR, &saveptr);
+@@ -397,6 +467,7 @@ static VAStatus va_openDriver(VADisplay dpy, char *driver_name)
+         if (!driver_path) {
+             va_errorMessage(dpy, "%s L%d Out of memory\n",
+                             __FUNCTION__, __LINE__);
++            free(resolved_search_path);
+             free(search_path);
+             return VA_STATUS_ERROR_ALLOCATION_FAILED;
+         }
+@@ -542,6 +613,7 @@ static VAStatus va_openDriver(VADisplay dpy, char *driver_name)
+     }
+ 
+     free(search_path);
++    free(resolved_search_path);
+ 
+     return vaStatus;
+ }

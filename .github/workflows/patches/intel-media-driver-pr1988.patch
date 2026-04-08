@@ -1,0 +1,40 @@
+From 56f772124b7d6936cd6fc7451d59e52477f6195f Mon Sep 17 00:00:00 2001
+From: tsukumi <tsukumijima@users.noreply.github.com>
+Date: Tue, 24 Feb 2026 01:58:32 +0900
+Subject: [PATCH] [VP] Fix VEBOX surface config crash in 60i->30p deinterlacing
+
+When performing 60i->30p deinterlacing (non-bob, b60fpsDi=false)
+with resize on pure softlet platforms (MTL+), m_sameSamples could
+be true, creating a VEBOX_SURFACES_CONFIG not registered in
+InitSurfaceConfigMap(). This caused a segfault in
+AssignVeboxResource() when looking up the config.
+
+Gate m_sameSamples by b60fpsDi: only 60fps DI (60i->60p) paths
+use the sameSample flag, since all 60i->30p entries in the
+surface config map have sameSample=false.
+
+Bug was introduced in f38f67cf6 ("[VP] 30pRefdi case Linux",
+2022-11-09) which added 60i->30p config entries without
+sameSample=true variants. The issue affects all pure softlet
+platforms (MTL, ARL, LNL, BMG, PTL, NVL) and is codec-agnostic.
+---
+ .../common/vp/hal/bufferMgr/vp_resource_manager.cpp         | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
+index 0a1dc01d92..65319499c4 100644
+--- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
++++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
+@@ -2561,7 +2561,11 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+     if (caps.bDI || caps.bDiProcess2ndField)
+     {
+         bool b60fpsDi = resHint.b60fpsDi || caps.bDiProcess2ndField;
+-        VEBOX_SURFACES_CONFIG cfg(b60fpsDi, caps.bSFC, m_sameSamples, m_outOfBound, m_currentFrameIds.pastFrameAvailable,
++        // sameSample path is only meaningful for 60fps DI workflows.
++        // For 30i->30p (single-field) DI, forcing sameSample can select an invalid
++        // VEBOX surface config combination.
++        const bool sameSamplesForConfig = b60fpsDi ? m_sameSamples : false;
++        VEBOX_SURFACES_CONFIG cfg(b60fpsDi, caps.bSFC, sameSamplesForConfig, m_outOfBound, m_currentFrameIds.pastFrameAvailable,
+             m_currentFrameIds.futureFrameAvailable, IsInterleaveFirstField(inputSurface->SampleType));
+         auto it = m_veboxSurfaceConfigMap.find(cfg.value);
+         if (m_veboxSurfaceConfigMap.end() == it)
