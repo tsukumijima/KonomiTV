@@ -138,7 +138,7 @@ jobs:
         run: |
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.zip
+          curl -fSLO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.zip
           7z x -y ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.zip
           mkdir thirdparty/FFmpeg/
           cp ffmpeg-n${{ env.FFMPEG_VERSION }}-win64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
@@ -146,32 +146,32 @@ jobs:
           rm thirdparty/FFmpeg/ffplay.exe
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
+          curl -fSLO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/QSVEncC" QSVEncC_${{ env.QSVENCC_VERSION }}_x64.7z
           rm -Force thirdparty/QSVEncC/hdr10plus_gen.exe -ErrorAction SilentlyContinue
           mv thirdparty/QSVEncC/QSVEncC64.exe thirdparty/QSVEncC/QSVEncC.exe
-          curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
+          curl -fSL -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
+          curl -fSLO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/NVEncC" NVEncC_${{ env.NVENCC_VERSION }}_x64.7z
           rm -Force thirdparty/NVEncC/hdr10plus_gen.exe -ErrorAction SilentlyContinue
           mv thirdparty/NVEncC/NVEncC64.exe thirdparty/NVEncC/NVEncC.exe
-          curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
+          curl -fSL -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
+          curl -fSLO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
           7z x -y -o"thirdparty/VCEEncC" VCEEncC_${{ env.VCEENCC_VERSION }}_x64.7z
           rm -Force thirdparty/VCEEncC/hdr10plus_gen.exe -ErrorAction SilentlyContinue
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
-          curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
+          curl -fSL -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
       # Python Standalone Builds のダウンロードと poetry のインストール
       - name: Install Python Standalone Builds & pip & poetry
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
+          curl -fSL -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
@@ -332,7 +332,7 @@ jobs:
           sudo apt-get install -y p7zip-full patchelf
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
+          curl -fSLO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           mkdir thirdparty/FFmpeg/
           cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
@@ -351,7 +351,7 @@ jobs:
           ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_HWENCC_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
+          curl -fSLO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_HWENCC_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
           cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g'
@@ -394,7 +394,7 @@ jobs:
           find thirdparty/Library -name '*.so*' -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          curl -fSLO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb
           7z x -y qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
@@ -403,29 +403,29 @@ jobs:
           perl -0pi -e 's#/usr/lib/x86_64-linux-gnu#/bundle/disabled/path/001#g; s#/usr/lib64#/bad/path9#g; s#/usr/lib#/bad/lib#g' thirdparty/QSVEncC/QSVEncC.elf
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../Library' thirdparty/QSVEncC/QSVEncC.elf
-          curl -L -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
+          curl -fSL -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          curl -fSLO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb
           7z x -y nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/NVEncC/NVEncC.elf
-          curl -L -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
+          curl -fSL -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb
+          curl -fSLO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb
           7z x -y vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/VCEEncC/VCEEncC.elf
-          curl -L -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
+          curl -fSL -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
           # libmediainfo のアーカイブのダウンロード
           ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
-          curl -L -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_x86_64.zip
+          curl -fSL -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_x86_64.zip
           7z x -y libmediainfo.zip
           cp -a lib/* thirdparty/Library/
           rm -rf lib/
@@ -445,7 +445,7 @@ jobs:
           sudo apt-get install -y p7zip-full patchelf
 
           # FFmpeg のアーカイブのダウンロード
-          curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
+          curl -fSLO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_TAG }}/ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           tar xvf ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}.tar.xz
           mkdir thirdparty/FFmpeg/
           cp ffmpeg-n${{ env.FFMPEG_VERSION }}-linuxarm64-gpl-shared-${{ env.FFMPEG_MAJOR_VERSION }}/bin/* thirdparty/FFmpeg/
@@ -466,8 +466,8 @@ jobs:
           ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
           mkdir thirdparty/Library/
           docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libasound2 libass9 libbluray2 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgomp1 libgraphite2-3 libharfbuzz0b libicu66 liblzma5 libmp3lame0 libogg0 libopus0 libpcre3 libpng16-16 libsoxr0 libspeex1 libssl1.1 libtwolame0 libuuid1 libvorbis0a libvorbisenc2 libvpx6 libxml2 zlib1g'
-          curl -LO https://github.com/tsukumijima/mpp-rockchip/releases/download/v1.5.0-1-20250110-194af18/librockchip-mpp1_1.5.0-1_arm64.deb
-          curl -LO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-20260105-bfd411b/librga2_2.2.0-1_arm64.deb
+          curl -fSLO https://github.com/tsukumijima/mpp-rockchip/releases/download/v1.5.0-1-20250110-194af18/librockchip-mpp1_1.5.0-1_arm64.deb
+          curl -fSLO https://github.com/tsukumijima/librga-rockchip/releases/download/v2.2.0-1-20260105-bfd411b/librga2_2.2.0-1_arm64.deb
           ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
           cp -ar thirdparty/Library/lib/aarch64-linux-gnu/* thirdparty/Library/
           rm -rf thirdparty/Library/lib/
@@ -478,17 +478,17 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -LO https://github.com/rigaya/rkmppenc/releases/download/${{ env.RKMPPENC_VERSION }}/rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb
+          curl -fSLO https://github.com/rigaya/rkmppenc/releases/download/${{ env.RKMPPENC_VERSION }}/rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb
           7z x -y rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/rkmppenc/rkmppenc.elf
-          curl -L -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
+          curl -fSL -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
 
           # libmediainfo のアーカイブのダウンロード
           ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
-          curl -L -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_arm64.zip
+          curl -fSL -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_arm64.zip
           7z x -y libmediainfo.zip
           cp -a lib/* thirdparty/Library/
           rm -rf lib/
@@ -499,7 +499,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
+          curl -fSL -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
 
