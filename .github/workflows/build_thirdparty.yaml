@@ -24,25 +24,20 @@ env:
   POETRY_VERSION: '1.8.5'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
-  ## FFMPEG_HWENCC_* は QSVEncC・NVEncC・VCEEncC (for Ubuntu 20.04 LTS) が依存する FFmpeg のバージョンを示す
-  ## FFmpeg-Builds の最新リリースでは FFmpeg 4.4 系がビルドされなくなったため、FFMPEG_HWENCC_* は 4.4 系の最終ビルドで固定されている
-  ## (正確には Ubuntu 20.04 LTS で入る FFmpeg は 4.2 系だが、FFmpeg 4.x 系であれば ABI 互換性があるため 4.4 系でも動作する)
+  ## Linux 版の最新 HWEncC バイナリは libav* を静的リンクするようになり、FFmpeg 共有ライブラリの別途同梱は不要になった
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
   FFMPEG_TAG: 'autobuild-2025-12-31-14-28'
   FFMPEG_MAJOR_VERSION: '7.1'
   FFMPEG_VERSION: '7.1.3-22-g40b336e650'
-  FFMPEG_HWENCC_TAG: 'autobuild-2024-03-31-17-28'
-  FFMPEG_HWENCC_MAJOR_VERSION: '4.4'
-  FFMPEG_HWENCC_VERSION: '4.4.4-94-g5d07afd482'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
   ## ref: https://github.com/rigaya/QSVEnc/releases
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '8.04'
-  NVENCC_VERSION: '9.10'
-  VCEENCC_VERSION: '9.01'  # ドライバのバージョン要件が上げられているので当面 9.01 で固定
-  RKMPPENC_VERSION: '0.17'
+  QSVENCC_VERSION: '8.08'
+  NVENCC_VERSION: '9.14'
+  VCEENCC_VERSION: '9.05'
+  RKMPPENC_VERSION: '0.18'
   # QSVEncC 向け Intel Media Stack の固定バージョン
   ## 旧世代 iGPU との後方互換性を鑑み、各ライブラリのバージョンを動作検証済みの組み合わせへ固定する
   ## 概ね 2026/04 時点で Intel の APT リポジトリにて公開されている最新バージョンと同一
@@ -215,6 +210,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
 
+      # build_thirdparty.yaml から参照する script / patch を使うため、リポジトリをチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       # Docker Buildx のセットアップ
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -347,15 +346,10 @@ jobs:
           chmod a+x thirdparty/FFmpeg/ffprobe.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/FFmpeg/ffprobe.elf
 
-          # QSV/NV/VCEEncC が依存しているライブラリをダウンロードしてまとめる
-          ## ref: https://stackoverflow.com/questions/13756800/how-to-download-all-dependencies-and-packages-to-directory
-          ## ref: https://askubuntu.com/questions/1260559/how-to-install-deb-packages-in-a-custom-folder-different-from-root-using-dp
+          # QSV/NV/VCEEncC 向けの共有ライブラリ配置先を作成
+          ## 最新の Linux 版 HWEncC バイナリは libav* を静的リンクしているため、
+          ## ここでは QSVEncC 向け Intel Media Stack と libmediainfo のみを同梱する
           mkdir thirdparty/Library/
-          curl -fSLO https://github.com/BtbN/FFmpeg-Builds/releases/download/${{ env.FFMPEG_HWENCC_TAG }}/ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
-          tar xvf ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}.tar.xz
-          cp -ar ffmpeg-n${{ env.FFMPEG_HWENCC_VERSION }}-linux64-gpl-shared-${{ env.FFMPEG_HWENCC_MAJOR_VERSION }}/lib/* thirdparty/Library/
-          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c 'apt-get update && apt-get download libass9 libbrotli1 libexpat1 libfontconfig1 libfreetype6 libfribidi0 libglib2.0-0 libgraphite2-3 libharfbuzz0b libpcre3 libpng16-16 libuuid1 zlib1g'
-          ls -1 | grep [.]deb >> all_debs.txt && cat all_debs.txt | while read fn; do dpkg-deb -x $fn `pwd`/thirdparty/Library; done && rm all_debs.txt
 
           # QSVEncC が依存する Intel Media Stack を Ubuntu 20.04 ベースで自前ビルドして同梱
           ## QSVEncC 本体は再ビルドせず、Intel 系ライブラリのみを glibc 互換の同梱構成としてまとめる
@@ -394,8 +388,8 @@ jobs:
           find thirdparty/Library -name '*.so*' -not -type l -not -type d | xargs chmod a+x
 
           # QSVEncC のアーカイブのダウンロード
-          curl -fSLO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb
-          7z x -y qsvencc_${{ env.QSVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -fSLO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_amd64.deb
+          7z x -y qsvencc_${{ env.QSVENCC_VERSION }}_amd64.deb && tar xvf data.tar
           mkdir thirdparty/QSVEncC/
           cp usr/bin/qsvencc thirdparty/QSVEncC/QSVEncC.elf
           # ダウンロードした QSVEncC.elf にパッチを当て、QSVEncC に静的リンクされているディスパッチャーが /usr/lib* を優先的に探索するのを防ぎ、
@@ -406,8 +400,8 @@ jobs:
           curl -fSL -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
 
           # NVEncC のアーカイブのダウンロード
-          curl -fSLO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb
-          7z x -y nvencc_${{ env.NVENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -fSLO https://github.com/rigaya/NVEnc/releases/download/${{ env.NVENCC_VERSION }}/nvencc_${{ env.NVENCC_VERSION }}_amd64.deb
+          7z x -y nvencc_${{ env.NVENCC_VERSION }}_amd64.deb && tar xvf data.tar
           mkdir thirdparty/NVEncC/
           cp usr/bin/nvencc thirdparty/NVEncC/NVEncC.elf
           chmod a+x thirdparty/NVEncC/NVEncC.elf
@@ -415,8 +409,8 @@ jobs:
           curl -fSL -o thirdparty/NVEncC/License.txt https://raw.githubusercontent.com/rigaya/NVEnc/master/NVEnc_license.txt
 
           # VCEEncC のアーカイブのダウンロード
-          curl -fSLO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb
-          7z x -y vceencc_${{ env.VCEENCC_VERSION }}_Ubuntu20.04_amd64.deb && tar xvf data.tar
+          curl -fSLO https://github.com/rigaya/VCEEnc/releases/download/${{ env.VCEENCC_VERSION }}/vceencc_${{ env.VCEENCC_VERSION }}_amd64.deb
+          7z x -y vceencc_${{ env.VCEENCC_VERSION }}_amd64.deb && tar xvf data.tar
           mkdir thirdparty/VCEEncC/
           cp usr/bin/vceencc thirdparty/VCEEncC/VCEEncC.elf
           chmod a+x thirdparty/VCEEncC/VCEEncC.elf
@@ -478,8 +472,8 @@ jobs:
           find thirdparty/Library/*.so* -not -type l -not -type d | xargs chmod a+x
 
           # rkmppenc のアーカイブのダウンロード
-          curl -fSLO https://github.com/rigaya/rkmppenc/releases/download/${{ env.RKMPPENC_VERSION }}/rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb
-          7z x -y rkmppenc_${{ env.RKMPPENC_VERSION }}_Ubuntu20.04_arm64.deb && tar xvf data.tar
+          curl -fSLO https://github.com/rigaya/rkmppenc/releases/download/${{ env.RKMPPENC_VERSION }}/rkmppenc_${{ env.RKMPPENC_VERSION }}_arm64.deb
+          7z x -y rkmppenc_${{ env.RKMPPENC_VERSION }}_arm64.deb && tar xvf data.tar
           mkdir thirdparty/rkmppenc/
           cp usr/bin/rkmppenc thirdparty/rkmppenc/rkmppenc.elf
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
