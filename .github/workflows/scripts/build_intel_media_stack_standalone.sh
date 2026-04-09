@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # QSVEncC が依存する Intel Media Stack の構成ライブラリ (gmmlib / libva / media-driver / MediaSDK runtime / oneVPL GPU runtime) を
-# Ubuntu 20.04 上でビルドし、thirdparty/Library/ 以下にそのままコピーできる形へ整える CI 環境向けスクリプト
+# Ubuntu 20.04 上でビルドし、thirdparty/Library/ 以下へそのままコピーできる形へ整える CI 環境向けスクリプト
 ## Intel Media Stack の構成ライブラリ (OpenCL ランタイムを除く) をすべて自己完結型でビルドすることで、
 ## サードパーティーライブラリ上の QSVEncC がシステム側の iHD_drv_video.so や libmfx に依存しないようにし、
 ## どのような OS 環境・CPU 世代でも QSVEncC を安定的に動作させ続けることが狙い

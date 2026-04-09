@@ -355,9 +355,11 @@ jobs:
           ## QSVEncC 本体は再ビルドせず、Intel 系ライブラリのみを glibc 互換の同梱構成としてまとめる
           ## libva には同梱ディレクトリ基準の相対探索へ切り替えるパッチを適用し、
           ## 旧世代 GPU 向けの libmfxhw64.so と新世代 GPU 向けの libmfx-gen.so.1.2 を同梱して後方互換性を維持する
-          if [ ! -e intel-media-stack/artifact/Library/dri/iHD_drv_video.so ] || [ ! -e intel-media-stack/artifact/Library/libva.so.2 ] || [ ! -e intel-media-stack/artifact/Library/libmfxhw64.so.1 ] || [ ! -e intel-media-stack/artifact/Library/libmfx-gen.so.1.2 ]; then
+          ## thirdparty/Library/ 自体を /lib/x86_64-linux-gnu 相当の配置先として扱い、
+          ## サブディレクトリとして dri/ と libmfx-gen/ のみを許容する
+          if [ ! -e intel-media-stack/artifact/Library/dri/iHD_drv_video.so ] || [ ! -e intel-media-stack/artifact/Library/libva.so.2 ] || [ ! -e intel-media-stack/artifact/Library/libmfxhw64.so.1 ] || [ ! -e intel-media-stack/artifact/Library/libmfx-gen.so.1.2 ] || [ ! -e intel-media-stack/artifact/Library/libmfx-gen/enctools.so ]; then
             docker run --rm -i \
-              -v $(pwd):/work \
+              -v "$(pwd):/work" \
               -w /work \
               -e HOST_UID=$(id -u) \
               -e HOST_GID=$(id -g) \
@@ -372,20 +374,22 @@ jobs:
             echo 'Intel Media Stack build cache hit. Skip rebuilding Intel Media Stack.'
           fi
 
+          # Intel Media Stack の成果物レイアウトを検証
+          ## 万が一 thirdparty/Library/ 以下にさらに lib/ や usr/ のような余計なネストが残っていた場合はその場で失敗させる
+          if [ -d intel-media-stack/artifact/Library/lib ] || [ -d intel-media-stack/artifact/Library/usr ]; then
+            echo 'Unexpected Intel Media Stack artifact layout. Only dri/ and libmfx-gen/ are allowed under Library/.' >&2
+            find intel-media-stack/artifact/Library -maxdepth 2 -type d | sort >&2
+            exit 1
+          fi
+
           # Intel Media Stack の成果物を thirdparty/Library にコピー
           mkdir -p thirdparty/Library/dri
           mkdir -p thirdparty/Library/libmfx-gen
           cp -a intel-media-stack/artifact/Library/. thirdparty/Library/
-
-          cp -ar thirdparty/Library/lib/x86_64-linux-gnu/* thirdparty/Library/
-          rm -rf thirdparty/Library/lib/
-          cp -ar thirdparty/Library/usr/lib/x86_64-linux-gnu/* thirdparty/Library/
-          rm -rf thirdparty/Library/usr/
-          rm -rf thirdparty/Library/pkgconfig
-          find thirdparty/Library -maxdepth 1 -name '*.so*' -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' $fn; done
-          find thirdparty/Library/libmfx-gen -name '*.so*' -not -type l -not -type d | while read fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/..' $fn; done
+          find thirdparty/Library -maxdepth 1 -name '*.so*' -not -type l -not -type d -print0 | while IFS= read -r -d '' fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' "$fn"; done
+          find thirdparty/Library/libmfx-gen -name '*.so*' -not -type l -not -type d -print0 | while IFS= read -r -d '' fn; do patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$fn"; done
           patchelf --set-rpath '$ORIGIN:$ORIGIN/..' thirdparty/Library/dri/iHD_drv_video.so
-          find thirdparty/Library -name '*.so*' -not -type l -not -type d | xargs chmod a+x
+          find thirdparty/Library -name '*.so*' -not -type l -not -type d -exec chmod a+x {} +
 
           # QSVEncC のアーカイブのダウンロード
           curl -fSLO https://github.com/rigaya/QSVEnc/releases/download/${{ env.QSVENCC_VERSION }}/qsvencc_${{ env.QSVENCC_VERSION }}_amd64.deb
