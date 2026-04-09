@@ -7,7 +7,6 @@ import asyncio
 import gc
 import os
 import re
-import sys
 import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, ClassVar, Literal, cast
@@ -579,9 +578,10 @@ class LiveEncodingTask:
             # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
             ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
             ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
-            ## +4 は FFmpeg 6.1 以降不要になった (付与していると字幕が表示されなくなる) ため、
-            ## FFmpeg 4.4 系に依存している Linux 版 HWEncC 利用時のみ付与する
-            '-d', '13' if ENCODER_TYPE != 'FFmpeg' and sys.platform == 'linux' else '9',
+            ## 以前は Linux 版 HWEncC が FFmpeg 4.4 系の共有ライブラリに依存していたため +4 を付与していたが、
+            ## 現在の Linux 版 HWEncC は FFmpeg 8 系を静的リンクした最新版へ更新したため不要になった
+            ## +4 を残すと FFmpeg 6.1 以降では字幕が表示されなくなるため、常に +8 のみを付与する
+            '-d', '9',
         ]
 
         if CONFIG.tv.debug_mode_ts_path is None:
