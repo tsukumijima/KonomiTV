@@ -46,7 +46,7 @@ env:
   INTEL_LIBVA_TAG: '2.22.0'
   INTEL_MEDIA_DRIVER_TAG: 'intel-media-25.2.4'
   INTEL_MEDIASDK_TAG: 'intel-mediasdk-23.2.2'
-  INTEL_ONEVPL_GPU_TAG: 'intel-onevpl-25.2.4'
+  INTEL_ONEVPL_GPU_TAG: 'intel-onevpl-25.4.6'
   # libmediainfo のバージョン
   ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
   ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6

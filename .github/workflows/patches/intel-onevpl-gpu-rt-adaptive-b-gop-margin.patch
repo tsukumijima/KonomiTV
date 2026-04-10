@@ -1,0 +1,41 @@
+diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
+index fc556b5b..c53b05db 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
+@@ -982,9 +982,10 @@ void Legacy::InitInternal(const FeatureBlocks& /*blocks*/, TPushII Push)
+         auto& par = Glob::VideoParam::Get(strg);
+ 
+         auto pReorderer = make_storable<Reorderer>();
++        const mfxU16 adaptiveGopMargin = GetAdaptiveGopMargin(par);
+ 
+-        pReorderer->BufferSize = par.mfx.GopRefDist - 1;
+-        pReorderer->MaxReorder = par.mfx.GopRefDist - 1;
++        pReorderer->BufferSize = par.mfx.GopRefDist - 1 + adaptiveGopMargin;
++        pReorderer->MaxReorder = par.mfx.GopRefDist - 1 + adaptiveGopMargin;
+         pReorderer->DPB        = &m_prevTask.DPB.After;
+ 
+         pReorderer->Push(
+diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
+index dc09f78b..ab18c29b 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
+@@ -248,12 +248,18 @@ namespace Base
+             return ::IsSWBRCMode(par);
+         }
+ 
++        static inline mfxU16 GetAdaptiveGopMargin(const mfxVideoParam& par)
++        {
++            const mfxExtCodingOption2* pCO2 = ExtBuffer::Get(par);
++            return (pCO2 && IsOn(pCO2->AdaptiveB) && par.mfx.GopRefDist > 1) ? 1 : 0;
++        }
++
+         mfxU16 GetMaxRaw(const mfxVideoParam & par)
+         {
+             // Extend extra Raw for frames buffered between LA submit and LA Query stage
+             const mfxExtCodingOption2* pCO2 = ExtBuffer::Get(par);
+             mfxU16 extRaw = pCO2 ? pCO2->LookAheadDepth : 0;
+-            return par.AsyncDepth + (par.mfx.GopRefDist - 1) + (par.AsyncDepth > 1) + extRaw;
++            return par.AsyncDepth + (par.mfx.GopRefDist - 1) + GetAdaptiveGopMargin(par) + (par.AsyncDepth > 1) + extRaw;
+         }
+         mfxU16 GetMaxMBMaps(mfxVideoParam const& par)
+         {
