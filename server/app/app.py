@@ -286,6 +286,10 @@ async def Shutdown():
         await recorded_scan_task.stop()
         recorded_scan_task = None
 
+    # 非同期タスクの終了処理が完全に終わるよう、もう少しだけ待つ
+    # この待機を省略すると LiveEncodingTask などの終了前に Tortoise ORM の DB 接続が閉じられ、エラートレースバックが出力される
+    await asyncio.sleep(0.5)
+
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
 # atexit は同期関数しか実行できないので、asyncio.run() でくるむ
 atexit.register(asyncio.run, Shutdown())
