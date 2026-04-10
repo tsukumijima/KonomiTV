@@ -38,6 +38,7 @@ router = APIRouter(
 # Bitrate.ini のキャッシュ (TTL: 15分)
 _bitrate_ini_cache: dict[str, int] | None = None
 _bitrate_ini_cache_timestamp: float | None = None
+_bitrate_ini_cache_lock: asyncio.Lock | None = None
 
 
 async def DecodeEDCBReserveData(
@@ -73,7 +74,10 @@ async def DecodeEDCBReserveData(
             int: ビットレート (kbps)
         """
 
-        global _bitrate_ini_cache, _bitrate_ini_cache_timestamp
+        global _bitrate_ini_cache, _bitrate_ini_cache_timestamp, _bitrate_ini_cache_lock
+
+        if _bitrate_ini_cache_lock is None:
+            _bitrate_ini_cache_lock = asyncio.Lock()
 
         # 常時マルチチャンネル放送のため、例外的に決め打ちの値を使うチャンネルリスト
         # キー: (NID, SID), 値: ビットレート (kbps)
@@ -112,57 +116,78 @@ async def DecodeEDCBReserveData(
             # デフォルト値を返す
             return 19456
 
-        try:
-            # EDCB から Bitrate.ini を取得
-            files = await CtrlCmdUtil().sendFileCopy2(['Bitrate.ini'])
-            if files is None or len(files) == 0:
-                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB.')
+        async with _bitrate_ini_cache_lock:
+            # ロック取得後、再度キャッシュが存在するかチェックする (キャッシュスタンピード対策)
+            current_time = time.time()
+            if (_bitrate_ini_cache is not None and
+                _bitrate_ini_cache_timestamp is not None and
+                current_time - _bitrate_ini_cache_timestamp < 900):  # 900秒 = 15分
+                # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+                for i in range(4):
+                    onid = 0xFFFF if i > 2 else network_id
+                    tsid = 0xFFFF if i > 1 else transport_stream_id
+                    sid = 0xFFFF if i > 0 else service_id
+
+                    # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                    key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                    if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                        return _bitrate_ini_cache[key]
+
+                # デフォルト値を返す
                 return 19456
 
-            # ファイルデータをテキストとして解析
-            bitrate_ini_data = files[0]['data']
-            if not bitrate_ini_data:
-                logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty.')
+            try:
+                # EDCB から Bitrate.ini を取得
+                files = await CtrlCmdUtil().sendFileCopy2(['Bitrate.ini'])
+                if files is None or len(files) == 0:
+                    logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Failed to get Bitrate.ini from EDCB.')
+                    return 19456
+
+                # ファイルデータをテキストとして解析
+                bitrate_ini_data = files[0]['data']
+                if not bitrate_ini_data:
+                    logging.warning('[ReservationsRouter][GetBitrateFromEDCB] Bitrate.ini is empty.')
+                    return 19456
+
+                # バイナリデータを文字列に変換
+                ## Linux 版 EDCB では UTF-8 (BOM なし) で返る場合があるため、
+                ## EDCBUtil 側の BOM 判定 + UTF-8 優先 + 既定エンコーディングフォールバックに統一する
+                ini_text = EDCBUtil.convertBytesToString(bitrate_ini_data)
+
+                # ConfigParser で解析
+                ## interpolation=None を指定して補間を無効化する (値に % が含まれている場合の安全策)
+                config = configparser.ConfigParser(interpolation=None)
+                config.read_string(ini_text)
+
+                # BITRATE セクションからビットレート情報を取得してキャッシュに保存
+                _bitrate_ini_cache = {}
+                _bitrate_ini_cache_timestamp = current_time
+                if 'BITRATE' in config:
+                    for key, value in config['BITRATE'].items():
+                        try:
+                            _bitrate_ini_cache[key.upper()] = int(value)
+                        except ValueError:
+                            continue
+
+                # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
+                for i in range(4):
+                    onid = 0xFFFF if i > 2 else network_id
+                    tsid = 0xFFFF if i > 1 else transport_stream_id
+                    sid = 0xFFFF if i > 0 else service_id
+
+                    # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
+                    key = f"{(onid << 32 | tsid << 16 | sid):012X}"
+
+                    if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
+                        return _bitrate_ini_cache[key]
+
+                # 見つからない場合はデフォルト値を返す
                 return 19456
 
-            # バイナリデータを文字列に変換
-            ## Linux 版 EDCB では UTF-8 (BOM なし) で返る場合があるため、
-            ## EDCBUtil 側の BOM 判定 + UTF-8 優先 + 既定エンコーディングフォールバックに統一する
-            ini_text = EDCBUtil.convertBytesToString(bitrate_ini_data)
-
-            # ConfigParser で解析
-            ## interpolation=None を指定して補間を無効化する (値に % が含まれている場合の安全策)
-            config = configparser.ConfigParser(interpolation=None)
-            config.read_string(ini_text)
-
-            # BITRATE セクションからビットレート情報を取得してキャッシュに保存
-            _bitrate_ini_cache = {}
-            _bitrate_ini_cache_timestamp = current_time
-            if 'BITRATE' in config:
-                for key, value in config['BITRATE'].items():
-                    try:
-                        _bitrate_ini_cache[key.upper()] = int(value)
-                    except ValueError:
-                        continue
-
-            # 段階的に検索: 全指定 -> SID=0xFFFF -> TSID=0xFFFF -> ONID=0xFFFF
-            for i in range(4):
-                onid = 0xFFFF if i > 2 else network_id
-                tsid = 0xFFFF if i > 1 else transport_stream_id
-                sid = 0xFFFF if i > 0 else service_id
-
-                # EpgTimer の Create64Key ロジックを移植: (onid << 32 | tsid << 16 | sid)
-                key = f"{(onid << 32 | tsid << 16 | sid):012X}"
-
-                if key in _bitrate_ini_cache and _bitrate_ini_cache[key] > 0:
-                    return _bitrate_ini_cache[key]
-
-            # 見つからない場合はデフォルト値を返す
-            return 19456
-
-        except Exception as ex:
-            logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini:', exc_info=ex)
-            return 19456
+            except Exception as ex:
+                logging.error('[ReservationsRouter][GetBitrateFromEDCB] Failed to parse Bitrate.ini:', exc_info=ex)
+                return 19456
 
 
     def CalculateEstimatedFileSize(duration_seconds: float, bitrate_kbps: int, recording_mode: str) -> int:
