@@ -9,6 +9,7 @@ import math
 import os
 import threading
 import time
+from collections import deque
 from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 from biim.mpeg2ts import ts
@@ -417,6 +418,95 @@ class VideoEncodingTask:
         psisimux_read_pipe: int | None = None
         tsreadex_read_pipe: int | None = None
 
+        # エンコーダーの stderr は試行ごとに必ず読み続け、パイプ詰まりを防ぎつつ失敗時の診断ログを保持する
+        ## 1 回のエンコーダー起動ごとに直近 1000 件だけを保持し、リトライ時に失敗した試行のログとして出力する
+        current_encoder_stderr_lines: deque[str] | None = None
+        encoder_stderr_observer_tasks: set[asyncio.Task[None]] = set()
+
+        async def ObserveEncoderStderr(
+            encoder_process: asyncio.subprocess.Process,
+            encoder_stderr: asyncio.StreamReader,
+            encoder_stderr_lines: deque[str],
+        ) -> None:
+            """
+            エンコーダーの stderr を読み続け、直近ログを保持する
+
+            Args:
+                encoder_process (asyncio.subprocess.Process): stderr 監視対象のエンコーダープロセス
+                encoder_stderr (asyncio.StreamReader): エンコーダープロセスの標準エラー出力
+                encoder_stderr_lines (deque[str]): この試行で保持する stderr ログ
+            """
+
+            while True:
+                # FFmpeg は進捗ログを CR 区切りで上書きするため、readline() ではなく CR/LF の両方を行区切りとして扱う
+                buffer = bytearray()
+                while True:
+                    byte = await encoder_stderr.read(1)
+                    if byte == b'':
+                        break
+                    buffer += byte
+                    if byte == b'\r' or byte == b'\n':
+                        break
+
+                # 空データは stderr の EOF を示すため、監視タスクを正常終了する
+                if len(buffer) == 0:
+                    # stderr だけが先に閉じた場合でも、監視タスク側でプロセス終了状態まで見届ける
+                    ## エンコードタスク本体はこの監視タスクを待機しないため、ここで待っても停止経路のブロック要因にはならない
+                    if encoder_process.returncode is None:
+                        await encoder_process.wait()
+                    break
+
+                # デコードして改行を除去した行を保持する
+                line = buffer.decode('utf-8', errors='ignore').strip()
+                if line == '':
+                    continue
+                encoder_stderr_lines.append(line)
+
+                # デバッグログ有効時は従来どおりエンコーダーの stderr を逐次出力する
+                if CONFIG.general.debug_encoder is True:
+                    logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line}')
+
+        def OnEncoderStderrObserverDone(done_task: asyncio.Task[None]) -> None:
+            """
+            stderr 監視タスクの完了時に参照を解放し、例外だけをログへ記録する
+
+            Args:
+                done_task (asyncio.Task[None]): 完了した stderr 監視タスク
+            """
+
+            encoder_stderr_observer_tasks.discard(done_task)
+            try:
+                exception = done_task.exception()
+            except asyncio.CancelledError:
+                pass
+            except Exception as ex:
+                logging.error(f'{self.video_stream.log_prefix} Encoder stderr observer failed:', exc_info=ex)
+            else:
+                if exception is not None:
+                    logging.error(f'{self.video_stream.log_prefix} Encoder stderr observer failed:', exc_info=exception)
+
+        def DumpEncoderStderr(
+            encoder_stderr_lines: deque[str],
+            *,
+            is_warning: bool,
+        ) -> None:
+            """
+            保持しているエンコーダー stderr の直近ログを出力する
+
+            Args:
+                encoder_stderr_lines (deque[str]): 出力対象の stderr ログ
+                is_warning (bool): 警告ログとして出力するかどうか
+            """
+
+            log = logging.warning if is_warning is True else logging.debug
+            lines = list(encoder_stderr_lines)
+            if len(lines) == 0:
+                log(f'{self.video_stream.log_prefix} Recent encoder stderr is empty.')
+                return
+            log(f'{self.video_stream.log_prefix} Encoder stderr ({len(lines)} lines):')
+            for line in lines:
+                log(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line}')
+
         try:
             # 最大 MAX_RETRY_COUNT 回までリトライする
             while self._retry_count < self.MAX_RETRY_COUNT:
@@ -798,6 +888,21 @@ class VideoEncodingTask:
                 # エンコーダーの出力を読み取り、MPEG-TS パーサーでパースする
                 assert self._encoder_process is not None and self._encoder_process.stdout is not None
 
+                # エンコーダーの stderr 監視タスクを開始する
+                ## stderr のパイプバッファが満杯になるとエンコーダープロセス側の書き込みが止まり、
+                ## 結果として stdout の TS 出力も止まるため、ログを保持しながら継続的に読み続ける
+                encoder_stderr = self._encoder_process.stderr
+                assert encoder_stderr is not None
+                current_encoder_stderr_lines = deque(maxlen=1000)
+                current_encoder_stderr_lines.append(f'Retry {self._retry_count + 1}/{self.MAX_RETRY_COUNT} started.')
+                encoder_stderr_observer_task = asyncio.create_task(ObserveEncoderStderr(
+                    self._encoder_process,
+                    encoder_stderr,
+                    current_encoder_stderr_lines,
+                ))
+                encoder_stderr_observer_tasks.add(encoder_stderr_observer_task)
+                encoder_stderr_observer_task.add_done_callback(OnEncoderStderrObserverDone)
+
                 # 最新の PAT と PMT を保持
                 latest_pat: PATSection | None = None
                 latest_pmt: PMTSection | None = None
@@ -808,6 +913,8 @@ class VideoEncodingTask:
 
                 # 新しいセグメントのエンコードを開始するため、バッファをリセット
                 encoded_segment = bytearray()
+                # エンコーダーの stdout が常に読める状態でも他の非同期タスクへ定期的に制御を返すためのカウンタ
+                yield_packet_count = 0
                 # セグメント境界を IDR/CRA に合わせるためのフラグ
                 is_split_pending = False
 
@@ -1030,6 +1137,15 @@ class VideoEncodingTask:
                     else:
                         encoded_segment += packet
 
+                    # readexactly() はバッファにデータがある場合 await しても実際にはイベントループに制御を返さずに
+                    # 即座に return するため (CPython の StreamReader.readexactly() の内部実装上の特性)、
+                    # エンコーダーがバーストでデータを出力した場合にこのループがイベントループを独占してしまう可能性がある
+                    # 100 パケット (約 18.8KB) ごとに asyncio.sleep(0) を挟むことで、他の非同期タスクにも確実に制御を渡す
+                    yield_packet_count += 1
+                    if yield_packet_count >= 100:
+                        yield_packet_count = 0
+                        await asyncio.sleep(0)
+
                     # 最終セグメントの場合はループを抜ける
                     if current_sequence >= len(self.video_stream.segments):
                         break
@@ -1056,6 +1172,9 @@ class VideoEncodingTask:
                 ## tsreadex を強制終了すると OS が tsreadex の保持していたハンドルを全て閉じてくれるので、
                 ## 親側で書き込みが詰まっていたワーカースレッドの WriteFile が BrokenPipeError で抜けて、
                 ## 後続の os.close() を呼んでもイベントループ (メインスレッド) がブロックしない状態に持っていける
+                ## 重要: FeedTSStream スレッドが os.write() でパイプにブロック中に os.close() を呼ぶと、
+                ## Windows では CloseHandle がブロックしてイベントループ全体がフリーズする
+                ## そのため、必ず「tsreadex kill → FeedTSStream 終了待ち → パイプ close」の順序を守る
                 if self._tsreadex_process is not None:
                     try:
                         if self._tsreadex_process.returncode is None:
@@ -1076,11 +1195,11 @@ class VideoEncodingTask:
                     if self._tsreadex_feed_task is not None:
                         feed_wait_start_time = time.perf_counter()
                         try:
-                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=3.0)
                             feed_wait_elapsed_ms = (time.perf_counter() - feed_wait_start_time) * 1000
                             logging.debug(f'{self.video_stream.log_prefix} Feed task completed in {feed_wait_elapsed_ms:.1f}ms.')
                         except TimeoutError:
-                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout (1s) after tsreadex kill.')
+                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout (3s) after tsreadex kill.')
                         except Exception:
                             pass
 
@@ -1112,24 +1231,15 @@ class VideoEncodingTask:
                     self._retry_count += 1
                     if self._retry_count < self.MAX_RETRY_COUNT:
                         logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
-                        # エンコーダーのデバッグログが有効な場合のみ、全てのログを出力
-                        if CONFIG.general.debug_encoder is True:
-                            logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
-                            assert self._encoder_process.stderr is not None
-                            while True:
-                                try:
-                                    line = await self._encoder_process.stderr.readline()
-                                    if not line:  # EOF
-                                        break
-                                    logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
-                                except Exception:
-                                    pass
+                        # リトライする理由をログから追えるよう、失敗した試行の stderr を必ず警告ログとして出力する
+                        if current_encoder_stderr_lines is not None:
+                            DumpEncoderStderr(current_encoder_stderr_lines, is_warning = True)
                         # リトライ前にフィードタスクの完了を再確認する
                         ## 直前のプロセス終了処理で既に asyncio.wait_for() 済みのはずだが、タイムアウトで抜けていたケースに備える保険
                         ## tsreadex stdin の書き込み側 FD は直前のクリーンアップで既に閉じているので、ここではフィードタスクの待機のみで十分
                         if self._tsreadex_feed_task is not None:
                             try:
-                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=3.0)
                             except TimeoutError:
                                 logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
                             except Exception:
@@ -1140,9 +1250,13 @@ class VideoEncodingTask:
                         self._encoder_process = None
                         self._tsreadex_process = None
                         self._tsreadex_feed_task = None
+                        current_encoder_stderr_lines = None
                         continue
                     else:
                         logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
+                        # 最後の失敗試行についても、debug_encoder の設定に関係なく stderr を警告ログとして出力する
+                        if current_encoder_stderr_lines is not None:
+                            DumpEncoderStderr(current_encoder_stderr_lines, is_warning = True)
                         break
 
                 # 正常に最終セグメントまでエンコードできたか途中でキャンセルされたと考えられるため、リトライループを抜ける
@@ -1245,19 +1359,6 @@ class VideoEncodingTask:
             ## FeedTSStream() 側で ValueError を捕捉して正常終了として扱うようにしてある
             if file is not None:
                 file.close()
-
-            # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
-            if (CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT) and self._encoder_process is not None:
-                logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
-                assert self._encoder_process.stderr is not None
-                while True:
-                    try:
-                        line = await self._encoder_process.stderr.readline()
-                        if not line:  # EOF
-                            break
-                        logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
-                    except Exception:
-                        pass
 
             # 参照のクリア (GC を遅らせないため明示的に None を代入)
             self._encoder_process = None
