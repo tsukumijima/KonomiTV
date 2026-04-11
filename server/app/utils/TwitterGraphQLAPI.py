@@ -106,8 +106,12 @@ class TwitterGraphQLAPI:
             # ツイート送信時の排他制御用のロック (最小送信間隔の制御に使用)
             instance._tweet_lock = asyncio.Lock()
             # 最小送信間隔の基準となる時刻
-            # compose で送信ボタンが押せた直前など、投稿が行われた可能性が高いタイミング (UNIX 時間)
+            # ツイート送信モーダルで送信ボタンが押せた直前など、投稿が行われた可能性が高いタイミング (UNIX 時間)
             instance._last_tweet_time = 0.0
+
+            # ツイート送信モーダル操作の連続失敗回数
+            # 一定回数連続で失敗したらブラウザを再起動し、フレッシュな状態で再挑戦する
+            instance._consecutive_compose_failures = 0
 
             # 生成したインスタンスを登録する
             cls.__instances[twitter_account.id] = instance
@@ -141,6 +145,7 @@ class TwitterGraphQLAPI:
         self._last_graphql_api_call_time: float
         self._tweet_lock: asyncio.Lock
         self._last_tweet_time: float
+        self._consecutive_compose_failures: int
 
     @property
     def log_prefix(self) -> str:
@@ -268,6 +273,14 @@ class TwitterGraphQLAPI:
             dict[str, Any] | str: GraphQL API のレスポンス (失敗時は日本語のエラーメッセージを返す)
         """
 
+        # ブラウザプロセスが外部から kill されていないかを事前確認する
+        ## is_setup_complete が True のままブラウザプロセスが死んでいる場合は、
+        ## API 呼び出しが必ず ConnectionClosedError で失敗するため、先にブラウザの再起動準備を行う
+        if self._browser.is_setup_complete is True and not self._browser.isBrowserProcessAlive():
+            await self.__markBrowserForRestart(
+                'Browser process is no longer alive (may have been killed externally). Marking browser for re-setup...',
+            )
+
         # ヘッドレスブラウザがまだ起動していない場合、セットアップ処理を実行
         if self._browser.is_setup_complete is not True:
             try:
@@ -291,29 +304,24 @@ class TwitterGraphQLAPI:
         except Exception as ex:
             logging.error(f'{self.log_prefix} Failed to connect to Twitter GraphQL API:', exc_info=ex)
 
-            # ページナビゲーション等で zendriver_setup.js のフック関数が消失した場合
-            ## アカウントのロックやセッション失効により x.com が captcha 画面やログイン画面に
-            ## リダイレクトされると、注入済みの window.__invokeGraphQLAPI 関数が消滅する
-            ## この場合、ブラウザを再起動して1回だけリトライを試みる
-            if '__invokeGraphQLAPI is not a function' in str(ex):
-                logging.warning(
-                    f'{self.log_prefix} JS hook function lost (page may have navigated away from x.com). '
-                    f'Restarting browser and retrying...',
-                )
-                # ブラウザ再起動前に、既存の idle-shutdown タイマーをキャンセルする
-                ## このタイマーが残っていると、shutdown() / setup() の最中に OnShutdown タスクが発火し、
-                ## 新しく再作成されたブラウザが直後に shutdown されるレースコンディションが起きうる
-                async with self._shutdown_task_lock:
-                    if self._shutdown_task is not None:
-                        if not self._shutdown_task.done():
-                            self._shutdown_task.cancel()
-                        self._shutdown_task = None
-                # ブラウザを shutdown して再セットアップを試みる
-                self._browser.is_setup_complete = False
-                try:
-                    await self._browser.shutdown()
-                except Exception as shutdown_ex:
-                    logging.warning(f'{self.log_prefix} Error during browser shutdown for retry:', exc_info=shutdown_ex)
+            # ブラウザとの接続断またはフック関数の消失を検出した場合、ブラウザを再起動して1回だけリトライする
+            is_connection_lost = self.__isConnectionLostError(ex)
+            is_hook_lost = '__invokeGraphQLAPI is not a function' in str(ex)
+            if is_hook_lost or is_connection_lost:
+                if is_hook_lost:
+                    # ページナビゲーション等で zendriver_setup.js のフック関数が消失した場合
+                    ## アカウントのロックやセッション失効により x.com が captcha 画面やログイン画面に
+                    ## リダイレクトされると、注入済みの window.__invokeGraphQLAPI 関数が消滅する
+                    await self.__markBrowserForRestart(
+                        'JS hook function lost (page may have navigated away from x.com). '
+                        'Restarting browser and retrying...',
+                    )
+                else:
+                    # ブラウザプロセスが外部から kill されたか、クラッシュして WebSocket 接続が切断された場合
+                    await self.__markBrowserForRestart(
+                        'Browser connection lost (browser process may have been killed or crashed). '
+                        'Restarting browser and retrying...',
+                    )
                 # 再セットアップ
                 try:
                     await self._browser.setup()
@@ -433,6 +441,62 @@ class TwitterGraphQLAPI:
         # ここまで来たら (中身のデータ構造はともかく) GraphQL API レスポンスの取得には成功しているはず
         logging.info(f'{self.log_prefix} {endpoint_name} GraphQL API request completed.')
         return response_json['data']
+
+    async def __markBrowserForRestart(self, reason: str) -> None:
+        """
+        ブラウザを「再起動が必要」な状態にマークする
+        idle-shutdown タイマーのキャンセル、is_setup_complete のリセット、ブラウザの shutdown を行う
+        この後、既存の setup チェックによりブラウザが自動的に再起動される
+
+        Args:
+            reason (str): ログに出力する再起動の理由
+        """
+
+        # idle-shutdown タイマーをキャンセル
+        ## このタイマーが残っていると、shutdown() / setup() の最中に OnShutdown タスクが発火し、
+        ## 新しく再作成されたブラウザが直後に shutdown されるレースコンディションが起きうる
+        logging.warning(f'{self.log_prefix} {reason}')
+        async with self._shutdown_task_lock:
+            if self._shutdown_task is not None:
+                if not self._shutdown_task.done():
+                    self._shutdown_task.cancel()
+                self._shutdown_task = None
+        # is_setup_complete のリセットは shutdown() 内の _setup_lock 配下で行われるため、
+        # ここで先にリセットしない (先にリセットすると、shutdown() がロックを取得する前に
+        # 別のコルーチンが is_setup_complete=False を検知して setup() を呼び、
+        # 新しいブラウザが作られた直後に shutdown() で破壊されるレースコンディションが発生する)
+        try:
+            await self._browser.shutdown()
+        except Exception as ex:
+            logging.warning(f'{self.log_prefix} Error during browser shutdown:', exc_info=ex)
+            # shutdown() が例外で中断した場合でも、次回 setup() が走るようにフラグをリセットする
+            self._browser.is_setup_complete = False
+
+    @staticmethod
+    def __isConnectionLostError(ex: Exception) -> bool:
+        """
+        例外がブラウザとの接続断を示すものかどうかを判定する
+        外部からの kill やブラウザクラッシュにより CDP WebSocket 接続が切断された場合に True を返す
+
+        Args:
+            ex (Exception): 判定する例外
+
+        Returns:
+            bool: 接続断を示す例外の場合は True
+        """
+
+        exception_type_name = type(ex).__name__
+        exception_message = str(ex)
+        # WebSocket 接続が切断された場合 (websockets ライブラリの例外)
+        if 'ConnectionClosed' in exception_type_name:
+            return True
+        # WebSocket 接続エラーのメッセージパターン
+        if 'no close frame' in exception_message:
+            return True
+        # OS レベルの接続エラー
+        if isinstance(ex, (ConnectionRefusedError, ConnectionResetError, BrokenPipeError)):
+            return True
+        return False
 
     async def keepAlive(self) -> None:
         """
@@ -592,6 +656,22 @@ class TwitterGraphQLAPI:
                     f'throttle deadline in: {max(0.0, throttle_deadline - current_time):.3f}s',
                 )
 
+            # ブラウザプロセスが外部から kill されていないかを事前確認する
+            if self._browser.is_setup_complete is True and not self._browser.isBrowserProcessAlive():
+                await self.__markBrowserForRestart(
+                    'Browser process is no longer alive (may have been killed externally). Marking browser for re-setup...',
+                )
+                self._consecutive_compose_failures = 0
+
+            # ツイート送信モーダルの操作が連続で失敗している場合、ブラウザを再起動して状態をリセットする
+            ## Twitter の画像アップロード API やページ状態が壊れている場合に、フレッシュなブラウザで回復を試みるための処理
+            if self._consecutive_compose_failures >= 2 and self._browser.is_setup_complete is True:
+                await self.__markBrowserForRestart(
+                    f'{self._consecutive_compose_failures} consecutive tweet posting failures detected. '
+                    f'Restarting browser to reset state...',
+                )
+                self._consecutive_compose_failures = 0
+
             # ヘッドレスブラウザがまだ起動していない場合、セットアップ処理を実行
             if self._browser.is_setup_complete is not True:
                 try:
@@ -603,8 +683,8 @@ class TwitterGraphQLAPI:
                         detail=str(ex),
                     )
 
-            # compose フロー開始前にアイドルシャットダウンタスクをキャンセルする
-            ## compose フローは画像アップロード待ち (最大60秒) + CreateTweet 待ち (最大30秒) で
+            # ツイート送信フロー開始前にアイドルシャットダウンタスクをキャンセルする
+            ## ツイート送信フローは画像アップロード待ち (最大60秒) + CreateTweet 待ち (最大30秒) で
             ## BROWSER_IDLE_TIMEOUT (60秒) を超える場合があるため、
             ## 再スケジュールせずキャンセルのみ行い、フロー完了後の finally で再スケジュールする
             async with self._shutdown_task_lock:
@@ -624,6 +704,17 @@ class TwitterGraphQLAPI:
                 )
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to post tweet via tweet posting modal:', exc_info=ex)
+                self._consecutive_compose_failures += 1
+                # ブラウザとの接続が切断されている場合は、ブラウザプロセスの孤児化を防ぐため
+                # shutdown を含む完全な再起動準備を行う
+                if self.__isConnectionLostError(ex):
+                    try:
+                        await self.__markBrowserForRestart(
+                            'Browser connection lost during tweet posting. '
+                            'Shutting down browser for re-setup on next call...',
+                        )
+                    except Exception as restart_ex:
+                        logging.warning(f'{self.log_prefix} Error during browser restart marking:', exc_info=restart_ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail='ツイートの送信に失敗しました。Twitter API に接続できませんでした。',
@@ -653,16 +744,35 @@ class TwitterGraphQLAPI:
 
             # ツイート送信モーダルからのツイート送信に失敗した場合
             if compose_ui_result.is_success is not True:
+                self._consecutive_compose_failures += 1
                 error_message = compose_ui_result.error_message or '不明なエラー'
-                logging.error(f'{self.log_prefix} Failed to create tweet via tweet posting modal: {error_message}')
+                logging.error(
+                    f'{self.log_prefix} Failed to create tweet via tweet posting modal: {error_message} '
+                    f'(consecutive failures: {self._consecutive_compose_failures})',
+                )
+                # postTweetViaComposeUI() は内部で例外をキャッチして結果を返すため、
+                # CDP 接続断でもここに到達する (createTweet() の except ブロックには入らない)
+                # ブラウザプロセスが死んでいたら、次回呼び出し時の再起動を待たずに即座にフラグをリセットする
+                if not self._browser.isBrowserProcessAlive():
+                    try:
+                        await self.__markBrowserForRestart(
+                            'Browser process died during tweet posting modal operation. '
+                            'Shutting down browser for re-setup on next call...',
+                        )
+                    except Exception as restart_ex:
+                        logging.warning(f'{self.log_prefix} Error during browser restart marking:', exc_info=restart_ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
                     detail=f'ツイートの送信に失敗しました。{error_message}',
                 )
 
             # CreateTweet のレスポンスを解析する
+            # 連続失敗カウンターのリセットはレスポンス検証が全て通った最終成功地点 (tweet_id 取得成功時) で行う
+            ## ここでリセットすると、後続の graphql_api_result is None / 非 2xx HTTP / 空 tweet_results などの
+            ## レスポンス検証失敗がカウンターに蓄積されず、壊れたブラウザが再起動されない問題が発生するため
             graphql_api_result = compose_ui_result.graphql_api_result
             if graphql_api_result is None:
+                self._consecutive_compose_failures += 1
                 logging.error(f'{self.log_prefix} Failed to get CreateTweet response: graphql_api_result is None')
                 return schemas.TwitterAPIResult(
                     is_success=False,
@@ -674,6 +784,7 @@ class TwitterGraphQLAPI:
 
             # HTTP ステータスコードが 200 系以外の場合
             if status_code is not None and not (200 <= status_code < 300):
+                self._consecutive_compose_failures += 1
                 logging.error(f'{self.log_prefix} CreateTweet returned HTTP {status_code}.')
                 logging.error(f'{self.log_prefix} Response: {parsed_response}')
 
@@ -697,6 +808,7 @@ class TwitterGraphQLAPI:
 
             # レスポンスから data を取り出す
             if not isinstance(parsed_response, dict):
+                self._consecutive_compose_failures += 1
                 logging.error(f'{self.log_prefix} Failed to extract tweet ID from response: parsed_response is not a dict')
                 logging.error(f'{self.log_prefix} Response: {parsed_response}')
                 return schemas.TwitterAPIResult(
@@ -706,6 +818,7 @@ class TwitterGraphQLAPI:
 
             # エラーが含まれていて data がない場合
             if 'errors' in parsed_response and 'data' not in parsed_response:
+                self._consecutive_compose_failures += 1
                 error_info = parsed_response['errors'][0]
                 error_code = error_info.get('code', -1)
                 error_message = self.ERROR_MESSAGES.get(
@@ -720,19 +833,51 @@ class TwitterGraphQLAPI:
 
             # data キーからツイート ID を抽出する
             response_data = parsed_response.get('data', parsed_response)
+
             try:
+                # tweet_results が空辞書の場合は、Twitter 側のレートリミットやスパム制限のシグナルの可能性がある
+                ## HTTP 200 でエラーも含まれないが、ツイートがサイレントに破棄されるケースに該当する
+                ## この状態になった後に画像アップロードが通らなくなる現象が確認されており、
+                ## 想定外のページ状態に陥っている可能性が高い
+                ## response_data (= parsed_response['data']) が想定外の構造の場合は後続の except で処理される
+                tweet_results = response_data.get('create_tweet', {}).get('tweet_results', None)
+                if isinstance(tweet_results, dict) and len(tweet_results) == 0:
+                    # ツイート送信モーダルの操作自体は成功したがレスポンスが空なので、連続失敗としてカウントする
+                    ## この状態のブラウザでは以降の画像アップロードが通らなくなる現象が確認されているため、
+                    ## カウンターを進めて閾値に達したら次回呼び出し時にブラウザを再起動させる
+                    self._consecutive_compose_failures += 1
+                    logging.warning(
+                        f'{self.log_prefix} CreateTweet returned empty tweet_results (HTTP 200 but no tweet data). '
+                        f'This may indicate Twitter rate limiting or spam detection. '
+                        f'Subsequent image uploads may fail. '
+                        f'(consecutive failures: {self._consecutive_compose_failures})',
+                    )
+                    logging.warning(f'{self.log_prefix} Response: {parsed_response}')
+                    # スクリーンショットを保存して、ブラウザ画面に何が表示されているかを確認可能にする
+                    await self._browser.captureDebugScreenshot('empty_tweet_results')
+                    return schemas.TwitterAPIResult(
+                        is_success=False,
+                        detail='ツイートの送信に失敗しました。Twitter からの応答が空でした。レートリミットまたはスパム制限の可能性があります。',
+                    )
+
                 tweet_id = str(response_data['create_tweet']['tweet_results']['result']['rest_id'])
             except Exception as ex:
                 # この時点で HTTP 200 + errors なし + data キーありのため、ツイート自体は送信済みと判断する
-                ## rest_id が取得できないのはレスポンス構造の変更やスパム判定の特殊ケース
+                ## parsed_response は dict 検証済みで、data キーの存在も確認済みだが、
+                ## response_data (= parsed_response['data']) の中身が想定外の構造
+                ## (create_tweet や tweet_results、rest_id が欠落) の場合にここで KeyError 等がキャッチされる
                 logging.error(f'{self.log_prefix} Failed to extract tweet ID from response:', exc_info=ex)
                 logging.error(f'{self.log_prefix} Response: {parsed_response}')
+                # ツイート送信自体は成功しているため、連続失敗カウンターをリセットする
+                self._consecutive_compose_failures = 0
                 return schemas.PostTweetResult(
                     is_success=True,
                     detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。',
                     tweet_url='https://x.com/i/status/__error__',
                 )
 
+            # ツイートの送信に成功し、tweet_id も取得できたので連続失敗カウンターをリセットする
+            self._consecutive_compose_failures = 0
             logging.info(f'{self.log_prefix} Tweet posted successfully. tweet_id: {tweet_id}')
             return schemas.PostTweetResult(
                 is_success=True,

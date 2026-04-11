@@ -3,7 +3,9 @@ import atexit
 import base64
 import json
 import random
+import re
 import time
+from datetime import datetime
 from typing import Any, ClassVar
 
 import anyio
@@ -13,7 +15,12 @@ from pydantic import BaseModel
 from zendriver import Browser, Tab, cdp
 
 from app import logging
-from app.constants import STATIC_DIR
+from app.constants import (
+    JST,
+    STATIC_DIR,
+    TWITTER_DEBUG_SCREENSHOTS_DIR,
+    TWITTER_DEBUG_SCREENSHOTS_RETENTION_DAYS,
+)
 from app.models.TwitterAccount import TwitterAccount
 
 
@@ -395,6 +402,80 @@ class TwitterScrapeBrowser:
                 self._browser_process = None
                 raise
 
+    def isBrowserProcessAlive(self) -> bool:
+        """
+        ブラウザプロセスがまだ生存しているかどうかを確認する
+        ブラウザが外部から kill された場合やクラッシュした場合に False を返す
+        psutil でプロセス情報を取得できなかった場合 (_browser_process が None) は、
+        プロセスの死活が不明なため安全側に倒して True を返す (健全なブラウザを誤って再起動しないため)
+
+        Returns:
+            bool: ブラウザプロセスが生存している (または死活不明) 場合は True、確実に死んでいる場合は False
+        """
+
+        # _browser_process が None の場合は psutil でプロセス情報を取得できなかったケース
+        # プロセスの死活が判定できないため、安全側に倒して True を返す
+        if self._browser_process is None:
+            return True
+        try:
+            return self._browser_process.is_running()
+        except psutil.Error:
+            return True
+
+    async def captureDebugScreenshot(self, reason: str) -> str | None:
+        """
+        デバッグ用にヘッドレスブラウザの現在の画面をスクリーンショットとして保存する
+        ツイート送信モーダルでのエラー発生時など、ブラウザの状態を確認するために使用する
+        スクリーンショットの撮影自体が失敗してもエラーを伝搬させず、None を返す
+
+        Args:
+            reason (str): スクリーンショットを保存する理由 (ファイル名に使用される)
+
+        Returns:
+            str | None: 保存したスクリーンショットのファイルパス、または撮影に失敗した場合は None
+        """
+
+        if self._page is None:
+            logging.warning(f'{self.log_prefix} Cannot capture screenshot: page is not initialized.')
+            return None
+
+        try:
+            # スクリーンショットの保存先ディレクトリを作成
+            TWITTER_DEBUG_SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+            # CDP Page.captureScreenshot でスクリーンショットを取得
+            ## capture_screenshot() は Base64 エンコードされた画像データを str として直接返す
+            ## runtime.evaluate() とは異なりタプルではないため、アンパッキングせずそのまま受け取る
+            screenshot_data = await self._page.send(cdp.page.capture_screenshot(format_='png'))
+            screenshot_bytes = base64.b64decode(screenshot_data)
+
+            # ファイル名を生成して保存
+            ## reason に含まれるファイル名に使えない文字を置換する
+            ## Windows では <>:"/\|?* と制御文字がファイル名に使用できないため、正規表現で一括置換する
+            safe_reason = re.sub(r'[<>:"/\\|?*\x00-\x1f\s]+', '_', reason).strip('_')[:80]
+            timestamp = datetime.now(JST).strftime('%Y%m%d_%H%M%S')
+            filename = f'{self.twitter_account.screen_name}_{timestamp}_{safe_reason}.png'
+            filepath = TWITTER_DEBUG_SCREENSHOTS_DIR / filename
+            filepath.write_bytes(screenshot_bytes)
+
+            logging.info(f'{self.log_prefix} Debug screenshot saved: {filepath}')
+
+            # 保持期限を超えた古いスクリーンショットを自動削除する
+            ## スクリーンショットにはユーザーの下書きテキストやタイムラインが写り込む可能性があるため、
+            ## 診断に十分な期間だけ保持し、それ以降は自動的に削除する
+            cutoff_time = time.time() - (TWITTER_DEBUG_SCREENSHOTS_RETENTION_DAYS * 86400)
+            for old_file in TWITTER_DEBUG_SCREENSHOTS_DIR.glob('*.png'):
+                try:
+                    if old_file.stat().st_mtime < cutoff_time:
+                        old_file.unlink()
+                except OSError:
+                    pass
+
+            return str(filepath)
+        except Exception as ex:
+            logging.warning(f'{self.log_prefix} Failed to capture debug screenshot:', exc_info=ex)
+            return None
+
     async def invokeGraphQLAPI(
         self,
         endpoint_name: str,
@@ -471,7 +552,7 @@ class TwitterScrapeBrowser:
     ) -> PostTweetViaComposeUIResult:
         """
         Twitter Web App のツイート送信モーダルを DOM 操作で自動化し、ツイートを送信する
-        "n" キーのショートカットで compose モーダルを開き、compose を開いたまま自然な待機を入れた後、
+        "n" キーのショートカットで ツイート送信モーダルを開き、ツイート送信モーダルを開いたまま自然な待機を入れた後、
         テキスト入力・画像添付・Ctrl+Enter 送信を行う
         読み取り系 API と異なり、Web App の正規 UI 経路を通すため user_flow.json の scribe イベントが自然に発火する
         画像アップロードの完了と CreateTweet のレスポンスは CDP Network ドメインで監視する
@@ -479,7 +560,7 @@ class TwitterScrapeBrowser:
         Args:
             tweet_text (str): ツイートの本文
             images (list[UploadFile]): 添付する画像（無いときは空リスト）
-            throttle_remaining_seconds (float): compose モーダルを開いた後に吸収したいスロットル残り時間
+            throttle_remaining_seconds (float): ツイート送信モーダルを開いた後に吸収したいスロットル残り時間
 
         Returns:
             PostTweetViaComposeUIResult: ツイート送信結果
@@ -504,6 +585,9 @@ class TwitterScrapeBrowser:
         upload_complete_event: asyncio.Event | None = asyncio.Event() if expected_upload_count > 0 else None
         # 画像アップロード失敗を通知するイベント (FINALIZE が 4xx/5xx を返した場合にセットされる)
         upload_failed_event: asyncio.Event | None = asyncio.Event() if expected_upload_count > 0 else None
+        # upload.x.com へのリクエスト総数を追跡するカウンター (デバッグ用)
+        ## アップロードタイムアウト時に「リクエスト自体が出ていないのか、出ているが応答がないのか」を切り分ける
+        upload_request_count = 0
         # ネットワーク監視が有効かどうかのフラグ
         ## CDP Network を disable した後もイベントハンドラは登録されたままなので、
         ## このフラグでイベントを無視するかどうかを制御する
@@ -515,7 +599,7 @@ class TwitterScrapeBrowser:
             CreateTweet の request_id と画像アップロード FINALIZE の完了を追跡する
             """
 
-            nonlocal upload_finalize_count
+            nonlocal upload_finalize_count, upload_request_count
             if is_network_monitoring_active is not True:
                 return
 
@@ -525,6 +609,10 @@ class TwitterScrapeBrowser:
             if event.type_ is not None and event.type_ == cdp.network.ResourceType.PREFLIGHT:
                 return
             url = event.response.url
+
+            # upload.x.com へのリクエスト総数を追跡 (デバッグ用)
+            if 'upload.x.com' in url:
+                upload_request_count += 1
 
             # CreateTweet のリクエストを追跡
             if 'CreateTweet' in url:
@@ -595,17 +683,17 @@ class TwitterScrapeBrowser:
                 RuntimeError(f'CreateTweet request failed: {event.error_text}')
             )
 
-        # compose モーダルを閉じるためのヘルパー関数
+        # ツイート送信モーダルを閉じるためのヘルパー関数
         # エラー発生時のクリーンアップに使用する
         async def CloseComposeModal() -> None:
             """
-            compose モーダルが開いている場合、Escape キーで閉じる
+            ツイート送信モーダルが開いている場合、Escape キーで閉じる
             テキストや画像が入力されている場合は「変更を破棄」ダイアログが表示されるため、
             破棄ボタンのクリックも試行する
             """
 
             try:
-                # Escape キーを送信して compose モーダルを閉じる
+                # Escape キーを送信して ツイート送信モーダルを閉じる
                 await page.send(cdp.input_.dispatch_key_event(
                     type_='keyDown',
                     key='Escape',
@@ -630,12 +718,19 @@ class TwitterScrapeBrowser:
                 if discard_result and discard_result.value is True:
                     await asyncio.sleep(0.5)
             except Exception as ex:
-                logging.warning(f'{self.log_prefix} Failed to close compose modal:', exc_info=ex)
+                logging.warning(f'{self.log_prefix} Failed to close tweet posting modal:', exc_info=ex)
 
         compose_submitted_at: float | None = None
 
         # エラー時の共通レスポンスを生成するヘルパー
-        def MakeErrorResult(error_message: str) -> PostTweetViaComposeUIResult:
+        # エラー発生時にデバッグ用スクリーンショットも自動保存する
+        # ツイート送信モーダルを閉じる前にスクリーンショットを撮ることで、エラー時の UI 状態を正確に記録する
+        async def MakeErrorResult(error_message: str) -> PostTweetViaComposeUIResult:
+            # エラー発生時のブラウザ画面を保存して、根本原因の特定に役立てる
+            # スクリーンショットはモーダルを閉じる前に撮影する (閉じた後ではエラー状態が見えない)
+            await self.captureDebugScreenshot(f'compose_error_{error_message[:50]}')
+            # スクリーンショット撮影後に ツイート送信モーダルを閉じてクリーンアップする
+            await CloseComposeModal()
             return PostTweetViaComposeUIResult(
                 is_success=False,
                 error_message=error_message,
@@ -645,7 +740,7 @@ class TwitterScrapeBrowser:
 
         # CDP Network 監視を有効化するヘルパー関数
         ## 画像アップロードの FINALIZE 監視と CreateTweet レスポンスの取得に使用する
-        ## compose モーダルを開く → テキスト paste の間は Network 監視不要なので、
+        ## ツイート送信モーダルを開く → テキスト paste の間は Network 監視不要なので、
         ## 必要になる直前まで遅延させることで、Twitter Web App のバックグラウンド通信
         ## (TL 更新、badge_count、user_flow.json 等) による CDP イベントハンドラの呼び出しを抑制し、
         ## asyncio イベントループの輻輳を防ぐ
@@ -662,17 +757,17 @@ class TwitterScrapeBrowser:
 
         async def OpenComposeModal() -> PostTweetViaComposeUIResult | None:
             """
-            compose モーダルを開き、送信前の待機に入れる状態まで遷移させる。
+            ツイート送信モーダルを開き、送信前の待機に入れる状態まで遷移させる。
 
             Returns:
                 PostTweetViaComposeUIResult | None: 失敗時はエラー結果、成功時は None
             """
 
             # ===========================================
-            # Step 1: "n" キーのショートカットで compose モーダルを開く
+            # Step 1: "n" キーのショートカットで ツイート送信モーダルを開く
             # (この時点では CDP Network 監視はまだ有効化しない)
             # ===========================================
-            # "n" キーは Twitter Web App のキーボードショートカットで、compose ダイアログを開く
+            # "n" キーは Twitter Web App のキーボードショートカットで、ツイート送信モーダルを開く
             # SideNav ボタンのクリックと異なり、ビューポートサイズに依存しない
             # モーダルが開くと URL が /compose/post に SPA 遷移する
             #
@@ -682,7 +777,7 @@ class TwitterScrapeBrowser:
             # 3. keyDown イベントに text='n' を含めること
             #    text パラメータなしだと keydown DOM イベントのみが生成され、keypress イベントが発生しない
             #    Twitter のキーボードショートカットハンドラが keypress に依存している場合、ショートカットが発火しない
-            logging.info(f'{self.log_prefix} Opening compose modal via "n" keyboard shortcut...')
+            logging.info(f'{self.log_prefix} Opening tweet posting modal via "n" keyboard shortcut...')
             # ページをアクティブにし、フォーカスを document.body に設定する
             await page.send(cdp.page.bring_to_front())
             await page.send(cdp.runtime.evaluate(
@@ -708,14 +803,14 @@ class TwitterScrapeBrowser:
             ))
 
             # ===========================================
-            # Step 2: compose モーダルが開くのを待機する
+            # Step 2: ツイート送信モーダルが開くのを待機する
             # ===========================================
             # /home のタイムライン上部にもインラインの tweetTextarea_0 が存在するため、
             # 単に tweetTextarea_0 の存在をチェックするだけではモーダルが開いたことを正しく判定できない
-            # compose モーダルが開くと URL が /compose/post に SPA 遷移し、
+            # ツイート送信モーダルが開くと URL が /compose/post に SPA 遷移し、
             # モーダル内の tweetTextarea_0 は [role="dialog"] の子孫に配置される
             # そのため「URL が /compose/post に遷移 && [role="dialog"] 内に tweetTextarea_0 が存在」を条件にする
-            logging.info(f'{self.log_prefix} Waiting for compose modal to open...')
+            logging.info(f'{self.log_prefix} Waiting for tweet posting modal to open...')
             _, compose_modal_exception = await page.send(cdp.runtime.evaluate(
                 expression='''
                 new Promise((resolve, reject) => {
@@ -738,16 +833,15 @@ class TwitterScrapeBrowser:
             ))
 
             if compose_modal_exception is not None:
-                logging.error(f'{self.log_prefix} Compose modal not found: {compose_modal_exception}')
-                await CloseComposeModal()
-                return MakeErrorResult('compose モーダルが開きませんでした。')
+                logging.error(f'{self.log_prefix} Tweet posting modal not found: {compose_modal_exception}')
+                return await MakeErrorResult('ツイート送信モーダルが開きませんでした。')
 
             logging.debug(f'{self.log_prefix} Compose modal opened.')
             return None
 
         async def SubmitTweet() -> PostTweetViaComposeUIResult:
             """
-            開いている compose モーダルに対して内容を入力し、送信レスポンスまで待機する。
+            開いている ツイート送信モーダルに対して内容を入力し、送信レスポンスまで待機する。
 
             Returns:
                 PostTweetViaComposeUIResult: ツイート送信結果
@@ -770,7 +864,7 @@ class TwitterScrapeBrowser:
                 paste_result, paste_exception = await page.send(cdp.runtime.evaluate(
                     expression=f'''
                     (() => {{
-                        // モーダル内の tweetTextarea_0 を対象にする (インラインの compose ではなくモーダルのもの)
+                        // ツイート送信モーダル内の tweetTextarea_0 を対象にする (タイムラインのインライン投稿欄ではなくモーダルのもの)
                         const textarea = document.querySelector('[role="dialog"] [data-testid="tweetTextarea_0"]');
                         if (!textarea) return false;
                         textarea.focus();
@@ -790,8 +884,7 @@ class TwitterScrapeBrowser:
 
                 if paste_exception is not None or (paste_result and paste_result.value is not True):
                     logging.error(f'{self.log_prefix} Failed to paste tweet text: {paste_exception}')
-                    await CloseComposeModal()
-                    return MakeErrorResult('テキストの入力に失敗しました。')
+                    return await MakeErrorResult('テキストの入力に失敗しました。')
 
                 logging.debug(f'{self.log_prefix} Tweet text pasted.')
 
@@ -835,7 +928,7 @@ class TwitterScrapeBrowser:
                 )
 
                 # CDP Network 監視を有効化する (画像アップロードの FINALIZE を監視するために必要)
-                ## compose モーダルを開く → テキスト paste の間は Network 監視が不要なので、ここまで遅延させている
+                ## ツイート送信モーダルを開く → テキスト paste の間は Network 監視が不要なので、ここまで遅延させている
                 await EnableNetworkMonitoring()
 
                 # プリロード済みデータからファイルを生成して fileInput に設定する
@@ -870,8 +963,7 @@ class TwitterScrapeBrowser:
                 if upload_exception is not None or (upload_result and upload_result.value is not True):
                     error_detail = upload_result.value if upload_result else str(upload_exception)
                     logging.error(f'{self.log_prefix} Failed to set images on fileInput: {error_detail}')
-                    await CloseComposeModal()
-                    return MakeErrorResult(f'画像の設定に失敗しました。({error_detail})')
+                    return await MakeErrorResult(f'画像の設定に失敗しました。({error_detail})')
 
                 logging.debug(f'{self.log_prefix} Images set on fileInput.')
 
@@ -900,17 +992,19 @@ class TwitterScrapeBrowser:
                             pass
                     if len(done) == 0:
                         # タイムアウト
-                        logging.error(f'{self.log_prefix} Timeout waiting for image upload FINALIZE.')
-                        await CloseComposeModal()
-                        return MakeErrorResult('画像アップロードがタイムアウトしました。')
+                        # リクエスト自体が出ていないのか、出ているが応答がないのかを切り分けるためにネットワーク状態をログ出力する
+                        logging.error(
+                            f'{self.log_prefix} Timeout waiting for image upload FINALIZE. '
+                            f'upload requests observed: {upload_request_count}, '
+                            f'FINALIZE succeeded: {upload_finalize_count}/{expected_upload_count}',
+                        )
+                        return await MakeErrorResult('画像アップロードがタイムアウトしました。')
                     if upload_failed_event.is_set():
                         logging.error(f'{self.log_prefix} Image upload FINALIZE returned an error.')
-                        await CloseComposeModal()
-                        return MakeErrorResult('画像のアップロードに失敗しました。')
+                        return await MakeErrorResult('画像のアップロードに失敗しました。')
                 except Exception as ex:
                     logging.error(f'{self.log_prefix} Error waiting for image uploads:', exc_info=ex)
-                    await CloseComposeModal()
-                    return MakeErrorResult(f'画像アップロードの待機中にエラーが発生しました。({ex})')
+                    return await MakeErrorResult(f'画像アップロードの待機中にエラーが発生しました。({ex})')
 
                 logging.info(f'{self.log_prefix} All image uploads completed.')
 
@@ -942,8 +1036,7 @@ class TwitterScrapeBrowser:
 
             if button_ready_exception is not None:
                 logging.error(f'{self.log_prefix} tweetButton did not become enabled: {button_ready_exception}')
-                await CloseComposeModal()
-                return MakeErrorResult('ツイートボタンが有効になりませんでした。テキストや画像の入力に問題がある可能性があります。')
+                return await MakeErrorResult('ツイートボタンが有効になりませんでした。テキストや画像の入力に問題がある可能性があります。')
 
             logging.debug(f'{self.log_prefix} tweetButton is enabled.')
 
@@ -954,9 +1047,9 @@ class TwitterScrapeBrowser:
             ## (CreateTweet レスポンスを監視するために必要)
             await EnableNetworkMonitoring()
 
-            # Ctrl+Enter 送信前に、compose textarea にフォーカスが戻っていることを確認する
-            ## 画像添付後は fileInput 側へフォーカスが移る場合があるため、明示的に compose textarea を再 focus する
-            logging.info(f'{self.log_prefix} Ensuring compose textarea is focused...')
+            # Ctrl+Enter 送信前に、ツイートテキストエリアにフォーカスが戻っていることを確認する
+            ## 画像添付後は fileInput 側へフォーカスが移る場合があるため、明示的にツイートテキストエリアを再 focus する
+            logging.info(f'{self.log_prefix} Ensuring tweet textarea is focused...')
             focus_result, focus_exception = await page.send(cdp.runtime.evaluate(
                 expression='''
                 (() => {
@@ -974,9 +1067,8 @@ class TwitterScrapeBrowser:
             ))
 
             if focus_exception is not None or (focus_result and focus_result.value is not True):
-                logging.error(f'{self.log_prefix} Failed to focus compose textarea: {focus_exception}')
-                await CloseComposeModal()
-                return MakeErrorResult('compose テキストエリアへのフォーカスに失敗しました。')
+                logging.error(f'{self.log_prefix} Failed to focus tweet textarea: {focus_exception}')
+                return await MakeErrorResult('ツイートテキストエリアへのフォーカスに失敗しました。')
 
             logging.info(f'{self.log_prefix} Submitting tweet via Ctrl+Enter...')
             await page.send(cdp.input_.dispatch_key_event(
@@ -1024,12 +1116,10 @@ class TwitterScrapeBrowser:
                 response_data = await asyncio.wait_for(create_tweet_future, timeout=30.0)
             except TimeoutError:
                 logging.error(f'{self.log_prefix} Timeout waiting for CreateTweet response.')
-                await CloseComposeModal()
-                return MakeErrorResult('CreateTweet のレスポンスがタイムアウトしました。')
+                return await MakeErrorResult('CreateTweet のレスポンスがタイムアウトしました。')
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Error waiting for CreateTweet response:', exc_info=ex)
-                await CloseComposeModal()
-                return MakeErrorResult(f'CreateTweet のレスポンスを取得できませんでした。({ex})')
+                return await MakeErrorResult(f'CreateTweet のレスポンスを取得できませんでした。({ex})')
 
             status_code = response_data.status_code
             logging.info(f'{self.log_prefix} CreateTweet response received. (HTTP {status_code})')
@@ -1047,14 +1137,14 @@ class TwitterScrapeBrowser:
             if open_compose_result is not None:
                 return open_compose_result
 
-            # compose を開いた後に、まだ必要なスロットル待機だけを残して自然な「考え中」時間として吸収する
-            ## OpenComposeModal() の実行時間を差し引き、compose が開いた直後に即 paste しないよう最低限の待機も確保する
+            # ツイート送信モーダルを開いた後に、まだ必要なスロットル待機だけを残して自然な「考え中」時間として吸収する
+            ## OpenComposeModal() の実行時間を差し引き、モーダルが開いた直後に即 paste しないよう最低限の待機も確保する
             elapsed_seconds = time.time() - compose_flow_started_at
             compose_throttle_remaining_seconds = max(0.0, throttle_remaining_seconds - elapsed_seconds)
             minimum_thinking_seconds = round(random.uniform(1.0, 2.0), 3)
             compose_thinking_wait_seconds = max(compose_throttle_remaining_seconds, minimum_thinking_seconds)
             logging.info(
-                f'{self.log_prefix} Waiting before compose submission. '
+                f'{self.log_prefix} Waiting before tweet submission. '
                 f'throttle remaining: {compose_throttle_remaining_seconds:.3f}s, '
                 f'thinking wait: {compose_thinking_wait_seconds:.3f}s',
             )
@@ -1065,9 +1155,7 @@ class TwitterScrapeBrowser:
 
         except Exception as ex:
             logging.error(f'{self.log_prefix} Unexpected error during tweet posting via modal:', exc_info=ex)
-            # エラー発生時はモーダルを閉じてクリーンアップする
-            await CloseComposeModal()
-            return MakeErrorResult(f'ツイート送信中に予期しないエラーが発生しました。({ex})')
+            return await MakeErrorResult(f'ツイート送信中に予期しないエラーが発生しました。({ex})')
 
         finally:
             # CDP Network 監視を無効化し、登録したイベントハンドラを解除する
