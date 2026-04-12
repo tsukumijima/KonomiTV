@@ -1,92 +1,31 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 56f772124b7d6936cd6fc7451d59e52477f6195f Mon Sep 17 00:00:00 2001
 From: tsukumi <tsukumijima@users.noreply.github.com>
-Date: Fri, 10 Apr 2026 13:35:00 +0900
-Subject: [PATCH] [VP] Fix VEBOX DI surface state regressions on pure softlet platforms
+Date: Tue, 24 Feb 2026 01:58:32 +0900
+Subject: [PATCH] [VP] Fix VEBOX surface config crash in 60i->30p deinterlacing
 
-This extends the earlier 60i->30p VEBOX surface-config fix with two
-additional corrections for pure softlet platforms.
+When performing 60i->30p deinterlacing (non-bob, b60fpsDi=false)
+with resize on pure softlet platforms (MTL+), m_sameSamples could
+be true, creating a VEBOX_SURFACES_CONFIG not registered in
+InitSurfaceConfigMap(). This caused a segfault in
+AssignVeboxResource() when looking up the config.
 
-First, 30i->30p single-field DI must never keep sameSample / outOfBound
-state alive across frames. The surface config map only registers
-sameSample variants for 60fps DI, so leaving m_sameSamples=true in the
-30fps path can desynchronize VEBOX buffer rotation from the config chosen
-in AssignVeboxResource().
+Gate m_sameSamples by b60fpsDi: only 60fps DI (60i->60p) paths
+use the sameSample flag, since all 60i->30p entries in the
+surface config map have sameSample=false.
 
-Second, commit 5aec512c1 ("[VP] Change Vebox output buffer compression
-setting") changed internal VEBOX outputs to always inherit the input
-surface compression mode. On Arrow Lake, HEVC encode after VEBOX
-deinterlace can then emit "surface alloc request for MFXENCODE:
-incompatible video parameters" and later hang the GPU. Restore the
-legacy forced-compression path for internal VEBOX outputs unless an
-explicit VEBOX output surface is requested or DN-only flow is used.
+Bug was introduced in f38f67cf6 ("[VP] 30pRefdi case Linux",
+2022-11-09) which added 60i->30p config entries without
+sameSample=true variants. The issue affects all pure softlet
+platforms (MTL, ARL, LNL, BMG, PTL, NVL) and is codec-agnostic.
 ---
- .../common/vp/hal/bufferMgr/vp_resource_manager.cpp         | 29 ++++++++++++++++++++++++-----
- 1 file changed, 24 insertions(+), 5 deletions(-)
+ .../common/vp/hal/bufferMgr/vp_resource_manager.cpp         | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
+index 0a1dc01d92..65319499c4 100644
 --- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-@@ -325,6 +325,13 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
-     VP_SURFACE *inputSurface    = pipe.GetSurface(true, 0);
-     VP_SURFACE *outputSurface   = pipe.GetSurface(false, 0);
-     SwFilter   *diFilter        = pipe.GetSwFilter(true, 0, FeatureTypeDi);
-+    bool        b60fpsDi        = false;
-+
-+    if (diFilter)
-+    {
-+        auto &diParams = static_cast<SwFilterDeinterlace *>(diFilter)->GetSwFilterParams();
-+        b60fpsDi       = diParams.diParams && !diParams.diParams->bSingleField;
-+    }
- 
-     if (nullptr == inputSurface && nullptr == outputSurface)
-     {
-@@ -353,8 +360,12 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
-     m_currentFrameIds.pastFrameAvailable        = pastSurface ? true : false;
-     m_currentFrameIds.futureFrameAvailable      = futureSurface ? true : false;
- 
--    // Only set sameSamples flag DI enabled frames.
--    if (m_pastFrameIds.valid && m_currentFrameIds.pastFrameAvailable &&
-+    // sameSample / outOfBound bookkeeping is only valid for 60fps DI workflows.
-+    // 30i -> 30p single-field DI does not register sameSample=true configs, and
-+    // keeping m_sameSamples=true here leaves the VEBOX buffer rotation state out
-+    // of sync with the config selected in AssignVeboxResource().
-+    if (b60fpsDi &&
-+        m_pastFrameIds.valid && m_currentFrameIds.pastFrameAvailable &&
-         m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
-     {
-         m_sameSamples   =
-@@ -381,7 +392,8 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
-         }
-     }
-     // bSameSamples flag also needs to be set for no reference case
--    else if (m_pastFrameIds.valid && !m_currentFrameIds.pastFrameAvailable &&
-+    else if (b60fpsDi &&
-+        m_pastFrameIds.valid && !m_currentFrameIds.pastFrameAvailable &&
-         m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
-     {
-         m_sameSamples   =
-@@ -1715,8 +1727,18 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
-         enableVeboxOutputSurf = m_vpUserFeatureControl->IsVeboxOutputSurfEnabled();
-     }
- 
--    bSurfCompressible   = inputSurface->osSurface->bCompressible;
--    surfCompressionMode = inputSurface->osSurface->CompressionMode;
-+    // Keep the legacy forced-compression path for internal VEBOX outputs unless
-+    // an explicit output surface is requested by user feature or DN-only flow.
-+    if (enableVeboxOutputSurf || IS_VP_VEBOX_DN_ONLY(caps))
-+    {
-+        bSurfCompressible   = inputSurface->osSurface->bCompressible;
-+        surfCompressionMode = inputSurface->osSurface->CompressionMode;
-+    }
-+    else
-+    {
-+        bSurfCompressible   = true;
-+        surfCompressionMode = MOS_MMC_MC;
-+    }
- 
-     if (m_currentFrameIds.pastFrameAvailable && m_currentFrameIds.futureFrameAvailable)
-     {
-@@ -2497,7 +2519,11 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2561,7 +2561,11 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
      if (caps.bDI || caps.bDiProcess2ndField)
      {
          bool b60fpsDi = resHint.b60fpsDi || caps.bDiProcess2ndField;

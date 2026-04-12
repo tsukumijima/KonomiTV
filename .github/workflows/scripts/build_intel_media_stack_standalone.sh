@@ -81,7 +81,6 @@ fi
 
 apply-git-patch "${SRC_ROOT}/libva" "${PATCH_DIR}/intel-libva-standalone.patch"
 apply-git-patch "${SRC_ROOT}/media-driver" "${PATCH_DIR}/intel-media-driver-pr1988.patch"
-apply-git-patch "${SRC_ROOT}/vpl-gpu-rt" "${PATCH_DIR}/intel-onevpl-gpu-rt-adaptive-b-gop-margin.patch"
 
 # gmmlib
 cmake -S "${SRC_ROOT}/gmmlib" -B "${BUILD_DIR}/gmmlib" -G Ninja \
