@@ -80,7 +80,7 @@ if [ ! -d "${SRC_ROOT}/vpl-gpu-rt" ]; then
 fi
 
 apply-git-patch "${SRC_ROOT}/libva" "${PATCH_DIR}/intel-libva-standalone.patch"
-apply-git-patch "${SRC_ROOT}/media-driver" "${PATCH_DIR}/intel-media-driver-pr1988.patch"
+apply-git-patch "${SRC_ROOT}/media-driver" "${PATCH_DIR}/intel-media-driver-vpp-deinterlace-crash-fix.patch"
 
 # gmmlib
 cmake -S "${SRC_ROOT}/gmmlib" -B "${BUILD_DIR}/gmmlib" -G Ninja \
