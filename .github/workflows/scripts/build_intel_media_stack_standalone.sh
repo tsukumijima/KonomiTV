@@ -42,8 +42,6 @@ mkdir -p "${SRC_ROOT}" "${BUILD_DIR}" "${PREFIX_DIR}" "${FREE_PREFIX_DIR}" \
 
 export PKG_CONFIG_PATH="${PREFIX_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CMAKE_PREFIX_PATH="${PREFIX_DIR}"
-export CFLAGS='-O2'
-export CXXFLAGS='-O2'
 
 apply-git-patch() {
   local source_dir="$1"
@@ -81,16 +79,13 @@ fi
 
 apply-git-patch "${SRC_ROOT}/libva" "${PATCH_DIR}/intel-libva-standalone.patch"
 apply-git-patch "${SRC_ROOT}/media-driver" "${PATCH_DIR}/intel-media-driver-vpp-deinterlace-crash-fix.patch"
+apply-git-patch "${SRC_ROOT}/vpl-gpu-rt" "${PATCH_DIR}/intel-onevpl-gpu-rt-vpp-deinterlace-hang-fix.patch"
 
 # gmmlib
 cmake -S "${SRC_ROOT}/gmmlib" -B "${BUILD_DIR}/gmmlib" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="${PREFIX_DIR}" \
   -DCMAKE_INSTALL_LIBDIR=lib \
-  -DMAJOR_VERSION=22 \
-  -DMINOR_VERSION=7 \
-  -DPATCH_VERSION=2 \
-  -DGMMLIB_API_PATCH_VERSION=1094 \
   -DRUN_TEST_SUITE=OFF
 ninja -C "${BUILD_DIR}/gmmlib" -j"$(nproc)"
 ninja -C "${BUILD_DIR}/gmmlib" install
@@ -102,9 +97,9 @@ meson setup "${BUILD_DIR}/libva" "${SRC_ROOT}/libva" \
   --sysconfdir='.' \
   --libdir=lib \
   -Ddriverdir=dri \
-  -Dwith_x11=yes \
-  -Dwith_wayland=yes \
-  -Dwith_glx=auto \
+  -Dwith_x11=no \
+  -Dwith_wayland=no \
+  -Dwith_glx=no \
   -Ddisable_drm=false \
   -Denable_docs=false
 ninja -C "${BUILD_DIR}/libva" -j"$(nproc)"
@@ -170,6 +165,7 @@ cmake -S "${SRC_ROOT}/vpl-gpu-rt" -B "${BUILD_DIR}/vpl-gpu-rt" -G Ninja \
   -DCMAKE_INSTALL_PREFIX="${PREFIX_DIR}" \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_PREFIX_PATH="${PREFIX_DIR}" \
+  -DENABLE_OPENCL=OFF \
   -DBUILD_RUNTIME=ON \
   -DMFX_ENABLE_ENCTOOLS=ON \
   -DMFX_ENABLE_AENC=ON \
@@ -182,8 +178,6 @@ ninja -C "${BUILD_DIR}/vpl-gpu-rt" install
 cp -df "${PREFIX_DIR}/lib/libigdgmm.so"* "${ARTIFACT_DIR}/Library/"
 cp -df "${PREFIX_DIR}/lib/libva.so"* "${ARTIFACT_DIR}/Library/"
 cp -df "${PREFIX_DIR}/lib/libva-drm.so"* "${ARTIFACT_DIR}/Library/"
-cp -df "${PREFIX_DIR}/lib/libva-x11.so"* "${ARTIFACT_DIR}/Library/"
-cp -df "${PREFIX_DIR}/lib/libva-wayland.so"* "${ARTIFACT_DIR}/Library/"
 cp -df "${PREFIX_DIR}/lib/libmfx-gen.so"* "${ARTIFACT_DIR}/Library/"
 cp -df "${PREFIX_DIR}/lib/libmfxhw64.so"* "${ARTIFACT_DIR}/Library/"
 cp -df "${FREE_PREFIX_DIR}/lib/libigfxcmrt.so"* "${ARTIFACT_DIR}/Library/"
@@ -191,12 +185,23 @@ cp -f "${PREFIX_DIR}/lib/dri/iHD_drv_video.so" "${ARTIFACT_DIR}/Library/dri/"
 if [ -d "${PREFIX_DIR}/lib/libmfx-gen" ]; then
   cp -af "${PREFIX_DIR}/lib/libmfx-gen/." "${ARTIFACT_DIR}/Library/libmfx-gen/"
 fi
+if compgen -G "${PREFIX_DIR}/lib/libva-x11.so*" > /dev/null; then
+  cp -df "${PREFIX_DIR}/lib/libva-x11.so"* "${ARTIFACT_DIR}/Library/"
+fi
+if compgen -G "${PREFIX_DIR}/lib/libva-wayland.so*" > /dev/null; then
+  cp -df "${PREFIX_DIR}/lib/libva-wayland.so"* "${ARTIFACT_DIR}/Library/"
+fi
 
 # ファイルサイズ削減のため、Intel 系ライブラリのデバッグシンボルを削除する
 strip --strip-debug "${ARTIFACT_DIR}/Library/libigdgmm.so"* || true
 strip --strip-debug "${ARTIFACT_DIR}/Library/dri/iHD_drv_video.so" || true
-strip --strip-debug "${ARTIFACT_DIR}/Library/libva.so"* "${ARTIFACT_DIR}/Library/libva-drm.so"* \
-                     "${ARTIFACT_DIR}/Library/libva-x11.so"* "${ARTIFACT_DIR}/Library/libva-wayland.so"* || true
+strip --strip-debug "${ARTIFACT_DIR}/Library/libva.so"* "${ARTIFACT_DIR}/Library/libva-drm.so"* || true
+if compgen -G "${ARTIFACT_DIR}/Library/libva-x11.so*" > /dev/null; then
+  strip --strip-debug "${ARTIFACT_DIR}/Library/libva-x11.so"* || true
+fi
+if compgen -G "${ARTIFACT_DIR}/Library/libva-wayland.so*" > /dev/null; then
+  strip --strip-debug "${ARTIFACT_DIR}/Library/libva-wayland.so"* || true
+fi
 strip --strip-debug "${ARTIFACT_DIR}/Library/libmfxhw64.so"* \
                      "${ARTIFACT_DIR}/Library/libmfx-gen.so"* "${ARTIFACT_DIR}/Library/libigfxcmrt.so"* || true
 find "${ARTIFACT_DIR}/Library/libmfx-gen" -type f -name '*.so*' -exec strip --strip-debug {} + || true

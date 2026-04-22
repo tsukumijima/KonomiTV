@@ -1,188 +1,7 @@
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
-index 52f482e64..f8bee141a 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
-+++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
-@@ -35,6 +35,87 @@
- using namespace mhw::vdbox;
- namespace encode
- {
-+namespace
-+{
-+MOS_STATUS CopySemiPlanarSurfaceForEncode(EncodeAllocator *allocator, MOS_SURFACE &sourceSurface, MOS_SURFACE &targetSurface)
-+{
-+    ENCODE_CHK_NULL_RETURN(allocator);
-+
-+    if (sourceSurface.Format != targetSurface.Format)
-+    {
-+        return MOS_STATUS_INVALID_PARAMETER;
-+    }
-+
-+    if (sourceSurface.Format != Format_NV12 &&
-+        sourceSurface.Format != Format_P010 &&
-+        sourceSurface.Format != Format_P016)
-+    {
-+        return MOS_STATUS_INVALID_PARAMETER;
-+    }
-+
-+    auto sourceData = static_cast<uint8_t *>(allocator->LockResourceForRead(&sourceSurface.OsResource));
-+    ENCODE_CHK_NULL_RETURN(sourceData);
-+
-+    auto targetData = static_cast<uint8_t *>(allocator->LockResourceForWrite(&targetSurface.OsResource));
-+    if (targetData == nullptr)
-+    {
-+        allocator->UnLock(&sourceSurface.OsResource);
-+        return MOS_STATUS_INVALID_PARAMETER;
-+    }
-+
-+    MOS_STATUS copyStatus = MOS_STATUS_SUCCESS;
-+    uint32_t   copyPitch = MOS_MIN(sourceSurface.dwPitch, targetSurface.dwPitch);
-+    uint32_t   lumaHeight = MOS_MIN(sourceSurface.dwHeight, targetSurface.dwHeight);
-+    uint32_t   chromaHeight = lumaHeight / 2;
-+
-+    for (uint32_t row = 0; row < lumaHeight; ++row)
-+    {
-+        copyStatus = MOS_SecureMemcpy(
-+            targetData + row * targetSurface.dwPitch,
-+            copyPitch,
-+            sourceData + row * sourceSurface.dwPitch,
-+            copyPitch);
-+        if (copyStatus != MOS_STATUS_SUCCESS)
-+        {
-+            break;
-+        }
-+    }
-+
-+    if (copyStatus == MOS_STATUS_SUCCESS)
-+    {
-+        auto sourceChroma = sourceData + sourceSurface.dwPitch * sourceSurface.dwHeight;
-+        auto targetChroma = targetData + targetSurface.dwPitch * targetSurface.dwHeight;
-+
-+        for (uint32_t row = 0; row < chromaHeight; ++row)
-+        {
-+            copyStatus = MOS_SecureMemcpy(
-+                targetChroma + row * targetSurface.dwPitch,
-+                copyPitch,
-+                sourceChroma + row * sourceSurface.dwPitch,
-+                copyPitch);
-+            if (copyStatus != MOS_STATUS_SUCCESS)
-+            {
-+                break;
-+            }
-+        }
-+    }
-+
-+    allocator->UnLock(&targetSurface.OsResource);
-+    allocator->UnLock(&sourceSurface.OsResource);
-+
-+    return copyStatus;
-+}
-+}
-+
-+bool HevcBasicFeature::ShouldDecoupleInputSurface() const
-+{
-+    // HEVC encode can keep the incoming raw surface alive longer than VP expects,
-+    // especially when the surface originates from VEBOX DI output. Route the raw
-+    // input through an encode-owned tracked surface so VP can recycle its own
-+    // temporary outputs without sharing ownership with the encoder.
-+    return true;
-+}
-+
- HevcBasicFeature::~HevcBasicFeature()
- {
-     if (m_422State)
-@@ -473,6 +554,26 @@ MOS_STATUS HevcBasicFeature::UpdateTrackedBufferParameters()
-         ENCODE_CHK_STATUS_RETURN(m_422State->RegisterMbCodeBuffer(m_trackedBuf, m_isMbCodeRegistered, m_mbCodeSize));
-     }
- 
-+    if (ShouldDecoupleInputSurface())
-+    {
-+        MOS_ALLOC_GFXRES_PARAMS allocParamsForInputCopySurface{};
-+        allocParamsForInputCopySurface.Type     = MOS_GFXRES_2D;
-+        allocParamsForInputCopySurface.Format   = m_rawSurface.Format;
-+        allocParamsForInputCopySurface.TileType = MOS_TILE_Y;
-+        allocParamsForInputCopySurface.dwWidth  = MOS_ALIGN_CEIL(m_frameWidth, CODECHAL_MACROBLOCK_WIDTH);
-+        allocParamsForInputCopySurface.dwHeight = MOS_ALIGN_CEIL(m_frameHeight, CODECHAL_MACROBLOCK_HEIGHT);
-+        allocParamsForInputCopySurface.pBufName = "HEVC Input Copy Surface";
-+
-+        if (m_isInputCopySurfaceRegistered == false)
-+        {
-+            ENCODE_CHK_STATUS_RETURN(m_recycleBuf->RegisterResource(
-+                RecycleResId::HevcInputCopySurface,
-+                allocParamsForInputCopySurface,
-+                m_inputCopySurfaceDepth));
-+            m_isInputCopySurfaceRegistered = true;
-+        }
-+    }
-+
-     ENCODE_CHK_STATUS_RETURN(EncodeBasicFeature::UpdateTrackedBufferParameters());
- 
-     return MOS_STATUS_SUCCESS;
-@@ -657,6 +758,25 @@ MOS_STATUS HevcBasicFeature::GetTrackedBuffers()
-     ENCODE_CHK_NULL_RETURN(m_8xDSSurface);
-     ENCODE_CHK_STATUS_RETURN(m_allocator->GetSurfaceInfo(m_8xDSSurface));
- 
-+    // Copy the raw surface into an encode-owned tracked surface before packet submission.
-+    // This decouples HEVC's deeper raw-surface lifetime from VEBOX's internal DI output ring,
-+    // so VP can recycle its temporary outputs without waiting on encode to release them.
-+    if (ShouldDecoupleInputSurface())
-+    {
-+        auto inputCopySurface = m_recycleBuf->GetSurface(RecycleResId::HevcInputCopySurface, m_frameNum);
-+        ENCODE_CHK_NULL_RETURN(inputCopySurface);
-+        ENCODE_CHK_STATUS_RETURN(m_allocator->GetSurfaceInfo(inputCopySurface));
-+
-+        inputCopySurface->OsResource.pGmmResInfo->GetSetCpSurfTag(
-+            true,
-+            m_rawSurface.OsResource.pGmmResInfo->GetSetCpSurfTag(false, 0));
-+        ENCODE_CHK_STATUS_RETURN(m_allocator->UpdateResourceUsageType(&inputCopySurface->OsResource, MOS_HW_RESOURCE_USAGE_ENCODE_INPUT_RAW));
-+        ENCODE_CHK_STATUS_RETURN(CopySemiPlanarSurfaceForEncode(m_allocator, m_rawSurface, *inputCopySurface));
-+
-+        m_rawSurface      = *inputCopySurface;
-+        m_rawSurfaceToEnc = m_rawSurfaceToPak = &m_rawSurface;
-+    }
-+
-     return MOS_STATUS_SUCCESS;
- }
- 
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
-index 2faaf63f9..a2499b588 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
-+++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
-@@ -92,6 +92,7 @@ public:
-     static constexpr uint32_t                   m_maxLCUSize   = 64;          //!< Max LCU size 64
-     static constexpr uint32_t                   m_qpNum        = 52;          //!< Number of QP values
-     static constexpr uint32_t                   m_maxSyncDepth = 10;
-+    static constexpr uint32_t                   m_inputCopySurfaceDepth = 16;
- 
-     // Parameters passed from application
-     PCODEC_HEVC_ENCODE_SEQUENCE_PARAMS  m_hevcSeqParams = nullptr;          //!< Pointer to sequence parameter
-@@ -140,8 +141,10 @@ public:
-     MOS_STATUS            Init422State();
- 
-     std::deque<uint32_t> m_recycleBufferIdxes;
-+    bool                 m_isInputCopySurfaceRegistered = false;
- 
- protected:
-+    bool ShouldDecoupleInputSurface() const;
-     MOS_STATUS SetPictureStructs();
-     virtual MOS_STATUS UpdateTrackedBufferParameters() override;
-     MOS_STATUS GetMaxMBPS(uint32_t levelIdc, uint32_t* maxMBPS, uint64_t* maxBytePerPic);
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_recycle_resource.h b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_recycle_resource.h
-index 22876b6ce..eac965c57 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_recycle_resource.h
-+++ b/media_softlet/agnostic/common/codec/hal/enc/shared/bufferMgr/encode_recycle_resource.h
-@@ -60,6 +60,7 @@ namespace encode
-         CuRecordStreamOutBuffer,
-         CuCountBuffer,
-         PreEncRawSurface,
-+        HevcInputCopySurface,
-         PreEncRef0,
-         PreEncRef1,
-         VdaqmBuffer0,
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-index c2e485636..4711395bf 100644
---- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-+++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-@@ -340,10 +340,13 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
+--- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp	2026-04-23 02:53:34.030882049 +0900
++++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp	2026-04-23 04:44:15.642284776 +0900
+@@ -340,10 +340,13 @@
  
      VP_SURFACE *pastSurface   = pipe.GetPastSurface(0);
      VP_SURFACE *futureSurface = pipe.GetFutureSurface(0);
@@ -196,7 +15,7 @@ index c2e485636..4711395bf 100644
  
      m_currentFrameIds.valid                     = true;
      m_currentFrameIds.diEnabled                 = nullptr != diFilter;
-@@ -354,7 +357,7 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
+@@ -354,7 +357,7 @@
      m_currentFrameIds.futureFrameAvailable      = futureSurface ? true : false;
  
      // Only set sameSamples flag DI enabled frames.
@@ -205,7 +24,7 @@ index c2e485636..4711395bf 100644
          m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
      {
          m_sameSamples   =
-@@ -381,7 +384,7 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
+@@ -381,7 +384,7 @@
          }
      }
      // bSameSamples flag also needs to be set for no reference case
@@ -214,7 +33,7 @@ index c2e485636..4711395bf 100644
          m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
      {
          m_sameSamples   =
-@@ -404,6 +407,11 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
+@@ -404,6 +407,11 @@
      }
  
      // Swap buffers for next iteration
@@ -226,7 +45,7 @@ index c2e485636..4711395bf 100644
      if (!m_sameSamples)
      {
          m_currentDnOutput   = (m_currentDnOutput + 1) & 1;
-@@ -1718,7 +1726,15 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
+@@ -1718,7 +1726,15 @@
      bSurfCompressible   = inputSurface->osSurface->bCompressible;
      surfCompressionMode = inputSurface->osSurface->CompressionMode;
  
@@ -243,58 +62,66 @@ index c2e485636..4711395bf 100644
      {
          // Not switch back to 2 after being set to 4.
          m_veboxOutputCount = 4;
-@@ -1752,6 +1768,62 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
+@@ -1752,6 +1768,70 @@
          m_veboxOutput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
  
          m_veboxOutput[i]->SampleType = SAMPLE_PROGRESSIVE;
 +
-+        VP_PUBLIC_CHK_STATUS_RETURN(m_allocator.ReAllocateSurface(
-+            m_veboxSameSampleInput[i],
-+            "VeboxSameSampleInput",
-+            veboxOutputFormat,
-+            MOS_GFXRES_2D,
-+            veboxOutputTileType,
-+            inputSurface->osSurface->dwWidth,
-+            inputSurface->osSurface->dwHeight,
-+            bSurfCompressible,
-+            surfCompressionMode,
-+            allocated,
-+            false,
-+            IsDeferredResourceDestroyNeeded(),
-+            MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF,
-+            MOS_TILE_UNSET_GMM,
-+            memTypeSurfVideoMem,
-+            isVppInterResourceLocakable));
++        if (m_isCurrentFrame60fpsDi)
++        {
++            VP_PUBLIC_CHK_STATUS_RETURN(m_allocator.ReAllocateSurface(
++                m_veboxSameSampleInput[i],
++                "VeboxSameSampleInput",
++                veboxOutputFormat,
++                MOS_GFXRES_2D,
++                veboxOutputTileType,
++                inputSurface->osSurface->dwWidth,
++                inputSurface->osSurface->dwHeight,
++                bSurfCompressible,
++                surfCompressionMode,
++                allocated,
++                false,
++                IsDeferredResourceDestroyNeeded(),
++                MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF,
++                MOS_TILE_UNSET_GMM,
++                memTypeSurfVideoMem,
++                isVppInterResourceLocakable));
 +
-+        m_veboxSameSampleInput[i]->ColorSpace = inputSurface->ColorSpace;
-+        m_veboxSameSampleInput[i]->rcDst      = inputSurface->rcDst;
-+        m_veboxSameSampleInput[i]->rcSrc      = inputSurface->rcSrc;
-+        m_veboxSameSampleInput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
-+        m_veboxSameSampleInput[i]->SampleType = SAMPLE_PROGRESSIVE;
++            m_veboxSameSampleInput[i]->ColorSpace = inputSurface->ColorSpace;
++            m_veboxSameSampleInput[i]->rcDst      = inputSurface->rcDst;
++            m_veboxSameSampleInput[i]->rcSrc      = inputSurface->rcSrc;
++            m_veboxSameSampleInput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
++            m_veboxSameSampleInput[i]->SampleType = SAMPLE_PROGRESSIVE;
 +
-+        VP_PUBLIC_CHK_STATUS_RETURN(m_allocator.ReAllocateSurface(
-+            m_veboxPreviousOutputStage[i],
-+            "VeboxPreviousOutputStage",
-+            veboxOutputFormat,
-+            MOS_GFXRES_2D,
-+            veboxOutputTileType,
-+            inputSurface->osSurface->dwWidth,
-+            inputSurface->osSurface->dwHeight,
-+            bSurfCompressible,
-+            surfCompressionMode,
-+            allocated,
-+            false,
-+            IsDeferredResourceDestroyNeeded(),
-+            MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF,
-+            MOS_TILE_UNSET_GMM,
-+            memTypeSurfVideoMem,
-+            isVppInterResourceLocakable));
++            VP_PUBLIC_CHK_STATUS_RETURN(m_allocator.ReAllocateSurface(
++                m_veboxPreviousOutputStage[i],
++                "VeboxPreviousOutputStage",
++                veboxOutputFormat,
++                MOS_GFXRES_2D,
++                veboxOutputTileType,
++                inputSurface->osSurface->dwWidth,
++                inputSurface->osSurface->dwHeight,
++                bSurfCompressible,
++                surfCompressionMode,
++                allocated,
++                false,
++                IsDeferredResourceDestroyNeeded(),
++                MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF,
++                MOS_TILE_UNSET_GMM,
++                memTypeSurfVideoMem,
++                isVppInterResourceLocakable));
 +
-+        m_veboxPreviousOutputStage[i]->ColorSpace = inputSurface->ColorSpace;
-+        m_veboxPreviousOutputStage[i]->rcDst      = inputSurface->rcDst;
-+        m_veboxPreviousOutputStage[i]->rcSrc      = inputSurface->rcSrc;
-+        m_veboxPreviousOutputStage[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
-+        m_veboxPreviousOutputStage[i]->SampleType = SAMPLE_PROGRESSIVE;
++            m_veboxPreviousOutputStage[i]->ColorSpace = inputSurface->ColorSpace;
++            m_veboxPreviousOutputStage[i]->rcDst      = inputSurface->rcDst;
++            m_veboxPreviousOutputStage[i]->rcSrc      = inputSurface->rcSrc;
++            m_veboxPreviousOutputStage[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
++            m_veboxPreviousOutputStage[i]->SampleType = SAMPLE_PROGRESSIVE;
++        }
++        else
++        {
++            m_allocator.DestroyVpSurface(m_veboxSameSampleInput[i], IsDeferredResourceDestroyNeeded());
++            m_allocator.DestroyVpSurface(m_veboxPreviousOutputStage[i], IsDeferredResourceDestroyNeeded());
++        }
 +
 +    }
 +
@@ -306,7 +133,7 @@ index c2e485636..4711395bf 100644
      }
  
      if (allocated)
-@@ -1974,6 +2046,8 @@ void VpResourceManager::DestoryVeboxOutputSurface()
+@@ -1974,6 +2054,8 @@
      for (uint32_t i = 0; i < VP_MAX_NUM_VEBOX_SURFACES; i++)
      {
          m_allocator.DestroyVpSurface(m_veboxOutput[i], IsDeferredResourceDestroyNeeded());
@@ -315,7 +142,7 @@ index c2e485636..4711395bf 100644
      }
  }
  
-@@ -2092,6 +2166,7 @@ MOS_STATUS VpResourceManager::AllocateVeboxResource(VP_EXECUTE_CAPS& caps, VP_SU
+@@ -2092,6 +2174,7 @@
          if (bAllocated)
          {
              m_currentDnOutput   = 0;
@@ -323,7 +150,7 @@ index c2e485636..4711395bf 100644
              m_pastDnOutputValid = false;
          }
      }
-@@ -2453,16 +2528,23 @@ MOS_STATUS VpResourceManager::AssignSurface(VP_EXECUTE_CAPS caps, VEBOX_SURFACE_
+@@ -2453,16 +2536,23 @@
          surfGroup.emplace(surfaceType, futureSurface);
          break;
      case VEBOX_SURFACE_FRAME0:
@@ -351,10 +178,14 @@ index c2e485636..4711395bf 100644
          break;
      default:
          break;
-@@ -2487,6 +2569,11 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2487,6 +2577,15 @@
      uint32_t                        i;
      auto&                           surfGroup = surfSetting.surfGroup;
  
++    // Re-evaluate m_isCurrentFrame60fpsDi here because the 2nd-field packet
++    // (bDiProcess2ndField) is not visible during OnNewFrameProcessStart() where
++    // the initial value is set from the DI filter parameters. Without this
++    // update the 2nd-field pass would use the wrong surface rotation index.
 +    if (caps.bDI || caps.bDiProcess2ndField)
 +    {
 +        m_isCurrentFrame60fpsDi = resHint.b60fpsDi || caps.bDiProcess2ndField;
@@ -363,7 +194,7 @@ index c2e485636..4711395bf 100644
      // Render case reuse vebox resource, and don`t need re-allocate.
      if (!caps.bRender ||
          (caps.bRender && caps.bDnKernelUpdate))
-@@ -2496,8 +2583,12 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2496,8 +2591,12 @@
  
      if (caps.bDI || caps.bDiProcess2ndField)
      {
@@ -378,7 +209,7 @@ index c2e485636..4711395bf 100644
              m_currentFrameIds.futureFrameAvailable, IsInterleaveFirstField(inputSurface->SampleType));
          auto it = m_veboxSurfaceConfigMap.find(cfg.value);
          if (m_veboxSurfaceConfigMap.end() == it)
-@@ -2518,6 +2609,13 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2518,6 +2617,13 @@
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastInputSurface, SurfaceTypeVeboxPreviousInput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.currentOutputSurface, SurfaceTypeVeboxCurrentOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastOutputSurface, SurfaceTypeVeboxPreviousOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
@@ -393,9 +224,8 @@ index c2e485636..4711395bf 100644
          if (caps.bDN)
          {
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
-index 3d7cb7cef..34c443609 100644
---- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
-+++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
+--- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h	2026-04-23 02:53:34.030882049 +0900
++++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h	2026-04-19 23:32:27.548160282 +0900
 @@ -36,7 +36,7 @@
  #include "media_copy_wrapper.h"
  #include "vp_graph_manager.h"
@@ -405,7 +235,7 @@ index 3d7cb7cef..34c443609 100644
                                                                                //!< for DI: 2 for ADI plus additional 2 for parallel execution
  #define VP_NUM_DN_SURFACES           2                                       //!< Number of DN output surfaces
  #define VP_NUM_STMM_SURFACES         2                                       //!< Number of STMM statistics surfaces
-@@ -506,6 +506,8 @@ protected:
+@@ -506,6 +506,8 @@
      // Vebox Resource
      VP_SURFACE* m_veboxDenoiseOutput[VP_NUM_DN_SURFACES]     = {};            //!< Vebox Denoise output surface
      VP_SURFACE* m_veboxOutput[VP_MAX_NUM_VEBOX_SURFACES]     = {};            //!< Vebox output surface, can be reuse for DI usages
@@ -414,7 +244,7 @@ index 3d7cb7cef..34c443609 100644
      VP_SURFACE* m_veboxSTMMSurface[VP_NUM_STMM_SURFACES]     = {};            //!< Vebox STMM input/output surface
      VP_SURFACE *m_veboxStatisticsSurface                     = nullptr;       //!< Statistics Surface for VEBOX
      VP_SURFACE *m_veboxStatisticsSurfacefor1stPassofSfc2Pass = nullptr;       //!< Statistics Surface for VEBOX for 1stPassofSfc2Pass submission
-@@ -521,6 +523,7 @@ protected:
+@@ -521,6 +523,7 @@
      VP_SURFACE *m_veboxDnHVSTables                           = nullptr;
      VP_SURFACE *m_3DLutKernelCoefSurface                     = nullptr;       //!< Coef surface for 3DLut kernel.
      uint32_t    m_currentDnOutput                            = 0;
@@ -422,7 +252,7 @@ index 3d7cb7cef..34c443609 100644
      uint32_t    m_currentStmmIndex                           = 0;
      uint32_t    m_veboxOutputCount                           = 2;             //!< PE on: 4 used. PE off: 2 used
      bool        m_pastDnOutputValid                          = false;         //!< true if vebox DN output of previous frame valid.
-@@ -528,6 +531,7 @@ protected:
+@@ -528,6 +531,7 @@
      VP_FRAME_IDS m_pastFrameIds                              = {};
      bool         m_firstFrame                                = true;
      bool         m_sameSamples                               = false;
@@ -431,10 +261,9 @@ index 3d7cb7cef..34c443609 100644
      RECT         m_maxSrcRect                                = {};
      VEBOX_SURFACE_CONFIG_MAP m_veboxSurfaceConfigMap;
 diff --git a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
-index a4d0da05b..3ff32dd48 100644
---- a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
-+++ b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
-@@ -59,6 +59,8 @@ enum SurfaceType
+--- a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h	2026-04-23 02:53:34.031882079 +0900
++++ b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h	2026-04-19 23:32:27.548160282 +0900
+@@ -59,6 +59,8 @@
      SurfaceTypeDNOutput                 = SurfaceTypeGeneralEnd + 0x300,
      SurfaceTypeVeboxCurrentOutput       = SurfaceTypeGeneralEnd + 0x400,
      SurfaceTypeVeboxPreviousOutput      = SurfaceTypeGeneralEnd + 0x500,
@@ -443,10 +272,34 @@ index a4d0da05b..3ff32dd48 100644
      SurfaceTypeScalar                   = SurfaceTypeGeneralEnd + 0x600,
      SurfaceTypeSTMMIn                   = SurfaceTypeGeneralEnd + 0x700,
      SurfaceTypeSTMMOut                  = SurfaceTypeGeneralEnd + 0x800,
+diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h	2026-04-23 02:53:34.033882140 +0900
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h	2026-04-23 04:33:21.816912417 +0900
+@@ -22,11 +22,14 @@
+ #ifndef __VP_PACKET_SHARED_CONTEXT_H__
+ #define __VP_PACKET_SHARED_CONTEXT_H__
+ 
++class MediaCopyWrapper;
++
+ namespace vp
+ {
+ struct VP_PACKET_SHARED_CONTEXT
+ {
+     bool isVeboxFirstFrame = true;
++    MediaCopyWrapper *mediaCopyWrapper = nullptr;
+ 
+     struct
+     {
+@@ -83,4 +86,4 @@
+ };
+ };
+ 
+-#endif // !__VP_PACKET_SHARED_CONTEXT_H__
+\ No newline at end of file
++#endif // !__VP_PACKET_SHARED_CONTEXT_H__
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
-index 9e3ddd983..cfc3c4d7e 100644
---- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
-+++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp	2026-04-23 02:53:34.035882200 +0900
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp	2026-04-23 04:33:21.818912515 +0900
 @@ -38,6 +38,7 @@
  #include "mhw_mi_cmdpar.h"
  #include "mhw_utilities.h"
@@ -455,7 +308,7 @@ index 9e3ddd983..cfc3c4d7e 100644
  #include "renderhal_platform_interface_next.h"
  
  #define SURFACE_DW_UY_OFFSET(pSurface) \
-@@ -2759,9 +2760,6 @@ MOS_STATUS VpVeboxCmdPacket::SetUpdatedExecuteResource(
+@@ -2759,9 +2760,6 @@
      m_allocator->UpdateResourceUsageType(&inputSurface->osSurface->OsResource, MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF);
      m_allocator->UpdateResourceUsageType(&outputSurface->osSurface->OsResource, MOS_HW_RESOURCE_USAGE_VP_OUTPUT_PICTURE_FF);
  
@@ -465,7 +318,7 @@ index 9e3ddd983..cfc3c4d7e 100644
      // Init packet surface params.
      m_surfSetting                                   = surfSetting;
      m_veboxPacketSurface.pCurrInput                 = GetSurface(SurfaceTypeVeboxInput);
-@@ -2772,9 +2770,13 @@ MOS_STATUS VpVeboxCmdPacket::SetUpdatedExecuteResource(
+@@ -2772,9 +2770,13 @@
      m_veboxPacketSurface.pSTMMOutput                = GetSurface(SurfaceTypeSTMMOut);
      m_veboxPacketSurface.pDenoisedCurrOutput        = GetSurface(SurfaceTypeDNOutput);
      m_veboxPacketSurface.pPrevOutput                = GetSurface(SurfaceTypeVeboxPreviousOutput);
@@ -479,7 +332,26 @@ index 9e3ddd983..cfc3c4d7e 100644
  
      VP_RENDER_CHK_NULL_RETURN(m_veboxPacketSurface.pCurrInput);
      VP_RENDER_CHK_NULL_RETURN(m_veboxPacketSurface.pStatisticsOutput);
-@@ -2834,6 +2836,8 @@ MOS_STATUS VpVeboxCmdPacket::PacketInit(
+@@ -2800,15 +2802,18 @@
+     VP_FUNC_CALL();
+ 
+     VpVeboxRenderData       *pRenderData = GetLastExecRenderData();
++    VP_PACKET_SHARED_CONTEXT *sharedContext = (VP_PACKET_SHARED_CONTEXT *)m_packetSharedContext;
+     m_packetResourcesPrepared = false;
+ 
+     VP_RENDER_CHK_NULL_RETURN(pRenderData);
+     VP_RENDER_CHK_NULL_RETURN(inputSurface);
+     VP_RENDER_CHK_NULL_RETURN(outputSurface);
++    VP_RENDER_CHK_NULL_RETURN(sharedContext);
+     VP_RENDER_CHK_STATUS_RETURN(pRenderData->Init());
+ 
+     m_PacketCaps      = packetCaps;
+     VP_RENDER_NORMALMESSAGE("m_PacketCaps %x", m_PacketCaps.value);
++    m_mediaCopyWrapper = sharedContext->mediaCopyWrapper;
+ 
+     VP_RENDER_CHK_STATUS_RETURN(Init());
+     VP_RENDER_CHK_NULL_RETURN(m_allocator);
+@@ -2834,6 +2839,8 @@
      m_veboxPacketSurface.pSTMMOutput                = GetSurface(SurfaceTypeSTMMOut);
      m_veboxPacketSurface.pDenoisedCurrOutput        = GetSurface(SurfaceTypeDNOutput);
      m_veboxPacketSurface.pPrevOutput                = GetSurface(SurfaceTypeVeboxPreviousOutput);
@@ -488,7 +360,7 @@ index 9e3ddd983..cfc3c4d7e 100644
      m_veboxPacketSurface.pAlphaOrVignette           = GetSurface(SurfaceTypeAlphaOrVignette);
      m_veboxPacketSurface.pLaceOrAceOrRgbHistogram   = GetSurface(SurfaceTypeLaceAceRGBHistogram);
      m_veboxPacketSurface.pSurfSkinScoreOutput       = GetSurface(SurfaceTypeSkinScore);
-@@ -2940,6 +2944,45 @@ MOS_STATUS VpVeboxCmdPacket::Submit(MOS_COMMAND_BUFFER* commandBuffer, uint8_t p
+@@ -2940,6 +2947,45 @@
      // Send vebox command
      VP_RENDER_CHK_STATUS_RETURN(SendVeboxCmd(commandBuffer));
  
@@ -534,40 +406,14 @@ index 9e3ddd983..cfc3c4d7e 100644
  #if (_DEBUG || _RELEASE_INTERNAL)
      // Debug interface with state heap check
      VP_RENDER_CHK_STATUS_RETURN(DumpVeboxStateHeap())
-@@ -2976,6 +3019,16 @@ VpVeboxCmdPacket::VpVeboxCmdPacket(
-     m_veboxItf = hwInterface->m_vpPlatformInterface->GetMhwVeboxItf();
-     m_miItf = hwInterface->m_vpPlatformInterface->GetMhwMiItf();
-     m_vpUserFeatureControl = hwInterface->m_userFeatureControl;
-+
-+    m_mediaCopyWrapper = MOS_New(MediaCopyWrapper, m_osInterface);
-+    if (m_mediaCopyWrapper != nullptr)
-+    {
-+        auto mediaCopyState = hwInterface->m_vpPlatformInterface->CreateMediaCopy();
-+        if (mediaCopyState != nullptr)
-+        {
-+            m_mediaCopyWrapper->SetMediaCopyState(mediaCopyState);
-+        }
-+    }
+@@ -4521,4 +4567,4 @@
  }
- 
- VpVeboxCmdPacket:: ~VpVeboxCmdPacket()
-@@ -2990,6 +3043,7 @@ VpVeboxCmdPacket:: ~VpVeboxCmdPacket()
-     m_allocator->DestroyVpSurface(m_previousSurface);
-     m_allocator->DestroyVpSurface(m_renderTarget);
-     m_allocator->DestroyVpSurface(m_originalOutput);
-+    MOS_Delete(m_mediaCopyWrapper);
+
  }
- 
- //!
-@@ -4521,4 +4575,3 @@ MHW_CSPACE VpVeboxCmdPacket::VpHalCspace2MhwCspace(VPHAL_CSPACE cspace)
- }
- 
- }
--
+
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
-index 42c50f3e2..12058b4dd 100644
---- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
-+++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-23 02:53:34.035882200 +0900
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-19 23:32:27.548160282 +0900
 @@ -34,6 +34,7 @@
  #include "mhw_mi_itf.h"
  #include "vp_render_sfc_base.h"
@@ -576,7 +422,7 @@ index 42c50f3e2..12058b4dd 100644
  
  #define VP_MAX_NUM_FFDI_SURFACES     4                                       //!< 2 for ADI plus additional 2 for parallel execution on HSW+
  #define VP_NUM_FFDN_SURFACES         2                                       //!< Number of FFDN surfaces
-@@ -297,6 +298,8 @@ typedef struct _VEBOX_PACKET_SURFACE_PARAMS
+@@ -297,6 +298,8 @@
      VP_SURFACE                      *pDenoisedCurrOutput;
      VP_SURFACE                      *pCurrOutput;           //!< Current Vebox Output
      VP_SURFACE                      *pPrevOutput;
@@ -585,7 +431,7 @@ index 42c50f3e2..12058b4dd 100644
      VP_SURFACE                      *pStatisticsOutput;
      VP_SURFACE                      *pAlphaOrVignette;
      VP_SURFACE                      *pLaceOrAceOrRgbHistogram;
-@@ -982,6 +985,7 @@ public:
+@@ -982,6 +985,7 @@
  #endif
  
  protected:
@@ -593,3 +439,14 @@ index 42c50f3e2..12058b4dd 100644
  
      //!
      //! \brief    Doing prepare stage tasks for SendVeboxCmd
+diff --git a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
+--- a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp	2026-04-23 02:53:34.035882200 +0900
++++ b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp	2026-04-23 04:33:21.817912466 +0900
+@@ -309,6 +309,7 @@
+ 
+     m_packetSharedContext = MOS_New(VP_PACKET_SHARED_CONTEXT);
+     VP_PUBLIC_CHK_NULL_RETURN(m_packetSharedContext);
++    m_packetSharedContext->mediaCopyWrapper = m_mediaCopyWrapper;
+     return MOS_STATUS_SUCCESS;
+ }
+ 
