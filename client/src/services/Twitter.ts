@@ -355,13 +355,19 @@ class Twitter {
      * @param screen_name Twitter のスクリーンネーム
      * @param query 検索クエリ
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
+     * @param cursor_type カーソル ID の種類 (Top: より新しいツイート, Bottom: より古いツイート)
      * @returns 検索結果のツイートのリスト
      */
-    static async searchTweets(screen_name: string, query: string, cursor_id?: string): Promise<ITimelineTweetsResult | null> {
+    static async searchTweets(
+        screen_name: string,
+        query: string,
+        cursor_id?: string,
+        cursor_type: 'Top' | 'Bottom' = 'Top',
+    ): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/search`, {
-            params: { query, cursor_id },
+            params: { query, cursor_id, cursor_type },
             // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
             // タイムアウトを 60 秒に設定
             timeout: 60 * 1000,

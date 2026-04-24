@@ -182,9 +182,9 @@ const performSearchTweets = async () => {
     }
 
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
-    // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
+    // 初回取得は 20 件、より新しいツイートを取得する Top カーソル指定時は 40 件返ってくる
     const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
-    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, cursor_id);
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, cursor_id, 'Top');
     if (result && result.tweets) {
         // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
@@ -258,9 +258,9 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     }
 
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
-    // タイムラインと異なり、検索結果は一度に 20 件しか返ってこない
+    // より古いツイートを取得する Bottom カーソル指定時は 20 件返ってくる
     const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
-    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, item.cursor_id);
+    const result = await Twitter.searchTweets(selected_twitter_account.value.screen_name, query, item.cursor_id, 'Bottom');
     if (result && result.tweets) {
         // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
         if (showRetweets.value === false) {
