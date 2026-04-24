@@ -429,6 +429,7 @@ async def TwitterSearchAPI(
     query: Annotated[str, Query(description='検索クエリ。')],
     search_type: Annotated[Literal['Top', 'Latest'], Query(description='検索タイプ。Top は話題のツイート、Latest は最新のツイート。')] = 'Latest',
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
+    cursor_type: Annotated[Literal['Top', 'Bottom'], Query(description='カーソル ID の種類。Top はより新しいツイート、Bottom はより古いツイート。')] = 'Top',
 ):
     """
     指定されたクエリでツイートを検索する。
@@ -440,6 +441,7 @@ async def TwitterSearchAPI(
         search_type = search_type,
         query = query,
         cursor_id = cursor_id,
+        cursor_type = cursor_type,
     )
 
 

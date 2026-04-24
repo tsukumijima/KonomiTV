@@ -1300,6 +1300,7 @@ class TwitterGraphQLAPI:
         search_type: Literal['Top', 'Latest'],
         query: str,
         cursor_id: str | None = None,
+        cursor_type: Literal['Top', 'Bottom'] = 'Top',
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         ツイートを検索する
@@ -1308,6 +1309,7 @@ class TwitterGraphQLAPI:
             search_type (Literal['Top', 'Latest']): 検索タイプ (Top: トップツイート, Latest: 最新ツイート)
             query (str): 検索クエリ
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
+            cursor_type (Literal['Top', 'Bottom'], optional): カーソル ID タイプ (Top: 現在より最新のツイート, Bottom: 現在より過去のツイート)
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -1319,12 +1321,12 @@ class TwitterGraphQLAPI:
         if cursor_id is None:
             ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 20
-        else:
-            ## カーソル ID が指定されているときは40件取得する (Twitter Web App の挙動に合わせる)
-            ## 厳密にはより新しいツイートを取得するためのカーソル ID が指定されているときは40件、
-            ## より古い過去のツイートを取得するためのカーソル ID が指定されているときは20件取得される仕様のようだが、
-            ## 両者を判別する方法がないので一律40件取得する
+        elif cursor_type == 'Top':
+            ## より新しいツイートを取得するためのカーソル ID が指定されているときは40件取得する
             variables['count'] = 40
+        else:
+            ## より古い過去のツイートを取得するためのカーソル ID が指定されているときは20件取得する
+            variables['count'] = 20
         if cursor_id is not None:
             variables['cursor'] = cursor_id
         ## Twitter Web App で検索すると typed_query になることが多いのでそれに合わせる
