@@ -99,6 +99,10 @@ lines-after-imports = 2
 [tool.pyright]
 # Python バージョンを指定
 pythonVersion = "3.11"
+# Pyright 実行時に server/.venv/ を確実に参照させる
+# この設定により Codex サンドボックス上から Pyright を実行すると依存関係を解決できない問題を回避できる
+venvPath = "."
+venv = ".venv"
 # TypeCheckingMode を strict に設定（VSCode の設定と同等）
 typeCheckingMode = "strict"
 # プロジェクトルートを指定
@@ -118,7 +122,6 @@ reportConstantRedefinition = "none"
 reportDeprecated = "warning"
 reportMissingTypeStubs = "none"
 reportPrivateImportUsage = "none"
-reportShadowedImports = "none"
 reportUnnecessaryComparison = "none"
 reportUnknownArgumentType = "none"
 reportUnknownMemberType = "none"
