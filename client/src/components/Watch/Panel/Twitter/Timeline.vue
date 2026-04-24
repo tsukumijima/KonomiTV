@@ -99,6 +99,11 @@ interface ILoadMoreItem {
 
 type TimelineItem = ITweetBlock | ILoadMoreItem;
 
+interface ISeenTweetTrackingState {
+    pendingSeenTweetIds: string[];
+    confirmedVisibleTweetIds: Set<string>;
+}
+
 const timelineItems = ref<TimelineItem[]>([]);
 const showSettings = ref(false);
 const showRetweets = ref(true);
@@ -115,9 +120,8 @@ const cursorIdHistory = ref<string[]>([]);  // 更新履歴を保持
 
 // Twitter Web App の seenTweetIds に相当する、次回のタイムライン取得時に送信する短期キュー
 // 本家の挙動に合わせ、同一キュー内で同じツイート ID が複数回入ることは許容する
-const pendingSeenTweetIds = ref<string[]>([]);
+const seenTweetTrackingByScreenName = new Map<string, ISeenTweetTrackingState>();
 const visibleTweetTimers = new Map<string, number>();
-const confirmedVisibleTweetIds = new Set<string>();
 
 // フィルタリング用の状態
 const filterQuery = ref('');
@@ -165,19 +169,45 @@ const flattenedItems = computed(() => {
     return items;
 });
 
+// 選択中の Twitter アカウントに紐づく seenTweetIds 管理状態を取得する
+// 本家と同様にアカウントごとに短期キューを分離し、アカウント切り替え後に戻った場合も未送信分を維持する
+const getCurrentSeenTweetTrackingState = () => {
+    const screenName = selected_twitter_account.value?.screen_name;
+    if (!screenName) {
+        return null;
+    }
+    if (!seenTweetTrackingByScreenName.has(screenName)) {
+        seenTweetTrackingByScreenName.set(screenName, {
+            pendingSeenTweetIds: [],
+            confirmedVisibleTweetIds: new Set<string>(),
+        });
+    }
+    return seenTweetTrackingByScreenName.get(screenName)!;
+};
+
 // seenTweetIds の送信キューにツイート ID を追加する
 // キューが伸びすぎると KonomiTV API への GET クエリが長くなるため、古い ID から破棄する
-const enqueueSeenTweetId = (tweetId: string) => {
-    pendingSeenTweetIds.value.push(tweetId);
-    if (pendingSeenTweetIds.value.length > SEEN_TWEET_IDS_LIMIT) {
-        pendingSeenTweetIds.value.splice(0, pendingSeenTweetIds.value.length - SEEN_TWEET_IDS_LIMIT);
+const enqueueSeenTweetId = (screenName: string, tweetId: string) => {
+    const state = seenTweetTrackingByScreenName.get(screenName);
+    if (!state) {
+        return;
+    }
+
+    state.pendingSeenTweetIds.push(tweetId);
+    if (state.pendingSeenTweetIds.length > SEEN_TWEET_IDS_LIMIT) {
+        state.pendingSeenTweetIds.splice(0, state.pendingSeenTweetIds.length - SEEN_TWEET_IDS_LIMIT);
     }
 };
 
 // 次回のタイムライン取得で送信する seenTweetIds を取り出し、本家の clearTweets() 相当に合わせてキューを空にする
 const dequeuePendingSeenTweetIds = () => {
-    const seenTweetIds = [...pendingSeenTweetIds.value];
-    pendingSeenTweetIds.value = [];
+    const state = getCurrentSeenTweetTrackingState();
+    if (!state) {
+        return [];
+    }
+
+    const seenTweetIds = [...state.pendingSeenTweetIds];
+    state.pendingSeenTweetIds = [];
     return seenTweetIds;
 };
 
@@ -203,6 +233,12 @@ const getVisibleTweetIds = () => {
 // 実表示範囲に 0.5 秒以上入り続けたツイートを seenTweetIds の送信キューに追加する
 // 一瞬だけ高速スクロールで通過したツイートは、タイマー完了時に表示範囲外になっていれば seen 扱いにしない
 const updateSeenTweetTracking = () => {
+    const screenName = selected_twitter_account.value?.screen_name;
+    const state = getCurrentSeenTweetTrackingState();
+    if (!screenName || !state) {
+        return;
+    }
+
     const visibleTweetIds = getVisibleTweetIds();
 
     for (const [tweetId, timerId] of visibleTweetTimers.entries()) {
@@ -212,22 +248,28 @@ const updateSeenTweetTracking = () => {
         }
     }
 
-    for (const tweetId of confirmedVisibleTweetIds) {
+    for (const tweetId of state.confirmedVisibleTweetIds) {
         if (visibleTweetIds.has(tweetId) === false) {
-            confirmedVisibleTweetIds.delete(tweetId);
+            state.confirmedVisibleTweetIds.delete(tweetId);
         }
     }
 
     for (const tweetId of visibleTweetIds) {
-        if (visibleTweetTimers.has(tweetId) || confirmedVisibleTweetIds.has(tweetId)) {
+        if (visibleTweetTimers.has(tweetId) || state.confirmedVisibleTweetIds.has(tweetId)) {
             continue;
         }
 
         const timerId = window.setTimeout(() => {
+            // タイマー開始後にアカウントが切り替わった場合、異なるアカウントの seenTweetIds に混ぜない
+            if (selected_twitter_account.value?.screen_name !== screenName) {
+                visibleTweetTimers.delete(tweetId);
+                return;
+            }
+
             const currentVisibleTweetIds = getVisibleTweetIds();
             if (currentVisibleTweetIds.has(tweetId)) {
-                enqueueSeenTweetId(tweetId);
-                confirmedVisibleTweetIds.add(tweetId);
+                enqueueSeenTweetId(screenName, tweetId);
+                state.confirmedVisibleTweetIds.add(tweetId);
             }
             visibleTweetTimers.delete(tweetId);
         }, SEEN_TWEET_DWELL_MILLISECONDS);
@@ -235,14 +277,22 @@ const updateSeenTweetTracking = () => {
     }
 };
 
-// タイムラインの再初期化時に、未送信キューと表示判定中のタイマーをすべて破棄する
-const clearSeenTweetTracking = () => {
+// アカウント切り替えやタイムライン再初期化時に、現在表示中のツイートに紐づく判定タイマーだけを破棄する
+// pendingSeenTweetIds はアカウントごとの短期キューとして保持し、ブラウザリロードまでは維持する
+const clearVisibleTweetTimers = () => {
     for (const timerId of visibleTweetTimers.values()) {
         window.clearTimeout(timerId);
     }
     visibleTweetTimers.clear();
-    confirmedVisibleTweetIds.clear();
-    pendingSeenTweetIds.value = [];
+};
+
+// タイムラインが表示されなくなったアカウントでは、現在表示中として扱っていたツイート ID だけを破棄する
+// pendingSeenTweetIds は未送信の短期キューなので、ここでは破棄しない
+const clearConfirmedVisibleTweetIds = (screenName: string | undefined) => {
+    if (!screenName) {
+        return;
+    }
+    seenTweetTrackingByScreenName.get(screenName)?.confirmedVisibleTweetIds.clear();
 };
 
 watch(flattenedItems, async () => {
@@ -316,7 +366,7 @@ const fetchTimelineTweets = async () => {
             Message.warning('タイムラインを更新するには、Twitter アカウントと連携してください。');
         }
         timelineItems.value = [];
-        clearSeenTweetTracking();
+        clearVisibleTweetTimers();
         isFetching.value = false;
         isFirstFetchCompleted = true;
         return;
@@ -488,10 +538,12 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 // 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
 // (Twitter パネルとタイムラインタブが表示状態のときのみ自動で再取得する)
 // このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
-watch(selected_twitter_account, () => {
+watch(selected_twitter_account, (newTwitterAccount, oldTwitterAccount) => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
-    clearSeenTweetTracking();
+    clearVisibleTweetTimers();
+    clearConfirmedVisibleTweetIds(oldTwitterAccount?.screen_name);
+    clearConfirmedVisibleTweetIds(newTwitterAccount?.screen_name);
     isInitialFetchPending.value = true;
     isFirstFetchCompleted = false;
     tryAutoFetchTimeline();
@@ -501,7 +553,8 @@ watch(selected_twitter_account, () => {
 watch(showRetweets, () => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
-    clearSeenTweetTracking();
+    clearVisibleTweetTimers();
+    clearConfirmedVisibleTweetIds(selected_twitter_account.value?.screen_name);
     fetchTimelineTweets();
 });
 
@@ -544,7 +597,7 @@ onUnmounted(() => {
     if (scroller.value && scroller.value.$el) {
         scroller.value.$el.removeEventListener('scroll', checkScrollPosition);
     }
-    clearSeenTweetTracking();
+    clearVisibleTweetTimers();
 });
 
 </script>
