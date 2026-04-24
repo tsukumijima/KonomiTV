@@ -1,7 +1,8 @@
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp	2026-04-23 02:53:36.640961102 +0900
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp	2026-04-19 23:32:27.555160554 +0900
-@@ -75,7 +75,7 @@
+index 4182b6e..9b07ae4 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp
+@@ -75,7 +75,7 @@ IAllocation* Allocator::MakeAlloc(std::unique_ptr<MfxEncodeHW::ResPool>&& upAllo
  void Allocator::InitAlloc(const FeatureBlocks& /*blocks*/, TPushIA Push)
  {
      Push(BLK_Init
@@ -10,7 +11,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp
      {
          auto CreateAllocator = [](VideoCORE& core) -> IAllocation*
          {
-@@ -83,6 +83,7 @@
+@@ -83,6 +83,7 @@ void Allocator::InitAlloc(const FeatureBlocks& /*blocks*/, TPushIA Push)
          };
  
          local.Insert(Tmp::MakeAlloc::Key, new Tmp::MakeAlloc::TRef(CreateAllocator));
@@ -19,9 +20,10 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_alloc.cpp
          return MFX_ERR_NONE;
      });
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h	2026-04-23 02:53:36.640961102 +0900
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h	2026-04-19 23:32:27.555160554 +0900
-@@ -697,6 +697,7 @@
+index 2802eb8..b665c7b 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h
+@@ -697,6 +697,7 @@ namespace Base
          mfxU16   LongTermIdx    = mfxU16(0);
          mfxU8    CodingType     = 0;
          Resource Raw;
@@ -29,7 +31,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h b/
          Resource RawTmp;
          Resource Rec;
          mfxFrameSurface1* pSurfIn = nullptr; //input surface, may be opaque
-@@ -789,6 +790,7 @@
+@@ -789,6 +790,7 @@ namespace Base
          mfxU32*             pBsDataLength       = nullptr;
          mfxBitstream*       pBsOut              = nullptr;
          mfxFrameSurface1*   pSurfReal           = nullptr;
@@ -37,7 +39,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h b/
          mfxEncodeCtrl       ctrl                = {};
          mfxU32              SkipCMD             = 0;
          Resource            BS;
-@@ -809,6 +811,7 @@
+@@ -809,6 +811,7 @@ namespace Base
          bool                bDontPatchBS        = false;
          bool                bRecode             = false;
          bool                bFreed              = false;
@@ -45,7 +47,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h b/
          bool                bForceLongStartCode = false;
          bool                bSaliencyEncEnabled = false;
          IntraRefreshState   IRState             = {};
-@@ -1416,9 +1419,11 @@
+@@ -1416,9 +1419,11 @@ namespace Base
          using CqmPPS              = StorageVar<__LINE__ - _KD, std::vector<Base::PPS>>;
          using SliceInfo           = StorageVar<__LINE__ - _KD, std::vector<Base::SliceInfo>>;
          using AllocRaw            = StorageVar<__LINE__ - _KD, IAllocation>;
@@ -58,8 +60,9 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_data.h b/
          using AllocMBQP           = StorageVar<__LINE__ - _KD, IAllocation>;
          using MBQPAllocInfo       = StorageVar<__LINE__ - _KD, MBQPAllocFrameInfo>;
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp	2026-04-23 02:53:36.641961132 +0900
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp	2026-04-23 04:23:55.075866232 +0900
+index c0618b9..09b4e1d 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cpp
 @@ -37,12 +37,53 @@
  #include <cmath>
  #include <iterator>
@@ -114,7 +117,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
  
  void Legacy::SetSupported(ParamSupport& blocks)
  {
-@@ -921,6 +962,19 @@
+@@ -921,6 +962,19 @@ void Legacy::SetDefaults(const FeatureBlocks& /*blocks*/, TPushSD Push)
          auto& caps = Glob::EncodeCaps::Get(strg);
          auto& defchain = Glob::Defaults::Get(strg);
          SetDefaults(par, Defaults::Param(par, caps, core.GetHWType(), defchain), core.IsExternalFrameAllocator());
@@ -134,17 +137,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
      });
  }
  
-@@ -982,9 +1036,9 @@
-         auto& par = Glob::VideoParam::Get(strg);
- 
-         auto pReorderer = make_storable<Reorderer>();
-
-         pReorderer->BufferSize = par.mfx.GopRefDist - 1;
-         pReorderer->MaxReorder = par.mfx.GopRefDist - 1;
-         pReorderer->DPB        = &m_prevTask.DPB.After;
- 
-         pReorderer->Push(
-@@ -1131,11 +1186,16 @@
+@@ -1131,11 +1185,16 @@ void Legacy::InitInternal(const FeatureBlocks& /*blocks*/, TPushII Push)
          , [this](StorageRW& strg, StorageRW& local) -> mfxStatus
      {
          auto& par = Glob::VideoParam::Get(strg);
@@ -162,7 +155,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          SetDefault(rawInfo.Type
              , mfxU16(MFX_MEMTYPE_FROM_ENCODE
                  | MFX_MEMTYPE_DXVA2_DECODER_TARGET
-@@ -1186,7 +1246,7 @@
+@@ -1186,7 +1245,7 @@ void Legacy::InitAlloc(const FeatureBlocks& /*blocks*/, TPushIA Push)
          };
  
          bool isD3D9SimWithVideoMem = IsD3D9Simulation(Glob::VideoCore::Get(strg)) && (par.IOPattern & MFX_IOPATTERN_IN_VIDEO_MEMORY);
@@ -171,7 +164,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          {
              sts = AllocRaw(rawInfo.NumFrameMin);
              MFX_CHECK_STS(sts);
-@@ -1500,6 +1560,9 @@
+@@ -1500,6 +1559,9 @@ void Legacy::ResetState(const FeatureBlocks& blocks, TPushRS Push)
          if (real.Contains(Glob::AllocRawTmp::Key))
              Glob::AllocRawTmp::Get(real).UnlockAll();
  
@@ -181,7 +174,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          ResetState();
  
          return MFX_ERR_NONE;
-@@ -1509,7 +1572,7 @@
+@@ -1509,7 +1571,7 @@ void Legacy::ResetState(const FeatureBlocks& blocks, TPushRS Push)
  void Legacy::FrameSubmit(const FeatureBlocks& /*blocks*/, TPushFS Push)
  {
      Push(BLK_CheckSurf
@@ -190,7 +183,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
              const mfxEncodeCtrl* /*pCtrl*/
              , const mfxFrameSurface1* pSurf
              , mfxBitstream& /*bs*/
-@@ -1519,6 +1582,29 @@
+@@ -1519,6 +1581,29 @@ void Legacy::FrameSubmit(const FeatureBlocks& /*blocks*/, TPushFS Push)
          MFX_CHECK(pSurf, MFX_ERR_NONE);
  
          auto& par = Glob::VideoParam::Get(global);
@@ -220,7 +213,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          MFX_CHECK(LumaIsNull(pSurf) == (pSurf->Data.UV == 0), MFX_ERR_UNDEFINED_BEHAVIOR);
          MFX_CHECK(pSurf->Info.Width >= par.mfx.FrameInfo.Width, MFX_ERR_INVALID_VIDEO_PARAM);
          MFX_CHECK(pSurf->Info.Height >= par.mfx.FrameInfo.Height, MFX_ERR_INVALID_VIDEO_PARAM);
-@@ -1592,6 +1678,8 @@
+@@ -1592,6 +1677,8 @@ void Legacy::InitTask(const FeatureBlocks& /*blocks*/, TPushIT Push)
              tpar.ctrl = *pCtrl;
          }
          tpar.pSurfReal = tpar.pSurfIn;
@@ -229,7 +222,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
  
          core.IncreaseReference(*tpar.pSurfIn);
  
-@@ -1658,7 +1746,11 @@
+@@ -1658,7 +1745,11 @@ void Legacy::PostReorderTask(const FeatureBlocks& /*blocks*/, TPushPostRT Push)
              task.RawTmp = Glob::AllocRawTmp::Get(global).Acquire();
              MFX_CHECK(task.RawTmp.Mid, MFX_ERR_UNDEFINED_BEHAVIOR);
          }
@@ -242,7 +235,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          task.Rec = Glob::AllocRec::Get(global).Acquire();
          task.BS = Glob::AllocBS::Get(global).Acquire();
          MFX_CHECK(task.BS.Idx != IDX_INVALID, MFX_ERR_UNDEFINED_BEHAVIOR);
-@@ -1818,15 +1910,26 @@
+@@ -1818,15 +1909,26 @@ void Legacy::SubmitTask(const FeatureBlocks& /*blocks*/, TPushST Push)
          auto& core = Glob::VideoCore::Get(global);
          auto& par = Glob::VideoParam::Get(global);
          auto& task = Task::Common::Get(s_task);
@@ -269,7 +262,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          // Video memory internal allocation
          MFX_CHECK(!(bIntAlloc && par.IOPattern == MFX_IOPATTERN_IN_VIDEO_MEMORY),
              core.GetFrameHDL(*task.pSurfReal, task.HDLRaw));
-@@ -1849,12 +1952,14 @@
+@@ -1849,12 +1951,14 @@ void Legacy::SubmitTask(const FeatureBlocks& /*blocks*/, TPushST Push)
          auto& par = Glob::VideoParam::Get(global);
          auto& task = Task::Common::Get(s_task);
          auto dflts = GetRTDefaults(global);
@@ -287,7 +280,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
  
          mfxFrameSurface1 surfSrc = MakeSurface(par.mfx.FrameInfo, *task.pSurfReal);
          mfxFrameSurface1 surfDst = MakeSurface(par.mfx.FrameInfo, task.Raw.Mid);
-@@ -1866,7 +1971,150 @@
+@@ -1866,7 +1970,150 @@ void Legacy::SubmitTask(const FeatureBlocks& /*blocks*/, TPushST Push)
          mfxU16 inMemType = static_cast<mfxU16>((par.IOPattern & MFX_IOPATTERN_IN_SYSTEM_MEMORY ? MFX_MEMTYPE_SYSTEM_MEMORY : MFX_MEMTYPE_DXVA2_DECODER_TARGET) |
              MFX_MEMTYPE_EXTERNAL_FRAME);
  
@@ -439,7 +432,7 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
              surfDst,
              MFX_MEMTYPE_INTERNAL_FRAME | MFX_MEMTYPE_DXVA2_DECODER_TARGET | MFX_MEMTYPE_FROM_ENCODE,
              surfSrc,
-@@ -2078,9 +2326,20 @@
+@@ -2078,9 +2325,20 @@ void Legacy::FreeTask(const FeatureBlocks& /*blocks*/, TPushFT Push)
              global.Contains(Glob::AllocRawTmp::Key)
              && !ReleaseResource(Glob::AllocRawTmp::Get(global), task.RawTmp)
              , "task.RawTmp resource is invalid");
@@ -463,19 +456,13 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.cp
          auto& atrRec = Glob::AllocRec::Get(global);
  
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h	2026-04-23 02:53:36.641961132 +0900
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h	2026-04-23 04:49:58.353524758 +0900
-@@ -249,12 +249,33 @@
-             return ::IsSWBRCMode(par);
-         }
- 
-         mfxU16 GetMaxRaw(const mfxVideoParam & par)
-         {
-             // Extend extra Raw for frames buffered between LA submit and LA Query stage
-             const mfxExtCodingOption2* pCO2 = ExtBuffer::Get(par);
+index 33d2c30..ea8d644 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
+@@ -256,6 +256,28 @@ namespace Base
              mfxU16 extRaw = pCO2 ? pCO2->LookAheadDepth : 0;
              return par.AsyncDepth + (par.mfx.GopRefDist - 1) + (par.AsyncDepth > 1) + extRaw;
-+        }
+         }
 +        mfxU16 GetMaxRawDecoupled(const mfxVideoParam & par, bool is_high_frame_rate_vpp_di)
 +        {
 +            mfxU16 rawDepth = GetMaxRaw(par) + 16;
@@ -497,20 +484,14 @@ diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h 
 +            }
 +
 +            return rawCopyDepth;
-         }
++        }
          mfxU16 GetMaxMBMaps(mfxVideoParam const& par)
          {
-diff --git a/_studio/mfx_lib/shared/include/mfx_session.h b/_studio/mfx_lib/shared/include/mfx_session.h
---- a/_studio/mfx_lib/shared/include/mfx_session.h	2026-04-23 02:53:36.672962071 +0900
-+++ b/_studio/mfx_lib/shared/include/mfx_session.h	2026-04-23 05:40:45.165643783 +0900
-@@ -265,4 +265,3 @@
- mfxStatus MFXInternalPseudoDisjoinSession(mfxSession session);
- 
- #endif // _MFX_SESSION_H
-
+             // Extend extra Raw for frames buffered between LA submit and LA Query stage
 diff --git a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp b/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp
---- a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp	2026-04-23 02:53:36.672962071 +0900
-+++ b/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp	2026-04-23 05:40:45.165643783 +0900
+index 787ed83..55666a6 100644
+--- a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp
++++ b/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp
 @@ -22,6 +22,7 @@
  #include <mfx_session.h>
  #include <mfx_tools.h>
@@ -519,7 +500,7 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp b/_studio/mfx_lib
  #include <libmfx_core.h>
  
  #include<set>
-@@ -359,6 +360,7 @@
+@@ -359,6 +360,7 @@ mfxStatus MFXVideoDECODE_VPP_Init(mfxSession session, mfxVideoParam* decode_par,
      return MFX_ERR_NONE;
  }
  
@@ -527,7 +508,7 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp b/_studio/mfx_lib
  class RAIISurfaceArray
  {
  public:
-@@ -535,6 +537,9 @@
+@@ -535,6 +537,9 @@ mfxStatus MFXVideoDECODE_VPP_DecodeFrameAsync(mfxSession session, mfxBitstream*
                  (MFX_ERR_MORE_SURFACE == mfxRes) ||
                  (MFX_WRN_INCOMPATIBLE_VIDEO_PARAM == mfxRes))
              {
@@ -537,7 +518,7 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp b/_studio/mfx_lib
                  if (numEntryPoints == 1)
                  {
                      if (mfxRes != MFX_ERR_NONE || !entryPoints[0].pRoutine)
-@@ -757,6 +762,7 @@
+@@ -757,6 +762,7 @@ mfxStatus MFXVideoDECODE_VPP_Close(mfxSession session)
  
              //delete VPP params, surface pools and ext buffers
              session->m_pDVP.reset();
@@ -545,15 +526,11 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_decode_vp.cpp b/_studio/mfx_lib
          }
      }
      catch (...)
-@@ -786,4 +792,3 @@
- 
-     return MFX_ERR_NONE;
- }
-
 diff --git a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp b/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp
---- a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp	2026-04-23 02:53:36.672962071 +0900
-+++ b/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp	2026-04-23 04:49:58.352524721 +0900
-@@ -197,6 +197,15 @@
+index c293de7..3b031ee 100644
+--- a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp
++++ b/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp
+@@ -197,6 +197,15 @@ mfxStatus MFXVideoVPP_Init(mfxSession session, mfxVideoParam *par)
          {
              MFX_SAFE_CALL(SetupCache(session, *par));
          }
@@ -569,7 +546,7 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp b/_studio/mfx_lib/share
  #endif // MFX_ENABLE_VPP
      }
      // handle error(s)
-@@ -230,6 +239,8 @@
+@@ -230,6 +239,8 @@ mfxStatus MFXVideoVPP_Close(mfxSession session)
          mfxRes = session->m_pVPP->Close();
  
          session->m_pVPP.reset(nullptr);
@@ -578,7 +555,7 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp b/_studio/mfx_lib/share
      }
      // handle error(s)
      catch(...)
-@@ -314,6 +325,8 @@
+@@ -314,6 +325,8 @@ mfxStatus MFXVideoVPP_RunFrameVPPAsync(mfxSession session, mfxFrameSurface1 *in,
              (MFX_ERR_MORE_SURFACE             == mfxRes) ||
              (MFX_WRN_INCOMPATIBLE_VIDEO_PARAM == mfxRes))
          {
@@ -588,8 +565,9 @@ diff --git a/_studio/mfx_lib/shared/src/libmfxsw_vpp.cpp b/_studio/mfx_lib/share
              // it is obsolete and must be removed.
              if (NULL == entryPoints[0].pRoutine)
 diff --git a/_studio/mfx_lib/shared/src/mfx_session.cpp b/_studio/mfx_lib/shared/src/mfx_session.cpp
---- a/_studio/mfx_lib/shared/src/mfx_session.cpp	2026-04-23 02:53:36.673962101 +0900
-+++ b/_studio/mfx_lib/shared/src/mfx_session.cpp	2026-04-23 04:33:03.415003880 +0900
+index 8ba956b..cf5b8e1 100644
+--- a/_studio/mfx_lib/shared/src/mfx_session.cpp
++++ b/_studio/mfx_lib/shared/src/mfx_session.cpp
 @@ -19,12 +19,14 @@
  // SOFTWARE.
  
@@ -605,7 +583,7 @@ diff --git a/_studio/mfx_lib/shared/src/mfx_session.cpp b/_studio/mfx_lib/shared
  
  #include <libmfx_core_vaapi.h>
  #include "mfx_platform_caps.h"
-@@ -80,11 +82,12 @@
+@@ -80,11 +82,12 @@ void _mfxSession::Clear(void)
  
      m_priority = MFX_PRIORITY_NORMAL;
      m_bIsHWENCSupport = false;
@@ -619,7 +597,7 @@ diff --git a/_studio/mfx_lib/shared/src/mfx_session.cpp b/_studio/mfx_lib/shared
      // wait until all task are processed
      if (m_pScheduler)
      {
-@@ -96,8 +99,69 @@
+@@ -96,8 +99,69 @@ void _mfxSession::Cleanup(void)
              m_pScheduler->WaitForAllTasksCompletion(m_pENCODE.get());
      }
  
@@ -692,9 +670,10 @@ diff --git a/_studio/mfx_lib/shared/src/mfx_session.cpp b/_studio/mfx_lib/shared
  
      m_pVPP.reset();
 diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h b/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h
---- a/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h	2026-04-23 02:53:36.673962101 +0900
-+++ b/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h	2026-04-19 23:32:27.555160554 +0900
-@@ -913,6 +913,9 @@
+index 079956b..9aea843 100644
+--- a/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h
++++ b/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h
+@@ -913,6 +913,9 @@ namespace MfxHwVideoProcessing
              MFX_ENTRY_POINT pEntryPoint[],
              mfxU32 &numEntryPoints);
  
@@ -705,9 +684,10 @@ diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_hw.h b/_studio/mfx_lib/vpp/incl
          {
              //in = in; out = out; aux = aux;
 diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_main.h b/_studio/mfx_lib/vpp/include/mfx_vpp_main.h
---- a/_studio/mfx_lib/vpp/include/mfx_vpp_main.h	2026-04-23 02:53:36.673962101 +0900
-+++ b/_studio/mfx_lib/vpp/include/mfx_vpp_main.h	2026-04-19 23:32:27.555160554 +0900
-@@ -93,6 +93,8 @@
+index 4c17c52..18b63ed 100644
+--- a/_studio/mfx_lib/vpp/include/mfx_vpp_main.h
++++ b/_studio/mfx_lib/vpp/include/mfx_vpp_main.h
+@@ -93,6 +93,8 @@ public:
      }
  
      virtual mfxTaskThreadingPolicy GetThreadingPolicy(void) override;
@@ -717,9 +697,10 @@ diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_main.h b/_studio/mfx_lib/vpp/in
      // multi threading of SW_VPP functions
      mfxStatus RunVPPTask(
 diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h b/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h
---- a/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h	2026-04-23 02:53:36.673962101 +0900
-+++ b/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h	2026-04-19 23:32:27.555160554 +0900
-@@ -81,6 +81,8 @@
+index 41fea4a..82e1de3 100644
+--- a/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h
++++ b/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h
+@@ -81,6 +81,8 @@ namespace MfxVideoProcessing
          }
  
          virtual mfxTaskThreadingPolicy GetThreadingPolicy(void) override;
@@ -729,9 +710,10 @@ diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_mvc.h b/_studio/mfx_lib/vpp/inc
          // multi threading of SW_VPP functions
          mfxStatus RunVPPTask(
 diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h b/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h
---- a/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h	2026-04-23 02:53:36.673962101 +0900
-+++ b/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h	2026-04-19 23:32:27.555160554 +0900
-@@ -60,6 +60,8 @@
+index eea2c5d..b23134d 100644
+--- a/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h
++++ b/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h
+@@ -60,6 +60,8 @@ public:
    virtual mfxStatus GetVPPStat(mfxVPPStat *stat);
    virtual mfxStatus VppFrameCheck(mfxFrameSurface1 *in, mfxFrameSurface1 *out, mfxExtVppAuxData *aux,
                                    MFX_ENTRY_POINT pEntryPoint[], mfxU32 &numEntryPoints);
@@ -740,7 +722,7 @@ diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h b/_studio/mfx_lib/vpp/incl
  
    virtual mfxStatus VppFrameCheck(mfxFrameSurface1 *, mfxFrameSurface1 *)
    {
-@@ -127,6 +129,8 @@
+@@ -127,6 +129,8 @@ public:
      virtual mfxStatus Reset(mfxVideoParam *par) override;
  
      virtual mfxStatus GetVideoParam(mfxVideoParam *par) override;
@@ -750,9 +732,10 @@ diff --git a/_studio/mfx_lib/vpp/include/mfx_vpp_sw.h b/_studio/mfx_lib/vpp/incl
      virtual mfxStatus VppFrameCheck(mfxFrameSurface1 *in, mfxFrameSurface1 *out, mfxExtVppAuxData *aux,
                                      MFX_ENTRY_POINT pEntryPoints[], mfxU32 &numEntryPoints) override;
 diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp b/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
---- a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp	2026-04-23 02:53:36.674962132 +0900
-+++ b/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp	2026-04-19 23:32:27.555160554 +0900
-@@ -3682,6 +3682,17 @@
+index 963dd99..99e24e9 100644
+--- a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
++++ b/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
+@@ -3682,6 +3682,17 @@ mfxStatus VideoVPPHW::VppFrameCheck(
  
  } // mfxStatus VideoVPPHW::VppFrameCheck(...)
  
@@ -771,9 +754,10 @@ diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp b/_studio/mfx_lib/vpp/src/mf
  mfxStatus VideoVPPHW::PreWorkOutSurface(ExtSurface & output)
  {
 diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp b/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp
---- a/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp	2026-04-23 02:53:36.674962132 +0900
-+++ b/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp	2026-04-19 23:32:27.555160554 +0900
-@@ -128,6 +128,20 @@
+index 5743d81..df03323 100644
+--- a/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp
++++ b/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp
+@@ -128,6 +128,20 @@ mfxTaskThreadingPolicy VideoVPPMain::GetThreadingPolicy(void)
  
  } // mfxTaskThreadingPolicy VideoVPPMain::GetThreadingPolicy(void)
  
@@ -795,9 +779,10 @@ diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_main.cpp b/_studio/mfx_lib/vpp/src/
  mfxStatus VideoVPPMain::VppFrameCheck(mfxFrameSurface1 *in,
                                        mfxFrameSurface1 *out,
 diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp b/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp
---- a/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp	2026-04-23 02:53:36.674962132 +0900
-+++ b/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp	2026-04-19 23:32:27.555160554 +0900
-@@ -234,6 +234,22 @@
+index 86a4827..e6c992f 100644
+--- a/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp
++++ b/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp
+@@ -234,6 +234,22 @@ mfxTaskThreadingPolicy ImplementationMvc::GetThreadingPolicy(void)
  
  } // mfxTaskThreadingPolicy ImplementationMvc::GetThreadingPolicy(void)
  
@@ -821,9 +806,10 @@ diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_mvc.cpp b/_studio/mfx_lib/vpp/src/m
  mfxStatus ImplementationMvc::VppFrameCheck(
      mfxFrameSurface1 *in,
 diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp b/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp
---- a/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp	2026-04-23 02:53:36.674962132 +0900
-+++ b/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp	2026-04-23 05:40:45.166643809 +0900
-@@ -276,6 +276,16 @@
+index 50ad99a..08fb437 100644
+--- a/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp
++++ b/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp
+@@ -276,6 +276,16 @@ mfxStatus VideoVPPBase::VppFrameCheck(mfxFrameSurface1 *in, mfxFrameSurface1 *ou
      return sts;
  } // mfxStatus VideoVPPBase::VppFrameCheck(...)
  
@@ -840,7 +826,7 @@ diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp b/_studio/mfx_lib/vpp/s
  
  mfxStatus VideoVPPBase::QueryIOSurf(VideoCORE* core, mfxVideoParam *par, mfxFrameAllocRequest *request)
  {
-@@ -1388,6 +1398,20 @@
+@@ -1388,6 +1398,20 @@ mfxStatus VideoVPP_HW::GetVideoParam(mfxVideoParam *par)
      return sts;
  }
  
@@ -861,14 +847,10 @@ diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_sw_core.cpp b/_studio/mfx_lib/vpp/s
  mfxStatus VideoVPP_HW::VppFrameCheck(mfxFrameSurface1 *in, mfxFrameSurface1 *out, mfxExtVppAuxData *aux,
                                  MFX_ENTRY_POINT pEntryPoints[], mfxU32 &numEntryPoints)
  {
-@@ -1456,4 +1480,3 @@
- 
- #endif // MFX_ENABLE_VPP
- /* EOF */
-
 diff --git a/_studio/shared/include/libmfx_allocator.h b/_studio/shared/include/libmfx_allocator.h
---- a/_studio/shared/include/libmfx_allocator.h	2026-04-23 02:53:36.677962223 +0900
-+++ b/_studio/shared/include/libmfx_allocator.h	2026-04-23 04:49:58.352524721 +0900
+index 70e0527..a6c4aea 100644
+--- a/_studio/shared/include/libmfx_allocator.h
++++ b/_studio/shared/include/libmfx_allocator.h
 @@ -36,6 +36,8 @@
  #include <mutex>
  #include <condition_variable>
@@ -1145,7 +1127,7 @@ diff --git a/_studio/shared/include/libmfx_allocator.h b/_studio/shared/include/
  // Internal Allocators
  namespace mfxDefaultAllocator
  {
-@@ -828,6 +1090,16 @@
+@@ -828,6 +1090,16 @@ public:
          m_sp = Sync;
      }
  
@@ -1162,7 +1144,7 @@ diff --git a/_studio/shared/include/libmfx_allocator.h b/_studio/shared/include/
      void DetachParentAllocator()
      {
          m_allocator = nullptr;
-@@ -862,6 +1134,7 @@
+@@ -862,6 +1134,7 @@ private:
      mfxMemId                 m_mid;
      mfxSyncPoint             m_sp          = nullptr;
      mfxSurfacePoolInterface* m_parent_pool = nullptr;
@@ -1170,7 +1152,7 @@ diff --git a/_studio/shared/include/libmfx_allocator.h b/_studio/shared/include/
  };
  
  template <>
-@@ -883,6 +1156,21 @@
+@@ -883,6 +1156,21 @@ inline void copy_frame_surface_pixel_pointers(mfxFrameData& buf_dst, const mfxFr
  
  class mfxFrameSurfaceInterfaceImpl;
  
@@ -1192,15 +1174,11 @@ diff --git a/_studio/shared/include/libmfx_allocator.h b/_studio/shared/include/
  class mfxSurfaceBase
      : public mfxRefCountableImpl<mfxSurfaceInterface>
  {
-@@ -1503,4 +1791,3 @@
- };
- 
- #endif
-
 diff --git a/_studio/shared/include/mfxvideo++int.h b/_studio/shared/include/mfxvideo++int.h
---- a/_studio/shared/include/mfxvideo++int.h	2026-04-23 02:53:36.678962253 +0900
-+++ b/_studio/shared/include/mfxvideo++int.h	2026-04-19 23:32:27.555160554 +0900
-@@ -570,6 +570,18 @@
+index e095c50..2dde885 100644
+--- a/_studio/shared/include/mfxvideo++int.h
++++ b/_studio/shared/include/mfxvideo++int.h
+@@ -570,6 +570,18 @@ public:
      virtual
      mfxStatus RunFrameVPP(mfxFrameSurface1 *in, mfxFrameSurface1 *out, mfxExtVppAuxData *aux) = 0;
  

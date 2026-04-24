@@ -406,11 +406,6 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
  #if (_DEBUG || _RELEASE_INTERNAL)
      // Debug interface with state heap check
      VP_RENDER_CHK_STATUS_RETURN(DumpVeboxStateHeap())
-@@ -4521,4 +4567,4 @@
- }
-
- }
-
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-23 02:53:34.035882200 +0900
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-19 23:32:27.548160282 +0900
