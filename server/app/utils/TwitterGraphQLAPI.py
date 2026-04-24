@@ -1216,6 +1216,7 @@ class TwitterGraphQLAPI:
     async def homeLatestTimeline(
         self,
         cursor_id: str | None = None,
+        seen_tweet_ids: list[str] | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         タイムラインの最新ツイートを取得する
@@ -1223,6 +1224,7 @@ class TwitterGraphQLAPI:
 
         Args:
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
+            seen_tweet_ids (list[str] | None, optional): Twitter Web App 上で閲覧済みとして扱われるツイート ID のリスト (デフォルトは None)
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -1230,6 +1232,7 @@ class TwitterGraphQLAPI:
 
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
+        additional_flags: dict[str, Any] | None = None
         if cursor_id is None:
             ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 20
@@ -1238,26 +1241,22 @@ class TwitterGraphQLAPI:
             variables['count'] = 40
         if cursor_id is not None:
             variables['cursor'] = cursor_id
-        variables['enableRanking'] = False   # 常に最新ツイートを取得する
-        variables['includePromotedContent'] = True
-        variables['latestControlAvailable'] = True
+        variables['enableRanking'] = False   # 人気順ではなく、常に最新ツイートを取得する
+        variables['includePromotedContent'] = True  # 常に true を設定すべき (本家の内部実装に倣う)
         if cursor_id is None:
-            ## カーソル ID が指定されていないときは、ページの初回ロード時のリクエストに偽装する
+            ## カーソル ID が指定されていないときは、ページの初回ロード時のリクエストを再現する
             variables['requestContext'] = 'launch'
-            ## Twitter Web App のリクエストでは seenTweetIds も指定されることが多いが、
-            ## ここでは「PWA のローカルキャッシュが全く残っていないが認証情報はある」際の初回ページロードに偽装する
-            ## seenTweetIds はどうも PWA 側の何らかのツイートキャッシュが1つ以上ある時に指定されるものらしい
-            ## seenTweetIds が1つ以上指定されているとき、本来は invokeGraphQLAPI() の additional_flags に
-            ## {"forcePost": True} を指定する必要があるが、今回は seenTweetIds を指定しないので不要
-        else:
-            ## カーソル ID が指定されているときは、「フォロー中」ボタンをクリックして手動更新をかけた場合に偽装する
-            ## この場合 seenTweetIds は指定されない
-            variables['requestContext'] = 'ptr'
+        if seen_tweet_ids is not None and len(seen_tweet_ids) > 0:
+            ## Twitter Web App では、タイムライン上で閲覧済み扱いになったツイート ID を seenTweetIds として送る
+            ## seenTweetIds は件数が多くなりやすいため (本家では最大150件程度) 、Twitter Web App と同様に forcePost を指定して POST で送信する
+            variables['seenTweetIds'] = seen_tweet_ids
+            additional_flags = {'forcePost': True}
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             endpoint_name='HomeLatestTimeline',
             variables=variables,
+            additional_flags=additional_flags,
             error_message_prefix='タイムラインの取得に失敗しました。',
         )
 

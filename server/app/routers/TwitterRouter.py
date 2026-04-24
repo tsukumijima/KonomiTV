@@ -394,6 +394,10 @@ async def TwitterFavoriteCancelAPI(
 async def TwitterTimelineAPI(
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
+    seen_tweet_ids: Annotated[
+        str | None,
+        Query(description='Twitter Web App 上で閲覧済みとして扱われるツイート ID のカンマ区切りリスト。'),
+    ] = None,
 ):
     """
     ホームタイムラインを取得する。<br>
@@ -402,8 +406,15 @@ async def TwitterTimelineAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    parsed_seen_tweet_ids = [
+        seen_tweet_id
+        for seen_tweet_id in (seen_tweet_ids.split(',') if seen_tweet_ids is not None else [])
+        if seen_tweet_id != ''
+    ]
+
     return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(
         cursor_id = cursor_id,
+        seen_tweet_ids = parsed_seen_tweet_ids,
     )
 
 
