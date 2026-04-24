@@ -62,7 +62,7 @@
 
 import { storeToRefs } from 'pinia';
 import { VList as VirtuaList } from 'virtua/vue';
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
@@ -73,6 +73,9 @@ import Utils from '@/utils';
 
 const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
+
+const SEEN_TWEET_DWELL_MILLISECONDS = 500;
+const SEEN_TWEET_IDS_LIMIT = 300;
 
 const props = defineProps<{
     isTwitterPanelVisible: boolean;
@@ -109,6 +112,12 @@ const shouldAutoFetchTimeline = computed(() => props.isTwitterPanelVisible === t
 // タイムライン更新履歴を管理するための変数
 // ユニークなツイートが得られた更新時の next_cursor_id のみを保持
 const cursorIdHistory = ref<string[]>([]);  // 更新履歴を保持
+
+// Twitter Web App の seenTweetIds に相当する、次回のタイムライン取得時に送信する短期キュー
+// 本家の挙動に合わせ、同一キュー内で同じツイート ID が複数回入ることは許容する
+const pendingSeenTweetIds = ref<string[]>([]);
+const visibleTweetTimers = new Map<string, number>();
+const confirmedVisibleTweetIds = new Set<string>();
 
 // フィルタリング用の状態
 const filterQuery = ref('');
@@ -154,6 +163,91 @@ const flattenedItems = computed(() => {
     }
 
     return items;
+});
+
+// seenTweetIds の送信キューにツイート ID を追加する
+// キューが伸びすぎると KonomiTV API への GET クエリが長くなるため、古い ID から破棄する
+const enqueueSeenTweetId = (tweetId: string) => {
+    pendingSeenTweetIds.value.push(tweetId);
+    if (pendingSeenTweetIds.value.length > SEEN_TWEET_IDS_LIMIT) {
+        pendingSeenTweetIds.value.splice(0, pendingSeenTweetIds.value.length - SEEN_TWEET_IDS_LIMIT);
+    }
+};
+
+// 次回のタイムライン取得で送信する seenTweetIds を取り出し、本家の clearTweets() 相当に合わせてキューを空にする
+const dequeuePendingSeenTweetIds = () => {
+    const seenTweetIds = [...pendingSeenTweetIds.value];
+    pendingSeenTweetIds.value = [];
+    return seenTweetIds;
+};
+
+// 現在 VirtuaList 上で実表示範囲に入っているツイート ID を取得する
+// findStartIndex() / findEndIndex() は overscan を含まない実表示範囲を返すため、描画済みだが見えていないツイートを除外できる
+const getVisibleTweetIds = () => {
+    const visibleTweetIds = new Set<string>();
+    if (!scroller.value) {
+        return visibleTweetIds;
+    }
+
+    const startIndex = scroller.value.findStartIndex();
+    const endIndex = scroller.value.findEndIndex();
+    for (let itemIndex = startIndex; itemIndex <= endIndex; itemIndex++) {
+        const item = flattenedItems.value[itemIndex];
+        if (item && 'text' in item) {
+            visibleTweetIds.add(item.id);
+        }
+    }
+    return visibleTweetIds;
+};
+
+// 実表示範囲に 0.5 秒以上入り続けたツイートを seenTweetIds の送信キューに追加する
+// 一瞬だけ高速スクロールで通過したツイートは、タイマー完了時に表示範囲外になっていれば seen 扱いにしない
+const updateSeenTweetTracking = () => {
+    const visibleTweetIds = getVisibleTweetIds();
+
+    for (const [tweetId, timerId] of visibleTweetTimers.entries()) {
+        if (visibleTweetIds.has(tweetId) === false) {
+            window.clearTimeout(timerId);
+            visibleTweetTimers.delete(tweetId);
+        }
+    }
+
+    for (const tweetId of confirmedVisibleTweetIds) {
+        if (visibleTweetIds.has(tweetId) === false) {
+            confirmedVisibleTweetIds.delete(tweetId);
+        }
+    }
+
+    for (const tweetId of visibleTweetIds) {
+        if (visibleTweetTimers.has(tweetId) || confirmedVisibleTweetIds.has(tweetId)) {
+            continue;
+        }
+
+        const timerId = window.setTimeout(() => {
+            const currentVisibleTweetIds = getVisibleTweetIds();
+            if (currentVisibleTweetIds.has(tweetId)) {
+                enqueueSeenTweetId(tweetId);
+                confirmedVisibleTweetIds.add(tweetId);
+            }
+            visibleTweetTimers.delete(tweetId);
+        }, SEEN_TWEET_DWELL_MILLISECONDS);
+        visibleTweetTimers.set(tweetId, timerId);
+    }
+};
+
+// タイムラインの再初期化時に、未送信キューと表示判定中のタイマーをすべて破棄する
+const clearSeenTweetTracking = () => {
+    for (const timerId of visibleTweetTimers.values()) {
+        window.clearTimeout(timerId);
+    }
+    visibleTweetTimers.clear();
+    confirmedVisibleTweetIds.clear();
+    pendingSeenTweetIds.value = [];
+};
+
+watch(flattenedItems, async () => {
+    await nextTick();
+    updateSeenTweetTracking();
 });
 
 // タイムラインの自動取得を必要に応じて実行
@@ -222,6 +316,7 @@ const fetchTimelineTweets = async () => {
             Message.warning('タイムラインを更新するには、Twitter アカウントと連携してください。');
         }
         timelineItems.value = [];
+        clearSeenTweetTracking();
         isFetching.value = false;
         isFirstFetchCompleted = true;
         return;
@@ -235,8 +330,10 @@ const fetchTimelineTweets = async () => {
         cursor_id = cursorIdHistory.value[cursorIdHistory.value.length - 2];
     }
 
+    const seenTweetIds = dequeuePendingSeenTweetIds();
+
     // タイムラインのツイートを「投稿時刻が新しい順」に取得
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, cursor_id);
+    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, cursor_id, seenTweetIds);
     if (result && result.tweets) {
         result.tweets = result.tweets.filter(tweet => {
             let result = true;
@@ -301,6 +398,8 @@ const fetchTimelineTweets = async () => {
 
         // 仮想スクローラーの描画をリフレッシュ
         refreshScroller();
+        await nextTick();
+        updateSeenTweetTracking();
     }
     isFetching.value = false;
 };
@@ -317,8 +416,10 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
         return;
     }
 
+    const seenTweetIds = dequeuePendingSeenTweetIds();
+
     // タイムラインのツイートを「投稿時刻が新しい順」に取得
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, item.cursor_id);
+    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, item.cursor_id, seenTweetIds);
     if (result && result.tweets) {
         result.tweets = result.tweets.filter(tweet => {
             let result = true;
@@ -377,6 +478,9 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
                 id: `load_more_${result.previous_cursor_id}`,
             });
         }
+
+        await nextTick();
+        updateSeenTweetTracking();
     }
     isFetching.value = false;
 };
@@ -387,6 +491,7 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 watch(selected_twitter_account, () => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
+    clearSeenTweetTracking();
     isInitialFetchPending.value = true;
     isFirstFetchCompleted = false;
     tryAutoFetchTimeline();
@@ -396,6 +501,7 @@ watch(selected_twitter_account, () => {
 watch(showRetweets, () => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
+    clearSeenTweetTracking();
     fetchTimelineTweets();
 });
 
@@ -405,6 +511,8 @@ const checkScrollPosition = () => {
     if (isFetching.value) return;
     // 仮想スクローラーの描画リフレッシュ中なら常にイベントを無視
     if (isRefreshing.value) return;
+
+    updateSeenTweetTracking();
 
     const container = scroller.value.$el;
     const scrollTop = container.scrollTop;
@@ -427,8 +535,16 @@ onMounted(() => {
     nextTick(() => {
         if (scroller.value && scroller.value.$el) {
             scroller.value.$el.addEventListener('scroll', checkScrollPosition);
+            updateSeenTweetTracking();
         }
     });
+});
+
+onUnmounted(() => {
+    if (scroller.value && scroller.value.$el) {
+        scroller.value.$el.removeEventListener('scroll', checkScrollPosition);
+    }
+    clearSeenTweetTracking();
 });
 
 </script>

@@ -317,13 +317,17 @@ class Twitter {
      * ホームタイムラインを取得する
      * @param screen_name Twitter のスクリーンネーム
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
+     * @param seenTweetIds Twitter Web App 上で閲覧済みとして扱われるツイート ID のリスト
      * @returns タイムラインのツイートのリスト
      */
-    static async getHomeTimeline(screen_name: string, cursor_id?: string): Promise<ITimelineTweetsResult | null> {
+    static async getHomeTimeline(screen_name: string, cursor_id?: string, seenTweetIds?: string[]): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/timeline`, {
-            params: { cursor_id },
+            params: {
+                cursor_id,
+                seen_tweet_ids: seenTweetIds && seenTweetIds.length > 0 ? seenTweetIds.join(',') : undefined,
+            },
             // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
             // タイムアウトを 60 秒に設定
             timeout: 60 * 1000,
