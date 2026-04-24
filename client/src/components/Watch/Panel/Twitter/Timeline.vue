@@ -542,6 +542,7 @@ watch(selected_twitter_account, (newTwitterAccount, oldTwitterAccount) => {
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
     clearVisibleTweetTimers();
+    // 離脱元アカウントの表示中判定を破棄し、移動先アカウントにも前回表示時の判定が残っていない状態で再取得する
     clearConfirmedVisibleTweetIds(oldTwitterAccount?.screen_name);
     clearConfirmedVisibleTweetIds(newTwitterAccount?.screen_name);
     isInitialFetchPending.value = true;
