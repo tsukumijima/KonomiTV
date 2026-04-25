@@ -1,7 +1,8 @@
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
---- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp	2026-04-23 02:53:34.030882049 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp	2026-04-23 04:44:15.642284776 +0900
-@@ -340,10 +340,13 @@
+index c2e4856..0974967 100644
+--- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
++++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
+@@ -340,10 +340,13 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
  
      VP_SURFACE *pastSurface   = pipe.GetPastSurface(0);
      VP_SURFACE *futureSurface = pipe.GetFutureSurface(0);
@@ -15,7 +16,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
  
      m_currentFrameIds.valid                     = true;
      m_currentFrameIds.diEnabled                 = nullptr != diFilter;
-@@ -354,7 +357,7 @@
+@@ -354,7 +357,7 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
      m_currentFrameIds.futureFrameAvailable      = futureSurface ? true : false;
  
      // Only set sameSamples flag DI enabled frames.
@@ -24,7 +25,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
          m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
      {
          m_sameSamples   =
-@@ -381,7 +384,7 @@
+@@ -381,7 +384,7 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
          }
      }
      // bSameSamples flag also needs to be set for no reference case
@@ -33,19 +34,19 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
          m_pastFrameIds.diEnabled && m_currentFrameIds.diEnabled && m_isPastFrameVeboxDiUsed)
      {
          m_sameSamples   =
-@@ -404,6 +407,11 @@
+@@ -404,6 +407,11 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
      }
  
      // Swap buffers for next iteration
 +    if (m_isCurrentFrame60fpsDi && !m_sameSamples)
 +    {
-+        m_currentVeboxDiOutput = (m_currentVeboxDiOutput + 1) % m_veboxOutputCount;
++        m_currentVeboxDiOutput = (m_currentVeboxDiOutput + 1) % VP_MAX_NUM_VEBOX_SURFACES;
 +    }
 +
      if (!m_sameSamples)
      {
          m_currentDnOutput   = (m_currentDnOutput + 1) & 1;
-@@ -1718,7 +1726,15 @@
+@@ -1718,7 +1726,15 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
      bSurfCompressible   = inputSurface->osSurface->bCompressible;
      surfCompressionMode = inputSurface->osSurface->CompressionMode;
  
@@ -62,7 +63,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
      {
          // Not switch back to 2 after being set to 4.
          m_veboxOutputCount = 4;
-@@ -1752,6 +1768,70 @@
+@@ -1752,6 +1768,45 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
          m_veboxOutput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
  
          m_veboxOutput[i]->SampleType = SAMPLE_PROGRESSIVE;
@@ -93,34 +94,10 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
 +            m_veboxSameSampleInput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
 +            m_veboxSameSampleInput[i]->SampleType = SAMPLE_PROGRESSIVE;
 +
-+            VP_PUBLIC_CHK_STATUS_RETURN(m_allocator.ReAllocateSurface(
-+                m_veboxPreviousOutputStage[i],
-+                "VeboxPreviousOutputStage",
-+                veboxOutputFormat,
-+                MOS_GFXRES_2D,
-+                veboxOutputTileType,
-+                inputSurface->osSurface->dwWidth,
-+                inputSurface->osSurface->dwHeight,
-+                bSurfCompressible,
-+                surfCompressionMode,
-+                allocated,
-+                false,
-+                IsDeferredResourceDestroyNeeded(),
-+                MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF,
-+                MOS_TILE_UNSET_GMM,
-+                memTypeSurfVideoMem,
-+                isVppInterResourceLocakable));
-+
-+            m_veboxPreviousOutputStage[i]->ColorSpace = inputSurface->ColorSpace;
-+            m_veboxPreviousOutputStage[i]->rcDst      = inputSurface->rcDst;
-+            m_veboxPreviousOutputStage[i]->rcSrc      = inputSurface->rcSrc;
-+            m_veboxPreviousOutputStage[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
-+            m_veboxPreviousOutputStage[i]->SampleType = SAMPLE_PROGRESSIVE;
 +        }
 +        else
 +        {
 +            m_allocator.DestroyVpSurface(m_veboxSameSampleInput[i], IsDeferredResourceDestroyNeeded());
-+            m_allocator.DestroyVpSurface(m_veboxPreviousOutputStage[i], IsDeferredResourceDestroyNeeded());
 +        }
 +
 +    }
@@ -129,20 +106,18 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
 +    {
 +        m_allocator.DestroyVpSurface(m_veboxOutput[i], IsDeferredResourceDestroyNeeded());
 +        m_allocator.DestroyVpSurface(m_veboxSameSampleInput[i], IsDeferredResourceDestroyNeeded());
-+        m_allocator.DestroyVpSurface(m_veboxPreviousOutputStage[i], IsDeferredResourceDestroyNeeded());
      }
  
      if (allocated)
-@@ -1974,6 +2054,8 @@
+@@ -1974,6 +2029,7 @@ void VpResourceManager::DestoryVeboxOutputSurface()
      for (uint32_t i = 0; i < VP_MAX_NUM_VEBOX_SURFACES; i++)
      {
          m_allocator.DestroyVpSurface(m_veboxOutput[i], IsDeferredResourceDestroyNeeded());
 +        m_allocator.DestroyVpSurface(m_veboxSameSampleInput[i], IsDeferredResourceDestroyNeeded());
-+        m_allocator.DestroyVpSurface(m_veboxPreviousOutputStage[i], IsDeferredResourceDestroyNeeded());
      }
  }
  
-@@ -2092,6 +2174,7 @@
+@@ -2092,6 +2148,7 @@ MOS_STATUS VpResourceManager::AllocateVeboxResource(VP_EXECUTE_CAPS& caps, VP_SU
          if (bAllocated)
          {
              m_currentDnOutput   = 0;
@@ -150,7 +125,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
              m_pastDnOutputValid = false;
          }
      }
-@@ -2453,16 +2536,23 @@
+@@ -2453,16 +2510,23 @@ MOS_STATUS VpResourceManager::AssignSurface(VP_EXECUTE_CAPS caps, VEBOX_SURFACE_
          surfGroup.emplace(surfaceType, futureSurface);
          break;
      case VEBOX_SURFACE_FRAME0:
@@ -178,23 +153,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
          break;
      default:
          break;
-@@ -2487,6 +2577,15 @@
-     uint32_t                        i;
-     auto&                           surfGroup = surfSetting.surfGroup;
- 
-+    // Re-evaluate m_isCurrentFrame60fpsDi here because the 2nd-field packet
-+    // (bDiProcess2ndField) is not visible during OnNewFrameProcessStart() where
-+    // the initial value is set from the DI filter parameters. Without this
-+    // update the 2nd-field pass would use the wrong surface rotation index.
-+    if (caps.bDI || caps.bDiProcess2ndField)
-+    {
-+        m_isCurrentFrame60fpsDi = resHint.b60fpsDi || caps.bDiProcess2ndField;
-+    }
-+
-     // Render case reuse vebox resource, and don`t need re-allocate.
-     if (!caps.bRender ||
-         (caps.bRender && caps.bDnKernelUpdate))
-@@ -2496,8 +2591,12 @@
+@@ -2496,8 +2560,12 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
  
      if (caps.bDI || caps.bDiProcess2ndField)
      {
@@ -209,42 +168,40 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
              m_currentFrameIds.futureFrameAvailable, IsInterleaveFirstField(inputSurface->SampleType));
          auto it = m_veboxSurfaceConfigMap.find(cfg.value);
          if (m_veboxSurfaceConfigMap.end() == it)
-@@ -2518,6 +2617,13 @@
+@@ -2518,6 +2586,10 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastInputSurface, SurfaceTypeVeboxPreviousInput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.currentOutputSurface, SurfaceTypeVeboxCurrentOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastOutputSurface, SurfaceTypeVeboxPreviousOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
 +        if (b60fpsDi)
 +        {
 +            surfGroup.emplace(SurfaceTypeVeboxSameSampleInput, m_veboxSameSampleInput[(m_currentVeboxDiOutput + 1) % m_veboxOutputCount]);
-+            surfGroup.emplace(
-+                SurfaceTypeVeboxPreviousOutputStage,
-+                m_veboxPreviousOutputStage[(m_currentVeboxDiOutput + 1) % m_veboxOutputCount]);
 +        }
  
          if (caps.bDN)
          {
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
---- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h	2026-04-23 02:53:34.030882049 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h	2026-04-19 23:32:27.548160282 +0900
-@@ -36,7 +36,7 @@
+index 3d7cb7c..97896c7 100644
+--- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
++++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
+@@ -36,8 +36,7 @@
  #include "media_copy_wrapper.h"
  #include "vp_graph_manager.h"
  
 -#define VP_MAX_NUM_VEBOX_SURFACES     4                                       //!< Vebox output surface creation, also can be reuse for DI usage:
-+#define VP_MAX_NUM_VEBOX_SURFACES     14                                      //!< Vebox output surface creation, also can be reuse for DI usage:
-                                                                               //!< for DI: 2 for ADI plus additional 2 for parallel execution
+-                                                                              //!< for DI: 2 for ADI plus additional 2 for parallel execution
++#define VP_MAX_NUM_VEBOX_SURFACES     8                                       //!< Vebox output surfaces for DI and parallel execution
  #define VP_NUM_DN_SURFACES           2                                       //!< Number of DN output surfaces
  #define VP_NUM_STMM_SURFACES         2                                       //!< Number of STMM statistics surfaces
-@@ -506,6 +506,8 @@
+ #define VP_DNDI_BUFFERS_MAX          4                                       //!< Max DNDI buffers
+@@ -506,6 +505,7 @@ protected:
      // Vebox Resource
      VP_SURFACE* m_veboxDenoiseOutput[VP_NUM_DN_SURFACES]     = {};            //!< Vebox Denoise output surface
      VP_SURFACE* m_veboxOutput[VP_MAX_NUM_VEBOX_SURFACES]     = {};            //!< Vebox output surface, can be reuse for DI usages
 +    VP_SURFACE* m_veboxSameSampleInput[VP_MAX_NUM_VEBOX_SURFACES] = {};       //!< Dedicated same-sample input surfaces for 60fps DI
-+    VP_SURFACE* m_veboxPreviousOutputStage[VP_MAX_NUM_VEBOX_SURFACES] = {};   //!< Shared previous-output staging surfaces used by 60fps DI
      VP_SURFACE* m_veboxSTMMSurface[VP_NUM_STMM_SURFACES]     = {};            //!< Vebox STMM input/output surface
      VP_SURFACE *m_veboxStatisticsSurface                     = nullptr;       //!< Statistics Surface for VEBOX
      VP_SURFACE *m_veboxStatisticsSurfacefor1stPassofSfc2Pass = nullptr;       //!< Statistics Surface for VEBOX for 1stPassofSfc2Pass submission
-@@ -521,6 +523,7 @@
+@@ -521,6 +521,7 @@ protected:
      VP_SURFACE *m_veboxDnHVSTables                           = nullptr;
      VP_SURFACE *m_3DLutKernelCoefSurface                     = nullptr;       //!< Coef surface for 3DLut kernel.
      uint32_t    m_currentDnOutput                            = 0;
@@ -252,7 +209,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
      uint32_t    m_currentStmmIndex                           = 0;
      uint32_t    m_veboxOutputCount                           = 2;             //!< PE on: 4 used. PE off: 2 used
      bool        m_pastDnOutputValid                          = false;         //!< true if vebox DN output of previous frame valid.
-@@ -528,6 +531,7 @@
+@@ -528,6 +529,7 @@ protected:
      VP_FRAME_IDS m_pastFrameIds                              = {};
      bool         m_firstFrame                                = true;
      bool         m_sameSamples                               = false;
@@ -261,20 +218,55 @@ diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.
      RECT         m_maxSrcRect                                = {};
      VEBOX_SURFACE_CONFIG_MAP m_veboxSurfaceConfigMap;
 diff --git a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
---- a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h	2026-04-23 02:53:34.031882079 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h	2026-04-19 23:32:27.548160282 +0900
-@@ -59,6 +59,8 @@
+index a4d0da0..0d6af48 100644
+--- a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
++++ b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
+@@ -59,6 +59,7 @@ enum SurfaceType
      SurfaceTypeDNOutput                 = SurfaceTypeGeneralEnd + 0x300,
      SurfaceTypeVeboxCurrentOutput       = SurfaceTypeGeneralEnd + 0x400,
      SurfaceTypeVeboxPreviousOutput      = SurfaceTypeGeneralEnd + 0x500,
 +    SurfaceTypeVeboxSameSampleInput     = SurfaceTypeGeneralEnd + 0x580,
-+    SurfaceTypeVeboxPreviousOutputStage = SurfaceTypeGeneralEnd + 0x5c0,
      SurfaceTypeScalar                   = SurfaceTypeGeneralEnd + 0x600,
      SurfaceTypeSTMMIn                   = SurfaceTypeGeneralEnd + 0x700,
      SurfaceTypeSTMMOut                  = SurfaceTypeGeneralEnd + 0x800,
+diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
+index bcd74bf..7fa0f02 100644
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
+@@ -26,6 +26,7 @@
+ #include "media_context.h"
+ #include "vp_feature_manager.h"
+ #include "vp_platform_interface.h"
++#include "vp_vebox_cmd_packet.h"
+ 
+ using namespace vp;
+ 
+@@ -355,6 +356,14 @@ MOS_STATUS PacketPipe::Execute(MediaStatusReport *statusReport, MediaScalability
+             VP_PUBLIC_NORMALMESSAGE("Execute Packet %p.", pPacket);
+ 
+             VP_PUBLIC_CHK_STATUS_RETURN(pTask->Submit(true, scalability, nullptr, pPacket->IsLevelzeroRuntimeInUse()));
++
++            VpVeboxCmdPacket *veboxPacket = dynamic_cast<VpVeboxCmdPacket *>(pPacket);
++            if (veboxPacket != nullptr)
++            {
++                // Queue VEBOX-specific staging copy work after the VEBOX
++                // producer command buffer has been submitted.
++                VP_PUBLIC_CHK_STATUS_RETURN(veboxPacket->SubmitStagingCopies());
++            }
+         }
+ 
+ #if USE_MEDIA_DEBUG_TOOL
+@@ -428,4 +437,4 @@ void PacketPipeFactory::ReturnPacketPipe(PacketPipe *&pPipe)
+         VP_PUBLIC_ASSERTMESSAGE("packetPipe %p is existing in m_Pool!, m_Pool size is %d.", pPipe, (uint32_t)m_Pool.size());
+     }
+     pPipe = nullptr;
+-}
+\ No newline at end of file
++}
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
---- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h	2026-04-23 02:53:34.033882140 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h	2026-04-23 04:33:21.816912417 +0900
+index b082cd9..c38a277 100644
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
 @@ -22,11 +22,14 @@
  #ifndef __VP_PACKET_SHARED_CONTEXT_H__
  #define __VP_PACKET_SHARED_CONTEXT_H__
@@ -290,7 +282,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_contex
  
      struct
      {
-@@ -83,4 +86,4 @@
+@@ -83,4 +86,4 @@ struct VP_PACKET_SHARED_CONTEXT
  };
  };
  
@@ -298,8 +290,9 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_contex
 \ No newline at end of file
 +#endif // !__VP_PACKET_SHARED_CONTEXT_H__
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
---- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp	2026-04-23 02:53:34.035882200 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp	2026-04-23 04:33:21.818912515 +0900
+index 9e3ddd9..df67036 100644
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 @@ -38,6 +38,7 @@
  #include "mhw_mi_cmdpar.h"
  #include "mhw_utilities.h"
@@ -308,7 +301,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
  #include "renderhal_platform_interface_next.h"
  
  #define SURFACE_DW_UY_OFFSET(pSurface) \
-@@ -2759,9 +2760,6 @@
+@@ -2759,9 +2760,6 @@ MOS_STATUS VpVeboxCmdPacket::SetUpdatedExecuteResource(
      m_allocator->UpdateResourceUsageType(&inputSurface->osSurface->OsResource, MOS_HW_RESOURCE_USAGE_VP_INPUT_PICTURE_FF);
      m_allocator->UpdateResourceUsageType(&outputSurface->osSurface->OsResource, MOS_HW_RESOURCE_USAGE_VP_OUTPUT_PICTURE_FF);
  
@@ -318,12 +311,11 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
      // Init packet surface params.
      m_surfSetting                                   = surfSetting;
      m_veboxPacketSurface.pCurrInput                 = GetSurface(SurfaceTypeVeboxInput);
-@@ -2772,9 +2770,13 @@
+@@ -2772,9 +2770,12 @@ MOS_STATUS VpVeboxCmdPacket::SetUpdatedExecuteResource(
      m_veboxPacketSurface.pSTMMOutput                = GetSurface(SurfaceTypeSTMMOut);
      m_veboxPacketSurface.pDenoisedCurrOutput        = GetSurface(SurfaceTypeDNOutput);
      m_veboxPacketSurface.pPrevOutput                = GetSurface(SurfaceTypeVeboxPreviousOutput);
 +    m_veboxPacketSurface.pSameSampleInput           = GetSurface(SurfaceTypeVeboxSameSampleInput);
-+    m_veboxPacketSurface.pPrevOutputStage           = GetSurface(SurfaceTypeVeboxPreviousOutputStage);
      m_veboxPacketSurface.pAlphaOrVignette           = GetSurface(SurfaceTypeAlphaOrVignette);
      m_veboxPacketSurface.pLaceOrAceOrRgbHistogram   = GetSurface(SurfaceTypeLaceAceRGBHistogram);
      m_veboxPacketSurface.pSurfSkinScoreOutput       = GetSurface(SurfaceTypeSkinScore);
@@ -332,7 +324,7 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
  
      VP_RENDER_CHK_NULL_RETURN(m_veboxPacketSurface.pCurrInput);
      VP_RENDER_CHK_NULL_RETURN(m_veboxPacketSurface.pStatisticsOutput);
-@@ -2800,15 +2802,18 @@
+@@ -2800,15 +2801,18 @@ MOS_STATUS VpVeboxCmdPacket::PacketInit(
      VP_FUNC_CALL();
  
      VpVeboxRenderData       *pRenderData = GetLastExecRenderData();
@@ -351,28 +343,42 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
  
      VP_RENDER_CHK_STATUS_RETURN(Init());
      VP_RENDER_CHK_NULL_RETURN(m_allocator);
-@@ -2834,6 +2839,8 @@
+@@ -2834,6 +2838,7 @@ MOS_STATUS VpVeboxCmdPacket::PacketInit(
      m_veboxPacketSurface.pSTMMOutput                = GetSurface(SurfaceTypeSTMMOut);
      m_veboxPacketSurface.pDenoisedCurrOutput        = GetSurface(SurfaceTypeDNOutput);
      m_veboxPacketSurface.pPrevOutput                = GetSurface(SurfaceTypeVeboxPreviousOutput);
 +    m_veboxPacketSurface.pSameSampleInput           = GetSurface(SurfaceTypeVeboxSameSampleInput);
-+    m_veboxPacketSurface.pPrevOutputStage           = GetSurface(SurfaceTypeVeboxPreviousOutputStage);
      m_veboxPacketSurface.pAlphaOrVignette           = GetSurface(SurfaceTypeAlphaOrVignette);
      m_veboxPacketSurface.pLaceOrAceOrRgbHistogram   = GetSurface(SurfaceTypeLaceAceRGBHistogram);
      m_veboxPacketSurface.pSurfSkinScoreOutput       = GetSurface(SurfaceTypeSkinScore);
-@@ -2940,6 +2947,45 @@
-     // Send vebox command
-     VP_RENDER_CHK_STATUS_RETURN(SendVeboxCmd(commandBuffer));
+@@ -2948,6 +2953,44 @@ MOS_STATUS VpVeboxCmdPacket::Submit(MOS_COMMAND_BUFFER* commandBuffer, uint8_t p
+     return eStatus;
+ }
  
++MOS_STATUS VpVeboxCmdPacket::SubmitStagingCopies()
++{
++    VP_FUNC_CALL();
++
++    // Calling the staging copy from Submit() queues GPU copy work before the
++    // VEBOX command buffer is submitted to the kernel because Submit() only
++    // records the command buffer. Running these copies after the task submit
++    // keeps the existing staging behavior while making the copies queue after
++    // the VEBOX work that produces pCurrOutput.
++
++    const bool currentOutputProduced =
++        m_DIOutputFrames == MEDIA_VEBOX_DI_OUTPUT_CURRENT ||
++        m_DIOutputFrames == MEDIA_VEBOX_DI_OUTPUT_BOTH;
++
 +    // 60fps DI reuses FRAME1 as the input of the following same-sample packet.
-+    // Only the packet that outputs BOTH previous/current fields needs this
-+    // handoff copy. Restricting the copy to that case avoids perturbing the
-+    // 30i->30p SFC path, which can transiently report a 60fps hint on the
-+    // first packet even though it never consumes a same-sample input.
++    // After FRAME1 is replaced with a dedicated staging surface, every packet
++    // that produces a current output has to refresh that staging surface. This
++    // includes first/no-reference packets where VEBOX emits CURRENT only;
++    // restricting the copy to BOTH leaves stale pixels in the same-sample input
++    // and causes alternating or old-field flicker after reference resets.
 +    if (m_mediaCopyWrapper != nullptr &&
 +        m_PacketCaps.bDI &&
 +        m_PacketCaps.bSFC &&
-+        m_DIOutputFrames == MEDIA_VEBOX_DI_OUTPUT_BOTH &&
++        currentOutputProduced &&
 +        m_veboxPacketSurface.pCurrOutput != nullptr &&
 +        m_veboxPacketSurface.pSameSampleInput != nullptr &&
 +        m_veboxPacketSurface.pCurrOutput->osSurface != nullptr &&
@@ -384,31 +390,21 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 +            MCPY_METHOD_BALANCE));
 +    }
 +
-+    // The next non-same packet in 60fps DI reuses the current output from the
-+    // previous packet as its previous output. Keep this staging separate from
-+    // the 30p path while preserving the existing shared-stage wiring on 60p to
-+    // avoid excessive surface pressure.
-+    if (m_mediaCopyWrapper != nullptr &&
-+        m_PacketCaps.bDI &&
-+        m_PacketCaps.bSFC &&
-+        m_DIOutputFrames == MEDIA_VEBOX_DI_OUTPUT_BOTH &&
-+        m_veboxPacketSurface.pCurrOutput != nullptr &&
-+        m_veboxPacketSurface.pPrevOutputStage != nullptr &&
-+        m_veboxPacketSurface.pCurrOutput->osSurface != nullptr &&
-+        m_veboxPacketSurface.pPrevOutputStage->osSurface != nullptr)
-+    {
-+        VP_RENDER_CHK_STATUS_RETURN(m_mediaCopyWrapper->MediaCopy(
-+            &m_veboxPacketSurface.pCurrOutput->osSurface->OsResource,
-+            &m_veboxPacketSurface.pPrevOutputStage->osSurface->OsResource,
-+            MCPY_METHOD_PERFORMANCE));
-+    }
++    return MOS_STATUS_SUCCESS;
++}
 +
- #if (_DEBUG || _RELEASE_INTERNAL)
-     // Debug interface with state heap check
-     VP_RENDER_CHK_STATUS_RETURN(DumpVeboxStateHeap())
+ void VpVeboxCmdPacket::CopySurfaceValue(
+     VP_SURFACE                  *pTargetSurface,
+     VP_SURFACE                  *pSourceSurface)
+@@ -4521,4 +4564,3 @@ MHW_CSPACE VpVeboxCmdPacket::VpHalCspace2MhwCspace(VPHAL_CSPACE cspace)
+ }
+ 
+ }
+-
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
---- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-23 02:53:34.035882200 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h	2026-04-19 23:32:27.548160282 +0900
+index 42c50f3..611fa22 100644
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 @@ -34,6 +34,7 @@
  #include "mhw_mi_itf.h"
  #include "vp_render_sfc_base.h"
@@ -417,16 +413,24 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b
  
  #define VP_MAX_NUM_FFDI_SURFACES     4                                       //!< 2 for ADI plus additional 2 for parallel execution on HSW+
  #define VP_NUM_FFDN_SURFACES         2                                       //!< Number of FFDN surfaces
-@@ -297,6 +298,8 @@
+@@ -297,6 +298,7 @@ typedef struct _VEBOX_PACKET_SURFACE_PARAMS
      VP_SURFACE                      *pDenoisedCurrOutput;
      VP_SURFACE                      *pCurrOutput;           //!< Current Vebox Output
      VP_SURFACE                      *pPrevOutput;
 +    VP_SURFACE                      *pSameSampleInput;
-+    VP_SURFACE                      *pPrevOutputStage;
      VP_SURFACE                      *pStatisticsOutput;
      VP_SURFACE                      *pAlphaOrVignette;
      VP_SURFACE                      *pLaceOrAceOrRgbHistogram;
-@@ -982,6 +985,7 @@
+@@ -351,6 +353,8 @@ public:
+ 
+     virtual MOS_STATUS Submit(MOS_COMMAND_BUFFER* commandBuffer, uint8_t packetPhase = otherPacket) override;
+ 
++    MOS_STATUS SubmitStagingCopies();
++
+     virtual MOS_STATUS Init() override;
+ 
+     virtual MOS_STATUS Destory() { return MOS_STATUS_SUCCESS; };
+@@ -982,6 +986,7 @@ public:
  #endif
  
  protected:
@@ -435,9 +439,10 @@ diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b
      //!
      //! \brief    Doing prepare stage tasks for SendVeboxCmd
 diff --git a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
---- a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp	2026-04-23 02:53:34.035882200 +0900
-+++ b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp	2026-04-23 04:33:21.817912466 +0900
-@@ -309,6 +309,7 @@
+index 9ccd685..9299b18 100644
+--- a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
++++ b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
+@@ -309,6 +309,7 @@ MOS_STATUS VpPipeline::CreatePacketSharedContext()
  
      m_packetSharedContext = MOS_New(VP_PACKET_SHARED_CONTEXT);
      VP_PUBLIC_CHK_NULL_RETURN(m_packetSharedContext);
