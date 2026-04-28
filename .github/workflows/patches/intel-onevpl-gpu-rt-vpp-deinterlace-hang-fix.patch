@@ -1,85 +1,106 @@
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
-index 0d5c23c..0810244 100644
+index 0d5c23c..c048d2c 100644
 --- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
 +++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
-@@ -28,10 +28,24 @@
- #include "hevcehw_base_task.h"
- #include "hevcehw_base_legacy.h"
- #include <climits>
-+#include <limits>
- 
+@@ -32,6 +32,33 @@
  using namespace HEVCEHW;
  using namespace HEVCEHW::Base;
  
 +namespace
 +{
-+inline bool IsAdaptiveCqmSupportedOnPlatform(eMFXHWType hwType)
++inline bool IsMain10Encode(const mfxVideoParam& video)
 +{
-+    return hwType != MFX_HW_ARL;
++    const mfxExtCodingOption3* pExtOpt3 = ExtBuffer::Get(video);
++
++    return video.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10 ||
++        video.mfx.FrameInfo.BitDepthLuma == 10 ||
++        (pExtOpt3 != nullptr && pExtOpt3->TargetBitDepthLuma == 10);
 +}
 +
-+inline mfxU16 GetPlatformLookAheadDepthLimit(eMFXHWType hwType)
++inline bool IsLookAheadSupportedOnPlatform(eMFXHWType hwType, const mfxVideoParam& video)
 +{
-+    return hwType == MFX_HW_ARL ? 55 : std::numeric_limits<mfxU16>::max();
++    return hwType != MFX_HW_ARL || !IsMain10Encode(video);
++}
++
++inline bool IsAdaptiveGopSupportedOnPlatform(eMFXHWType hwType, const mfxVideoParam& video)
++{
++    return hwType != MFX_HW_ARL || !IsMain10Encode(video);
++}
++
++inline bool IsEncToolsInternalConfigSupportedOnPlatform(eMFXHWType hwType)
++{
++    return hwType != MFX_HW_ARL;
 +}
 +}
 +
  void HevcEncTools::SetSupported(ParamSupport& blocks)
  {
      blocks.m_ebCopySupported[MFX_EXTBUFF_ENCTOOLS_CONFIG].emplace_back(
-@@ -418,7 +432,11 @@ void HevcEncTools::SetDefaultConfig(const mfxVideoParam &video, mfxExtEncToolsCo
-        SetDefaultOpt(config.BRCBufferHints, bLA);
-        SetDefaultOpt(config.AdaptivePyramidQuantP, bLA);
-        SetDefaultOpt(config.AdaptivePyramidQuantB, bLA);
--       SetDefaultOpt(config.AdaptiveQuantMatrices, bLA && !IsOff(pExtOpt3->AdaptiveCQM));
-+       SetDefaultOpt(
-+           config.AdaptiveQuantMatrices,
-+           bLA &&
-+           !IsOff(pExtOpt3->AdaptiveCQM) &&
-+           IsAdaptiveCqmSupportedOnPlatform(m_hwType));
-        SetDefaultOpt(config.AdaptiveI, bLA && bAdaptiveI);
-        SetDefaultOpt(config.AdaptiveB, bLA && bAdaptiveB);
-        SetDefaultOpt(config.AdaptiveMBQP, bLA && bMBQPSupport && IsOn(pExtOpt2->MBBRC) );
-@@ -435,6 +453,28 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
+@@ -433,8 +460,38 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
+     mfxExtBRC             *pBRC = ExtBuffer::Get(video);
+     mfxExtEncToolsConfig  *pConfig = ExtBuffer::Get(video);
  
-     bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
+-    bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
      mfxU32 changed = 0;
-+    const mfxU16 lookAheadDepthLimit = GetPlatformLookAheadDepthLimit(m_hwType);
-+
-+    // Keep deep lookahead below the platform-specific limit before EncTools
-+    // derives its internal queues from the public coding option buffer.
-+    if (pExtOpt2 != nullptr && pExtOpt2->LookAheadDepth > lookAheadDepthLimit)
++    if (pExtOpt2 != nullptr && !IsLookAheadSupportedOnPlatform(m_hwType, video))
 +    {
-+        pExtOpt2->LookAheadDepth = lookAheadDepthLimit;
++        pExtOpt2->LookAheadDepth = 0;
 +        changed++;
 +    }
 +
-+    // Report the platform restriction through the regular parameter
-+    // correction path so applications can observe the resulting configuration
-+    // before initialization continues.
-+    if (!IsAdaptiveCqmSupportedOnPlatform(m_hwType))
++    // Adaptive GOP control depends on the same EncTools lookahead state. Keep
++    // it disabled together with lookahead on platforms where the Main10 path is
++    // restricted.
++    if (pExtOpt2 != nullptr && !IsAdaptiveGopSupportedOnPlatform(m_hwType, video))
 +    {
-+        if (pExtOpt3 != nullptr && IsOn(pExtOpt3->AdaptiveCQM))
++        if (pExtOpt2->AdaptiveI != MFX_CODINGOPTION_OFF)
 +        {
-+            pExtOpt3->AdaptiveCQM = MFX_CODINGOPTION_OFF;
++            pExtOpt2->AdaptiveI = MFX_CODINGOPTION_OFF;
 +            changed++;
 +        }
-+        supportedConfig.AdaptiveQuantMatrices = MFX_CODINGOPTION_OFF;
++        if (pExtOpt2->AdaptiveB != MFX_CODINGOPTION_OFF)
++        {
++            pExtOpt2->AdaptiveB = MFX_CODINGOPTION_OFF;
++            changed++;
++        }
++        supportedConfig.AdaptiveI = MFX_CODINGOPTION_OFF;
++        supportedConfig.AdaptiveB = MFX_CODINGOPTION_OFF;
 +    }
++
++    if (m_hwType == MFX_HW_ARL && pExtOpt3 != nullptr)
++    {
++        changed += SetIf(pExtOpt3->AdaptiveCQM, pExtOpt3->AdaptiveCQM != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++    }
++
++    bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
  
  #ifdef MFX_ENABLE_ENCTOOLS_LPLA
      if (IsGameStreaming(video))
-@@ -454,7 +494,9 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
-         bool bAdaptiveI = !(pExtOpt2 && IsOff(pExtOpt2->AdaptiveI)) && !(video.mfx.GopOptFlag & MFX_GOP_STRICT);
-         bool bAdaptiveB = !(pExtOpt2 && IsOff(pExtOpt2->AdaptiveB)) && !(video.mfx.GopOptFlag & MFX_GOP_STRICT);
-         bool bAdaptiveRef = IsAdaptiveRefAllowed(video);
--        bool bAdaptiveCQM = !(pExtOpt3 && IsOff(pExtOpt3->AdaptiveCQM));
-+        bool bAdaptiveCQM =
-+            !(pExtOpt3 && IsOff(pExtOpt3->AdaptiveCQM)) &&
-+            IsAdaptiveCqmSupportedOnPlatform(m_hwType);
- 
-         changed += CheckFlag(pConfig->AdaptiveI, bIsEncToolsEnabled && bAdaptiveI);
-         changed += CheckFlag(pConfig->AdaptiveB, bIsEncToolsEnabled && bAdaptiveB);
+@@ -481,6 +538,24 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
+         changed += CheckFlag(pConfig->AdaptiveQuantMatrices, IsOn(supportedConfig.AdaptiveQuantMatrices));
+         changed += CheckFlag(pConfig->BRC, IsOn(supportedConfig.BRC));
+         changed += CheckFlag(pConfig->AdaptiveMBQP, IsOn(supportedConfig.AdaptiveMBQP));
++
++        if (!IsEncToolsInternalConfigSupportedOnPlatform(m_hwType))
++        {
++            changed += SetIf(pConfig->AdaptiveI, pConfig->AdaptiveI != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveB, pConfig->AdaptiveB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveLTR, pConfig->AdaptiveLTR != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveRefP, pConfig->AdaptiveRefP != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveRefB, pConfig->AdaptiveRefB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveQuantMatrices, pConfig->AdaptiveQuantMatrices != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->BRC, pConfig->BRC != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveMBQP, pConfig->AdaptiveMBQP != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++        }
++
++        if (!IsAdaptiveGopSupportedOnPlatform(m_hwType, video))
++        {
++            changed += SetIf(pConfig->AdaptiveI, pConfig->AdaptiveI != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++            changed += SetIf(pConfig->AdaptiveB, pConfig->AdaptiveB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
++        }
+     }
+     if (pExtOpt2)
+     {
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools_com.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools_com.cpp
 index da47acc..db3bdda 100644
 --- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools_com.cpp
@@ -116,3 +137,32 @@ index da47acc..db3bdda 100644
  
              mfxEncTools* pEncTools = GetEncTools(par);
              bool bCreated = false;
+diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
+index 33d2c30..0af33f3 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
+@@ -57,6 +57,7 @@ namespace Base
+     DECL_BLOCK(CheckHeaders         )\
+     DECL_BLOCK(CheckLCUSize         )\
+     DECL_BLOCK(CheckFormat          )\
++    DECL_BLOCK(CheckPlatformCodingOptions)\
+     DECL_BLOCK(CheckLowDelayBRC     )\
+     DECL_BLOCK(CheckLevel           )\
+     DECL_BLOCK(CheckSurfSize        )\
+diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
+index 94b3371..2f1c08a 100644
+--- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
++++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
+@@ -855,6 +855,12 @@ public:
+         bool bON                        = bPassThrough && IsOn(pCO2->MBBRC);
+         bool bOFF                       = bPassThrough && IsOff(pCO2->MBBRC);
+ 
++        // ARL HEVC Main10 uses the VDEnc P010 input path. Per-MB rate control
++        // adds per-CU control buffers to the same submission and is not enabled
++        // for that platform path, so keep both the default and explicit
++        // tri-state value on the regular non-PerMBRC path.
++        bOFF |= par.hw == MFX_HW_ARL && par.base.GetTargetBitDepthLuma(par) == 10;
++
+         bOFF |= !bPassThrough
+             && (   par.base.GetRateControlMethod(par) == MFX_RATECONTROL_CQP
+                 || Legacy::IsSWBRC(par.mvp)

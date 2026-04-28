@@ -1,5 +1,723 @@
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
+index 09fd243..2183194 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
+@@ -51,8 +51,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe_Hpm(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManagerXe_Xpm_Base(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManagerXe_Xpm_Base(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe_Hpm deconstructor
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
+index 4e71e7c..2153531 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
+@@ -95,7 +95,7 @@ MOS_STATUS HevcVdencPipelineXe_Hpm::Init(void *settings)
+ MOS_STATUS HevcVdencPipelineXe_Hpm::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Hpm, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Hpm, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+@@ -149,4 +149,4 @@ MOS_STATUS HevcVdencPipelineXe_Hpm::HuCCheckAndInit()
+     return MOS_STATUS_SUCCESS;
+ }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
+index f811275..116ad0d 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
+@@ -87,7 +87,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe_Xpm_Base::CreateFeatures(void *constS
+     ENCODE_CHK_NULL_RETURN(setting);
+     setting->SetOsInterface(m_hwInterface->GetOsInterface());
+ 
+-    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, constSettings);
++    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, m_mediaCopyWrapper, constSettings);
+     ENCODE_CHK_STATUS_RETURN(RegisterFeatures(HevcFeatureIDs::basicFeature, encBasic));
+ 
+     HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
+index 221381b..3ea4feb 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
+@@ -54,8 +54,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe_Xpm_Base(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe_Xpm_Base deconstructor
+diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
+index abe535d..cd506c0 100644
+--- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
++++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
+@@ -283,7 +283,7 @@ MOS_STATUS HevcVdencPipelineXe_Xpm_Base::InitMmcState()
+ MOS_STATUS HevcVdencPipelineXe_Xpm_Base::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Xpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Xpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
+index d36495b..41a066b 100644
+--- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
++++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
+@@ -39,8 +39,9 @@ public:
+                                     CodechalHwInterfaceNext *hwInterface,
+                                     TrackedBuffer *trackedBuf,
+                                     RecycleResource *recycleBuf,
++                                    MediaCopyWrapper *mediaCopyWrapper,
+                                     void *constSettings = nullptr) :
+-                                    HevcBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf, constSettings) {}
++                                    HevcBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper, constSettings) {}
+ 
+     virtual ~HevcBasicFeatureXe2_Lpm_Base() {}
+ 
+diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
+index 2267816..2f6920a 100644
+--- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
++++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
+@@ -49,7 +49,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe2_Lpm_Base::CreateFeatures(void *const
+     ENCODE_CHK_NULL_RETURN(setting);
+     setting->SetOsInterface(m_hwInterface->GetOsInterface());
+ 
+-    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeatureXe2_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, constSettings);
++    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeatureXe2_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, m_mediaCopyWrapper, constSettings);
+     ENCODE_CHK_STATUS_RETURN(RegisterFeatures(HevcFeatureIDs::basicFeature, encBasic, {HevcPipeline::encodePreEncPacket}));
+ 
+     HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
+diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
+index 5402a58..64fbdb5 100644
+--- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
++++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
+@@ -57,8 +57,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe2_Lpm_Base(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe2_Lpm_Base deconstructor
+@@ -111,4 +112,3 @@ MEDIA_CLASS_DEFINE_END(encode__EncodeHevcVdencFeatureManagerXe2_Lpm_Base)
+ 
+ }
+ #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE2_LPM_BASE_H__
+-
+diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
+index 58ecd55..948261d 100644
+--- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
++++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
+@@ -120,7 +120,7 @@ MOS_STATUS HevcVdencPipelineXe2_Lpm_Base::Init(void *settings)
+ MOS_STATUS HevcVdencPipelineXe2_Lpm_Base::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe2_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe2_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+@@ -370,4 +370,3 @@ MOS_STATUS HevcVdencPipelineXe2_Lpm_Base::InitMmcState()
+ }
+ 
+ }
+-
+diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
+index 4932a30..1c73c3a 100644
+--- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
++++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
+@@ -39,7 +39,8 @@ public:
+         CodechalHwInterfaceNext                  *hwInterface,
+         TrackedBuffer                            *trackedBuf,
+         RecycleResource                          *recycleBuf,
+-        void                                     *constSettings = nullptr) : HevcBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf, constSettings) {}
++        MediaCopyWrapper                         *mediaCopyWrapper,
++        void                                     *constSettings = nullptr) : HevcBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper, constSettings) {}
+ 
+     virtual ~HevcBasicFeatureXe3_Lpm_Base() {}
+ 
+diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
+index 4f03395..861b46e 100644
+--- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
++++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
+@@ -50,7 +50,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe3_Lpm_Base::CreateFeatures(void *const
+     ENCODE_CHK_NULL_RETURN(setting);
+     setting->SetOsInterface(m_hwInterface->GetOsInterface());
+ 
+-    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeatureXe3_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, constSettings);
++    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeatureXe3_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, m_mediaCopyWrapper, constSettings);
+     ENCODE_CHK_STATUS_RETURN(RegisterFeatures(HevcFeatureIDs::basicFeature, encBasic, {HevcPipeline::encodePreEncPacket}));
+ 
+     HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
+diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
+index 5da4ae2..13dee55 100644
+--- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
++++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
+@@ -57,8 +57,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe3_Lpm_Base(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe3_Lpm_Base deconstructor
+@@ -111,4 +112,3 @@ MEDIA_CLASS_DEFINE_END(encode__EncodeHevcVdencFeatureManagerXe3_Lpm_Base)
+ 
+ }
+ #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE3_LPM_BASE_H__
+-
+diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
+index a77d18e..8daab33 100644
+--- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
++++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
+@@ -106,7 +106,7 @@ MOS_STATUS HevcVdencPipelineXe3_Lpm_Base::Init(void *settings)
+ MOS_STATUS HevcVdencPipelineXe3_Lpm_Base::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe3_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe3_Lpm_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+@@ -356,4 +356,3 @@ MOS_STATUS HevcVdencPipelineXe3_Lpm_Base::InitMmcState()
+ }
+ 
+ }
+-
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
+index f4b4362..51b47f7 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
++++ b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
+@@ -52,8 +52,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe2_Hpm(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe2_Hpm deconstructor
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
+index da682be..fa3fb88 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
++++ b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
+@@ -112,7 +112,7 @@ MOS_STATUS HevcVdencPipelineXe2_Hpm::Init(void *settings)
+ MOS_STATUS HevcVdencPipelineXe2_Hpm::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe2_Hpm, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe2_Hpm, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
+index 5191d32..e5ca8b3 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
+@@ -51,8 +51,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe_Lpm_Plus(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe_Lpm_Plus deconstructor
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
+index 5e5792b..fc198df 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
+@@ -40,7 +40,7 @@ HevcVdencPipelineXe_Lpm_Plus::HevcVdencPipelineXe_Lpm_Plus(
+ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Lpm_Plus, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Lpm_Plus, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+@@ -80,4 +80,3 @@ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus::ActivateVdencVideoPackets()
+ }
+ 
+ }
+-
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
+index 47bef17..497c358 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
+@@ -47,7 +47,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base::CreateFeatures(void *c
+     ENCODE_CHK_NULL_RETURN(setting);
+     setting->SetOsInterface(m_hwInterface->GetOsInterface());
+ 
+-    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, constSettings);
++    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, m_mediaCopyWrapper, constSettings);
+     ENCODE_CHK_STATUS_RETURN(RegisterFeatures(HevcFeatureIDs::basicFeature, encBasic, {HevcPipeline::encodePreEncPacket}));
+ 
+     HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
+index b719c41..92bb7d9 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
+@@ -56,8 +56,9 @@ public:
+     EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
+-                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf){};
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
++                             EncodeHevcVdencFeatureManager(allocator, hwInterface, trackedBuf, recycleBuf, mediaCopyWrapper){};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base deconstructor
+@@ -103,4 +104,3 @@ MEDIA_CLASS_DEFINE_END(encode__EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base)
+ 
+ }
+ #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE_LPM_PLUS_BASE_H__
+-
+diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
+index 5c916c2..79f16fe 100644
+--- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
++++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
+@@ -120,7 +120,7 @@ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus_Base::Init(void *settings)
+ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus_Base::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
+@@ -432,4 +432,3 @@ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus_Base::InitMmcState()
+ }
+ 
+ }
+-
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
+index 52f482e..479a5e5 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
+@@ -33,6 +33,30 @@
+ #include "mos_os_cp_interface_specific.h"
+ 
+ using namespace mhw::vdbox;
++
++namespace
++{
++bool IsArlMain10Encode(MOS_INTERFACE *osInterface, PCODEC_HEVC_ENCODE_SEQUENCE_PARAMS seqParams)
++{
++    if (osInterface == nullptr || osInterface->pfnGetPlatform == nullptr || seqParams == nullptr)
++    {
++        return false;
++    }
++
++    PLATFORM platform = {};
++    osInterface->pfnGetPlatform(osInterface, &platform);
++
++    return platform.eProductFamily == IGFX_ARROWLAKE &&
++        seqParams->bit_depth_luma_minus8 == 2 &&
++        seqParams->bit_depth_chroma_minus8 == 2;
++}
++
++bool NeedsArlMain10RawSurfaceCopy(MOS_INTERFACE *osInterface, PCODEC_HEVC_ENCODE_SEQUENCE_PARAMS seqParams, MOS_SURFACE &rawSurface)
++{
++    return IsArlMain10Encode(osInterface, seqParams) &&
++        rawSurface.Format == Format_P010;
++}
++}
+ namespace encode
+ {
+ HevcBasicFeature::~HevcBasicFeature()
+@@ -123,6 +147,7 @@ MOS_STATUS HevcBasicFeature::Update(void *params)
+ 
+     m_hevcSeqParams = static_cast<PCODEC_HEVC_ENCODE_SEQUENCE_PARAMS>(encodeParams->pSeqParams);
+     ENCODE_CHK_NULL_RETURN(m_hevcSeqParams);
++
+     m_hevcPicParams = static_cast<PCODEC_HEVC_ENCODE_PICTURE_PARAMS>(encodeParams->pPicParams);
+     ENCODE_CHK_NULL_RETURN(m_hevcPicParams);
+     m_hevcSliceParams = static_cast<PCODEC_HEVC_ENCODE_SLICE_PARAMS>(encodeParams->pSliceParams);
+@@ -473,6 +498,19 @@ MOS_STATUS HevcBasicFeature::UpdateTrackedBufferParameters()
+         ENCODE_CHK_STATUS_RETURN(m_422State->RegisterMbCodeBuffer(m_trackedBuf, m_isMbCodeRegistered, m_mbCodeSize));
+     }
+ 
++    if (NeedsArlMain10RawSurfaceCopy(m_osInterface, m_hevcSeqParams, m_rawSurface))
++    {
++        MOS_ALLOC_GFXRES_PARAMS rawSurfaceCopyParams{};
++        rawSurfaceCopyParams.Type         = MOS_GFXRES_2D;
++        rawSurfaceCopyParams.Format       = m_rawSurface.Format;
++        rawSurfaceCopyParams.TileType     = MOS_TILE_Y;
++        rawSurfaceCopyParams.dwWidth      = m_rawSurface.dwWidth;
++        rawSurfaceCopyParams.dwHeight     = m_rawSurface.dwHeight;
++        rawSurfaceCopyParams.pBufName     = "HEVC Main10 Raw Surface Copy";
++        rawSurfaceCopyParams.ResUsageType = MOS_HW_RESOURCE_USAGE_ENCODE_INPUT_RAW;
++        ENCODE_CHK_STATUS_RETURN(m_trackedBuf->RegisterParam(encode::BufferType::AlignedRawSurface, rawSurfaceCopyParams));
++    }
++
+     ENCODE_CHK_STATUS_RETURN(EncodeBasicFeature::UpdateTrackedBufferParameters());
+ 
+     return MOS_STATUS_SUCCESS;
+@@ -657,6 +695,52 @@ MOS_STATUS HevcBasicFeature::GetTrackedBuffers()
+     ENCODE_CHK_NULL_RETURN(m_8xDSSurface);
+     ENCODE_CHK_STATUS_RETURN(m_allocator->GetSurfaceInfo(m_8xDSSurface));
+ 
++    if (NeedsArlMain10RawSurfaceCopy(m_osInterface, m_hevcSeqParams, m_rawSurface))
++    {
++        MOS_SURFACE *rawSurfaceCopy = m_trackedBuf->GetSurface(BufferType::AlignedRawSurface, m_trackedBuf->GetCurrIndex());
++        ENCODE_CHK_NULL_RETURN(rawSurfaceCopy);
++        ENCODE_CHK_STATUS_RETURN(m_allocator->GetSurfaceInfo(rawSurfaceCopy));
++        ENCODE_CHK_STATUS_RETURN(m_allocator->UpdateResourceUsageType(&rawSurfaceCopy->OsResource, MOS_HW_RESOURCE_USAGE_ENCODE_INPUT_RAW));
++
++        ENCODE_CHK_NULL_RETURN(m_mediaCopyWrapper);
++
++        // The original raw surface may come from an OpenCL/VA interop producer.
++        // Reclassify the source just before the driver-owned copy so the copy
++        // engine reads it with an uncached encode-internal policy instead of
++        // relying on the generic raw input policy assigned during Update().
++        ENCODE_CHK_STATUS_RETURN(m_allocator->UpdateResourceUsageType(
++            &m_rawSurface.OsResource,
++            MOS_HW_RESOURCE_USAGE_ENCODE_INTERNAL_READ_WRITE_NOCACHE));
++
++        // The encode-owned raw copy is created before packet submission, so it
++        // runs before the packet-level raw input wait below. If the raw input
++        // is produced by a preceding GPU filter, wait on that producer here
++        // before the copy consumes the surface.
++        MOS_SYNC_PARAMS syncParams = g_cInitSyncParams;
++        syncParams.GpuContext       = m_osInterface->pfnGetGpuContext(m_osInterface);
++        syncParams.presSyncResource = &m_rawSurface.OsResource;
++        syncParams.bReadOnly        = true;
++        ENCODE_CHK_STATUS_RETURN(m_osInterface->pfnResourceWait(m_osInterface, &syncParams));
++        m_osInterface->pfnSetResourceSyncTag(m_osInterface, &syncParams);
++
++        ENCODE_CHK_STATUS_RETURN(m_mediaCopyWrapper->MediaCopy(
++            &m_rawSurface.OsResource,
++            &rawSurfaceCopy->OsResource,
++            MCPY_METHOD_DEFAULT));
++
++        m_rawSurface      = *rawSurfaceCopy;
++        m_rawSurfaceToEnc = m_rawSurfaceToPak = &m_rawSurface;
++
++        if (m_hevcPicParams->bUseRawPicForRef)
++        {
++            // When the application explicitly requests raw-picture references,
++            // keep the reference entry synchronized with the encode-owned raw
++            // copy. Otherwise, leave the reconstructed reference path unchanged.
++            currRefList->sRefRawBuffer = m_rawSurface;
++            currRefList->sRefBuffer = m_rawSurface;
++        }
++    }
++
+     return MOS_STATUS_SUCCESS;
+ }
+ 
+@@ -923,11 +1007,13 @@ MHW_SETPAR_DECL_SRC(VDENC_DS_REF_SURFACE_STATE, HevcBasicFeature)
+ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcBasicFeature)
+ {
+     ENCODE_CHK_NULL_RETURN(m_mmcState);   
++    // Keep the raw-surface address and its MMC state from the same surface.
++    PMOS_SURFACE rawSurface = m_rawSurfaceToPak != nullptr ? m_rawSurfaceToPak : const_cast<PMOS_SURFACE>(&m_rawSurface);
+     if (m_mmcState->IsMmcEnabled())
+     {
+         params.mmcEnabled = true;
+-        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(const_cast<PMOS_SURFACE>(&m_rawSurface), &params.mmcStateRaw));
+-        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(const_cast<PMOS_SURFACE>(&m_rawSurface), &params.compressionFormatRaw));
++        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(rawSurface, &params.mmcStateRaw));
++        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(rawSurface, &params.compressionFormatRaw));
+     }
+     else
+     {
+@@ -936,7 +1022,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcBasicFeature)
+         params.compressionFormatRaw = 0;
+     }
+ 
+-    params.surfaceRaw               = m_rawSurfaceToPak;
++    params.surfaceRaw               = rawSurface;
+     params.surfaceDsStage1          = m_8xDSSurface;
+     params.surfaceDsStage2          = m_4xDSSurface;
+     params.pakObjCmdStreamOutBuffer = m_resMbCodeBuffer;
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
+index 2faaf63..69006ea 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
+@@ -35,6 +35,7 @@
+ #include "mhw_vdbox_hcp_itf.h"
+ #include "encode_mem_compression.h"
+ #include "encode_hevc_basic_feature_422.h"
++#include "media_copy_wrapper.h"
+ namespace encode
+ {
+ #define CODECHAL_HEVC_VDENC_LCU_SIZE           64
+@@ -51,8 +52,10 @@ public:
+                      CodechalHwInterfaceNext *hwInterface,
+                      TrackedBuffer *trackedBuf,
+                      RecycleResource *recycleBuf,
++                     MediaCopyWrapper *mediaCopyWrapper,
+                      void *constSettings = nullptr) :
+-                     EncodeBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf){ m_constSettings = constSettings;};
++                     EncodeBasicFeature(allocator, hwInterface, trackedBuf, recycleBuf),
++                     m_mediaCopyWrapper(mediaCopyWrapper) { m_constSettings = constSettings; };
+ 
+     virtual ~HevcBasicFeature();
+ 
+@@ -140,6 +143,7 @@ public:
+     MOS_STATUS            Init422State();
+ 
+     std::deque<uint32_t> m_recycleBufferIdxes;
++    MediaCopyWrapper *m_mediaCopyWrapper = nullptr;
+ 
+ protected:
+     MOS_STATUS SetPictureStructs();
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
+index 00fd742..dd1d2f9 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
+@@ -108,7 +108,7 @@ MOS_STATUS EncodeHevcVdencFeatureManager::CreateFeatures(void *constSettings)
+     ENCODE_CHK_NULL_RETURN(setting);
+     setting->SetOsInterface(m_hwInterface->GetOsInterface());
+ 
+-    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, constSettings);
++    EncodeBasicFeature *encBasic = MOS_New(HevcBasicFeature, m_allocator, m_hwInterface, m_trackedBuf, m_recycleResource, m_mediaCopyWrapper, constSettings);
+     ENCODE_CHK_STATUS_RETURN(RegisterFeatures(HevcFeatureIDs::basicFeature, encBasic));
+ 
+     HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
+index 9b6739e..c582780 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
+@@ -39,6 +39,7 @@
+ #include "encode_hevc_dss.h"
+ #include "encode_recycle_resource.h"
+ #include "encode_hevc_vdenc_scc.h"
++#include "media_copy_wrapper.h"
+ 
+ namespace encode
+ {
+@@ -60,11 +61,13 @@ public:
+      EncodeHevcVdencFeatureManager(EncodeAllocator *allocator,
+                              CodechalHwInterfaceNext *hwInterface,
+                              TrackedBuffer       *trackedBuf,
+-                             RecycleResource     *recycleBuf):
++                             RecycleResource     *recycleBuf,
++                             MediaCopyWrapper    *mediaCopyWrapper):
+                              m_allocator(allocator),
+                              m_hwInterface(hwInterface),
+                              m_recycleResource(recycleBuf),
+-                             m_trackedBuf(trackedBuf) {};
++                             m_trackedBuf(trackedBuf),
++                             m_mediaCopyWrapper(mediaCopyWrapper) {};
+ 
+     //!
+     //! \brief  EncodeHevcVdencFeatureManager deconstructor
+@@ -165,6 +168,7 @@ protected:
+     CodechalHwInterfaceNext *m_hwInterface = nullptr;
+     RecycleResource     *m_recycleResource = nullptr;
+     TrackedBuffer       *m_trackedBuf = nullptr;
++    MediaCopyWrapper    *m_mediaCopyWrapper = nullptr;
+ 
+ MEDIA_CLASS_DEFINE_END(encode__EncodeHevcVdencFeatureManager)
+ };
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
+index db6aadd..e55ebfa 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
+@@ -217,10 +217,15 @@ namespace encode
+         // Temporaly, call Resource Wait to do the sync explicitly.
+         if(m_pipeline->IsFirstPass())
+         {
++            // Wait on the surface that will actually be submitted as raw input.
++            PMOS_SURFACE rawSyncSurface = m_basicFeature->m_rawSurfaceToPak != nullptr ?
++                m_basicFeature->m_rawSurfaceToPak :
++                &m_basicFeature->m_rawSurface;
++
+             MOS_SYNC_PARAMS       syncParams;
+             syncParams = g_cInitSyncParams;
+             syncParams.GpuContext = m_osInterface->pfnGetGpuContext(m_osInterface);
+-            syncParams.presSyncResource = &m_basicFeature->m_rawSurface.OsResource;
++            syncParams.presSyncResource = &rawSyncSurface->OsResource;
+             syncParams.bReadOnly = true;
+             ENCODE_CHK_STATUS_RETURN(m_osInterface->pfnResourceWait(m_osInterface, &syncParams));
+             m_osInterface->pfnSetResourceSyncTag(m_osInterface, &syncParams);
+@@ -3132,7 +3137,10 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+         params.Mode                 = m_basicFeature->m_mode;
+         params.psPreDeblockSurface  = &m_basicFeature->m_reconSurface;
+         params.psPostDeblockSurface = &m_basicFeature->m_reconSurface;
+-        params.psRawSurface         = m_basicFeature->m_rawSurfaceToPak;
++        // Keep the raw-surface address and its MMC state from the same surface.
++        params.psRawSurface         = m_basicFeature->m_rawSurfaceToPak != nullptr ?
++            m_basicFeature->m_rawSurfaceToPak :
++            &m_basicFeature->m_rawSurface;
+ 
+         params.presMetadataLineBuffer       = m_resMetadataLineBuffer;
+         params.presMetadataTileLineBuffer   = m_resMetadataTileLineBuffer;
+@@ -3151,8 +3159,12 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+         ENCODE_CHK_NULL_RETURN(m_mmcState);
+         if (m_mmcState->IsMmcEnabled())
+         {
++            PMOS_SURFACE rawSurface = m_basicFeature->m_rawSurfaceToPak != nullptr ?
++                m_basicFeature->m_rawSurfaceToPak :
++                &m_basicFeature->m_rawSurface;
++
+             ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(&m_basicFeature->m_reconSurface, &params.PreDeblockSurfMmcState));
+-            ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(&m_basicFeature->m_rawSurface, &params.RawSurfMmcState));
++            ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(rawSurface, &params.RawSurfMmcState));
+         }
+         else
+         {
+@@ -3548,4 +3560,3 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+         return MOS_STATUS_SUCCESS;
+     }
+     }
+-
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
+index 23010de..a28bde4 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
+@@ -494,6 +494,17 @@ MOS_STATUS HevcReferenceFrames::SetSlotForRecNotFiltered(unsigned char &slotForR
+     return MOS_STATUS_SUCCESS;
+ }
+ 
++PMOS_SURFACE HevcReferenceFrames::GetHcpReferenceSurface(uint8_t refListIdx) const
++{
++    auto picParams = m_basicFeature != nullptr ? m_basicFeature->m_hevcPicParams : nullptr;
++    if (picParams != nullptr && picParams->bUseRawPicForRef)
++    {
++        return &m_refList[refListIdx]->sRefBuffer;
++    }
++
++    return &m_refList[refListIdx]->sRefReconBuffer;
++}
++
+ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+ {
+     ENCODE_FUNC_CALL();
+@@ -518,8 +529,9 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+             // L0 references
+             uint8_t refPicIdx    = m_picIdx[refPic.FrameIdx].ucPicIdx;
+ 
+-            params.refs[refIdx] = (picParams->bUseRawPicForRef) ? 
++            PMOS_RESOURCE referenceSurface = (picParams->bUseRawPicForRef) ?
+                 &m_refList[refPicIdx]->sRefBuffer.OsResource : &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
++            params.refs[refIdx] = referenceSurface;
+ 
+             // 4x/8x DS surface for VDEnc
+             uint8_t scaledIdx        = m_refList[refPicIdx]->ucScalingIdx;
+@@ -532,7 +544,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+ 
+             if (sliceParams->slice_type == encodeHevcPSlice)
+             {
+-                params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
++                params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = referenceSurface;
+                 params.refsDsStage2[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] =
+                     &vdenc4xDsSurface->OsResource;
+                 params.refsDsStage1[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] =
+@@ -551,7 +563,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+             // L1 references
+             uint8_t refPicIdx = m_picIdx[refPic.FrameIdx].ucPicIdx;
+ 
+-            params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = (picParams->bUseRawPicForRef) ? 
++            params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = (picParams->bUseRawPicForRef) ?
+                 &m_refList[refPicIdx]->sRefBuffer.OsResource : &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
+ 
+             // 4x/8x DS surface for VDEnc
+@@ -616,9 +628,10 @@ MHW_SETPAR_DECL_SRC(HCP_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+                 uint8_t idx = m_picIdx[i].ucPicIdx;
+                 //CodecHalGetResourceInfo(m_osInterface, &(m_refList[idx]->sRefReconBuffer));
+ 
+-                uint8_t frameStoreId                            = m_refIdxMapping[i];
+-                params.presReferences[frameStoreId] = (picParams->bUseRawPicForRef) ? 
+-                    &(m_refList[idx]->sRefBuffer.OsResource) : &(m_refList[idx]->sRefReconBuffer.OsResource);
++                uint8_t frameStoreId         = m_refIdxMapping[i];
++                PMOS_SURFACE refSurface = GetHcpReferenceSurface(idx);
++                ENCODE_CHK_NULL_RETURN(refSurface);
++                params.presReferences[frameStoreId] = &refSurface->OsResource;
+ 
+                 uint8_t refMbCodeIdx = m_refList[idx]->ucScalingIdx;
+                 auto    mvTmpBuffer  = trackedBuf->GetBuffer(BufferType::mvTemporalBuffer, refMbCodeIdx);
+@@ -656,14 +669,16 @@ MHW_SETPAR_DECL_SRC(HCP_SURFACE_STATE, HevcReferenceFrames)
+                 {
+                     uint8_t idx          = m_picIdx[i].ucPicIdx;
+                     uint8_t frameStoreId = m_refIdxMapping[i];
++                    PMOS_SURFACE refSurface = GetHcpReferenceSurface(idx);
++                    ENCODE_CHK_NULL_RETURN(refSurface);
+ 
+                     MOS_MEMCOMP_STATE mmcState  = MOS_MEMCOMP_DISABLED;
+-                    ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(const_cast<PMOS_SURFACE>(&m_refList[idx]->sRefReconBuffer), &mmcState));
++                    ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(refSurface, &mmcState));
+                     params.refsMmcEnable |= (mmcState == MOS_MEMCOMP_RC || mmcState == MOS_MEMCOMP_MC) ? (1 << frameStoreId) : 0;
+                     params.refsMmcType |= (mmcState == MOS_MEMCOMP_RC) ? (1 << frameStoreId) : 0;
+                     if (mmcState == MOS_MEMCOMP_RC || mmcState == MOS_MEMCOMP_MC)
+                     {
+-                        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(const_cast<PMOS_SURFACE>(&m_refList[idx]->sRefReconBuffer), &params.dwCompressionFormat));
++                        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(refSurface, &params.dwCompressionFormat));
+                     }
+                 }
+             }
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
+index aad3ec2..dc1f7d9 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
+@@ -89,7 +89,6 @@ public:
+     //!
+     MOS_STATUS SetSlotForRecNotFiltered(unsigned char &slotForRecNotFiltered);
+ 
+-    //!
+     //! \brief  Get picture index
+     //! \param  [in] idx
+     //!         Index of pic index
+@@ -165,6 +164,8 @@ public:
+     //!
+     bool IsSameRefList() const { return m_sameRefList; };
+ 
++    PMOS_SURFACE GetHcpReferenceSurface(uint8_t refListIdx) const;
++
+     MHW_SETPAR_DECL_HDR(VDENC_PIPE_BUF_ADDR_STATE);
+ 
+     MHW_SETPAR_DECL_HDR(HCP_PIPE_BUF_ADDR_STATE);
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
+index c699d00..c34dce9 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
+@@ -227,7 +227,7 @@ MOS_STATUS HevcVdencPipeline::ActivateVdencTileReplayVideoPackets()
+ MOS_STATUS HevcVdencPipeline::CreateFeatureManager()
+ {
+     ENCODE_FUNC_CALL();
+-    m_featureManager = MOS_New(EncodeHevcVdencFeatureManager, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf);
++    m_featureManager = MOS_New(EncodeHevcVdencFeatureManager, m_allocator, m_hwInterface, m_trackedBuf, m_recycleBuf, m_mediaCopyWrapper);
+     ENCODE_CHK_NULL_RETURN(m_featureManager);
+     return MOS_STATUS_SUCCESS;
+ }
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-index c2e4856..0974967 100644
+index c2e4856..142a5c3 100644
 --- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
 @@ -340,10 +340,13 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
@@ -46,7 +764,27 @@ index c2e4856..0974967 100644
      if (!m_sameSamples)
      {
          m_currentDnOutput   = (m_currentDnOutput + 1) & 1;
-@@ -1718,7 +1726,15 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
+@@ -1585,11 +1593,18 @@ MOS_STATUS GetVeboxOutputParams(VP_EXECUTE_CAPS &executeCaps, MOS_FORMAT inputFo
+     }
+     else if (executeCaps.bDI || executeCaps.bDiProcess2ndField)
+     {
+-        // NV12 will be used if target output is not YUV2 to save bandwidth.
++        // Keep 10-bit 4:2:0 DI intermediates in P010 when the target surface is
++        // P010. Downsampling the VEBOX output to NV12 is fine for 8-bit targets,
++        // but it loses the target bit depth and leaves the following SFC output
++        // as the only 10-bit producer in the packet.
+         if (outputFormat == Format_YUY2)
+         {
+             veboxOutputFormat = Format_YUY2;
+         }
++        else if (outputFormat == Format_P010)
++        {
++            veboxOutputFormat = Format_P010;
++        }
+         else
+         {
+             veboxOutputFormat = Format_NV12;
+@@ -1718,7 +1733,15 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
      bSurfCompressible   = inputSurface->osSurface->bCompressible;
      surfCompressionMode = inputSurface->osSurface->CompressionMode;
  
@@ -63,7 +801,7 @@ index c2e4856..0974967 100644
      {
          // Not switch back to 2 after being set to 4.
          m_veboxOutputCount = 4;
-@@ -1752,6 +1768,45 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
+@@ -1752,6 +1775,45 @@ MOS_STATUS VpResourceManager::ReAllocateVeboxOutputSurface(VP_EXECUTE_CAPS& caps
          m_veboxOutput[i]->rcMaxSrc   = inputSurface->rcMaxSrc;
  
          m_veboxOutput[i]->SampleType = SAMPLE_PROGRESSIVE;
@@ -109,7 +847,7 @@ index c2e4856..0974967 100644
      }
  
      if (allocated)
-@@ -1974,6 +2029,7 @@ void VpResourceManager::DestoryVeboxOutputSurface()
+@@ -1974,6 +2036,7 @@ void VpResourceManager::DestoryVeboxOutputSurface()
      for (uint32_t i = 0; i < VP_MAX_NUM_VEBOX_SURFACES; i++)
      {
          m_allocator.DestroyVpSurface(m_veboxOutput[i], IsDeferredResourceDestroyNeeded());
@@ -117,7 +855,7 @@ index c2e4856..0974967 100644
      }
  }
  
-@@ -2092,6 +2148,7 @@ MOS_STATUS VpResourceManager::AllocateVeboxResource(VP_EXECUTE_CAPS& caps, VP_SU
+@@ -2092,6 +2155,7 @@ MOS_STATUS VpResourceManager::AllocateVeboxResource(VP_EXECUTE_CAPS& caps, VP_SU
          if (bAllocated)
          {
              m_currentDnOutput   = 0;
@@ -125,7 +863,7 @@ index c2e4856..0974967 100644
              m_pastDnOutputValid = false;
          }
      }
-@@ -2453,16 +2510,23 @@ MOS_STATUS VpResourceManager::AssignSurface(VP_EXECUTE_CAPS caps, VEBOX_SURFACE_
+@@ -2453,16 +2517,23 @@ MOS_STATUS VpResourceManager::AssignSurface(VP_EXECUTE_CAPS caps, VEBOX_SURFACE_
          surfGroup.emplace(surfaceType, futureSurface);
          break;
      case VEBOX_SURFACE_FRAME0:
@@ -153,7 +891,7 @@ index c2e4856..0974967 100644
          break;
      default:
          break;
-@@ -2496,8 +2560,12 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2496,8 +2567,12 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
  
      if (caps.bDI || caps.bDiProcess2ndField)
      {
@@ -168,7 +906,7 @@ index c2e4856..0974967 100644
              m_currentFrameIds.futureFrameAvailable, IsInterleaveFirstField(inputSurface->SampleType));
          auto it = m_veboxSurfaceConfigMap.find(cfg.value);
          if (m_veboxSurfaceConfigMap.end() == it)
-@@ -2518,6 +2586,10 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
+@@ -2518,6 +2593,10 @@ MOS_STATUS VpResourceManager::AssignVeboxResource(VP_EXECUTE_CAPS& caps, VP_SURF
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastInputSurface, SurfaceTypeVeboxPreviousInput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.currentOutputSurface, SurfaceTypeVeboxCurrentOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
          VP_PUBLIC_CHK_STATUS_RETURN(AssignSurface(caps, surfaces.pastOutputSurface, SurfaceTypeVeboxPreviousOutput, inputSurface, outputSurface, pastSurface, futureSurface, surfSetting.surfGroup));
@@ -229,34 +967,38 @@ index a4d0da0..0d6af48 100644
      SurfaceTypeScalar                   = SurfaceTypeGeneralEnd + 0x600,
      SurfaceTypeSTMMIn                   = SurfaceTypeGeneralEnd + 0x700,
      SurfaceTypeSTMMOut                  = SurfaceTypeGeneralEnd + 0x800,
+diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
+index 5e65bfb..b2edbbb 100644
+--- a/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
++++ b/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
+@@ -88,6 +88,14 @@ public:
+         return MOS_STATUS_SUCCESS;
+     };
+ 
++    // Optional hook for packet work that must be queued after the owning task
++    // has submitted its command buffer. Most packets do not need any follow-up
++    // work, so the default implementation is intentionally empty.
++    virtual MOS_STATUS PostSubmit()
++    {
++        return MOS_STATUS_SUCCESS;
++    };
++
+     virtual MOS_STATUS DumpOutput()
+     {
+         return MOS_STATUS_SUCCESS;
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
-index bcd74bf..7fa0f02 100644
+index bcd74bf..cdc8e92 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
-@@ -26,6 +26,7 @@
- #include "media_context.h"
- #include "vp_feature_manager.h"
- #include "vp_platform_interface.h"
-+#include "vp_vebox_cmd_packet.h"
- 
- using namespace vp;
- 
-@@ -355,6 +356,14 @@ MOS_STATUS PacketPipe::Execute(MediaStatusReport *statusReport, MediaScalability
+@@ -355,6 +355,7 @@ MOS_STATUS PacketPipe::Execute(MediaStatusReport *statusReport, MediaScalability
              VP_PUBLIC_NORMALMESSAGE("Execute Packet %p.", pPacket);
  
              VP_PUBLIC_CHK_STATUS_RETURN(pTask->Submit(true, scalability, nullptr, pPacket->IsLevelzeroRuntimeInUse()));
-+
-+            VpVeboxCmdPacket *veboxPacket = dynamic_cast<VpVeboxCmdPacket *>(pPacket);
-+            if (veboxPacket != nullptr)
-+            {
-+                // Queue VEBOX-specific staging copy work after the VEBOX
-+                // producer command buffer has been submitted.
-+                VP_PUBLIC_CHK_STATUS_RETURN(veboxPacket->SubmitStagingCopies());
-+            }
++            VP_PUBLIC_CHK_STATUS_RETURN(pPacket->PostSubmit());
          }
  
  #if USE_MEDIA_DEBUG_TOOL
-@@ -428,4 +437,4 @@ void PacketPipeFactory::ReturnPacketPipe(PacketPipe *&pPipe)
+@@ -428,4 +429,4 @@ void PacketPipeFactory::ReturnPacketPipe(PacketPipe *&pPipe)
          VP_PUBLIC_ASSERTMESSAGE("packetPipe %p is existing in m_Pool!, m_Pool size is %d.", pPipe, (uint32_t)m_Pool.size());
      }
      pPipe = nullptr;
@@ -290,7 +1032,7 @@ index b082cd9..c38a277 100644
 \ No newline at end of file
 +#endif // !__VP_PACKET_SHARED_CONTEXT_H__
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
-index 9e3ddd9..df67036 100644
+index 9e3ddd9..2c7cdd2 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 @@ -38,6 +38,7 @@
@@ -355,7 +1097,7 @@ index 9e3ddd9..df67036 100644
      return eStatus;
  }
  
-+MOS_STATUS VpVeboxCmdPacket::SubmitStagingCopies()
++MOS_STATUS VpVeboxCmdPacket::PostSubmit()
 +{
 +    VP_FUNC_CALL();
 +
@@ -402,7 +1144,7 @@ index 9e3ddd9..df67036 100644
  }
 -
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
-index 42c50f3..611fa22 100644
+index 42c50f3..5f206a6 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 @@ -34,6 +34,7 @@
@@ -425,7 +1167,7 @@ index 42c50f3..611fa22 100644
  
      virtual MOS_STATUS Submit(MOS_COMMAND_BUFFER* commandBuffer, uint8_t packetPhase = otherPacket) override;
  
-+    MOS_STATUS SubmitStagingCopies();
++    virtual MOS_STATUS PostSubmit() override;
 +
      virtual MOS_STATUS Init() override;
  
@@ -450,3 +1192,24 @@ index 9ccd685..9299b18 100644
      return MOS_STATUS_SUCCESS;
  }
  
+diff --git a/media_softlet/linux/common/os/i915/mos_bufmgr.c b/media_softlet/linux/common/os/i915/mos_bufmgr.c
+index bca411b..abc5a3a 100644
+--- a/media_softlet/linux/common/os/i915/mos_bufmgr.c
++++ b/media_softlet/linux/common/os/i915/mos_bufmgr.c
+@@ -3019,13 +3019,13 @@ do_exec2(struct mos_linux_bo *bo, int used, struct mos_linux_context *ctx,
+     else
+         i915_execbuffer2_set_context_id(execbuf, ctx->ctx_id);
+     execbuf.rsvd2 = 0;
+-    if(flags & I915_EXEC_FENCE_SUBMIT)
++    if((flags & I915_EXEC_FENCE_SUBMIT) || (flags & I915_EXEC_FENCE_IN))
+     {
+-        execbuf.rsvd2 = *fence;
++        execbuf.rsvd2 = (uint32_t)*fence;
+     }
+     if(flags & I915_EXEC_FENCE_OUT)
+     {
+-        execbuf.rsvd2 = -1;
++        execbuf.rsvd2 |= 0xffffffff00000000ULL;
+     }
+ 
+     if (bufmgr_gem->no_exec)
