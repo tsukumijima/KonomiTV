@@ -250,7 +250,7 @@ px4_drv では、公式ドライバーとの比較で、チューナーの起動
   - この設定にチェックを入れると、**IPv6 アドレスでアクセスできるようになる代わりに、IPv4 アドレスでのアクセスが一切できなくなります (落とし穴…)。**
   - [IPv4/IPv6 両対応にする設定ではない](https://github.com/xtne6f/EDCB/blob/work-plus-s-220921/Document/Readme_Mod.txt#L256) ため、チェックを外すことを強くおすすめします。
 - **xtne6f 版 EDCB の場合、[EpgTimerSrv の応答を tkntrec 版互換にする (要再起動)] にチェックを入れる**
-  - EDCB から局ロゴを取得する際に必要です。変更を適用するには、EpgTimerSrv (EpgTimer Service) を再起動してください。
+  - EDCB から録画設定のデフォルト値を取得する際に必要です。変更を適用するには、EpgTimerSrv (EpgTimer Service) を再起動してください。
   - tkntrec 版 EDCB では既定で有効になっています（設定項目自体がありません）。
 
 -----
