@@ -13,7 +13,7 @@
         "typecheck": "vue-tsc --noEmit"
     },
     "engines": {
-        "node": "20.16.0"
+        "node": "^20.16.0"
     },
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
@@ -49,7 +49,7 @@
     "devDependencies": {
         "@babel/types": "^7.25.4",
         "@iconify/vue": "^4.1.2",
-        "@types/node": "20.16.0",
+        "@types/node": "^20.16.0",
         "@types/offscreencanvas": "^2019.7.3",
         "@types/readable-stream": "^4.0.15",
         "@types/resize-observer-browser": "^0.1.11",
