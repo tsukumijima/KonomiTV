@@ -1,12 +1,13 @@
 
+import asyncio
 import json
 import pathlib
-from ariblib.sections import TimeOffsetSection
 from datetime import datetime
 from email.utils import parsedate
 from typing import Annotated, Any, Literal
 
 import anyio
+from ariblib.sections import TimeOffsetSection
 from fastapi import (
     APIRouter,
     Depends,
@@ -757,28 +758,37 @@ async def VideoJikkyoCommentsAPI(
         if recorded_program.recorded_video.container_format != 'MPEG-TS' and jikkyo_comments.comments:
             # PSI/SI の書庫があればそこから動画のカット編集情報を抽出して過去ログコメントのタイミングを調節する
             # TODO: コメントリストの時刻などは調節前のほうが望ましいので schemas.JikkyoComment に項目を追加すべき
-            tot_time_list: list[tuple[float, float, datetime, datetime]] = []
-            try:
+            def ExtractTOTTimeList() -> list[tuple[float, float, datetime, datetime]]:
+                tot_time_list: list[tuple[float, float, datetime, datetime]] = []
                 psc_path = pathlib.Path(recorded_program.recorded_video.file_path).with_suffix('.psc')
-                with open(psc_path, 'rb') as f:
-                    def callback(time_sec: float, pid: int, section: bytes):
-                        tot = TimeOffsetSection(section)
-                        back = tot_time_list and tot_time_list[-1]
-                        if (back and (time_sec < back[1] or tot.JST_time < back[3])) or (not back and time_sec > 60):
-                            # 時刻の巻き戻り、または間隔が空きすぎている
-                            return False
-                        if not back or abs((time_sec - back[0]) - (tot.JST_time - back[2]).total_seconds()) > 5:
-                            # PCR と TOT の増分量に差があるので分割する
-                            tot_time_list.append((time_sec, time_sec, tot.JST_time, tot.JST_time))
-                        else:
-                            tot_time_list[-1] = (back[0], time_sec, back[2], tot.JST_time)
-                        return True
-                    # TOT を取り出す
-                    if not TSInfoAnalyzer.readPSIData(f, [0x14], callback):
-                        logging.warning(f'{psc_path}: File contents may be invalid.')
-                        tot_time_list.clear()
-            except Exception:
-                tot_time_list.clear()
+                try:
+                    with open(psc_path, 'rb') as f:
+                        def callback(time_sec: float, pid: int, section: bytes) -> bool:
+                            tot = TimeOffsetSection(section)
+                            tot_jst_time = tot.JST_time
+                            if tot_jst_time is None:
+                                return False
+                            back = tot_time_list[-1] if len(tot_time_list) > 0 else None
+                            if ((back is not None and (time_sec < back[1] or tot_jst_time < back[3])) or
+                                (back is None and time_sec > 60)):
+                                # 時刻の巻き戻り、または間隔が空きすぎている
+                                return False
+                            if (back is None or
+                                abs((time_sec - back[0]) - (tot_jst_time - back[2]).total_seconds()) > 5):
+                                # PCR と TOT の増分量に差があるので分割する
+                                tot_time_list.append((time_sec, time_sec, tot_jst_time, tot_jst_time))
+                            else:
+                                tot_time_list[-1] = (back[0], time_sec, back[2], tot_jst_time)
+                            return True
+                        # TOT を取り出す
+                        if not TSInfoAnalyzer.readPSIData(f, [0x14], callback):
+                            logging.warning(f'{psc_path}: File contents may be invalid.')
+                            tot_time_list.clear()
+                except Exception:
+                    tot_time_list.clear()
+                return tot_time_list
+
+            tot_time_list = await asyncio.to_thread(ExtractTOTTimeList)
 
             if len(tot_time_list) >= 2:
                 # TOT 時刻を開始時刻からの相対秒数に変換する
