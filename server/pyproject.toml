@@ -34,7 +34,6 @@ psutil = "^6.0.0"
 puremagic = "^1.28"
 py7zr = ">=0.22.0,<1.0.0"
 pydantic = "^2.10.3"
-pymediainfo = "^6.1.0"
 python-jose = {version = "^3.4.0", extras = ["cryptography"]}
 python-multipart = ">=0.0.20,<1.0.0"
 pywin32 = {version = "^311", platform = "win32"}

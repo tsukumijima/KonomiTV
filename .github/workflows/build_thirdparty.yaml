@@ -47,10 +47,6 @@ env:
   INTEL_MEDIA_DRIVER_TAG: 'intel-media-25.2.4'
   INTEL_MEDIASDK_TAG: 'intel-mediasdk-23.2.2'
   INTEL_ONEVPL_GPU_TAG: 'intel-onevpl-25.4.6'
-  # libmediainfo のバージョン
-  ## Windows 版の pymediainfo (ビルド済みの MediaInfo.dll が同梱されている) とバージョンを合わせる
-  ## ref: https://github.com/sbraz/pymediainfo/blob/v6.0.1/appveyor.yml#L6
-  LIBMEDIAINFO_VERSION: '22.09'
   # Akebi HTTPS Server ビルド用の Golang のバージョン
   GOLANG_VERSION: '1.23.8'
   # ビルド対象の tsreadex・psisiarc・psisimux・Akebi のコミットハッシュ
@@ -348,7 +344,7 @@ jobs:
 
           # QSV/NV/VCEEncC 向けの共有ライブラリ配置先を作成
           ## 最新の Linux 版 HWEncC バイナリは libav* を静的リンクしているため、
-          ## ここでは QSVEncC 向け Intel Media Stack と libmediainfo のみを同梱する
+          ## ここでは QSVEncC 向け Intel Media Stack を同梱する
           mkdir thirdparty/Library/
 
           # QSVEncC が依存する Intel Media Stack を Ubuntu 20.04 ベースで自前ビルドして同梱
@@ -421,14 +417,6 @@ jobs:
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/VCEEncC/VCEEncC.elf
           curl -fSL -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
-          # libmediainfo のアーカイブのダウンロード
-          ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
-          curl -fSL -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_x86_64.zip
-          7z x -y libmediainfo.zip
-          cp -a lib/* thirdparty/Library/
-          rm -rf lib/
-          chmod a+x thirdparty/Library/libmediainfo.so*
-
       # FFmpeg・rkmppenc のアーカイブのダウンロードと配置 (arm64 のみ)
       # ドライバさえ入っていればスタンドアローンで実行できるように構成を工夫している
       - name: Download and Deploy Encoder Archives (for arm64)
@@ -483,14 +471,6 @@ jobs:
           chmod a+x thirdparty/rkmppenc/rkmppenc.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/rkmppenc/rkmppenc.elf
           curl -fSL -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
-
-          # libmediainfo のアーカイブのダウンロード
-          ## AWS Lambda 向けのビルドが完全な Static Build で扱いやすそうだったので、それを使う
-          curl -fSL -o libmediainfo.zip https://mediaarea.net/download/binary/libmediainfo0/${{ env.LIBMEDIAINFO_VERSION }}/MediaInfo_DLL_${{ env.LIBMEDIAINFO_VERSION }}_Lambda_arm64.zip
-          7z x -y libmediainfo.zip
-          cp -a lib/* thirdparty/Library/
-          rm -rf lib/
-          chmod a+x thirdparty/Library/libmediainfo.so*
 
       # Python Standalone Builds のダウンロードと poetry のインストール
       - name: Install Python Standalone Builds & pip & poetry

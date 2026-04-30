@@ -2607,19 +2607,6 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
-name = "pymediainfo"
-version = "6.1.0"
-description = "A Python wrapper for the mediainfo library."
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "pymediainfo-6.1.0-py3-none-macosx_10_15_x86_64.whl", hash = "sha256:69d5d3cac056c24a68a1129216aec82a222e804a35f88567c08585e8ae7ef2b3"},
-    {file = "pymediainfo-6.1.0-py3-none-win32.whl", hash = "sha256:19e6baeca3db71f12ed568f056de899fd02f380990fb10f43a26c32b67362dd3"},
-    {file = "pymediainfo-6.1.0-py3-none-win_amd64.whl", hash = "sha256:f3f6bad666c65ac993dd8d64f45a2b26ba2acd50f9875f74cebb624dbf2f8da0"},
-    {file = "pymediainfo-6.1.0.tar.gz", hash = "sha256:186a0b41a94524f0984d085ca6b945c79a254465b7097f2560dc0c04e8d1d8a5"},
-]
-
-[[package]]
 name = "pypika-tortoise"
 version = "0.6.5"
 description = "Forked from pypika and streamline just for tortoise-orm"
@@ -3913,4 +3900,4 @@ websockets = ">=14.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "4070bcfd1cfa5f4c768f3644df348ff4b919db3ae32846a562e595016e9bd46e"
+content-hash = "d0e8b31eb288cfe7863c63e2a02fcaea3cf2a6dc52e407b2d433d4037b588212"

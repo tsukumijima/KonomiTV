@@ -273,7 +273,7 @@ class MetadataAnalyzer:
 
         # FFprobe から録画ファイルのメディア情報を取得
         ## 取得に失敗した場合は KonomiTV で再生可能なファイルではないと判断し、None を返す
-        result = self.__analyzeMediaInfo()
+        result = self.__analyzeFFprobe()
         if result is None:
             return None
         full_probe, sample_probe, end_ts_offset = result
@@ -678,7 +678,7 @@ class MetadataAnalyzer:
     def __calculateTSFileDuration(self, search_block_size: int = 1024 * 1024) -> tuple[float, int] | None:
         """
         TS ファイル内の最初と最後の有効な PCR タイムスタンプから再生時間（秒）を算出する (written with o3-mini)
-        MediaInfo から再生時間を取得できなかった場合のフォールバックとして利用する
+        FFprobe から再生時間を取得できなかった場合のフォールバックとして利用する
         録画ファイルは録画時にスパースファイル（ゼロ埋めされた領域を含む）となる可能性があるため、
         ファイル末尾はゼロ埋め領域を高速に検出し、実際にデータが存在する部分と区別している
 
@@ -807,7 +807,7 @@ class MetadataAnalyzer:
             return None
 
 
-    def __analyzeMediaInfo(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
+    def __analyzeFFprobe(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
         """
         録画ファイルのメディア情報を FFprobe を使って解析する
         全体解析と部分解析の2段階で解析を行う
@@ -867,7 +867,7 @@ class MetadataAnalyzer:
                     offset = ClosestMultiple(int(file_size * 0.25), ts.PACKET_SIZE)
                     f.seek(offset)
                     # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
-                    ## サンプルとして MediaInfo に渡すデータが30秒より短いと正確に解析できないことがある
+                    ## サンプルとして FFprobe に渡すデータが30秒より短いと正確に解析できないことがある
                     sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
                     sample_data = f.read(sample_size)
                     # サンプルデータが全てゼロ埋めされているかチェック
