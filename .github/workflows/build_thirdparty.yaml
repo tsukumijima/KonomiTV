@@ -54,9 +54,9 @@ env:
   # Akebi HTTPS Server ビルド用の Golang のバージョン
   GOLANG_VERSION: '1.23.8'
   # ビルド対象の tsreadex・psisiarc・psisimux・Akebi のコミットハッシュ
-  TSREADEX_COMMIT_HASH: 'eddc8bca0de99627d3867259e7a6e777cbd3b3c6'
+  TSREADEX_COMMIT_HASH: 'a82528ccb698fcd07b4da1bb2243e63d685c34a7'
   PSISIARC_COMMIT_HASH: '6593a0f63aedaaecfac7682b51e267874a8ec549'
-  PSISIMUX_COMMIT_HASH: '1a01a38886dc41bac81d547ba31fa9eef1bad46b'
+  PSISIMUX_COMMIT_HASH: '18c3c020e51e16804340c834835e0cfd72c8b50d'
   AKEBI_COMMIT_HASH: 'be986980f7a560b4f74eefcfa2cd474f892f3bc7'
 
 # ジョブの定義
