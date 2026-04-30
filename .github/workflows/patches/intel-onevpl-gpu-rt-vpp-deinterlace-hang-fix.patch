@@ -1,8 +1,8 @@
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
-index 0d5c23c..c048d2c 100644
+index 0d5c23c..0b7f580 100644
 --- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
 +++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
-@@ -32,6 +32,33 @@
+@@ -32,6 +32,19 @@
  using namespace HEVCEHW;
  using namespace HEVCEHW::Base;
  
@@ -17,89 +17,27 @@ index 0d5c23c..c048d2c 100644
 +        (pExtOpt3 != nullptr && pExtOpt3->TargetBitDepthLuma == 10);
 +}
 +
-+inline bool IsLookAheadSupportedOnPlatform(eMFXHWType hwType, const mfxVideoParam& video)
-+{
-+    return hwType != MFX_HW_ARL || !IsMain10Encode(video);
-+}
-+
-+inline bool IsAdaptiveGopSupportedOnPlatform(eMFXHWType hwType, const mfxVideoParam& video)
-+{
-+    return hwType != MFX_HW_ARL || !IsMain10Encode(video);
-+}
-+
-+inline bool IsEncToolsInternalConfigSupportedOnPlatform(eMFXHWType hwType)
-+{
-+    return hwType != MFX_HW_ARL;
-+}
 +}
 +
  void HevcEncTools::SetSupported(ParamSupport& blocks)
  {
      blocks.m_ebCopySupported[MFX_EXTBUFF_ENCTOOLS_CONFIG].emplace_back(
-@@ -433,8 +460,38 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
+@@ -433,9 +446,15 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
      mfxExtBRC             *pBRC = ExtBuffer::Get(video);
      mfxExtEncToolsConfig  *pConfig = ExtBuffer::Get(video);
  
 -    bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
      mfxU32 changed = 0;
-+    if (pExtOpt2 != nullptr && !IsLookAheadSupportedOnPlatform(m_hwType, video))
-+    {
-+        pExtOpt2->LookAheadDepth = 0;
-+        changed++;
-+    }
-+
-+    // Adaptive GOP control depends on the same EncTools lookahead state. Keep
-+    // it disabled together with lookahead on platforms where the Main10 path is
-+    // restricted.
-+    if (pExtOpt2 != nullptr && !IsAdaptiveGopSupportedOnPlatform(m_hwType, video))
-+    {
-+        if (pExtOpt2->AdaptiveI != MFX_CODINGOPTION_OFF)
-+        {
-+            pExtOpt2->AdaptiveI = MFX_CODINGOPTION_OFF;
-+            changed++;
-+        }
-+        if (pExtOpt2->AdaptiveB != MFX_CODINGOPTION_OFF)
-+        {
-+            pExtOpt2->AdaptiveB = MFX_CODINGOPTION_OFF;
-+            changed++;
-+        }
-+        supportedConfig.AdaptiveI = MFX_CODINGOPTION_OFF;
-+        supportedConfig.AdaptiveB = MFX_CODINGOPTION_OFF;
-+    }
-+
+ 
 +    if (m_hwType == MFX_HW_ARL && pExtOpt3 != nullptr)
 +    {
 +        changed += SetIf(pExtOpt3->AdaptiveCQM, pExtOpt3->AdaptiveCQM != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
 +    }
 +
 +    bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
- 
++
  #ifdef MFX_ENABLE_ENCTOOLS_LPLA
      if (IsGameStreaming(video))
-@@ -481,6 +538,24 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
-         changed += CheckFlag(pConfig->AdaptiveQuantMatrices, IsOn(supportedConfig.AdaptiveQuantMatrices));
-         changed += CheckFlag(pConfig->BRC, IsOn(supportedConfig.BRC));
-         changed += CheckFlag(pConfig->AdaptiveMBQP, IsOn(supportedConfig.AdaptiveMBQP));
-+
-+        if (!IsEncToolsInternalConfigSupportedOnPlatform(m_hwType))
-+        {
-+            changed += SetIf(pConfig->AdaptiveI, pConfig->AdaptiveI != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveB, pConfig->AdaptiveB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveLTR, pConfig->AdaptiveLTR != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveRefP, pConfig->AdaptiveRefP != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveRefB, pConfig->AdaptiveRefB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveQuantMatrices, pConfig->AdaptiveQuantMatrices != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->BRC, pConfig->BRC != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveMBQP, pConfig->AdaptiveMBQP != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+        }
-+
-+        if (!IsAdaptiveGopSupportedOnPlatform(m_hwType, video))
-+        {
-+            changed += SetIf(pConfig->AdaptiveI, pConfig->AdaptiveI != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+            changed += SetIf(pConfig->AdaptiveB, pConfig->AdaptiveB != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
-+        }
-     }
-     if (pExtOpt2)
      {
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools_com.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools_com.cpp
 index da47acc..db3bdda 100644
@@ -137,32 +75,24 @@ index da47acc..db3bdda 100644
  
              mfxEncTools* pEncTools = GetEncTools(par);
              bool bCreated = false;
-diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
-index 33d2c30..0af33f3 100644
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy.h
-@@ -57,6 +57,7 @@ namespace Base
-     DECL_BLOCK(CheckHeaders         )\
-     DECL_BLOCK(CheckLCUSize         )\
-     DECL_BLOCK(CheckFormat          )\
-+    DECL_BLOCK(CheckPlatformCodingOptions)\
-     DECL_BLOCK(CheckLowDelayBRC     )\
-     DECL_BLOCK(CheckLevel           )\
-     DECL_BLOCK(CheckSurfSize        )\
-diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
-index 94b3371..2f1c08a 100644
---- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
-+++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_legacy_defaults.cpp
-@@ -855,6 +855,12 @@ public:
-         bool bON                        = bPassThrough && IsOn(pCO2->MBBRC);
-         bool bOFF                       = bPassThrough && IsOff(pCO2->MBBRC);
+diff --git a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp b/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
+index 963dd99..7b0e9c8 100644
+--- a/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
++++ b/_studio/mfx_lib/vpp/src/mfx_vpp_hw.cpp
+@@ -7169,6 +7169,16 @@ mfxStatus ConfigureExecuteParams(
+             config.m_extConfig.mode = FRC_DISABLED | FRC_DISTRIBUTED_TIMESTAMP;
+         }
+     }
++    // When bob 60p (30i->60p) mode is active but distributed timestamp was
++    // not explicitly requested, enable distributed timestamp metadata so
++    // that both bob output frames carry valid timestamps and monotonically
++    // increasing FrameOrder values. Without this, the odd-side bob output
++    // receives MFX_FRAMEORDER_UNKNOWN, which can disrupt HEVC reference
++    // management that depends on FrameOrder for DPB lookup.
++    if (config.m_bMode30i60pEnable && !(config.m_extConfig.mode & FRC_DISTRIBUTED_TIMESTAMP))
++    {
++        config.m_extConfig.mode = FRC_DISABLED | FRC_DISTRIBUTED_TIMESTAMP;
++    }
  
-+        // ARL HEVC Main10 uses the VDEnc P010 input path. Per-MB rate control
-+        // adds per-CU control buffers to the same submission and is not enabled
-+        // for that platform path, so keep both the default and explicit
-+        // tri-state value on the regular non-PerMBRC path.
-+        bOFF |= par.hw == MFX_HW_ARL && par.base.GetTargetBitDepthLuma(par) == 10;
-+
-         bOFF |= !bPassThrough
-             && (   par.base.GetRateControlMethod(par) == MFX_RATECONTROL_CQP
-                 || Legacy::IsSWBRC(par.mvp)
+     if ( (0 == memcmp(&videoParam.vpp.In, &videoParam.vpp.Out, sizeof(mfxFrameInfo))) &&
+          executeParams.IsDoNothing() )

@@ -598,49 +598,41 @@ index db6aadd..e55ebfa 100644
      }
      }
 -
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
+index e7b6e62..1f5192b 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
+@@ -534,8 +534,23 @@ namespace encode
+             hucVdencBrcUpdateDmem,
+             m_pipeline->IsLastPass());
+ 
+-        // CQM
+-        hucVdencBrcUpdateDmem->CqmEnable = m_basicFeature->m_hevcSeqParams->scaling_list_enable_flag || m_basicFeature->m_hevcPicParams->scaling_list_data_present_flag;
++        // Arrow Lake HuC BRC firmware does not correctly handle CQM-enabled
++        // rate control when HEVC scaling lists are active. Force CqmEnable to
++        // zero on ARL to prevent the BRC update from producing invalid output
++        // that leads to encode pipeline stall.
++        PLATFORM platform = {};
++        if (m_osInterface && m_osInterface->pfnGetPlatform)
++        {
++            m_osInterface->pfnGetPlatform(m_osInterface, &platform);
++        }
++        if (platform.eProductFamily == IGFX_ARROWLAKE)
++        {
++            hucVdencBrcUpdateDmem->CqmEnable = 0;
++        }
++        else
++        {
++            hucVdencBrcUpdateDmem->CqmEnable = m_basicFeature->m_hevcSeqParams->scaling_list_enable_flag || m_basicFeature->m_hevcPicParams->scaling_list_data_present_flag;
++        }
+ 
+         return MOS_STATUS_SUCCESS;
+     }
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
-index 23010de..a28bde4 100644
+index 23010de..1dc8b7a 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
-@@ -494,6 +494,17 @@ MOS_STATUS HevcReferenceFrames::SetSlotForRecNotFiltered(unsigned char &slotForR
-     return MOS_STATUS_SUCCESS;
- }
- 
-+PMOS_SURFACE HevcReferenceFrames::GetHcpReferenceSurface(uint8_t refListIdx) const
-+{
-+    auto picParams = m_basicFeature != nullptr ? m_basicFeature->m_hevcPicParams : nullptr;
-+    if (picParams != nullptr && picParams->bUseRawPicForRef)
-+    {
-+        return &m_refList[refListIdx]->sRefBuffer;
-+    }
-+
-+    return &m_refList[refListIdx]->sRefReconBuffer;
-+}
-+
- MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
- {
-     ENCODE_FUNC_CALL();
-@@ -518,8 +529,9 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
-             // L0 references
-             uint8_t refPicIdx    = m_picIdx[refPic.FrameIdx].ucPicIdx;
- 
--            params.refs[refIdx] = (picParams->bUseRawPicForRef) ? 
-+            PMOS_RESOURCE referenceSurface = (picParams->bUseRawPicForRef) ?
-                 &m_refList[refPicIdx]->sRefBuffer.OsResource : &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
-+            params.refs[refIdx] = referenceSurface;
- 
-             // 4x/8x DS surface for VDEnc
-             uint8_t scaledIdx        = m_refList[refPicIdx]->ucScalingIdx;
-@@ -532,7 +544,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
- 
-             if (sliceParams->slice_type == encodeHevcPSlice)
-             {
--                params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
-+                params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = referenceSurface;
-                 params.refsDsStage2[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] =
-                     &vdenc4xDsSurface->OsResource;
-                 params.refsDsStage1[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] =
-@@ -551,7 +563,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
+@@ -551,7 +551,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
              // L1 references
              uint8_t refPicIdx = m_picIdx[refPic.FrameIdx].ucPicIdx;
  
@@ -649,60 +641,6 @@ index 23010de..a28bde4 100644
                  &m_refList[refPicIdx]->sRefBuffer.OsResource : &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
  
              // 4x/8x DS surface for VDEnc
-@@ -616,9 +628,10 @@ MHW_SETPAR_DECL_SRC(HCP_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
-                 uint8_t idx = m_picIdx[i].ucPicIdx;
-                 //CodecHalGetResourceInfo(m_osInterface, &(m_refList[idx]->sRefReconBuffer));
- 
--                uint8_t frameStoreId                            = m_refIdxMapping[i];
--                params.presReferences[frameStoreId] = (picParams->bUseRawPicForRef) ? 
--                    &(m_refList[idx]->sRefBuffer.OsResource) : &(m_refList[idx]->sRefReconBuffer.OsResource);
-+                uint8_t frameStoreId         = m_refIdxMapping[i];
-+                PMOS_SURFACE refSurface = GetHcpReferenceSurface(idx);
-+                ENCODE_CHK_NULL_RETURN(refSurface);
-+                params.presReferences[frameStoreId] = &refSurface->OsResource;
- 
-                 uint8_t refMbCodeIdx = m_refList[idx]->ucScalingIdx;
-                 auto    mvTmpBuffer  = trackedBuf->GetBuffer(BufferType::mvTemporalBuffer, refMbCodeIdx);
-@@ -656,14 +669,16 @@ MHW_SETPAR_DECL_SRC(HCP_SURFACE_STATE, HevcReferenceFrames)
-                 {
-                     uint8_t idx          = m_picIdx[i].ucPicIdx;
-                     uint8_t frameStoreId = m_refIdxMapping[i];
-+                    PMOS_SURFACE refSurface = GetHcpReferenceSurface(idx);
-+                    ENCODE_CHK_NULL_RETURN(refSurface);
- 
-                     MOS_MEMCOMP_STATE mmcState  = MOS_MEMCOMP_DISABLED;
--                    ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(const_cast<PMOS_SURFACE>(&m_refList[idx]->sRefReconBuffer), &mmcState));
-+                    ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcState(refSurface, &mmcState));
-                     params.refsMmcEnable |= (mmcState == MOS_MEMCOMP_RC || mmcState == MOS_MEMCOMP_MC) ? (1 << frameStoreId) : 0;
-                     params.refsMmcType |= (mmcState == MOS_MEMCOMP_RC) ? (1 << frameStoreId) : 0;
-                     if (mmcState == MOS_MEMCOMP_RC || mmcState == MOS_MEMCOMP_MC)
-                     {
--                        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(const_cast<PMOS_SURFACE>(&m_refList[idx]->sRefReconBuffer), &params.dwCompressionFormat));
-+                        ENCODE_CHK_STATUS_RETURN(m_mmcState->GetSurfaceMmcFormat(refSurface, &params.dwCompressionFormat));
-                     }
-                 }
-             }
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
-index aad3ec2..dc1f7d9 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
-+++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.h
-@@ -89,7 +89,6 @@ public:
-     //!
-     MOS_STATUS SetSlotForRecNotFiltered(unsigned char &slotForRecNotFiltered);
- 
--    //!
-     //! \brief  Get picture index
-     //! \param  [in] idx
-     //!         Index of pic index
-@@ -165,6 +164,8 @@ public:
-     //!
-     bool IsSameRefList() const { return m_sameRefList; };
- 
-+    PMOS_SURFACE GetHcpReferenceSurface(uint8_t refListIdx) const;
-+
-     MHW_SETPAR_DECL_HDR(VDENC_PIPE_BUF_ADDR_STATE);
- 
-     MHW_SETPAR_DECL_HDR(HCP_PIPE_BUF_ADDR_STATE);
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
 index c699d00..c34dce9 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
@@ -1192,24 +1130,3 @@ index 9ccd685..9299b18 100644
      return MOS_STATUS_SUCCESS;
  }
  
-diff --git a/media_softlet/linux/common/os/i915/mos_bufmgr.c b/media_softlet/linux/common/os/i915/mos_bufmgr.c
-index bca411b..abc5a3a 100644
---- a/media_softlet/linux/common/os/i915/mos_bufmgr.c
-+++ b/media_softlet/linux/common/os/i915/mos_bufmgr.c
-@@ -3019,13 +3019,13 @@ do_exec2(struct mos_linux_bo *bo, int used, struct mos_linux_context *ctx,
-     else
-         i915_execbuffer2_set_context_id(execbuf, ctx->ctx_id);
-     execbuf.rsvd2 = 0;
--    if(flags & I915_EXEC_FENCE_SUBMIT)
-+    if((flags & I915_EXEC_FENCE_SUBMIT) || (flags & I915_EXEC_FENCE_IN))
-     {
--        execbuf.rsvd2 = *fence;
-+        execbuf.rsvd2 = (uint32_t)*fence;
-     }
-     if(flags & I915_EXEC_FENCE_OUT)
-     {
--        execbuf.rsvd2 = -1;
-+        execbuf.rsvd2 |= 0xffffffff00000000ULL;
-     }
- 
-     if (bufmgr_gem->no_exec)
