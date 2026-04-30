@@ -11,7 +11,8 @@
                     </v-select>
                     <!-- 日付セレクター -->
                     <div class="timetable-controls__date">
-                        <v-btn variant="flat" icon size="small" :disabled="!canGoPreviousDay" @click="goToPreviousDay">
+                        <v-btn variant="flat" icon size="small" :disabled="!canGoPreviousDatePreservingTime"
+                            @click="goToPreviousDatePreservingTime">
                             <Icon icon="fluent:chevron-left-20-regular" width="20px" />
                         </v-btn>
                         <v-menu v-model="isDateMenuOpen" :close-on-content-click="false">
@@ -26,7 +27,8 @@
                                 @update:model-value="onDatePickerChange">
                             </v-date-picker>
                         </v-menu>
-                        <v-btn variant="flat" icon size="small" :disabled="!canGoNextDay" @click="goToNextDay">
+                        <v-btn variant="flat" icon size="small" :disabled="!canGoNextDatePreservingTime"
+                            @click="goToNextDatePreservingTime">
                             <Icon icon="fluent:chevron-right-20-regular" width="20px" />
                         </v-btn>
                     </div>
@@ -122,6 +124,8 @@
 <script lang="ts" setup>
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+
+import type { Dayjs } from 'dayjs';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
@@ -333,6 +337,15 @@ const canGoPreviousDay = computed(() => timetableStore.can_go_previous_day);
 // ストアの computed を使用 (36時間表示モード時の date_display_offset を考慮した判定)
 const canGoNextDay = computed(() => timetableStore.can_go_next_day);
 
+// 上部の日付移動ボタンは、36時間表示ページ内に移動先の日時が残っている場合にも押せるようにする
+// 例: 5/1 20:00 から 5/2 20:00 への移動は、今日+明日の36時間ページ内スクロールだけで完結する
+const canGoPreviousDatePreservingTime = computed(() => {
+    return canGoPreviousDay.value || (timetableStore.is_36hour_display && dateDisplayOffset.value > 0);
+});
+const canGoNextDatePreservingTime = computed(() => {
+    return canGoNextDay.value || timetableStore.is_36hour_display;
+});
+
 // v-date-picker 用の日付範囲制限
 // 番組情報が存在する日付範囲のみ選択可能にする
 // 番組表は04:00を境界として日付が切り替わるため、放送日ベースに変換してから比較する
@@ -392,6 +405,90 @@ function onDatePickerChange(value: Date): void {
 function onTimeChange(hour: number | null): void {
     if (hour === null || timetableGridRef.value === null) return;
     timetableGridRef.value.scrollToHour(hour);
+}
+
+/**
+ * 指定日時を含む放送日の開始時刻を取得する
+ * 4:00 ちょうどは新しい放送日の先頭として扱い、0:00〜3:59 は前日の放送日に含める
+ * @param targetTime 対象日時
+ * @returns 対象日時を含む放送日の開始時刻
+ */
+function getBroadcastDayStartForTime(targetTime: Dayjs): Dayjs {
+    let broadcastDayStart = targetTime.hour(4).minute(0).second(0).millisecond(0);
+    if (targetTime.hour() < 4) {
+        broadcastDayStart = broadcastDayStart.subtract(1, 'day');
+    }
+    return broadcastDayStart;
+}
+
+/**
+ * 表示中の時間帯を維持したまま、上部日付コントロールの日付だけを前後に移動する
+ * 36時間表示ページ内に移動先日時が含まれる場合は、データを取得し直さずにスクロールだけ行う
+ * @param dayOffset 移動する日数 (前日は -1、翌日は 1)
+ */
+async function moveDatePreservingVisibleTime(dayOffset: -1 | 1): Promise<void> {
+    // 番組表グリッドがまだマウントされていない場合は、現在の表示時刻を取得できない
+    if (timetableGridRef.value === null) {
+        return;
+    }
+
+    // まず現在のスクロール位置から、ユーザーが見ている表示上端の実日時を取得する
+    // 時刻セレクターの値ではなく実際の scrollTop を基準にすることで、細かくスクロールした位置も維持できる
+    const visibleStartTime = timetableGridRef.value.getVisibleStartTime();
+    if (visibleStartTime === null) {
+        return;
+    }
+
+    // 日付コントロールの左右ボタンは「日付だけを前後に切り替える」操作として扱う
+    // そのため、現在表示している実日時に単純に1日を加減した日時を移動先にする
+    const targetTime = visibleStartTime.add(dayOffset, 'day');
+
+    // 36時間表示ページ内に移動先日時が含まれている場合は、API を再取得せず同じページ内でスクロールする
+    // 例: 5/1 20:00 から 5/2 20:00 へ移動するケースは、5/1 の36時間表示ページ内で完結する
+    if (timetableGridRef.value.scrollToDateTime(targetTime)) {
+        return;
+    }
+
+    // 移動先日時が現在の番組表データ範囲外の場合は、その日時を含む放送日の番組表に切り替える
+    // 0:00〜3:59 は前日の放送日として扱い、4:00 ちょうどは新しい放送日の先頭として扱う
+    await timetableStore.changeDate(getBroadcastDayStartForTime(targetTime));
+    await nextTick();
+
+    // 日付変更によりコンポーネントが再生成されている可能性があるため、DOM 更新後に参照を確認する
+    if (timetableGridRef.value === null) {
+        return;
+    }
+
+    // 新しいページに目的時刻が含まれていれば、その時刻へ直接スクロールする
+    // 通常表示ページでは多くのケースでここに入り、上部ボタンの「同じ時間帯を維持する」挙動になる
+    const isScrolled = timetableGridRef.value.scrollToDateTime(targetTime);
+    if (isScrolled) {
+        return;
+    }
+
+    // 夜間の36時間表示では、当日の 4:00〜15:59 が表示範囲外になることがある
+    // この場合も変更前の scrollTop を新しいページに持ち越すと別の時間帯が見えてしまうため、
+    // 目的時刻に最も近い表示端へ明示的に寄せる
+    const displayStartTime = timetableStore.getDisplayStartTime();
+    if (targetTime.isBefore(displayStartTime)) {
+        timetableGridRef.value.scrollToStart();
+        return;
+    }
+    timetableGridRef.value.scrollToEnd();
+}
+
+/**
+ * 表示中の時間帯を維持したまま、上部日付コントロールを前の日へ移動する
+ */
+async function goToPreviousDatePreservingTime(): Promise<void> {
+    await moveDatePreservingVisibleTime(-1);
+}
+
+/**
+ * 表示中の時間帯を維持したまま、上部日付コントロールを次の日へ移動する
+ */
+async function goToNextDatePreservingTime(): Promise<void> {
+    await moveDatePreservingVisibleTime(1);
 }
 
 /**

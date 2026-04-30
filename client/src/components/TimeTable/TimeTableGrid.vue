@@ -144,6 +144,8 @@
 
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 
+import type { Dayjs } from 'dayjs';
+
 import TimeTableChannelHeader from '@/components/TimeTable/TimeTableChannelHeader.vue';
 import TimeTableCurrentTimeLine from '@/components/TimeTable/TimeTableCurrentTimeLine.vue';
 import TimeTableProgramCell from '@/components/TimeTable/TimeTableProgramCell.vue';
@@ -992,6 +994,73 @@ function scrollToHour(hour: number): void {
 }
 
 /**
+ * 現在の表示上端に対応する日時を取得する
+ * @returns 表示上端の日時 (スクロール領域が未初期化の場合は null)
+ */
+function getVisibleStartTime(): Dayjs | null {
+    // スクロール領域がまだマウントされていない場合は、親コンポーネント側で日付移動処理を続行できない
+    if (scrollAreaRef.value === null) {
+        return null;
+    }
+
+    // 番組表の表示開始時刻に、現在の縦スクロール量を時間換算して加算する
+    // 36時間表示時も getDisplayStartTime() が 16:00 起点を返すため、ここでは通常表示と同じ計算で扱える
+    const displayStart = timetableStore.getDisplayStartTime();
+    const elapsedHours = scrollAreaRef.value.scrollTop / hourHeight.value;
+    return displayStart.add(elapsedHours, 'hour');
+}
+
+/**
+ * 指定した日時が現在の番組表データ範囲内にあるかどうかを取得する
+ * @param targetTime スクロール先の日時
+ * @returns 現在の番組表データ範囲内にある場合は true
+ */
+function isTimeInCurrentDisplayRange(targetTime: Dayjs): boolean {
+    // 現在表示中の番組表データの実時間範囲を取得する
+    // 36時間表示時は 16:00〜翌々日4:00、通常表示時は 4:00〜翌4:00 の範囲になる
+    const displayStart = timetableStore.getDisplayStartTime();
+    const displayEnd = timetableStore.getDayEndTime(displayStart, props.is36HourDisplay);
+
+    // 終了時刻ちょうどは次のページの先頭として扱う
+    // ここで含めてしまうと、実際には存在しない最下端の位置へスクロールしようとしてしまう
+    return targetTime.isSameOrAfter(displayStart) && targetTime.isBefore(displayEnd);
+}
+
+/**
+ * 指定した日時にスクロールする
+ * 日付移動ボタンで表示中の時間帯を維持するために使用する
+ * @param targetTime スクロール先の日時
+ * @returns スクロールできた場合は true 、現在の番組表データ範囲外なら false
+ */
+function scrollToDateTime(targetTime: Dayjs): boolean {
+    // スクロール領域がまだマウントされていない場合は、呼び出し元にスクロール失敗として返す
+    if (scrollAreaRef.value === null) {
+        return false;
+    }
+
+    // 現在の番組表データに含まれない日時は、このコンポーネントだけではスクロールできない
+    // 呼び出し元で日付変更やフォールバック位置への移動を判断するため、false で明示的に返す
+    if (isTimeInCurrentDisplayRange(targetTime) === false) {
+        return false;
+    }
+
+    // 表示開始時刻から対象日時までの経過時間を、縦スクロール量に変換する
+    // 端に近い時間帯ではブラウザの最大スクロール位置を超えることがあるため、実際に指定可能な範囲へ丸める
+    const displayStart = timetableStore.getDisplayStartTime();
+    const elapsedMs = targetTime.valueOf() - displayStart.valueOf();
+    const elapsedHours = elapsedMs / (1000 * 60 * 60);
+    const maxScrollY = scrollAreaRef.value.scrollHeight - scrollAreaRef.value.clientHeight;
+    const scrollY = Math.max(0, Math.min(maxScrollY, elapsedHours * hourHeight.value));
+
+    scrollAreaRef.value.scrollTo({
+        top: scrollY,
+        behavior: 'instant',
+    });
+
+    return true;
+}
+
+/**
  * 初期スクロール位置 (Y座標) を計算する
  * 選択日が今日の場合は「現在時刻 - 1時間の正時」の位置を返す
  * 選択日が今日でない場合は 0 (番組表の先頭) を返す
@@ -1109,6 +1178,8 @@ function scrollToEnd(): void {
 // 外部から呼び出せるようにメソッドを公開
 defineExpose({
     scrollToHour,
+    getVisibleStartTime,
+    scrollToDateTime,
     scrollToCurrentTime,
     scrollToStart,
     scrollToEnd,
