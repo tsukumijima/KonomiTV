@@ -628,19 +628,6 @@ index e7b6e62..1f5192b 100644
  
          return MOS_STATUS_SUCCESS;
      }
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
-index 23010de..1dc8b7a 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
-+++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_reference_frames.cpp
-@@ -551,7 +551,7 @@ MHW_SETPAR_DECL_SRC(VDENC_PIPE_BUF_ADDR_STATE, HevcReferenceFrames)
-             // L1 references
-             uint8_t refPicIdx = m_picIdx[refPic.FrameIdx].ucPicIdx;
- 
--            params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = (picParams->bUseRawPicForRef) ? 
-+            params.refs[refIdx + sliceParams->num_ref_idx_l0_active_minus1 + 1] = (picParams->bUseRawPicForRef) ?
-                 &m_refList[refPicIdx]->sRefBuffer.OsResource : &m_refList[refPicIdx]->sRefReconBuffer.OsResource;
- 
-             // 4x/8x DS surface for VDEnc
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
 index c699d00..c34dce9 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp

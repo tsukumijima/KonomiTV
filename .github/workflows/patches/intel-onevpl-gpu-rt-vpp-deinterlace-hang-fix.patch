@@ -1,5 +1,5 @@
 diff --git a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
-index 0d5c23c..0b7f580 100644
+index 0d5c23c..49b36a9 100644
 --- a/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
 +++ b/_studio/mfx_lib/encode_hw/hevc/agnostic/base/hevcehw_base_enctools.cpp
 @@ -32,6 +32,19 @@
@@ -22,14 +22,19 @@ index 0d5c23c..0b7f580 100644
  void HevcEncTools::SetSupported(ParamSupport& blocks)
  {
      blocks.m_ebCopySupported[MFX_EXTBUFF_ENCTOOLS_CONFIG].emplace_back(
-@@ -433,9 +446,15 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
+@@ -433,9 +446,20 @@ mfxU32 HevcEncTools::CorrectVideoParams(mfxVideoParam & video, mfxExtEncToolsCon
      mfxExtBRC             *pBRC = ExtBuffer::Get(video);
      mfxExtEncToolsConfig  *pConfig = ExtBuffer::Get(video);
  
 -    bool bIsEncToolsEnabled = CheckEncToolsCondition(video);
      mfxU32 changed = 0;
  
-+    if (m_hwType == MFX_HW_ARL && pExtOpt3 != nullptr)
++    // Workaround: enabling AdaptiveCQM together with HEVC Main10 encoding
++    // on Arrow Lake can produce non-deterministic GPU hangs during long
++    // encode runs. Force AdaptiveCQM off for this configuration. The
++    // 8-bit HEVC path is unaffected because the HuC BRC update DMEM
++    // CqmEnable is already forced to 0 on Arrow Lake.
++    if (m_hwType == MFX_HW_ARL && IsMain10Encode(video) && pExtOpt3 != nullptr)
 +    {
 +        changed += SetIf(pExtOpt3->AdaptiveCQM, pExtOpt3->AdaptiveCQM != MFX_CODINGOPTION_OFF, mfxU16(MFX_CODINGOPTION_OFF));
 +    }
