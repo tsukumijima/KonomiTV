@@ -1117,3 +1117,82 @@ index 9ccd685..9299b18 100644
      return MOS_STATUS_SUCCESS;
  }
  
+diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+--- a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
++++ b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+@@ -215,6 +215,15 @@ protected:
+     //!
+     virtual MOS_STATUS ParseStatus(void *report, uint32_t index) = 0;
+ 
++    //!
++    //! \brief  Check whether the status slot can be consumed.
++    //! \param  [in] index
++    //!         The index of current requesting report.
++    //! \return bool
++    //!         true if the slot can be parsed, false if it should be retried later.
++    //!
++    virtual bool IsStatusReportReady(uint32_t index) const { return true; }
++
+     //!
+     //! \brief  Set unavailable status report information into report buffer.
+     //! \param  [in] report
+diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+--- a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
++++ b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+@@ -84,6 +84,10 @@ MOS_STATUS MediaStatusReport::GetReport(uint16_t requireNum, void *status)
+         // Get reverse order index to temporally fix application get status report size bigger than 2 case.
+         reportIndex = reverseOrder ? CounterToIndex(completedCount + reportedCountOrigin - reportedCount -1) :
+                                      CounterToIndex(reportedCount);
++        if (!IsStatusReportReady(reportIndex))
++        {
++            break;
++        }
+         // m_reportedCount is used by component. Need to assign actual index before call ParseStatus
+         m_reportedCount = reportIndex;
+         eStatus = ParseStatus(((uint8_t*)status + m_sizeOfReport * generatedReportCount), reportIndex);
+diff --git a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+--- a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
++++ b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+@@ -368,6 +368,15 @@ namespace encode {
+         virtual MOS_STATUS ReportUsedVdboxIds() override;
+ #endif
+     protected:
++        //!
++        //! \brief  Check whether the encode status slot has reached queryEnd.
++        //! \param  [in] index
++        //!         Status report ring index to check.
++        //! \return bool
++        //!         true if the slot can be consumed, false if DDI should retry later.
++        //!
++        virtual bool IsStatusReportReady(uint32_t index) const override;
++
+         //!
+         //! \brief  Collect the status report information into report buffer.
+         //! \param  [in] report
+diff --git a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+--- a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
++++ b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+@@ -267,6 +267,23 @@ namespace encode {
+         return m_hwcounterBuf;
+     }
+ 
++    bool EncoderStatusReport::IsStatusReportReady(uint32_t index) const
++    {
++        if (!m_enableMfx)
++        {
++            return true;
++        }
++
++        if (m_dataStatusMfx == nullptr)
++        {
++            return false;
++        }
++
++        const EncodeStatusMfx *encodeStatusMfx =
++            (const EncodeStatusMfx *)(m_dataStatusMfx + index * m_statusBufSizeMfx);
++        return encodeStatusMfx->status == queryEnd;
++    }
++
+     MOS_STATUS EncoderStatusReport::GetCommonMfxReportData(EncodeStatusReportData *statusReportData, uint32_t index)
+     {
+         EncodeStatusMfx *encodeStatusMfx = nullptr;
