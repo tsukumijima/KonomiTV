@@ -1117,9 +1117,9 @@ index 9ccd685..9299b18 100644
      return MOS_STATUS_SUCCESS;
  }
  
-diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
---- a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
-+++ b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+--- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
++++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
 @@ -215,6 +215,15 @@ protected:
      //!
      virtual MOS_STATUS ParseStatus(void *report, uint32_t index) = 0;
@@ -1136,9 +1136,9 @@ diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/medi
      //!
      //! \brief  Set unavailable status report information into report buffer.
      //! \param  [in] report
-diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
---- a/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
-+++ b/media_driver/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+--- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
++++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
 @@ -84,6 +84,10 @@ MOS_STATUS MediaStatusReport::GetReport(uint16_t requireNum, void *status)
          // Get reverse order index to temporally fix application get status report size bigger than 2 case.
          reportIndex = reverseOrder ? CounterToIndex(completedCount + reportedCountOrigin - reportedCount -1) :
@@ -1150,9 +1150,9 @@ diff --git a/media_driver/media_softlet/agnostic/common/shared/statusreport/medi
          // m_reportedCount is used by component. Need to assign actual index before call ParseStatus
          m_reportedCount = reportIndex;
          eStatus = ParseStatus(((uint8_t*)status + m_sizeOfReport * generatedReportCount), reportIndex);
-diff --git a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
---- a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
-+++ b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
 @@ -368,6 +368,15 @@ namespace encode {
          virtual MOS_STATUS ReportUsedVdboxIds() override;
  #endif
@@ -1169,9 +1169,9 @@ diff --git a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/sta
          //!
          //! \brief  Collect the status report information into report buffer.
          //! \param  [in] report
-diff --git a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
---- a/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
-+++ b/media_driver/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
 @@ -267,6 +267,23 @@ namespace encode {
          return m_hwcounterBuf;
      }
