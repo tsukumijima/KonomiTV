@@ -8,6 +8,7 @@ import errno
 import math
 import os
 import threading
+import time
 from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 from biim.mpeg2ts import ts
@@ -61,14 +62,14 @@ class VideoEncodingTask:
         self._tsreadex_feed_task: asyncio.Future[None] | None = None
         # tsreadex の stdin の書き込み用ファイルディスクリプタと、それがどの世代のパイプかを示すトークン
         ## FeedTSStream() では run_in_executor() からワーカースレッドでこれらを参照し、
-        ## cancel() や finally ブロックではイベントループのスレッドでこれらを書き換えるため、
+        ## cancel() や finally ブロックではイベントループ (メインスレッド) でこれらを書き換えるため、
         ## この2つの値は常にセットで正しい状態を保つ必要がある
         self._tsreadex_stdin_write_fd: int | None = None
         self._tsreadex_stdin_write_generation_token: object | None = None
         # _tsreadex_stdin_write_fd と _tsreadex_stdin_write_generation_token を、スレッド間で安全に扱うための排他ロック
         ## ワーカースレッドからは asyncio.Lock が使えないため、threading.Lock を利用している
         ## このロック内では値の比較や参照の更新だけを行い、os.close() などのシステムコールはロックの外で実行することで、
-        ## イベントループのスレッドをできるだけ長く止めないように工夫している
+        ## イベントループ (メインスレッド) をできるだけ長く止めないように工夫している
         self._tsreadex_stdin_write_lock = threading.Lock()
 
         # エンコードタスクを完了済みかどうか
@@ -321,7 +322,7 @@ class VideoEncodingTask:
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
-            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う (ただし、 timestamp を変えないよう coeff_shift=0 を指定する)
+            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う (ただし、timestamp を変えないよう coeff_shift=0 を指定する)
             else:
                 if encoder_type == 'QSVEncC':
                     options.append('--vpp-deinterlace normal')
@@ -1034,6 +1035,9 @@ class VideoEncodingTask:
                         break
 
                 # エンコーダープロセスを終了
+                ## 下流側のプロセスから順に止めるのが重要
+                ## エンコーダーを先に止めるとその上流の tsreadex の書き込み先が消え、
+                ## tsreadex 自身が破損したパイプへの書き込みでエラーを返して停止できる状態になる
                 if self._encoder_process is not None:
                     try:
                         if self._encoder_process.returncode is None:
@@ -1041,6 +1045,7 @@ class VideoEncodingTask:
                             try:
                                 # プロセスの終了を待機
                                 await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)
+                                logging.debug(f'{self.video_stream.log_prefix} Encoder process terminated cleanly.')
                             except (TimeoutError, asyncio.CancelledError):
                                 # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
                                 logging.warning(f'{self.video_stream.log_prefix} Encoder process termination wait timed out or cancelled.')
@@ -1048,31 +1053,44 @@ class VideoEncodingTask:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
 
                 # tsreadex プロセスを終了
+                ## tsreadex を強制終了すると OS が tsreadex の保持していたハンドルを全て閉じてくれるので、
+                ## 親側で書き込みが詰まっていたワーカースレッドの WriteFile が BrokenPipeError で抜けて、
+                ## 後続の os.close() を呼んでもイベントループ (メインスレッド) がブロックしない状態に持っていける
                 if self._tsreadex_process is not None:
                     try:
-                        self.__closeTSReadExInputPipe()
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
                             try:
                                 # プロセスの終了を待機
                                 await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)
+                                logging.debug(f'{self.video_stream.log_prefix} tsreadex process terminated cleanly.')
                             except (TimeoutError, asyncio.CancelledError):
                                 # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
                                 logging.warning(f'{self.video_stream.log_prefix} tsreadex process termination wait timed out or cancelled.')
                     except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
 
-                    # tsreadex への入力タスクの完了を待つ
-                    # tsreadex プロセスを kill したので、パイプがクローズされてタスクは終了するはず
+                    # フィードタスクの完了を待つ
+                    ## tsreadex を強制終了した時点でパイプの読み手側が消えるため、
+                    ## ワーカースレッドの os.write() は BrokenPipeError で抜けて、自身の finally で FD を閉じてくれるはず
                     if self._tsreadex_feed_task is not None:
+                        feed_wait_start_time = time.perf_counter()
                         try:
                             await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                            feed_wait_elapsed_ms = (time.perf_counter() - feed_wait_start_time) * 1000
+                            logging.debug(f'{self.video_stream.log_prefix} Feed task completed in {feed_wait_elapsed_ms:.1f}ms.')
                         except TimeoutError:
-                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout.')
+                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout (1s) after tsreadex kill.')
                         except Exception:
                             pass
 
-                # psisimux プロセスを終了
+                    # tsreadex stdin の書き込み側 FD を保険として閉じる
+                    ## ワーカースレッドが先に閉じていれば no-op になる
+                    ## ここに到達した時点で tsreadex.wait() の完了は確定しており、ワーカースレッドも BrokenPipeError 経由で
+                    ## 抜けているはずなので、イベントループ (メインスレッド) が os.close() で固まる懸念はない
+                    self.__closeTSReadExInputPipe()
+
+                # psisimux プロセスを終了 (MPEG-4 経路でのみ存在、PAT/PMT feed 経路とは独立)
                 if self._psisimux_process is not None:
                     try:
                         if self._psisimux_process.returncode is None:
@@ -1080,6 +1098,7 @@ class VideoEncodingTask:
                             try:
                                 # プロセスの終了を待機
                                 await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)
+                                logging.debug(f'{self.video_stream.log_prefix} psisimux process terminated cleanly.')
                             except (TimeoutError, asyncio.CancelledError):
                                 # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
                                 logging.warning(f'{self.video_stream.log_prefix} psisimux process termination wait timed out or cancelled.')
@@ -1105,15 +1124,19 @@ class VideoEncodingTask:
                                     logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                                 except Exception:
                                     pass
-                        # リトライ前にフィードタスクの完了を待つ
+                        # リトライ前にフィードタスクの完了を再確認する
+                        ## 直前のプロセス終了処理で既に asyncio.wait_for() 済みのはずだが、タイムアウトで抜けていたケースに備える保険
+                        ## tsreadex stdin の書き込み側 FD は直前のクリーンアップで既に閉じているので、ここではフィードタスクの待機のみで十分
                         if self._tsreadex_feed_task is not None:
                             try:
-                                self.__closeTSReadExInputPipe()
                                 await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
                             except TimeoutError:
                                 logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
                             except Exception:
                                 pass
+                        # 旧世代の参照をクリアして次の世代の登録に備える
+                        ## 既存の世代トークンの仕組みにより、仮にここで旧世代のワーカースレッドが生き残っていても新しい FD への誤書き込みは防がれるが、
+                        ## 参照を残し続ける意味はないので明示的にクリアしておく
                         self._encoder_process = None
                         self._tsreadex_process = None
                         self._tsreadex_feed_task = None
@@ -1126,12 +1149,11 @@ class VideoEncodingTask:
                 break
 
         finally:
-            # tsreadex の stdin 書き込み側が残っていると、例外経路で feed スレッドや tsreadex が EOF を検知できず残留しうる
-            ## 通常経路ではリトライループ内で既に close されているが、起動失敗や途中例外時の保険としてここでも閉じる
-            self.__closeTSReadExInputPipe()
-
-            # 起動途中の例外で create_subprocess_exec() 直後の close に到達できなかった raw pipe FD を回収する
-            ## close 済みであれば OSError になるだけなので握りつぶしてよい
+            # 起動途中の例外で create_subprocess_exec() 直後の close に到達できなかった、
+            # 子プロセスへ渡す側のパイプの読み込み側 FD を回収する
+            ## 既に閉じられていれば OSError になるだけなので握りつぶしてよい
+            ## ここで回収するのは子プロセス側へ継承される読み込み側 FD のみで、
+            ## 親プロセス側で書き込みを担当する FD は __closeTSReadExInputPipe() で別途閉じる
             if psisimux_read_pipe is not None:
                 try:
                     os.close(psisimux_read_pipe)
@@ -1146,56 +1168,82 @@ class VideoEncodingTask:
                 tsreadex_read_pipe = None
 
             # 起動途中の例外で通常の終了処理に到達できなかった場合に備えて、子プロセスを最終的に回収する
-            ## 正常系では既に returncode が設定されているので、この保険は実質 no-op になる
+            ## 正常系では既に returncode が設定されているので、ここでの強制終了処理は実質 no-op になる
+            ## 順序は下流のプロセスから: エンコーダー → tsreadex → psisimux
+            ## 先にエンコーダーを止めると tsreadex の書き込み先が消え、
+            ## 続いて tsreadex を強制終了するとパイプの読み手側が消えるので、
+            ## 親側で書き込みが詰まっていたフィードタスクのワーカースレッドが BrokenPipeError で抜けて、
+            ## 後続の os.close() を呼んでもイベントループ (メインスレッド) が固まらない状態を作れる
+
+            # エンコーダープロセス
             if self._encoder_process is not None:
                 try:
                     if self._encoder_process.returncode is None:
                         self._encoder_process.kill()
                         try:
                             await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)
+                            logging.debug(f'{self.video_stream.log_prefix} Encoder process terminated cleanly in final cleanup.')
                         except (TimeoutError, asyncio.CancelledError):
                             logging.warning(f'{self.video_stream.log_prefix} Encoder process termination wait timed out or cancelled in final cleanup.')
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process in final cleanup:', exc_info=ex)
 
+            # tsreadex プロセス
             if self._tsreadex_process is not None:
                 try:
                     if self._tsreadex_process.returncode is None:
                         self._tsreadex_process.kill()
                         try:
                             await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)
+                            logging.debug(f'{self.video_stream.log_prefix} tsreadex process terminated cleanly in final cleanup.')
                         except (TimeoutError, asyncio.CancelledError):
                             logging.warning(f'{self.video_stream.log_prefix} tsreadex process termination wait timed out or cancelled in final cleanup.')
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process in final cleanup:', exc_info=ex)
 
+            # psisimux プロセス
+            ## MP4 形式の録画ファイルを処理するときだけ起動されるツールで、tsreadex への入力経路とは独立している
             if self._psisimux_process is not None:
                 try:
                     if self._psisimux_process.returncode is None:
                         self._psisimux_process.kill()
                         try:
                             await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)
+                            logging.debug(f'{self.video_stream.log_prefix} psisimux process terminated cleanly in final cleanup.')
                         except (TimeoutError, asyncio.CancelledError):
                             logging.warning(f'{self.video_stream.log_prefix} psisimux process termination wait timed out or cancelled in final cleanup.')
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process in final cleanup:', exc_info=ex)
                 self._psisimux_process = None
 
-            if file is not None:
-                # フィードタスクが実行中の場合、ファイルをクローズする前に完了を待つ
-                # スレッドで file.read() 実行中に file.close() すると ValueError が発生するため
-                # 通常はリトライループ内で既に完了しているが、念のため再チェック
-                if self._tsreadex_feed_task is not None:
-                    try:
-                        # 最大2秒待機（通常は tsreadex プロセスの kill により即座に終了する）
-                        self.__closeTSReadExInputPipe()
-                        await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
-                    except TimeoutError:
-                        logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout, proceeding to close file.')
-                    except Exception:
-                        pass  # その他のエラーは無視
+            # フィードタスクの完了を待つ
+            ## ここに到達した時点で既にエンコーダーと tsreadex の終了待機 (asyncio.wait_for()) が完了している
+            ## そのためワーカースレッドは BrokenPipeError 経由で自身の finally に入っており、
+            ## イベントループ (メインスレッド) からこの後 os.close() を呼んでも固まる懸念はない状態にある
+            if self._tsreadex_feed_task is not None:
+                feed_wait_start_time = time.perf_counter()
+                try:
+                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                    feed_wait_elapsed_ms = (time.perf_counter() - feed_wait_start_time) * 1000
+                    logging.debug(f'{self.video_stream.log_prefix} Feed task completed in {feed_wait_elapsed_ms:.1f}ms in final cleanup.')
+                except TimeoutError:
+                    logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout (1s) in final cleanup.')
+                except Exception:
+                    pass
 
-                # ファイルを閉じる
+            # tsreadex stdin の書き込み側 FD を最後に保険として閉じる
+            ## フィードタスクが先に閉じていれば __closeTSReadExInputPipe() は no-op になるので冪等
+            ## なお、create_subprocess_exec() がフィードタスクの作成前に失敗したケースでは、
+            ## __registerTSReadExInputPipe() で登録した FD が残ったままになるので、
+            ## self._tsreadex_feed_task の有無に関わらず必ず呼んでおく必要がある (FD リーク防止のため)
+            self.__closeTSReadExInputPipe()
+
+            # 録画ファイルを閉じる
+            ## ワーカースレッドが file.read() の実行中に file.close() を呼ぶと ValueError になるが、
+            ## 通常はここに到達した時点でフィードタスクの asyncio.wait_for() が完了しているので問題ない
+            ## 上の asyncio.wait_for() がタイムアウトしてワーカースレッドが file.read() のままになっているケースについては、
+            ## FeedTSStream() 側で ValueError を捕捉して正常終了として扱うようにしてある
+            if file is not None:
                 file.close()
 
             # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
@@ -1210,19 +1258,12 @@ class VideoEncodingTask:
                         logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                     except Exception:
                         pass
-            # finally 句の最後でクリーンアップする前に、フィードタスクの完了を待つ
-            # 通常はリトライループ内で既に完了しているが、念のため再チェック
-            if self._tsreadex_feed_task is not None:
-                try:
-                    self.__closeTSReadExInputPipe()
-                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
-                except TimeoutError:
-                    logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout in finally cleanup.')
-                except Exception:
-                    pass
+
+            # 参照のクリア (GC を遅らせないため明示的に None を代入)
             self._encoder_process = None
             self._tsreadex_process = None
             self._tsreadex_feed_task = None
+            logging.debug(f'{self.video_stream.log_prefix} Final cleanup completed.')
 
             # このエンコードタスクがキャンセルされている場合は何もしない
             if self._is_cancelled is True:
@@ -1242,6 +1283,13 @@ class VideoEncodingTask:
     def cancel(self) -> None:
         """
         起動中のエンコードタスクをキャンセルし、起動中の外部プロセスを終了する
+
+        NOTE: 本メソッド内では tsreadex stdin への書き込み側 FD を意図的に閉じない。
+        FD を閉じる責務は、run() の finally でエンコーダーと tsreadex の終了待機 (asyncio.wait_for()) が完了した後にだけ持たせ、
+        本メソッドは「下流側のプロセスから順に止めていく」役割に徹する。
+        止める順序を下流側から行う理由は、先にエンコーダーを止めることで tsreadex の書き込み先を消し、
+        続いて tsreadex を強制終了すれば親側で詰まっていたワーカースレッドの書き込みが BrokenPipeError で抜けるため、
+        後続の os.close() でイベントループ (メインスレッド) が固まるリスクを最小化できるから。
         """
 
         # すでにエンコードタスクが完了している場合は何もしない
@@ -1250,36 +1298,58 @@ class VideoEncodingTask:
             return
 
         if self._is_cancelled is False:
+            logging.info(f'{self.video_stream.log_prefix} Encoding task cancellation requested.')
 
             # エンコードタスクがキャンセルされたことを示すフラグを立てる
             ## この時点でまだ run() やエンコーダーが実行中であれば、run() やエンコーダーはこのフラグを見て自ら終了する
             ## できるだけ早い段階でフラグを立てておくことが重要
             self._is_cancelled = True
 
-            # psisimux プロセスを強制終了する
-            if self._psisimux_process is not None:
-                try:
-                    self._psisimux_process.kill()
-                except Exception as ex:
-                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
-                self._psisimux_process = None
-
-            # tsreadex プロセスを強制終了する
-            if self._tsreadex_process is not None:
-                try:
-                    self.__closeTSReadExInputPipe()
-                    if self._tsreadex_process.returncode is None:
-                        self._tsreadex_process.kill()
-                except Exception as ex:
-                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
+            # 本メソッド全体の所要時間を計測する
+            ## 過去にイベントループ (メインスレッド) が固まる事象が起きていたため、ハング再発時にログから即座に検知できるよう残しておく
+            cancel_start_time = time.perf_counter()
 
             # エンコーダープロセスを強制終了する
+            ## 上記 Docstring の通り、下流側から順に止めるのが重要
             if self._encoder_process is not None:
                 try:
                     if self._encoder_process.returncode is None:
                         self._encoder_process.kill()
+                        logging.debug(f'{self.video_stream.log_prefix} Encoder process kill signal sent (cancel).')
                 except Exception as ex:
                     logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
+
+            # tsreadex プロセスを強制終了する
+            ## エンコーダーの次に tsreadex を止めることで、親側で詰まっていたワーカースレッドの書き込みが解放される
+            if self._tsreadex_process is not None:
+                try:
+                    if self._tsreadex_process.returncode is None:
+                        self._tsreadex_process.kill()
+                        logging.debug(f'{self.video_stream.log_prefix} tsreadex process kill signal sent (cancel).')
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
+
+            # psisimux プロセスを強制終了する
+            ## MPEG-4 録画ファイルを処理するときだけ起動されるツールで、tsreadex への入力経路とは独立している
+            ## 終了順序の本筋からは外れるが、取り残されないよう同じタイミングで止めておく
+            if self._psisimux_process is not None:
+                try:
+                    if self._psisimux_process.returncode is None:
+                        self._psisimux_process.kill()
+                        logging.debug(f'{self.video_stream.log_prefix} psisimux process kill signal sent (cancel).')
+                except Exception as ex:
+                    logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
+
+            # 所要時間を記録する
+            ## 200ms を超えていた場合のみ警告を出す (それ未満なら正常範囲)
+            cancel_elapsed_ms = (time.perf_counter() - cancel_start_time) * 1000
+            if cancel_elapsed_ms > 200.0:
+                logging.warning(
+                    f'{self.video_stream.log_prefix} '
+                    f'cancel() took {cancel_elapsed_ms:.1f}ms. (event loop may have been blocked)'
+                )
+            else:
+                logging.debug(f'{self.video_stream.log_prefix} cancel() completed in {cancel_elapsed_ms:.1f}ms.')
 
 
     def __registerTSReadExInputPipe(self, pipe_fd: int) -> object:
@@ -1362,8 +1432,27 @@ class VideoEncodingTask:
             self._tsreadex_stdin_write_generation_token = None
 
         try:
-            # os.close() をロック内で実行すると、worker スレッドで世代の確認を待たせてしまう可能性があるため、
+            # os.close() をロック内で実行すると、ワーカースレッドで世代の確認を待たせてしまう可能性があるため、
             # ここではロック中にクローズ対象の fd 番号だけを決めておき、実際のクローズ処理はロック外で行う
+            ## また、ワーカースレッドが当該 FD への書き込み中にイベントループ (メインスレッド) から os.close() を呼んでしまうと、
+            ## Windows の CRT がワーカースレッドの WriteFile の完了を待ってしまい、イベントループが固まることがある
+            ## このため、イベントループ側 (cancel() / run() の finally) からこの関数を呼ぶ際は、
+            ## 必ずエンコーダーと tsreadex の終了待機 (asyncio.wait_for()) が完了した後に呼ぶこと
+            ## (FeedTSStream() のワーカースレッド側からの呼び出しは、ワーカーが自分で持っている FD を閉じるだけなのでいつ呼んでも安全)
+            ## 万一この前提が破られて os.close() がブロックしても気づけるよう、所要時間を計測しておく
+            close_start_time = time.perf_counter()
             os.close(pipe_fd_to_close)
+            close_elapsed_ms = (time.perf_counter() - close_start_time) * 1000
+            if close_elapsed_ms > 200.0:
+                logging.warning(
+                    f'{self.video_stream.log_prefix} '
+                    f'os.close(tsreadex_stdin_write_fd={pipe_fd_to_close}) took {close_elapsed_ms:.1f}ms. '
+                    f'(event loop may have been blocked; this should not happen if encoder/tsreadex are killed first)'
+                )
+            else:
+                logging.debug(
+                    f'{self.video_stream.log_prefix} '
+                    f'Closed tsreadex stdin write fd={pipe_fd_to_close} in {close_elapsed_ms:.1f}ms.'
+                )
         except OSError:
             pass
