@@ -274,7 +274,7 @@ export class CommentUtils {
 
         // 「色付きのコメントをミュートする」がオンの場合
         // コメントの色が #FFEAEA (デフォルト) 以外のときは弾く
-        if (settings_store.settings.mute_colored_comments === true && color !== '#FFEAEA') {
+        if (settings_store.settings.mute_colored_comments === true && color !== undefined && color !== '#FFEAEA') {
             console.log('[CommentUtils] Muted comment (colored_comments): ' + comment);
             return true;
         }
