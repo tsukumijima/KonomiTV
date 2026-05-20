@@ -1,5 +1,5 @@
 diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
-index 09fd243..2183194 100644
+index 09fd243fc..2183194c1 100644
 --- a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
 +++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_hpm.h
 @@ -51,8 +51,9 @@ public:
@@ -15,7 +15,7 @@ index 09fd243..2183194 100644
      //!
      //! \brief  EncodeHevcVdencFeatureManagerXe_Hpm deconstructor
 diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
-index 4e71e7c..2153531 100644
+index 4e71e7c03..2153531f3 100644
 --- a/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
 +++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_hpm.cpp
 @@ -95,7 +95,7 @@ MOS_STATUS HevcVdencPipelineXe_Hpm::Init(void *settings)
@@ -35,7 +35,7 @@ index 4e71e7c..2153531 100644
 \ No newline at end of file
 +}
 diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
-index f811275..116ad0d 100644
+index f81127545..116ad0de1 100644
 --- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
 +++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.cpp
 @@ -87,7 +87,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe_Xpm_Base::CreateFeatures(void *constS
@@ -48,7 +48,7 @@ index f811275..116ad0d 100644
  
      HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
 diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
-index 221381b..3ea4feb 100644
+index 221381b20..3ea4febb1 100644
 --- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
 +++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_xpm_base.h
 @@ -54,8 +54,9 @@ public:
@@ -64,7 +64,7 @@ index 221381b..3ea4feb 100644
      //!
      //! \brief  EncodeHevcVdencFeatureManagerXe_Xpm_Base deconstructor
 diff --git a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
-index abe535d..cd506c0 100644
+index abe535d6f..cd506c022 100644
 --- a/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
 +++ b/media_driver/media_softlet/agnostic/Xe_M/Xe_XPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_xpm_base.cpp
 @@ -283,7 +283,7 @@ MOS_STATUS HevcVdencPipelineXe_Xpm_Base::InitMmcState()
@@ -77,7 +77,7 @@ index abe535d..cd506c0 100644
      return MOS_STATUS_SUCCESS;
  }
 diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
-index d36495b..41a066b 100644
+index d36495bcb..41a066b99 100644
 --- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
 +++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe2_lpm_base.h
 @@ -39,8 +39,9 @@ public:
@@ -92,7 +92,7 @@ index d36495b..41a066b 100644
      virtual ~HevcBasicFeatureXe2_Lpm_Base() {}
  
 diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
-index 2267816..2f6920a 100644
+index 226781662..2f6920a02 100644
 --- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
 +++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.cpp
 @@ -49,7 +49,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe2_Lpm_Base::CreateFeatures(void *const
@@ -105,7 +105,7 @@ index 2267816..2f6920a 100644
  
      HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
 diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
-index 5402a58..64fbdb5 100644
+index 5402a58ff..64fbdb592 100644
 --- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
 +++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_lpm_base.h
 @@ -57,8 +57,9 @@ public:
@@ -126,7 +126,7 @@ index 5402a58..64fbdb5 100644
  #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE2_LPM_BASE_H__
 -
 diff --git a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
-index 58ecd55..948261d 100644
+index 58ecd5557..948261dcd 100644
 --- a/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
 +++ b/media_softlet/agnostic/Xe2_M_plus/Xe2_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_lpm_base.cpp
 @@ -120,7 +120,7 @@ MOS_STATUS HevcVdencPipelineXe2_Lpm_Base::Init(void *settings)
@@ -144,7 +144,7 @@ index 58ecd55..948261d 100644
  }
 -
 diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
-index 4932a30..1c73c3a 100644
+index 4932a301e..1c73c3a0e 100644
 --- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
 +++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_basic_feature_xe3_lpm_base.h
 @@ -39,7 +39,8 @@ public:
@@ -158,7 +158,7 @@ index 4932a30..1c73c3a 100644
      virtual ~HevcBasicFeatureXe3_Lpm_Base() {}
  
 diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
-index 4f03395..861b46e 100644
+index 4f03395f3..861b46e11 100644
 --- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
 +++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.cpp
 @@ -50,7 +50,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe3_Lpm_Base::CreateFeatures(void *const
@@ -171,7 +171,7 @@ index 4f03395..861b46e 100644
  
      HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
 diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
-index 5da4ae2..13dee55 100644
+index 5da4ae23f..13dee55ec 100644
 --- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
 +++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe3_lpm_base.h
 @@ -57,8 +57,9 @@ public:
@@ -192,7 +192,7 @@ index 5da4ae2..13dee55 100644
  #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE3_LPM_BASE_H__
 -
 diff --git a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
-index a77d18e..8daab33 100644
+index a77d18eee..8daab3347 100644
 --- a/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
 +++ b/media_softlet/agnostic/Xe3_M_plus/Xe3_LPM_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe3_lpm_base.cpp
 @@ -106,7 +106,7 @@ MOS_STATUS HevcVdencPipelineXe3_Lpm_Base::Init(void *settings)
@@ -210,7 +210,7 @@ index a77d18e..8daab33 100644
  }
 -
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
-index f4b4362..51b47f7 100644
+index f4b4362a4..51b47f76f 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe2_hpm.h
 @@ -52,8 +52,9 @@ public:
@@ -226,7 +226,7 @@ index f4b4362..51b47f7 100644
      //!
      //! \brief  EncodeHevcVdencFeatureManagerXe2_Hpm deconstructor
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
-index da682be..fa3fb88 100644
+index da682befc..fa3fb8838 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe2_HPM/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe2_hpm.cpp
 @@ -112,7 +112,7 @@ MOS_STATUS HevcVdencPipelineXe2_Hpm::Init(void *settings)
@@ -239,7 +239,7 @@ index da682be..fa3fb88 100644
      return MOS_STATUS_SUCCESS;
  }
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
-index 5191d32..e5ca8b3 100644
+index 5191d3262..e5ca8b3bd 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus.h
 @@ -51,8 +51,9 @@ public:
@@ -255,7 +255,7 @@ index 5191d32..e5ca8b3 100644
      //!
      //! \brief  EncodeHevcVdencFeatureManagerXe_Lpm_Plus deconstructor
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
-index 5e5792b..fc198df 100644
+index 5e5792b85..fc198dfc8 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus.cpp
 @@ -40,7 +40,7 @@ HevcVdencPipelineXe_Lpm_Plus::HevcVdencPipelineXe_Lpm_Plus(
@@ -273,7 +273,7 @@ index 5e5792b..fc198df 100644
  }
 -
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
-index 47bef17..497c358 100644
+index 47bef1773..497c358f3 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.cpp
 @@ -47,7 +47,7 @@ MOS_STATUS EncodeHevcVdencFeatureManagerXe_Lpm_Plus_Base::CreateFeatures(void *c
@@ -286,7 +286,7 @@ index 47bef17..497c358 100644
  
      HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
-index b719c41..92bb7d9 100644
+index b719c4177..92bb7d930 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager_xe_lpm_plus_base.h
 @@ -56,8 +56,9 @@ public:
@@ -307,7 +307,7 @@ index b719c41..92bb7d9 100644
  #endif // !__ENCODE_HEVC_VDENC_FEATURE_MANAGER_XE_LPM_PLUS_BASE_H__
 -
 diff --git a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
-index 5c916c2..79f16fe 100644
+index 5c916c23f..79f16fe4f 100644
 --- a/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
 +++ b/media_softlet/agnostic/Xe_M_plus/Xe_LPM_plus_base/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline_xe_lpm_plus_base.cpp
 @@ -120,7 +120,7 @@ MOS_STATUS HevcVdencPipelineXe_Lpm_Plus_Base::Init(void *settings)
@@ -325,7 +325,7 @@ index 5c916c2..79f16fe 100644
  }
 -
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
-index 52f482e..479a5e5 100644
+index 52f482e64..479a5e53a 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.cpp
 @@ -33,6 +33,30 @@
@@ -466,7 +466,7 @@ index 52f482e..479a5e5 100644
      params.surfaceDsStage2          = m_4xDSSurface;
      params.pakObjCmdStreamOutBuffer = m_resMbCodeBuffer;
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
-index 2faaf63..69006ea 100644
+index 2faaf63f9..69006ea7b 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_basic_feature.h
 @@ -35,6 +35,7 @@
@@ -498,7 +498,7 @@ index 2faaf63..69006ea 100644
  protected:
      MOS_STATUS SetPictureStructs();
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
-index 00fd742..dd1d2f9 100644
+index 00fd74276..dd1d2f9eb 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.cpp
 @@ -108,7 +108,7 @@ MOS_STATUS EncodeHevcVdencFeatureManager::CreateFeatures(void *constSettings)
@@ -511,7 +511,7 @@ index 00fd742..dd1d2f9 100644
  
      HevcEncodeCqp *encCqp = MOS_New(HevcEncodeCqp, this, m_allocator, m_hwInterface, constSettings);
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
-index 9b6739e..c582780 100644
+index 9b6739e0c..c58278058 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/features/encode_hevc_vdenc_feature_manager.h
 @@ -39,6 +39,7 @@
@@ -547,7 +547,7 @@ index 9b6739e..c582780 100644
  MEDIA_CLASS_DEFINE_END(encode__EncodeHevcVdencFeatureManager)
  };
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
-index db6aadd..e55ebfa 100644
+index db6aadd84..6f43a1e38 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_hevc_vdenc_packet.cpp
 @@ -217,10 +217,15 @@ namespace encode
@@ -567,7 +567,21 @@ index db6aadd..e55ebfa 100644
              syncParams.bReadOnly = true;
              ENCODE_CHK_STATUS_RETURN(m_osInterface->pfnResourceWait(m_osInterface, &syncParams));
              m_osInterface->pfnSetResourceSyncTag(m_osInterface, &syncParams);
-@@ -3132,7 +3137,10 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+@@ -536,6 +541,13 @@ namespace encode
+         }
+ #endif
+ 
++        if (m_pipeline->GetPipeNum() == 1 && m_pipeline->IsLastPass())
++        {
++            auto scalability = m_pipeline->GetMediaScalability();
++            ENCODE_CHK_NULL_RETURN(scalability);
++            ENCODE_CHK_STATUS_RETURN(scalability->SubmitCmdBufferAndGetNext(&cmdBuffer, false));
++        }
++
+         ENCODE_CHK_STATUS_RETURN(EndStatusReport(statusReportMfx, &cmdBuffer));
+ 
+         if (Mos_Solo_Extension((MOS_CONTEXT_HANDLE)m_osInterface->pOsContext))
+@@ -3132,7 +3144,10 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
          params.Mode                 = m_basicFeature->m_mode;
          params.psPreDeblockSurface  = &m_basicFeature->m_reconSurface;
          params.psPostDeblockSurface = &m_basicFeature->m_reconSurface;
@@ -579,7 +593,7 @@ index db6aadd..e55ebfa 100644
  
          params.presMetadataLineBuffer       = m_resMetadataLineBuffer;
          params.presMetadataTileLineBuffer   = m_resMetadataTileLineBuffer;
-@@ -3151,8 +3159,12 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+@@ -3151,8 +3166,12 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
          ENCODE_CHK_NULL_RETURN(m_mmcState);
          if (m_mmcState->IsMmcEnabled())
          {
@@ -593,43 +607,13 @@ index db6aadd..e55ebfa 100644
          }
          else
          {
-@@ -3548,4 +3560,3 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
+@@ -3548,4 +3567,3 @@ MOS_STATUS HevcVdencPkt::AddAllCmds_HCP_PAK_INSERT_OBJECT_BRC(PMOS_COMMAND_BUFFE
          return MOS_STATUS_SUCCESS;
      }
      }
 -
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
-index e7b6e62..1f5192b 100644
---- a/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
-+++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/packet/encode_huc_brc_update_packet.cpp
-@@ -534,8 +534,23 @@ namespace encode
-             hucVdencBrcUpdateDmem,
-             m_pipeline->IsLastPass());
- 
--        // CQM
--        hucVdencBrcUpdateDmem->CqmEnable = m_basicFeature->m_hevcSeqParams->scaling_list_enable_flag || m_basicFeature->m_hevcPicParams->scaling_list_data_present_flag;
-+        // Arrow Lake HuC BRC firmware does not correctly handle CQM-enabled
-+        // rate control when HEVC scaling lists are active. Force CqmEnable to
-+        // zero on ARL to prevent the BRC update from producing invalid output
-+        // that leads to encode pipeline stall.
-+        PLATFORM platform = {};
-+        if (m_osInterface && m_osInterface->pfnGetPlatform)
-+        {
-+            m_osInterface->pfnGetPlatform(m_osInterface, &platform);
-+        }
-+        if (platform.eProductFamily == IGFX_ARROWLAKE)
-+        {
-+            hucVdencBrcUpdateDmem->CqmEnable = 0;
-+        }
-+        else
-+        {
-+            hucVdencBrcUpdateDmem->CqmEnable = m_basicFeature->m_hevcSeqParams->scaling_list_enable_flag || m_basicFeature->m_hevcPicParams->scaling_list_data_present_flag;
-+        }
- 
-         return MOS_STATUS_SUCCESS;
-     }
 diff --git a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
-index c699d00..c34dce9 100644
+index c699d00c7..c34dce917 100644
 --- a/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
 +++ b/media_softlet/agnostic/common/codec/hal/enc/hevc/pipeline/encode_hevc_vdenc_pipeline.cpp
 @@ -227,7 +227,7 @@ MOS_STATUS HevcVdencPipeline::ActivateVdencTileReplayVideoPackets()
@@ -641,8 +625,249 @@ index c699d00..c34dce9 100644
      ENCODE_CHK_NULL_RETURN(m_featureManager);
      return MOS_STATUS_SUCCESS;
  }
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+index 0518ab415..590076ce6 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
+@@ -185,24 +185,28 @@ namespace encode {
+ 
+         EncoderStatusParameters *inputParameters = (EncoderStatusParameters *)inputPar;
+         uint32_t submitIndex                     = CounterToIndex(m_submittedCount);
++        EncodeStatusReportData &statusReportData = m_statusReportData[submitIndex];
++
++        statusReportData = {};
++        statusReportData.codecStatus = CODECHAL_STATUS_INCOMPLETE;
+ 
+         if (inputParameters)
+         {
+-            m_statusReportData[submitIndex].usedVdBoxNumber    = inputParameters->numUsedVdbox;
+-            m_statusReportData[submitIndex].statusReportNumber = inputParameters->statusReportFeedbackNumber;
+-            m_statusReportData[submitIndex].currOriginalPic    = inputParameters->currOriginalPic;
+-            m_statusReportData[submitIndex].currRefList        = inputParameters->currRefList;
+-            m_statusReportData[submitIndex].numberTilesInFrame = inputParameters->numberTilesInFrame;
++            statusReportData.usedVdBoxNumber    = inputParameters->numUsedVdbox;
++            statusReportData.statusReportNumber = inputParameters->statusReportFeedbackNumber;
++            statusReportData.currOriginalPic    = inputParameters->currOriginalPic;
++            statusReportData.currRefList        = inputParameters->currRefList;
++            statusReportData.numberTilesInFrame = inputParameters->numberTilesInFrame;
+ 
+-            m_statusReportData[submitIndex].av1EnableFrameOBU            = inputParameters->av1EnableFrameObu;
+-            m_statusReportData[submitIndex].av1FrameHdrOBUSizeByteOffset = inputParameters->av1FrameHdrOBUSizeByteOffset;
+-            m_statusReportData[submitIndex].frameWidth                   = inputParameters->frameWidth;
+-            m_statusReportData[submitIndex].frameHeight                  = inputParameters->frameHeight;
++            statusReportData.av1EnableFrameOBU            = inputParameters->av1EnableFrameObu;
++            statusReportData.av1FrameHdrOBUSizeByteOffset = inputParameters->av1FrameHdrOBUSizeByteOffset;
++            statusReportData.frameWidth                   = inputParameters->frameWidth;
++            statusReportData.frameHeight                  = inputParameters->frameHeight;
+ 
+-            m_statusReportData[submitIndex].targetFrameSize = inputParameters->targetFrameSize;
+-            m_statusReportData[submitIndex].brcMode         = inputParameters->brcMode;
++            statusReportData.targetFrameSize = inputParameters->targetFrameSize;
++            statusReportData.brcMode         = inputParameters->brcMode;
+ 
+-            m_statusReportData[submitIndex].pBlkQualityInfo = (encode::EncodeStatusReportData::BLOCK_QUALITY_INFO *)(inputParameters->pBlkQualityInfo);
++            statusReportData.pBlkQualityInfo = (encode::EncodeStatusReportData::BLOCK_QUALITY_INFO *)(inputParameters->pBlkQualityInfo);
+ 
+             uint64_t pairIndex = GetIdForCodecFuncToFuncIdPairs(inputParameters->codecFunction);
+             if (pairIndex >= m_maxCodecFuncNum)
+@@ -210,7 +214,7 @@ namespace encode {
+                 return MOS_STATUS_INVALID_PARAMETER;
+             }
+ 
+-            m_statusReportData[submitIndex].func = (CODECHAL_ENCODE_FUNCTION_ID)m_codecFuncToFuncIdPairs[pairIndex];
++            statusReportData.func = (CODECHAL_ENCODE_FUNCTION_ID)m_codecFuncToFuncIdPairs[pairIndex];
+ 
+             m_hwWalker             = inputParameters->hwWalker;
+             m_picWidthInMb         = inputParameters->picWidthInMb;
+@@ -267,6 +271,23 @@ namespace encode {
+         return m_hwcounterBuf;
+     }
+ 
++    bool EncoderStatusReport::IsStatusReportReady(uint32_t index) const
++    {
++        if (!m_enableMfx)
++        {
++            return true;
++        }
++
++        if (m_dataStatusMfx == nullptr)
++        {
++            return false;
++        }
++
++        const EncodeStatusMfx *encodeStatusMfx =
++            (const EncodeStatusMfx *)(m_dataStatusMfx + index * m_statusBufSizeMfx);
++        return encodeStatusMfx->status == queryEnd;
++    }
++
+     MOS_STATUS EncoderStatusReport::GetCommonMfxReportData(EncodeStatusReportData *statusReportData, uint32_t index)
+     {
+         EncodeStatusMfx *encodeStatusMfx = nullptr;
+diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+index 2aed9ea1e..2cc5fb921 100644
+--- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
++++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
+@@ -368,6 +368,15 @@ namespace encode {
+         virtual MOS_STATUS ReportUsedVdboxIds() override;
+ #endif
+     protected:
++        //!
++        //! \brief  Check whether the encode status slot has reached queryEnd.
++        //! \param  [in] index
++        //!         Status report ring index to check.
++        //! \return bool
++        //!         true if the slot can be consumed, false if DDI should retry later.
++        //!
++        virtual bool IsStatusReportReady(uint32_t index) const override;
++
+         //!
+         //! \brief  Collect the status report information into report buffer.
+         //! \param  [in] report
+diff --git a/media_softlet/agnostic/common/shared/scalability/media_scalability.h b/media_softlet/agnostic/common/shared/scalability/media_scalability.h
+index 8b4c6c828..96e28faae 100644
+--- a/media_softlet/agnostic/common/shared/scalability/media_scalability.h
++++ b/media_softlet/agnostic/common/shared/scalability/media_scalability.h
+@@ -181,6 +181,20 @@ public:
+     //!
+     virtual MOS_STATUS SubmitCmdBuffer(PMOS_COMMAND_BUFFER cmdBuffer) = 0;
+ 
++    //!
++    //! \brief  Submit current command buffer and acquire a new one for following commands
++    //! \param  [in, out] cmdBuffer
++    //!         Pointer to command buffer
++    //! \param  [in] frameTrackingRequested
++    //!         Indicates if frame tracking should be emitted for the new command buffer
++    //! \return MOS_STATUS
++    //!         MOS_STATUS_SUCCESS if success, else fail reason
++    //!
++    virtual MOS_STATUS SubmitCmdBufferAndGetNext(PMOS_COMMAND_BUFFER cmdBuffer, bool frameTrackingRequested = false)
++    {
++        return MOS_STATUS_INVALID_PARAMETER;
++    }
++
+     //!
+     //! \brief  Add synchronization for pipes.
+     //! \param  [in] syncType
+diff --git a/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.cpp b/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.cpp
+index ab0b54bdb..2631e3e00 100644
+--- a/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.cpp
++++ b/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.cpp
+@@ -242,3 +242,34 @@ MOS_STATUS MediaScalabilitySinglePipeNext::SubmitCmdBuffer(PMOS_COMMAND_BUFFER c
+     m_attrReady = false;
+     return m_osInterface->pfnSubmitCommandBuffer(m_osInterface, cmdBuffer, false);
+ }
++
++MOS_STATUS MediaScalabilitySinglePipeNext::SubmitCmdBufferAndGetNext(PMOS_COMMAND_BUFFER cmdBuffer, bool frameTrackingRequested)
++{
++    SCALABILITY_FUNCTION_ENTER;
++    SCALABILITY_CHK_NULL_RETURN(m_osInterface);
++    SCALABILITY_CHK_NULL_RETURN(cmdBuffer);
++
++    if (!m_osInterface->pfnIsMismatchOrderProgrammingSupported())
++    {
++        SCALABILITY_CHK_STATUS_RETURN(m_miItf->AddMiBatchBufferEnd(cmdBuffer, nullptr));
++    }
++
++    SCALABILITY_CHK_STATUS_RETURN(Oca1stLevelBBEnd(*cmdBuffer));
++    SCALABILITY_CHK_STATUS_RETURN(ReturnCmdBuffer(cmdBuffer));
++
++    if (MOS_VE_SUPPORTED(m_osInterface))
++    {
++        SCALABILITY_CHK_STATUS_RETURN(SetHintParams());
++        if(cmdBuffer && m_veHitParams)
++        {
++            SCALABILITY_CHK_STATUS_RETURN(PopulateHintParams(cmdBuffer));
++        }
++    }
++
++    m_attrReady = false;
++    SCALABILITY_CHK_STATUS_RETURN(m_osInterface->pfnSubmitCommandBuffer(m_osInterface, cmdBuffer, false));
++    MOS_ZeroMemory(cmdBuffer, sizeof(*cmdBuffer));
++    SCALABILITY_CHK_STATUS_RETURN(GetCmdBuffer(cmdBuffer, frameTrackingRequested));
++
++    return MOS_STATUS_SUCCESS;
++}
+diff --git a/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.h b/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.h
+index 9cee09a25..4b1b2eb5d 100644
+--- a/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.h
++++ b/media_softlet/agnostic/common/shared/scalability/media_scalability_singlepipe_next.h
+@@ -143,6 +143,17 @@ public:
+     //!
+     virtual MOS_STATUS SubmitCmdBuffer(PMOS_COMMAND_BUFFER cmdBuffer) override;
+ 
++    //!
++    //! \brief  Submit current command buffer and acquire a new one for following commands
++    //! \param  [in, out] cmdBuffer
++    //!         Pointer to command buffer
++    //! \param  [in] frameTrackingRequested
++    //!         Indicates if frame tracking should be emitted for the new command buffer
++    //! \return MOS_STATUS
++    //!         MOS_STATUS_SUCCESS if success, else fail reason
++    //!
++    virtual MOS_STATUS SubmitCmdBufferAndGetNext(PMOS_COMMAND_BUFFER cmdBuffer, bool frameTrackingRequested = false) override;
++
+     //!
+     //! \brief  Add synchronization for pipes.
+     //! \param  [in] syncType
+@@ -188,4 +199,3 @@ MEDIA_CLASS_DEFINE_END(MediaScalabilitySinglePipeNext)
+ };
+ 
+ #endif // !__MEDIA_SCALABILITY_SINGLEPIPE_H__
+-
+diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+index 230ed5ea6..22812d8a8 100644
+--- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
++++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
+@@ -71,8 +71,8 @@ MOS_STATUS MediaStatusReport::GetReport(uint16_t requireNum, void *status)
+     MOS_STATUS eStatus = MOS_STATUS_SUCCESS;
+ 
+     Lock();
+-    uint32_t completedCount = *m_completedCount;
+     uint32_t reportedCount = m_reportedCount;
++    uint32_t completedCount = std::max(*m_completedCount, reportedCount);
+     uint32_t reportedCountOrigin = m_reportedCount;
+     uint32_t availableCount = m_submittedCount - reportedCount;
+     uint32_t generatedReportCount = 0;
+@@ -84,6 +84,10 @@ MOS_STATUS MediaStatusReport::GetReport(uint16_t requireNum, void *status)
+         // Get reverse order index to temporally fix application get status report size bigger than 2 case.
+         reportIndex = reverseOrder ? CounterToIndex(completedCount + reportedCountOrigin - reportedCount -1) :
+                                      CounterToIndex(reportedCount);
++        if (!IsStatusReportReady(reportIndex))
++        {
++            break;
++        }
+         // m_reportedCount is used by component. Need to assign actual index before call ParseStatus
+         m_reportedCount = reportIndex;
+         eStatus = ParseStatus(((uint8_t*)status + m_sizeOfReport * generatedReportCount), reportIndex);
+@@ -197,4 +201,4 @@ MOS_STATUS MediaStatusReport::ReportUsedVdboxIds()
+     }
+     return MOS_STATUS_SUCCESS;
+ }
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+index 6f495f45b..fde9cd97e 100644
+--- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
++++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
+@@ -215,6 +215,15 @@ protected:
+     //!
+     virtual MOS_STATUS ParseStatus(void *report, uint32_t index) = 0;
+ 
++    //!
++    //! \brief  Check whether the status slot can be consumed.
++    //! \param  [in] index
++    //!         The index of current requesting report.
++    //! \return bool
++    //!         true if the slot can be parsed, false if it should be retried later.
++    //!
++    virtual bool IsStatusReportReady(uint32_t index) const { return true; }
++
+     //!
+     //! \brief  Set unavailable status report information into report buffer.
+     //! \param  [in] report
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
-index c2e4856..142a5c3 100644
+index c2e485636..142a5c384 100644
 --- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.cpp
 @@ -340,10 +340,13 @@ MOS_STATUS VpResourceManager::OnNewFrameProcessStart(SwFilterPipe &pipe)
@@ -843,7 +1068,7 @@ index c2e4856..142a5c3 100644
          if (caps.bDN)
          {
 diff --git a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
-index 3d7cb7c..97896c7 100644
+index 3d7cb7cef..97896c726 100644
 --- a/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
 +++ b/media_softlet/agnostic/common/vp/hal/bufferMgr/vp_resource_manager.h
 @@ -36,8 +36,7 @@
@@ -881,7 +1106,7 @@ index 3d7cb7c..97896c7 100644
      RECT         m_maxSrcRect                                = {};
      VEBOX_SURFACE_CONFIG_MAP m_veboxSurfaceConfigMap;
 diff --git a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
-index a4d0da0..0d6af48 100644
+index a4d0da05b..0d6af4819 100644
 --- a/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
 +++ b/media_softlet/agnostic/common/vp/hal/feature_manager/surface_type.h
 @@ -59,6 +59,7 @@ enum SurfaceType
@@ -893,7 +1118,7 @@ index a4d0da0..0d6af48 100644
      SurfaceTypeSTMMIn                   = SurfaceTypeGeneralEnd + 0x700,
      SurfaceTypeSTMMOut                  = SurfaceTypeGeneralEnd + 0x800,
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
-index 5e65bfb..b2edbbb 100644
+index 5e65bfb18..b2edbbb7c 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_cmd_packet.h
 @@ -88,6 +88,14 @@ public:
@@ -912,7 +1137,7 @@ index 5e65bfb..b2edbbb 100644
      {
          return MOS_STATUS_SUCCESS;
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
-index bcd74bf..cdc8e92 100644
+index bcd74bfcd..cdc8e92b2 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_pipe.cpp
 @@ -355,6 +355,7 @@ MOS_STATUS PacketPipe::Execute(MediaStatusReport *statusReport, MediaScalability
@@ -931,7 +1156,7 @@ index bcd74bf..cdc8e92 100644
 \ No newline at end of file
 +}
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
-index b082cd9..c38a277 100644
+index b082cd9e2..c38a277ef 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_packet_shared_context.h
 @@ -22,11 +22,14 @@
@@ -957,7 +1182,7 @@ index b082cd9..c38a277 100644
 \ No newline at end of file
 +#endif // !__VP_PACKET_SHARED_CONTEXT_H__
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
-index 9e3ddd9..2c7cdd2 100644
+index 9e3ddd983..2c7cdd259 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.cpp
 @@ -38,6 +38,7 @@
@@ -1069,7 +1294,7 @@ index 9e3ddd9..2c7cdd2 100644
  }
 -
 diff --git a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
-index 42c50f3..5f206a6 100644
+index 42c50f3e2..5f206a699 100644
 --- a/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 +++ b/media_softlet/agnostic/common/vp/hal/packet/vp_vebox_cmd_packet.h
 @@ -34,6 +34,7 @@
@@ -1106,7 +1331,7 @@ index 42c50f3..5f206a6 100644
      //!
      //! \brief    Doing prepare stage tasks for SendVeboxCmd
 diff --git a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
-index 9ccd685..9299b18 100644
+index 9ccd68515..9299b18f3 100644
 --- a/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
 +++ b/media_softlet/agnostic/common/vp/hal/pipeline/vp_pipeline.cpp
 @@ -309,6 +309,7 @@ MOS_STATUS VpPipeline::CreatePacketSharedContext()
@@ -1117,82 +1342,3 @@ index 9ccd685..9299b18 100644
      return MOS_STATUS_SUCCESS;
  }
  
-diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
---- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
-+++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.h
-@@ -215,6 +215,15 @@ protected:
-     //!
-     virtual MOS_STATUS ParseStatus(void *report, uint32_t index) = 0;
- 
-+    //!
-+    //! \brief  Check whether the status slot can be consumed.
-+    //! \param  [in] index
-+    //!         The index of current requesting report.
-+    //! \return bool
-+    //!         true if the slot can be parsed, false if it should be retried later.
-+    //!
-+    virtual bool IsStatusReportReady(uint32_t index) const { return true; }
-+
-     //!
-     //! \brief  Set unavailable status report information into report buffer.
-     //! \param  [in] report
-diff --git a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
---- a/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
-+++ b/media_softlet/agnostic/common/shared/statusreport/media_status_report.cpp
-@@ -84,6 +84,10 @@ MOS_STATUS MediaStatusReport::GetReport(uint16_t requireNum, void *status)
-         // Get reverse order index to temporally fix application get status report size bigger than 2 case.
-         reportIndex = reverseOrder ? CounterToIndex(completedCount + reportedCountOrigin - reportedCount -1) :
-                                      CounterToIndex(reportedCount);
-+        if (!IsStatusReportReady(reportIndex))
-+        {
-+            break;
-+        }
-         // m_reportedCount is used by component. Need to assign actual index before call ParseStatus
-         m_reportedCount = reportIndex;
-         eStatus = ParseStatus(((uint8_t*)status + m_sizeOfReport * generatedReportCount), reportIndex);
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
---- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
-+++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.h
-@@ -368,6 +368,15 @@ namespace encode {
-         virtual MOS_STATUS ReportUsedVdboxIds() override;
- #endif
-     protected:
-+        //!
-+        //! \brief  Check whether the encode status slot has reached queryEnd.
-+        //! \param  [in] index
-+        //!         Status report ring index to check.
-+        //! \return bool
-+        //!         true if the slot can be consumed, false if DDI should retry later.
-+        //!
-+        virtual bool IsStatusReportReady(uint32_t index) const override;
-+
-         //!
-         //! \brief  Collect the status report information into report buffer.
-         //! \param  [in] report
-diff --git a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
---- a/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
-+++ b/media_softlet/agnostic/common/codec/hal/enc/shared/statusreport/encode_status_report.cpp
-@@ -267,6 +267,23 @@ namespace encode {
-         return m_hwcounterBuf;
-     }
- 
-+    bool EncoderStatusReport::IsStatusReportReady(uint32_t index) const
-+    {
-+        if (!m_enableMfx)
-+        {
-+            return true;
-+        }
-+
-+        if (m_dataStatusMfx == nullptr)
-+        {
-+            return false;
-+        }
-+
-+        const EncodeStatusMfx *encodeStatusMfx =
-+            (const EncodeStatusMfx *)(m_dataStatusMfx + index * m_statusBufSizeMfx);
-+        return encodeStatusMfx->status == queryEnd;
-+    }
-+
-     MOS_STATUS EncoderStatusReport::GetCommonMfxReportData(EncodeStatusReportData *statusReportData, uint32_t index)
-     {
-         EncodeStatusMfx *encodeStatusMfx = nullptr;
