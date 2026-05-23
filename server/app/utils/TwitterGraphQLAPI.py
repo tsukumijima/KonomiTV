@@ -594,6 +594,7 @@ class TwitterGraphQLAPI:
             icon_url = icon_url.replace('_normal', '')
 
             return schemas.TweetUser(
+                source='Twitter',
                 id=str(user_id),
                 name=name,
                 screen_name=screen_name,
@@ -1152,11 +1153,13 @@ class TwitterGraphQLAPI:
                 expanded_text = re.sub(r'\s*https://t\.co/\w+$', '', expanded_text)
 
             return schemas.Tweet(
+                source='Twitter',
                 id=raw_tweet_object['legacy']['id_str'],
                 created_at=datetime.strptime(
                     raw_tweet_object['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y'
                 ).astimezone(JST),
                 user=schemas.TweetUser(
+                    source='Twitter',
                     id=raw_tweet_object['core']['user_results']['result']['rest_id'],
                     name=raw_tweet_object['core']['user_results']['result']['core']['name'],
                     screen_name=raw_tweet_object['core']['user_results']['result']['core']['screen_name'],
