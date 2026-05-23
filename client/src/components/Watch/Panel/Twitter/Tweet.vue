@@ -4,16 +4,16 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16.25px" height="13px" viewBox="0 0 640 512" style="color: rgb(var(--v-theme-success-lighten-1));">
                 <path fill="currentColor" d="M629.657 343.598L528.971 444.284c-9.373 9.372-24.568 9.372-33.941 0L394.343 343.598c-9.373-9.373-9.373-24.569 0-33.941l10.823-10.823c9.562-9.562 25.133-9.34 34.419.492L480 342.118V160H292.451a24.005 24.005 0 0 1-16.971-7.029l-16-16C244.361 121.851 255.069 96 276.451 96H520c13.255 0 24 10.745 24 24v222.118l40.416-42.792c9.285-9.831 24.856-10.054 34.419-.492l10.823 10.823c9.372 9.372 9.372 24.569-.001 33.941m-265.138 15.431A23.999 23.999 0 0 0 347.548 352H160V169.881l40.416 42.792c9.286 9.831 24.856 10.054 34.419.491l10.822-10.822c9.373-9.373 9.373-24.569 0-33.941L144.971 67.716c-9.373-9.373-24.569-9.373-33.941 0L10.343 168.402c-9.373 9.373-9.373 24.569 0 33.941l10.822 10.822c9.562 9.562 25.133 9.34 34.419-.491L96 169.881V392c0 13.255 10.745 24 24 24h243.549c21.382 0 32.09-25.851 16.971-40.971z"></path>
             </svg>
-            <span class="ml-2"><a class="tweet__retweet-info-link" :href="`https://x.com/${tweet.user.screen_name}`" target="_blank" @click.stop>{{ tweet.user.name }}</a>さんがリツイートしました</span>
+            <span class="ml-2"><a class="tweet__retweet-info-link" :href="getUserUrl(tweet.user)" target="_blank" @click.stop>{{ tweet.user.name }}</a>さんがリツイートしました</span>
         </div>
         <div class="tweet__main-content">
-            <a class="tweet__user-icon" :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" @click.stop>
+            <a class="tweet__user-icon" :href="getUserUrl(displayedTweet.user)" target="_blank" @click.stop>
                 <img :src="displayedTweet.user.icon_url" alt="User Icon" class="tweet__user-icon" loading="lazy" decoding="async">
             </a>
             <div class="tweet__content">
                 <div class="tweet__user-info">
                     <div class="tweet__user-info-left">
-                        <a class="tweet__user-name" :href="`https://x.com/${displayedTweet.user.screen_name}`" target="_blank" @click.stop >{{ displayedTweet.user.name }}</a>
+                        <a class="tweet__user-name" :href="getUserUrl(displayedTweet.user)" target="_blank" @click.stop >{{ displayedTweet.user.name }}</a>
                         <span class="tweet__user-screen-name">@{{ displayedTweet.user.screen_name }}</span>
                     </div>
                     <span class="tweet__timestamp">{{ Utils.apply28HourClock(dayjs(displayedTweet.created_at).format('MM/DD HH:mm:ss')) }}</span>
@@ -26,7 +26,7 @@
                 </div>
                 <video class="tweet__movie" v-if="proxyMovieUrl" :src="proxyMovieUrl" controls @click.stop></video>
                 <a v-if="displayedTweet.quoted_tweet"
-                    :href="`https://x.com/${displayedTweet.quoted_tweet.user.screen_name}/status/${displayedTweet.quoted_tweet.id}`"
+                    :href="getTweetUrl(displayedTweet.quoted_tweet)"
                     target="_blank" class="tweet__quoted-tweet" @click.stop>
                     <div class="tweet__quoted-user-info">
                         <span class="tweet__quoted-user-name">{{ displayedTweet.quoted_tweet.user.name }}</span>
@@ -59,7 +59,9 @@
 import { storeToRefs } from 'pinia';
 import { ref, computed } from 'vue';
 
+import Bluesky from '@/services/Bluesky';
 import Twitter, { ITweet } from '@/services/Twitter';
+import { ITweetUser } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import Utils, { dayjs } from '@/utils';
 
@@ -72,11 +74,12 @@ const { selected_twitter_account } = storeToRefs(twitterStore);
 
 const tweet = ref(props.tweet);
 
+// RT / リポスト表示では外側の「誰が共有したか」と内側の原投稿を分け、本文や画像は原投稿側を表示する
 const displayedTweet = computed(() => tweet.value.retweeted_tweet || tweet.value);
 
-const formatText = (text: string) => {
+const formatText = (text: string, source: ITweet['source']) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const mentionRegex = /@(\w+)/g;
+    const mentionRegex = source === 'Bluesky' ? /@([a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z][a-zA-Z0-9.-]*)/g : /@(\w+)/g;
     const hashtagRegex = /[#＃]([\w\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー]+)/gu;
 
     // URLを先に処理し、プレースホルダーで置き換える
@@ -87,8 +90,17 @@ const formatText = (text: string) => {
     });
 
     // メンションとハッシュタグを処理
-    formattedText = formattedText.replace(mentionRegex, '<a class="tweet-link" href="https://x.com/$1" target="_blank">@$1</a>');
-    formattedText = formattedText.replace(hashtagRegex, '<a class="tweet-link" href="https://x.com/hashtag/$1" target="_blank">#$1</a>');
+    // Bluesky 投稿は bsky.app のプロフィール・ハッシュタグページに飛ばし、Twitter 投稿の既存導線と混ざらないようにする
+    formattedText = formattedText.replace(mentionRegex, (_match, screenName) => {
+        const mentionUrl = source === 'Bluesky' ? `https://bsky.app/profile/${screenName}` : `https://x.com/${screenName}`;
+        return `<a class="tweet-link" href="${mentionUrl}" target="_blank">@${screenName}</a>`;
+    });
+    formattedText = formattedText.replace(hashtagRegex, (_match, hashtag) => {
+        const hashtagUrl = source === 'Bluesky' ?
+            `https://bsky.app/hashtag/${encodeURIComponent(hashtag)}` :
+            `https://x.com/hashtag/${encodeURIComponent(hashtag)}`;
+        return `<a class="tweet-link" href="${hashtagUrl}" target="_blank">#${hashtag}</a>`;
+    });
 
     // プレースホルダーを実際のURLリンクに置き換える
     formattedText = formattedText.replace(/__URL_PLACEHOLDER_(\d+)__/g, (_, index) => {
@@ -99,16 +111,47 @@ const formatText = (text: string) => {
     return formattedText;
 };
 
-const formattedText = computed(() => formatText(displayedTweet.value.text));
-const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ? formatText(displayedTweet.value.quoted_tweet.text) : '');
+const formattedText = computed(() => formatText(displayedTweet.value.text, displayedTweet.value.source));
+const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ?
+    formatText(displayedTweet.value.quoted_tweet.text, displayedTweet.value.quoted_tweet.source) : '');
 
 // Twitter 側の仕様変更により、許可されたオリジン以外からの動画 URL への直接アクセスが 403 になるため、
 // KonomiTV サーバーの動画プロキシ API 経由で動画を配信する
 const proxyMovieUrl = computed(() => {
     const movieUrl = displayedTweet.value.movie_url;
     if (!movieUrl) return null;
+    if (displayedTweet.value.source === 'Bluesky') return movieUrl;
     return `${Utils.api_base_url}/twitter/video-proxy?url=${encodeURIComponent(movieUrl)}`;
 });
+
+const getUserUrl = (user: ITweetUser) => {
+    // 投稿元サービスに合わせてプロフィール URL を生成し、Bluesky 投稿から X 側へ飛ばないようにする
+    if (user.source === 'Bluesky') {
+        return `https://bsky.app/profile/${user.screen_name}`;
+    }
+    return `https://x.com/${user.screen_name}`;
+};
+
+const getTweetUrl = (targetTweet: ITweet) => {
+    // Tweet スキーマは共通だが、投稿詳細 URL はサービスごとに組み立て方が異なる
+    if (targetTweet.source === 'Bluesky') {
+        return `https://bsky.app/profile/${targetTweet.user.screen_name}/post/${targetTweet.id}`;
+    }
+    return `https://x.com/${targetTweet.user.screen_name}/status/${targetTweet.id}`;
+};
+
+const getSelectedBlueskyHandle = () => {
+    const selectedAccount = twitterStore.selected_account;
+    // Bluesky 投稿への操作は現在選択中の Bluesky セッションで行う
+    // 紐付けアカウントでは Bluesky 側だけを取り出し、Twitter 側の選択状態と混ぜない
+    if (selectedAccount?.kind === 'Bluesky') {
+        return selectedAccount.bluesky_account.handle;
+    }
+    if (selectedAccount?.kind === 'Linked') {
+        return selectedAccount.account_link.bluesky_account.handle;
+    }
+    return null;
+};
 
 const handleTweetClick = (event: MouseEvent) => {
     // テキストが選択されている場合は、クリックイベントを無視する
@@ -118,11 +161,39 @@ const handleTweetClick = (event: MouseEvent) => {
     // Check if the clicked element or its parent is a link or a button
     const isClickableElement = (event.target as HTMLElement).closest('a, button, video');
     if (!isClickableElement) {
-        window.open(`https://x.com/${displayedTweet.value.user.screen_name}/status/${displayedTweet.value.id}`, '_blank');
+        window.open(getTweetUrl(displayedTweet.value), '_blank');
     }
 };
 
 const handleRetweet = async () => {
+    if (displayedTweet.value.source === 'Bluesky') {
+        const handle = getSelectedBlueskyHandle();
+        // Bluesky のリポスト取り消しは URI があれば実行できるが、表示データに URI がない場合は操作対象を特定できない
+        if (handle === null || !displayedTweet.value.bluesky_uri) return;
+        if (displayedTweet.value.retweeted) {
+            const result = await Bluesky.cancelRepost(handle, {bluesky_uri: displayedTweet.value.bluesky_uri});
+            if (result && result.is_success) {
+                displayedTweet.value.retweeted = false;
+                displayedTweet.value.retweet_count--;
+            }
+        } else {
+            // リポスト実行には StrongRef (uri + cid) が AT Protocol 仕様上必要
+            // bluesky_cid が無い投稿はサーバー側でも 422 で弾かれるため、無駄なリクエストを送らないようここで早期 return する
+            if (!displayedTweet.value.bluesky_cid) return;
+            const result = await Bluesky.repost(handle, {
+                bluesky_uri: displayedTweet.value.bluesky_uri,
+                bluesky_cid: displayedTweet.value.bluesky_cid,
+            });
+            if (result && result.is_success) {
+                displayedTweet.value.retweeted = true;
+                displayedTweet.value.retweet_count++;
+            }
+        }
+        return;
+    }
+
+    // Twitter 投稿への操作は TwitterScrapeBrowser の選択アカウントが必要
+    // Bluesky 単独アカウント選択中に Twitter 投稿が残っていても操作 API を呼ばない
     if (!selected_twitter_account.value) return;
 
     if (displayedTweet.value.retweeted) {
@@ -141,6 +212,32 @@ const handleRetweet = async () => {
 };
 
 const handleFavorite = async () => {
+    if (displayedTweet.value.source === 'Bluesky') {
+        const handle = getSelectedBlueskyHandle();
+        // Bluesky のいいね取り消しも URI が操作対象になるため、URI が無い投稿では早期終了する
+        if (handle === null || !displayedTweet.value.bluesky_uri) return;
+        if (displayedTweet.value.favorited) {
+            const result = await Bluesky.cancelFavorite(handle, {bluesky_uri: displayedTweet.value.bluesky_uri});
+            if (result && result.is_success) {
+                displayedTweet.value.favorited = false;
+                displayedTweet.value.favorite_count--;
+            }
+        } else {
+            // いいね実行もリポストと同様に StrongRef (uri + cid) が AT Protocol 仕様上必要
+            if (!displayedTweet.value.bluesky_cid) return;
+            const result = await Bluesky.favorite(handle, {
+                bluesky_uri: displayedTweet.value.bluesky_uri,
+                bluesky_cid: displayedTweet.value.bluesky_cid,
+            });
+            if (result && result.is_success) {
+                displayedTweet.value.favorited = true;
+                displayedTweet.value.favorite_count++;
+            }
+        }
+        return;
+    }
+
+    // Twitter のいいね操作は現在の Twitter アカウントに紐づけて実行する
     if (!selected_twitter_account.value) return;
 
     if (displayedTweet.value.favorited) {

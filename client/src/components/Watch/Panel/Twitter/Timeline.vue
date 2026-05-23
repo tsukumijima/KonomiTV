@@ -66,13 +66,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch 
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
 import Message from '@/message';
-import Twitter, { ITweet } from '@/services/Twitter';
+import Bluesky from '@/services/Bluesky';
+import Twitter, { ITimelineTweetsResult, ITweet } from '@/services/Twitter';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
-import Utils from '@/utils';
+import Utils, { TweetUtils } from '@/utils';
 
 const twitterStore = useTwitterStore();
-const { selected_twitter_account } = storeToRefs(twitterStore);
+const { selected_account, selected_twitter_account } = storeToRefs(twitterStore);
 
 const SEEN_TWEET_DWELL_MILLISECONDS = 500;
 const SEEN_TWEET_IDS_LIMIT = 300;
@@ -87,13 +88,12 @@ interface ITweetBlock {
     type: 'tweet_block';
     tweets: ITweet[];
     id: string;
-    next_cursor_id?: string;  // より未来方向のツイートを取得するためのカーソル
-    previous_cursor_id?: string;  // より過去方向のツイートを取得するためのカーソル
 }
 
 interface ILoadMoreItem {
     type: 'load_more';
-    cursor_id: string;
+    twitter_cursor_id?: string;
+    bluesky_cursor_id?: string;
     id: string;
 }
 
@@ -116,7 +116,7 @@ const shouldAutoFetchTimeline = computed(() => props.isTwitterPanelVisible === t
 
 // タイムライン更新履歴を管理するための変数
 // ユニークなツイートが得られた更新時の next_cursor_id のみを保持
-const cursorIdHistory = ref<string[]>([]);  // 更新履歴を保持
+const cursorIdHistory = ref<string[]>([]);  // Twitter の更新履歴を保持
 
 // Twitter Web App の seenTweetIds に相当する、次回のタイムライン取得時に送信する短期キュー
 // 本家の挙動に合わせ、同一キュー内で同じツイート ID が複数回入ることは許容する
@@ -223,7 +223,7 @@ const getVisibleTweetIds = () => {
     const endIndex = scroller.value.findEndIndex();
     for (let itemIndex = startIndex; itemIndex <= endIndex; itemIndex++) {
         const item = flattenedItems.value[itemIndex];
-        if (item && 'text' in item) {
+        if (item && 'text' in item && item.source === 'Twitter') {
             visibleTweetIds.add(item.id);
         }
     }
@@ -339,16 +339,45 @@ const getExistingTweetIds = () => {
     for (const item of timelineItems.value) {
         if (item.type === 'tweet_block') {
             for (const tweet of item.tweets) {
-                ids.add(tweet.id);
+                ids.add(TweetUtils.getTweetIdentityKey(tweet));
             }
         }
     }
     return ids;
 };
 
-// 新しいツイートから重複を除外
-const filterDuplicateTweets = (tweets: ITweet[], existingIds: Set<string>) => {
-    return tweets.filter(tweet => !existingIds.has(tweet.id));
+const getTimelineFetchResult = (result: PromiseSettledResult<ITimelineTweetsResult | null>) => {
+    // ホームタイムラインは Twitter / Bluesky を独立して取得するため、片方の例外は null に正規化する
+    if (result.status === 'fulfilled') {
+        return result.value;
+    }
+    console.error('Timeline API request failed unexpectedly.', result.reason);
+    return null;
+};
+
+const filterTimelineTweets = (tweets: ITweet[]) => {
+    return tweets.filter(tweet => {
+        let result = true;
+        // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
+        if (showRetweets.value === false) {
+            result = !tweet.retweeted_tweet;
+        }
+        // 自分の RT を除外
+        if (tweet.source === 'Twitter' && tweet.retweeted_tweet !== null && tweet.user.screen_name === selected_twitter_account.value?.screen_name) {
+            result = false;
+        }
+        return result;
+    });
+};
+
+const hasTimelineGap = (tweets: ITweet[], previousCursorId: string | undefined, existingIds: Set<string>) => {
+    // 返ってきたページが既存表示と一つも重なっていない場合、そのページと旧表示の間にまだ未取得区間が残る
+    // Twitter と Bluesky はカーソルの意味が違うため、サービス別にこの判定を行ってからボタンへ持たせる
+    // 片方だけ重複が見つかった場合に、もう片方の未取得区間まで消さないための判定でもある
+    if (!previousCursorId || tweets.length === 0) {
+        return false;
+    }
+    return TweetUtils.filterDuplicateTweets(tweets, existingIds).length === tweets.length;
 };
 
 const toggleSettings = () => {
@@ -358,12 +387,14 @@ const toggleSettings = () => {
 let isFirstFetchCompleted = false;
 const fetchTimelineTweets = async () => {
     isInitialFetchPending.value = false;
+    // 更新ボタン連打や自動取得の重複でブロック配列が壊れないよう、取得中は後続の実行を止める
     if (isFetching.value) return;
     isFetching.value = true;
     await useUserStore().fetchUser();
-    if (!selected_twitter_account.value) {
+    if (!selected_account.value) {
+        // 初回自動取得では未連携の警告を出さず、ユーザー操作後だけ通知する
         if (isFirstFetchCompleted) {
-            Message.warning('タイムラインを更新するには、Twitter アカウントと連携してください。');
+            Message.warning('タイムラインを更新するには、Twitter または Bluesky アカウントと連携してください。');
         }
         timelineItems.value = [];
         clearVisibleTweetTimers();
@@ -383,66 +414,90 @@ const fetchTimelineTweets = async () => {
     const seenTweetIds = dequeuePendingSeenTweetIds();
 
     // タイムラインのツイートを「投稿時刻が新しい順」に取得
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, cursor_id, seenTweetIds);
+    const account = selected_account.value;
+    // 紐付けアカウントでは Twitter と Bluesky のホームタイムラインを並列取得し、表示直前に一つのリストへ統合する
+    const [twitter_settled_result, bluesky_settled_result] = await Promise.allSettled([
+        // Twitter は Web App の HomeLatestTimeline と同じく、更新履歴の Top 側 cursor と seenTweetIds を渡す
+        // 時間を空けた更新では Twitter 側が最新数十件だけを返すため、後段で gap ボタンを残して中間を埋められるようにする
+        account.kind === 'Twitter' || account.kind === 'Linked' ?
+            Twitter.getHomeTimeline(account.kind === 'Twitter' ? account.twitter_account.screen_name : account.account_link.twitter_account.screen_name, cursor_id, seenTweetIds) :
+            Promise.resolve(null),
+        account.kind === 'Bluesky' || account.kind === 'Linked' ?
+            // Bluesky の cursor は「次の古いページ」専用なので、通常更新では必ず最新ページを取り直す
+            // 古い cursor を更新に使うと、時間を置いた後に最新投稿へ戻れず Twitter 側との時系列マージが壊れる
+            Bluesky.getHomeTimeline(account.kind === 'Bluesky' ? account.bluesky_account.handle : account.account_link.bluesky_account.handle) :
+            Promise.resolve(null),
+    ]);
+    const twitter_result = getTimelineFetchResult(twitter_settled_result);
+    const bluesky_result = getTimelineFetchResult(bluesky_settled_result);
+    const result = twitter_result ?? bluesky_result;
     if (result && result.tweets) {
-        result.tweets = result.tweets.filter(tweet => {
-            let result = true;
-            // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
-            if (showRetweets.value === false) {
-                result = !tweet.retweeted_tweet;
-            }
-            // 自分の RT を除外
-            if (tweet.retweeted_tweet !== null && tweet.user.screen_name === selected_twitter_account.value?.screen_name) {
-                result = false;
-            }
-            return result;
-        });
-
-        // 既存のツイートとの重複を除外
         const existingIds = getExistingTweetIds();
-        const uniqueTweets = filterDuplicateTweets(result.tweets, existingIds);
+        // フィルタと自分の RT 除外はサービス別に先に適用する
+        // 統合後にまとめて判定すると、どちらのサービスに未取得区間が残ったかを判定しにくくなる
+        const twitterTweets = filterTimelineTweets(twitter_result?.tweets ?? []);
+        const blueskyTweets = filterTimelineTweets(bluesky_result?.tweets ?? []);
+        // 既存表示との重複もサービス別に見る
+        // Twitter と Bluesky の ID 空間は違うため、TweetUtils 側の source / URI ベースのキーで比較する
+        const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
+        const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
+        // gap ボタンに載せる cursor は、未取得区間が残っているサービスだけに限定する
+        // 両サービスをまとめて判定すると、片方の重複で片方のページングまで消える
+        const shouldLoadMoreTwitter = hasTimelineGap(twitterTweets, twitter_result?.previous_cursor_id, existingIds);
+        const shouldLoadMoreBluesky = hasTimelineGap(blueskyTweets, bluesky_result?.previous_cursor_id, existingIds);
+        // API ごとの戻り順に依存すると紐付け時にサービス単位で固まるため、作成日時で再ソートする
+        const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
+            ...twitterUniqueTweets,
+            ...blueskyUniqueTweets,
+        ]);
 
         // ユニークなツイートが得られた場合のみ next_cursor_id を履歴に追加
-        if (uniqueTweets.length > 0 && result.next_cursor_id) {
-            cursorIdHistory.value.push(result.next_cursor_id);
+        // Twitter の更新用 cursor だけを履歴として残し、Bluesky の古いページング cursor は通常更新に持ち越さない
+        if (twitterUniqueTweets.length > 0 && twitter_result?.next_cursor_id) {
+            cursorIdHistory.value.push(twitter_result.next_cursor_id);
             // 履歴は最新の10件のみ保持
             if (cursorIdHistory.value.length > 10) {
                 cursorIdHistory.value.shift();
             }
         }
 
-        // 新しいツイートブロックを作成
-        const newBlock: ITweetBlock = {
-            type: 'tweet_block',
-            tweets: uniqueTweets,
-            id: `block_${Date.now()}`,
-            next_cursor_id: result.next_cursor_id,  // より未来方向のカーソル
-            previous_cursor_id: result.previous_cursor_id,  // より過去方向のカーソル
-        };
+        if (uniqueTweets.length > 0) {
+            // 新しいツイートブロックを作成
+            // 重複だけが返った場合は空ブロックを追加せず、既存タイムライン表示を保つ
+            const newBlock: ITweetBlock = {
+                type: 'tweet_block',
+                tweets: uniqueTweets,
+                id: `block_${Date.now()}`,
+            };
 
-        // 既存のタイムラインがある場合、新しいブロックと既存のブロックの間に「さらに読み込む」ボタンを挿入
-        // ただし、重複するツイートがあった場合（＝歯抜けを埋め終わった場合）は挿入しない
-        if (timelineItems.value.length > 0 && uniqueTweets.length === result.tweets.length) {
-            timelineItems.value = [
-                newBlock,
-                {
-                    type: 'load_more',
-                    cursor_id: result.previous_cursor_id,
-                    id: `load_more_${result.previous_cursor_id}`,
-                },
-                ...timelineItems.value,
-            ];
-        } else {
-            timelineItems.value = [newBlock, ...timelineItems.value];
+            // 既存のタイムラインがある場合、新しいブロックと既存のブロックの間に「さらに読み込む」ボタンを挿入
+            // ただし、サービス別に既存表示との重複があった場合（＝歯抜けを埋め終わった場合）は、そのサービスのカーソルを挿入しない
+            if (timelineItems.value.length > 0 && (shouldLoadMoreTwitter === true || shouldLoadMoreBluesky === true)) {
+                timelineItems.value = [
+                    newBlock,
+                    {
+                        type: 'load_more',
+                        twitter_cursor_id: shouldLoadMoreTwitter === true ? twitter_result?.previous_cursor_id : undefined,
+                        bluesky_cursor_id: shouldLoadMoreBluesky === true ? bluesky_result?.previous_cursor_id : undefined,
+                        id: `load_more_${twitter_result?.previous_cursor_id ?? ''}_${bluesky_result?.previous_cursor_id ?? ''}`,
+                    },
+                    ...timelineItems.value,
+                ];
+            } else {
+                timelineItems.value = [newBlock, ...timelineItems.value];
+            }
         }
 
         // 初回検索時、または最後のアイテムがツイートブロックの場合は、最下部に「さらに読み込む」ボタンを追加
         const lastItem = timelineItems.value[timelineItems.value.length - 1];
-        if (result.previous_cursor_id && (!lastItem || lastItem.type === 'tweet_block')) {
+        if ((twitter_result?.previous_cursor_id || bluesky_result?.previous_cursor_id) && timelineItems.value.length > 0 && (!lastItem || lastItem.type === 'tweet_block')) {
+            // 最下部のボタンは通常の古い方向へのページング用に両サービスの cursor を持たせる
+            // ここは最新更新の gap ボタンと違い、現在表示の末尾からさらに古い投稿を読むための入口になる
             timelineItems.value.push({
                 type: 'load_more',
-                cursor_id: result.previous_cursor_id,
-                id: `load_more_${result.previous_cursor_id}`,
+                twitter_cursor_id: twitter_result?.previous_cursor_id,
+                bluesky_cursor_id: bluesky_result?.previous_cursor_id,
+                id: `load_more_${twitter_result?.previous_cursor_id ?? ''}_${bluesky_result?.previous_cursor_id ?? ''}`,
             });
         }
 
@@ -456,11 +511,12 @@ const fetchTimelineTweets = async () => {
 
 // 「さらに読み込む」ボタンが押されたら当該範囲のタイムラインを取得
 const handleLoadMore = async (item: ILoadMoreItem) => {
+    // 「さらに読み込む」ボタンは特定の歯抜け区間を埋めるので、別の取得処理とは同時に走らせない
     if (isFetching.value) {
         return;
     }
     isFetching.value = true;
-    if (!selected_twitter_account.value) {
+    if (!selected_account.value) {
         console.warn('selected_twitter_account is null');
         isFetching.value = false;
         return;
@@ -469,24 +525,40 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     const seenTweetIds = dequeuePendingSeenTweetIds();
 
     // タイムラインのツイートを「投稿時刻が新しい順」に取得
-    const result = await Twitter.getHomeTimeline(selected_twitter_account.value.screen_name, item.cursor_id, seenTweetIds);
+    const account = selected_account.value;
+    // ボタンに保存されたサービス別カーソルだけを使い、カーソルがないサービスには追加取得を投げない
+    const [twitter_settled_result, bluesky_settled_result] = await Promise.allSettled([
+        // gap ボタンはサービスごとに cursor を持つ
+        // Twitter 側の未取得区間だけを埋めるボタンなら Bluesky API には触らない
+        (account.kind === 'Twitter' || account.kind === 'Linked') && item.twitter_cursor_id ?
+            Twitter.getHomeTimeline(account.kind === 'Twitter' ? account.twitter_account.screen_name : account.account_link.twitter_account.screen_name, item.twitter_cursor_id, seenTweetIds) :
+            Promise.resolve(null),
+        // Bluesky 側も同様に、保存された古い方向の cursor がある場合だけ追加取得する
+        // 通常更新では cursor なし、load more では cursor ありという呼び分けをここで明確に分ける
+        (account.kind === 'Bluesky' || account.kind === 'Linked') && item.bluesky_cursor_id ?
+            Bluesky.getHomeTimeline(account.kind === 'Bluesky' ? account.bluesky_account.handle : account.account_link.bluesky_account.handle, item.bluesky_cursor_id) :
+            Promise.resolve(null),
+    ]);
+    const twitter_result = getTimelineFetchResult(twitter_settled_result);
+    const bluesky_result = getTimelineFetchResult(bluesky_settled_result);
+    const result = twitter_result ?? bluesky_result;
     if (result && result.tweets) {
-        result.tweets = result.tweets.filter(tweet => {
-            let result = true;
-            // 「リツイートを表示する」がオフの場合はリツイートのツイートを除外
-            if (showRetweets.value === false) {
-                result = !tweet.retweeted_tweet;
-            }
-            // 自分の RT を除外
-            if (tweet.retweeted_tweet !== null && tweet.user.screen_name === selected_twitter_account.value?.screen_name) {
-                result = false;
-            }
-            return result;
-        });
-
-        // 既存のツイートとの重複を除外
         const existingIds = getExistingTweetIds();
-        const uniqueTweets = filterDuplicateTweets(result.tweets, existingIds);
+        // 追加取得でもサービス別にフィルタしてから統合する
+        // どちらの cursor を次の gap ボタンへ残すかを、各サービスの重複有無で判断するため
+        const twitterTweets = filterTimelineTweets(twitter_result?.tweets ?? []);
+        const blueskyTweets = filterTimelineTweets(bluesky_result?.tweets ?? []);
+        const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
+        const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
+        // 取得ページが既存表示と重ならないサービスだけ、さらに深い cursor をボタンへ残す
+        // これで Twitter の歯抜けと Bluesky の古いページングを互いに巻き込まずに進められる
+        const shouldLoadMoreTwitter = hasTimelineGap(twitterTweets, twitter_result?.previous_cursor_id, existingIds);
+        const shouldLoadMoreBluesky = hasTimelineGap(blueskyTweets, bluesky_result?.previous_cursor_id, existingIds);
+        // 追加取得でもサービス間の時系列を保つため、結合後に KonomiTV 共通の比較関数で並べ替える
+        const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
+            ...twitterUniqueTweets,
+            ...blueskyUniqueTweets,
+        ]);
 
         // 「さらに読み込む」ボタンの位置を特定
         const loadMoreIndex = timelineItems.value.findIndex(i => i.type === 'load_more' && i === item);
@@ -495,24 +567,27 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
             return;
         }
 
-        // 新しいツイートブロックを作成
-        const newBlock: ITweetBlock = {
-            type: 'tweet_block',
-            tweets: uniqueTweets,
-            id: `block_${Date.now()}`,
-            next_cursor_id: result.next_cursor_id,
-            previous_cursor_id: result.previous_cursor_id,
-        };
-
         // 新しいアイテムを配列に追加
-        const newItems: TimelineItem[] = [newBlock];
+        const newItems: TimelineItem[] = [];
+        if (uniqueTweets.length > 0) {
+            // 新しいツイートブロックを作成
+            // 既存ツイートだけが返った場合はボタンの除去だけを行い、空のブロックは挿入しない
+            newItems.push({
+                type: 'tweet_block',
+                tweets: uniqueTweets,
+                id: `block_${Date.now()}`,
+            });
+        }
 
         // 重複するツイートがなかった場合（＝まだ歯抜けがある場合）のみ「さらに読み込む」ボタンを追加
-        if (result.previous_cursor_id && uniqueTweets.length === result.tweets.length) {
+        if (shouldLoadMoreTwitter === true || shouldLoadMoreBluesky === true) {
+            // 次の gap ボタンにも、未取得区間が続いているサービスの cursor だけを載せる
+            // 片側が既存表示へ到達したあとも、もう片側の未取得区間を引き続き埋められるようにする
             newItems.push({
                 type: 'load_more',
-                cursor_id: result.previous_cursor_id,
-                id: `load_more_${result.previous_cursor_id}`,
+                twitter_cursor_id: shouldLoadMoreTwitter === true ? twitter_result?.previous_cursor_id : undefined,
+                bluesky_cursor_id: shouldLoadMoreBluesky === true ? bluesky_result?.previous_cursor_id : undefined,
+                id: `load_more_${twitter_result?.previous_cursor_id ?? ''}_${bluesky_result?.previous_cursor_id ?? ''}`,
             });
         }
 
@@ -521,11 +596,14 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 
         // 最後のアイテムがツイートブロックの場合は、最下部に「さらに読み込む」ボタンを追加
         const lastItem = timelineItems.value[timelineItems.value.length - 1];
-        if (result.previous_cursor_id && lastItem.type === 'tweet_block') {
+        if ((shouldLoadMoreTwitter === true || shouldLoadMoreBluesky === true) && lastItem && lastItem.type === 'tweet_block') {
+            // 差し替え位置が末尾だった場合は、引き続き最下部から古い投稿を読めるようにボタンを補う
+            // 直前で挿入済みの gap ボタンと重ならないよう、末尾がツイートブロックの時だけ追加する
             timelineItems.value.push({
                 type: 'load_more',
-                cursor_id: result.previous_cursor_id,
-                id: `load_more_${result.previous_cursor_id}`,
+                twitter_cursor_id: shouldLoadMoreTwitter === true ? twitter_result?.previous_cursor_id : undefined,
+                bluesky_cursor_id: shouldLoadMoreBluesky === true ? bluesky_result?.previous_cursor_id : undefined,
+                id: `load_more_${twitter_result?.previous_cursor_id ?? ''}_${bluesky_result?.previous_cursor_id ?? ''}`,
             });
         }
 
@@ -538,13 +616,14 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 // 選択中の Twitter アカウントが変更されたらタイムラインの内容をまっさらにした上で再取得
 // (Twitter パネルとタイムラインタブが表示状態のときのみ自動で再取得する)
 // このイベントはコンポーネントのマウント時にも実行される (マウント時に selected_twitter_account が変更されるため)
-watch(selected_twitter_account, (newTwitterAccount, oldTwitterAccount) => {
+watch(selected_account, (newAccount, oldAccount) => {
+    // アカウント種別や紐付け先が変わったら、前アカウントのカーソルと表示ブロックを持ち越さない
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
     clearVisibleTweetTimers();
     // 離脱元アカウントの表示中判定を破棄し、移動先アカウントにも前回表示時の判定が残っていない状態で再取得する
-    clearConfirmedVisibleTweetIds(oldTwitterAccount?.screen_name);
-    clearConfirmedVisibleTweetIds(newTwitterAccount?.screen_name);
+    clearConfirmedVisibleTweetIds(oldAccount?.kind === 'Twitter' ? oldAccount.twitter_account.screen_name : oldAccount?.kind === 'Linked' ? oldAccount.account_link.twitter_account.screen_name : undefined);
+    clearConfirmedVisibleTweetIds(newAccount?.kind === 'Twitter' ? newAccount.twitter_account.screen_name : newAccount?.kind === 'Linked' ? newAccount.account_link.twitter_account.screen_name : undefined);
     isInitialFetchPending.value = true;
     isFirstFetchCompleted = false;
     tryAutoFetchTimeline();
@@ -552,6 +631,7 @@ watch(selected_twitter_account, (newTwitterAccount, oldTwitterAccount) => {
 
 // 「リツイートを表示する」のスイッチが変更されたらタイムラインの内容をまっさらにして再取得
 watch(showRetweets, () => {
+    // RT 表示設定は既存ブロックを後から完全に復元できないため、カーソルごと初期化して取り直す
     timelineItems.value = [];
     cursorIdHistory.value = [];  // カーソル履歴をリセット
     clearVisibleTweetTimers();
