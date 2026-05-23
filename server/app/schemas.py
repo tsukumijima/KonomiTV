@@ -269,6 +269,8 @@ class User(PydanticModel):
     niconico_user_name: str | None
     niconico_user_premium: bool | None
     twitter_accounts: list[TwitterAccount]  # 追加カラム
+    bluesky_accounts: list[BlueskyAccount]  # 追加カラム
+    account_links: list[AccountLink]  # 追加カラム
     created_at: datetime
     updated_at: datetime
 
@@ -282,6 +284,22 @@ class TwitterAccount(PydanticModel):
     name: str
     screen_name: str
     icon_url: str
+    created_at: datetime
+    updated_at: datetime
+
+class BlueskyAccount(PydanticModel):
+    id: int
+    did: str
+    handle: str
+    name: str
+    icon_url: str
+    created_at: datetime
+    updated_at: datetime
+
+class AccountLink(PydanticModel):
+    id: int
+    twitter_account: TwitterAccount
+    bluesky_account: BlueskyAccount
     created_at: datetime
     updated_at: datetime
 
@@ -330,10 +348,22 @@ class UserUpdateRequest(BaseModel):
 class UserUpdateRequestForAdmin(BaseModel):
     is_admin: bool | None = None
 
+class AccountLinkCreateRequest(BaseModel):
+    twitter_account_id: int
+    bluesky_account_id: int
+
 # ***** Twitter 連携 *****
 
 class TwitterCookieAuthRequest(BaseModel):
     cookies_txt: str
+
+class BlueskyAuthRequest(BaseModel):
+    handle: str
+    app_password: str
+
+class BlueskyPostActionRequest(BaseModel):
+    bluesky_uri: str
+    bluesky_cid: str | None = None
 
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
@@ -609,6 +639,7 @@ class ThirdpartyAuthURL(BaseModel):
 # ***** Twitter 連携 *****
 
 class Tweet(BaseModel):
+    source: Literal['Twitter', 'Bluesky']
     id: str
     created_at: datetime
     user: TweetUser
@@ -617,6 +648,8 @@ class Tweet(BaseModel):
     via: str
     image_urls: list[str] | None
     movie_url: str | None
+    bluesky_uri: str | None = None
+    bluesky_cid: str | None = None
     retweet_count: int
     retweeted: bool
     favorite_count: int
@@ -625,6 +658,7 @@ class Tweet(BaseModel):
     quoted_tweet: Tweet | None
 
 class TweetUser(BaseModel):
+    source: Literal['Twitter', 'Bluesky']
     id: str
     name: str
     screen_name: str
