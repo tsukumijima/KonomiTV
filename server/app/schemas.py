@@ -361,10 +361,6 @@ class BlueskyAuthRequest(BaseModel):
     handle: str
     app_password: str
 
-class BlueskyPostActionRequest(BaseModel):
-    bluesky_uri: str
-    bluesky_cid: str | None = None
-
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
 
@@ -648,8 +644,6 @@ class Tweet(BaseModel):
     via: str
     image_urls: list[str] | None
     movie_url: str | None
-    bluesky_uri: str | None = None
-    bluesky_cid: str | None = None
     retweet_count: int
     retweeted: bool
     favorite_count: int

@@ -136,6 +136,28 @@ class BlueskyAPI:
         return None
 
 
+    async def _fetchPostByURI(self, post_uri: str) -> models.AppBskyFeedDefs.PostView | None:
+        """
+        AT URI から Bluesky 投稿情報を取得する
+
+        Args:
+            post_uri (str): 対象投稿の AT URI
+
+        Returns:
+            models.AppBskyFeedDefs.PostView | None: 取得できた投稿情報
+        """
+
+        # API パスから受け取る ID は AT URI そのものなので、不正な文字列は Bluesky API に渡す前に弾く
+        if post_uri.startswith('at://') is False:
+            return None
+
+        # リポスト / いいね作成には CID が必要で、取り消しには viewer.repost / viewer.like が必要になる
+        post_response = await self.client.app.bsky.feed.get_posts(models.AppBskyFeedGetPosts.Params(uris=[post_uri]))
+        if len(post_response.posts) == 0:
+            return None
+        return post_response.posts[0]
+
+
     async def _buildImageEmbed(self, images: list[UploadFile]) -> models.AppBskyEmbedImages.Main | None:
         """
         アップロードされた画像を Bluesky の画像 embed に変換する
@@ -209,7 +231,7 @@ class BlueskyAPI:
 
         tweet = schemas.Tweet(
             source='Bluesky',
-            id=self._extractRecordKey(post.uri),
+            id=post.uri,
             created_at=self._parseDateTime(created_at_text),
             user=tweet_user,
             text=text,
@@ -217,8 +239,6 @@ class BlueskyAPI:
             via='',
             image_urls=image_urls if len(image_urls) > 0 else None,
             movie_url=None,
-            bluesky_uri=post.uri,
-            bluesky_cid=post.cid,
             retweet_count=post.repost_count or 0,
             favorite_count=post.like_count or 0,
             retweeted=post.viewer is not None and post.viewer.repost is not None,
@@ -296,13 +316,12 @@ class BlueskyAPI:
             )
 
 
-    async def createRepost(self, bluesky_uri: str, bluesky_cid: str) -> schemas.TwitterAPIResult:
+    async def createRepost(self, post_id: str) -> schemas.TwitterAPIResult:
         """
         Bluesky の投稿をリポストする
 
         Args:
-            bluesky_uri (str): 対象投稿の AT URI
-            bluesky_cid (str): 対象投稿の CID
+            post_id (str): 対象投稿の AT URI
 
         Returns:
             schemas.TwitterAPIResult: リポスト結果
@@ -314,8 +333,11 @@ class BlueskyAPI:
                 return session_error
 
             try:
-                # createRepost は StrongRef (URI + CID) を SDK に渡すだけでよく、既存リポストの有無は Bluesky 側に任せる
-                await self.client.repost(bluesky_uri, bluesky_cid)
+                # リポスト作成には StrongRef (URI + CID) が必要なので、AT URI から現在の CID を取得してから SDK に渡す
+                post = await self._fetchPostByURI(post_id)
+                if post is None:
+                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
+                await self.client.repost(post.uri, post.cid)
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to repost:', exc_info=ex)
                 return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポストに失敗しました。')
@@ -323,12 +345,12 @@ class BlueskyAPI:
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky の投稿をリポストしました。')
 
 
-    async def deleteRepost(self, bluesky_uri: str) -> schemas.TwitterAPIResult:
+    async def deleteRepost(self, post_id: str) -> schemas.TwitterAPIResult:
         """
         Bluesky のリポストを取り消す
 
         Args:
-            bluesky_uri (str): 対象投稿の AT URI
+            post_id (str): 対象投稿の AT URI
 
         Returns:
             schemas.TwitterAPIResult: リポスト取消結果
@@ -341,10 +363,10 @@ class BlueskyAPI:
 
             try:
                 # delete_repost にはリポスト自体の URI が必要なので、対象投稿を取得して viewer.repost を引き直す
-                post_response = await self.client.app.bsky.feed.get_posts(models.AppBskyFeedGetPosts.Params(uris=[bluesky_uri]))
-                if len(post_response.posts) == 0 or post_response.posts[0].viewer is None or post_response.posts[0].viewer.repost is None:
+                post = await self._fetchPostByURI(post_id)
+                if post is None or post.viewer is None or post.viewer.repost is None:
                     return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト情報を取得できませんでした。')
-                await self.client.delete_repost(post_response.posts[0].viewer.repost)
+                await self.client.delete_repost(post.viewer.repost)
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to delete repost:', exc_info=ex)
                 return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト取り消しに失敗しました。')
@@ -352,13 +374,12 @@ class BlueskyAPI:
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky のリポストを取り消しました。')
 
 
-    async def favoritePost(self, bluesky_uri: str, bluesky_cid: str) -> schemas.TwitterAPIResult:
+    async def favoritePost(self, post_id: str) -> schemas.TwitterAPIResult:
         """
         Bluesky の投稿をいいねする
 
         Args:
-            bluesky_uri (str): 対象投稿の AT URI
-            bluesky_cid (str): 対象投稿の CID
+            post_id (str): 対象投稿の AT URI
 
         Returns:
             schemas.TwitterAPIResult: いいね結果
@@ -370,8 +391,11 @@ class BlueskyAPI:
                 return session_error
 
             try:
-                # like もリポストと同じく対象投稿の StrongRef を使って作成する
-                await self.client.like(bluesky_uri, bluesky_cid)
+                # いいね作成も StrongRef が必要なので、AT URI から現在の CID を取得してから SDK に渡す
+                post = await self._fetchPostByURI(post_id)
+                if post is None:
+                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
+                await self.client.like(post.uri, post.cid)
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to like post:', exc_info=ex)
                 return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいねに失敗しました。')
@@ -379,12 +403,12 @@ class BlueskyAPI:
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky の投稿をいいねしました。')
 
 
-    async def unfavoritePost(self, bluesky_uri: str) -> schemas.TwitterAPIResult:
+    async def unfavoritePost(self, post_id: str) -> schemas.TwitterAPIResult:
         """
         Bluesky のいいねを取り消す
 
         Args:
-            bluesky_uri (str): 対象投稿の AT URI
+            post_id (str): 対象投稿の AT URI
 
         Returns:
             schemas.TwitterAPIResult: いいね取消結果
@@ -396,11 +420,11 @@ class BlueskyAPI:
                 return session_error
 
             try:
-                # delete_like には like レコードの URI が必要なので、対象投稿の viewer.like を取得してから削除する
-                post_response = await self.client.app.bsky.feed.get_posts(models.AppBskyFeedGetPosts.Params(uris=[bluesky_uri]))
-                if len(post_response.posts) == 0 or post_response.posts[0].viewer is None or post_response.posts[0].viewer.like is None:
+                # delete_like にはいいねレコードの URI が必要なので、対象投稿の viewer.like を取得してから削除する
+                post = await self._fetchPostByURI(post_id)
+                if post is None or post.viewer is None or post.viewer.like is None:
                     return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね情報を取得できませんでした。')
-                await self.client.delete_like(post_response.posts[0].viewer.like)
+                await self.client.delete_like(post.viewer.like)
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to delete like:', exc_info=ex)
                 return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね取り消しに失敗しました。')

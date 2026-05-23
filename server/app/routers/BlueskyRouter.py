@@ -127,87 +127,75 @@ async def BlueskyPostAPI(
 
 
 @router.put(
-    '/accounts/{handle}/posts/repost',
+    '/accounts/{handle}/posts/{post_id:path}/repost',
     summary = 'Bluesky リポスト実行 API',
     response_description = 'Bluesky リポストの実行結果。',
     response_model = schemas.TwitterAPIResult,
 )
 async def BlueskyRepostAPI(
-    action_request: Annotated[schemas.BlueskyPostActionRequest, Body(description='Bluesky 投稿操作リクエスト')],
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='リポストする Bluesky 投稿の AT URI 。')],
 ):
     """
     指定された Bluesky 投稿をリポストする。<br>
     リポストには handle で指定した Bluesky アカウントが利用される。
     """
 
-    # atproto のリポスト作成には URI だけでなく CID も必要なため、クライアントの古い表示データをここで弾く
-    if action_request.bluesky_cid is None:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'bluesky_cid is required',
-        )
-    return await BlueskyAPI(bluesky_account).createRepost(action_request.bluesky_uri, action_request.bluesky_cid)
+    return await BlueskyAPI(bluesky_account).createRepost(post_id)
 
 
 @router.delete(
-    '/accounts/{handle}/posts/repost',
+    '/accounts/{handle}/posts/{post_id:path}/repost',
     summary = 'Bluesky リポスト取り消し API',
     response_description = 'Bluesky リポストの取り消し結果。',
     response_model = schemas.TwitterAPIResult,
 )
 async def BlueskyRepostCancelAPI(
-    action_request: Annotated[schemas.BlueskyPostActionRequest, Body(description='Bluesky 投稿操作リクエスト')],
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='リポストを取り消す Bluesky 投稿の AT URI 。')],
 ):
     """
     指定された Bluesky 投稿のリポストを取り消す。<br>
     リポストの取り消しには handle で指定した Bluesky アカウントが利用される。
     """
 
-    return await BlueskyAPI(bluesky_account).deleteRepost(action_request.bluesky_uri)
+    return await BlueskyAPI(bluesky_account).deleteRepost(post_id)
 
 
 @router.put(
-    '/accounts/{handle}/posts/like',
-    summary = 'Bluesky like 実行 API',
-    response_description = 'Bluesky like の実行結果。',
+    '/accounts/{handle}/posts/{post_id:path}/like',
+    summary = 'Bluesky いいね実行 API',
+    response_description = 'Bluesky いいねの実行結果。',
     response_model = schemas.TwitterAPIResult,
 )
 async def BlueskyLikeAPI(
-    action_request: Annotated[schemas.BlueskyPostActionRequest, Body(description='Bluesky 投稿操作リクエスト')],
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='いいねする Bluesky 投稿の AT URI 。')],
 ):
     """
-    指定された Bluesky 投稿を like する。<br>
-    like には handle で指定した Bluesky アカウントが利用される。
+    指定された Bluesky 投稿をいいねする。<br>
+    いいねには handle で指定した Bluesky アカウントが利用される。
     """
 
-    # like 作成も StrongRef (URI + CID) が必要なので、CID の欠落は API 呼び出し前に 422 として返す
-    if action_request.bluesky_cid is None:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'bluesky_cid is required',
-        )
-    return await BlueskyAPI(bluesky_account).favoritePost(action_request.bluesky_uri, action_request.bluesky_cid)
+    return await BlueskyAPI(bluesky_account).favoritePost(post_id)
 
 
 @router.delete(
-    '/accounts/{handle}/posts/like',
-    summary = 'Bluesky like 取り消し API',
-    response_description = 'Bluesky like の取り消し結果。',
+    '/accounts/{handle}/posts/{post_id:path}/like',
+    summary = 'Bluesky いいね取り消し API',
+    response_description = 'Bluesky いいねの取り消し結果。',
     response_model = schemas.TwitterAPIResult,
 )
 async def BlueskyLikeCancelAPI(
-    action_request: Annotated[schemas.BlueskyPostActionRequest, Body(description='Bluesky 投稿操作リクエスト')],
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='いいねを取り消す Bluesky 投稿の AT URI 。')],
 ):
     """
-    指定された Bluesky 投稿の like を取り消す。<br>
-    like の取り消しには handle で指定した Bluesky アカウントが利用される。
+    指定された Bluesky 投稿のいいねを取り消す。<br>
+    いいねの取り消しには handle で指定した Bluesky アカウントが利用される。
     """
 
-    return await BlueskyAPI(bluesky_account).unfavoritePost(action_request.bluesky_uri)
+    return await BlueskyAPI(bluesky_account).unfavoritePost(post_id)
 
 
 @router.get(
