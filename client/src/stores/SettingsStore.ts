@@ -31,6 +31,11 @@ export interface ITimeTableGenreColors {
     'その他': TimeTableGenreHighlightColor;
 }
 
+export interface ITwitterPanelPostTarget {
+    is_post_to_twitter: boolean;
+    is_post_to_bluesky: boolean;
+}
+
 /**
  * LocalStorage に保存される KonomiTV の設定データ
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
@@ -38,7 +43,8 @@ export interface ITimeTableGenreColors {
 export interface ILocalClientSettings extends IClientSettings {
     last_synced_at: number;
     showed_panel_last_time: boolean;
-    selected_twitter_account_id: number | null;
+    selected_twitter_panel_account: {kind: 'Twitter' | 'Bluesky' | 'Linked'; id: number;} | null;
+    twitter_panel_post_targets: Record<string, ITwitterPanelPostTarget>;
     saved_twitter_hashtags: string[];
     mylist: {
         type: 'Series' | 'RecordedProgram';
@@ -132,8 +138,12 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
     showed_panel_last_time: true,
-    // 現在ツイート対象として選択されている Twitter アカウントの ID (同期無効)
-    selected_twitter_account_id: null,
+    // 視聴画面 Twitter タブで最後に選択していたアカウント (Twitter / Bluesky / 紐付け の tagged union、同期無効)
+    // ID は Twitter / Bluesky / 紐付け それぞれの DB 連番 ID で、別環境間で意味が異なるため同期対象外
+    selected_twitter_panel_account: null,
+    // 紐付けアカウントごとの投稿先設定 (同期無効)
+    // 視聴中に頻繁に変える UI 状態なので、サーバー側の AccountLink レコードには保存しない
+    twitter_panel_post_targets: {},
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
 
@@ -329,7 +339,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'last_synced_at',
     // showed_panel_last_time: 同期無効
-    // selected_twitter_account_id: 同期無効
+    // selected_twitter_panel_account: 同期無効
+    // twitter_panel_post_targets: 同期無効
     'saved_twitter_hashtags',
     'mylist',
     'watched_history',
@@ -444,6 +455,19 @@ export function getNormalizedLocalClientSettings(settings: {[key: string]: any})
             // (配列などの参照型を直接代入すると ILocalClientSettingsDefault が汚染される恐れがあるため)
             normalized_settings[default_settings_key] = structuredClone(ILocalClientSettingsDefault[default_settings_key]);
         }
+    }
+
+    // 旧 selected_twitter_account_id (Twitter アカウント単独参照) を
+    // 新 selected_twitter_panel_account (Twitter / Bluesky / 紐付け の tagged union) に移行する
+    // 既存ユーザーの「最後に選択していた Twitter アカウント」が初回ロードで失われないよう、
+    // 旧キーが残っていて新キーが未設定の場合のみ Twitter アカウントとして引き継ぐ
+    // 旧キー自体はループで既に排除済みのため、ここで明示的な削除処理は不要
+    if (normalized_settings.selected_twitter_panel_account === null &&
+        typeof settings.selected_twitter_account_id === 'number') {
+        normalized_settings.selected_twitter_panel_account = {
+            kind: 'Twitter',
+            id: settings.selected_twitter_account_id,
+        };
     }
 
     return normalized_settings as ILocalClientSettings;

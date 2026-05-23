@@ -18,7 +18,8 @@ export interface IMutedCommentKeywords {
 export interface IClientSettings {
     last_synced_at: number;
     // showed_panel_last_time: 同期無効
-    // selected_twitter_account_id: 同期無効
+    // selected_twitter_panel_account: 同期無効
+    // twitter_panel_post_targets: 同期無効
     saved_twitter_hashtags: string[];
     mylist: {
         type: 'Series' | 'RecordedProgram';
