@@ -11,6 +11,7 @@ export interface ITwitterCookieAuthRequest {
 
 /** ツイートを表すインターフェイス */
 export interface ITweet {
+    source: 'Twitter' | 'Bluesky';
     id: string;
     created_at: Date;
     user: ITweetUser;
@@ -19,6 +20,8 @@ export interface ITweet {
     via: string;
     image_urls: string[] | null;
     movie_url: string | null;
+    bluesky_uri: string | null;
+    bluesky_cid: string | null;
     retweet_count: number;
     retweeted: boolean;
     favorite_count: number;
@@ -29,6 +32,7 @@ export interface ITweet {
 
 /** ツイートのユーザーを表すインターフェイス */
 export interface ITweetUser {
+    source: 'Twitter' | 'Bluesky';
     id: string;
     name: string;
     screen_name: string;

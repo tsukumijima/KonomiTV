@@ -12,6 +12,8 @@ export interface IUser {
     niconico_user_name: string | null;
     niconico_user_premium: boolean | null;
     twitter_accounts: ITwitterAccount[];
+    bluesky_accounts: IBlueskyAccount[];
+    account_links: IAccountLink[];
     created_at: string;
     updated_at: string;
 }
@@ -25,6 +27,32 @@ export interface ITwitterAccount {
     created_at: string;
     updated_at: string;
 }
+
+/** ユーザーアカウントに紐づく Bluesky アカウントの情報を表すインターフェイス */
+export interface IBlueskyAccount {
+    id: number;
+    did: string;
+    handle: string;
+    name: string;
+    icon_url: string;
+    created_at: string;
+    updated_at: string;
+}
+
+/** Twitter アカウントと Bluesky アカウントの紐付け情報を表すインターフェイス */
+export interface IAccountLink {
+    id: number;
+    twitter_account: ITwitterAccount;
+    bluesky_account: IBlueskyAccount;
+    created_at: string;
+    updated_at: string;
+}
+
+/** 視聴画面の Twitter タブで選択可能なアカウントを表す型 */
+export type ISelectableAccount =
+    | { kind: 'Twitter'; twitter_account: ITwitterAccount; }
+    | { kind: 'Bluesky'; bluesky_account: IBlueskyAccount; }
+    | { kind: 'Linked'; account_link: IAccountLink; };
 
 /** ユーザーアカウントのアクセストークンを表すインターフェイス */
 export interface IUserAccessToken {
