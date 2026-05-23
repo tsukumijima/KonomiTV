@@ -132,10 +132,15 @@ const getUserUrl = (user: ITweetUser) => {
     return `https://x.com/${user.screen_name}`;
 };
 
+const getBlueskyRecordKey = (postId: string) => {
+    // Bluesky の Tweet.id は AT URI そのものなので、bsky.app の URL には末尾の record key だけを使う
+    return postId.split('/').at(-1) ?? postId;
+};
+
 const getTweetUrl = (targetTweet: ITweet) => {
     // Tweet スキーマは共通だが、投稿詳細 URL はサービスごとに組み立て方が異なる
     if (targetTweet.source === 'Bluesky') {
-        return `https://bsky.app/profile/${targetTweet.user.screen_name}/post/${targetTweet.id}`;
+        return `https://bsky.app/profile/${targetTweet.user.screen_name}/post/${getBlueskyRecordKey(targetTweet.id)}`;
     }
     return `https://x.com/${targetTweet.user.screen_name}/status/${targetTweet.id}`;
 };
@@ -168,22 +173,16 @@ const handleTweetClick = (event: MouseEvent) => {
 const handleRetweet = async () => {
     if (displayedTweet.value.source === 'Bluesky') {
         const handle = getSelectedBlueskyHandle();
-        // Bluesky のリポスト取り消しは URI があれば実行できるが、表示データに URI がない場合は操作対象を特定できない
-        if (handle === null || !displayedTweet.value.bluesky_uri) return;
+        // Bluesky の ID は AT URI で、CID はサーバー側で直前取得する
+        if (handle === null) return;
         if (displayedTweet.value.retweeted) {
-            const result = await Bluesky.cancelRepost(handle, {bluesky_uri: displayedTweet.value.bluesky_uri});
+            const result = await Bluesky.cancelRepost(handle, displayedTweet.value.id);
             if (result && result.is_success) {
                 displayedTweet.value.retweeted = false;
                 displayedTweet.value.retweet_count--;
             }
         } else {
-            // リポスト実行には StrongRef (uri + cid) が AT Protocol 仕様上必要
-            // bluesky_cid が無い投稿はサーバー側でも 422 で弾かれるため、無駄なリクエストを送らないようここで早期 return する
-            if (!displayedTweet.value.bluesky_cid) return;
-            const result = await Bluesky.repost(handle, {
-                bluesky_uri: displayedTweet.value.bluesky_uri,
-                bluesky_cid: displayedTweet.value.bluesky_cid,
-            });
+            const result = await Bluesky.repost(handle, displayedTweet.value.id);
             if (result && result.is_success) {
                 displayedTweet.value.retweeted = true;
                 displayedTweet.value.retweet_count++;
@@ -214,21 +213,16 @@ const handleRetweet = async () => {
 const handleFavorite = async () => {
     if (displayedTweet.value.source === 'Bluesky') {
         const handle = getSelectedBlueskyHandle();
-        // Bluesky のいいね取り消しも URI が操作対象になるため、URI が無い投稿では早期終了する
-        if (handle === null || !displayedTweet.value.bluesky_uri) return;
+        // いいねも AT URI だけを渡し、作成時の CID と取り消し時の viewer.like はサーバー側で引き直す
+        if (handle === null) return;
         if (displayedTweet.value.favorited) {
-            const result = await Bluesky.cancelFavorite(handle, {bluesky_uri: displayedTweet.value.bluesky_uri});
+            const result = await Bluesky.cancelFavorite(handle, displayedTweet.value.id);
             if (result && result.is_success) {
                 displayedTweet.value.favorited = false;
                 displayedTweet.value.favorite_count--;
             }
         } else {
-            // いいね実行もリポストと同様に StrongRef (uri + cid) が AT Protocol 仕様上必要
-            if (!displayedTweet.value.bluesky_cid) return;
-            const result = await Bluesky.favorite(handle, {
-                bluesky_uri: displayedTweet.value.bluesky_uri,
-                bluesky_cid: displayedTweet.value.bluesky_cid,
-            });
+            const result = await Bluesky.favorite(handle, displayedTweet.value.id);
             if (result && result.is_success) {
                 displayedTweet.value.favorited = true;
                 displayedTweet.value.favorite_count++;

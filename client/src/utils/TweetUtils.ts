@@ -11,14 +11,11 @@ export class TweetUtils {
 
     /**
      * ツイートの同一性比較に使うキーを取得する
-     * Bluesky 投稿は AT URI、Twitter ツイートは source + ID で識別する
+     * Bluesky 投稿の id は AT URI なので、source + ID だけで識別できる
      * @param tweet ツイート
      * @returns 同一性比較用のキー文字列
      */
     static getTweetIdentityKey(tweet: ITweet): string {
-        if (tweet.source === 'Bluesky' && tweet.bluesky_uri) {
-            return tweet.bluesky_uri;
-        }
         return `${tweet.source}:${tweet.id}`;
     }
 

@@ -10,13 +10,6 @@ export interface IBlueskyAuthRequest {
     app_password: string;
 }
 
-/** Bluesky 投稿への操作リクエストを表すインターフェイス */
-export interface IBlueskyPostActionRequest {
-    bluesky_uri: string;
-    bluesky_cid?: string | null;
-}
-
-
 class Bluesky {
 
     /**
@@ -95,13 +88,13 @@ class Bluesky {
     /**
      * Bluesky 投稿をリポストする
      * @param handle Bluesky の handle
-     * @param action_request Bluesky 投稿への操作リクエスト
+     * @param post_id Bluesky 投稿の AT URI
      * @returns リポストの実行結果
      */
-    static async repost(handle: string, action_request: IBlueskyPostActionRequest): Promise<ITwitterAPIResult | null> {
+    static async repost(handle: string, post_id: string): Promise<ITwitterAPIResult | null> {
 
-        // リポスト実行はサーバー側で StrongRef の存在を検証するため、クライアントは共通の操作リクエストをそのまま送る
-        const response = await APIClient.put<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/repost`, action_request, {
+        // AT URI は / を含むため URL エンコードし、サーバー側では path converter で受け取る
+        const response = await APIClient.put<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/${encodeURIComponent(post_id)}/repost`, null, {
             timeout: 60 * 1000,
         });
 
@@ -121,14 +114,13 @@ class Bluesky {
     /**
      * Bluesky 投稿のリポストを取り消す
      * @param handle Bluesky の handle
-     * @param action_request Bluesky 投稿への操作リクエスト
+     * @param post_id Bluesky 投稿の AT URI
      * @returns リポスト取り消しの実行結果
      */
-    static async cancelRepost(handle: string, action_request: IBlueskyPostActionRequest): Promise<ITwitterAPIResult | null> {
+    static async cancelRepost(handle: string, post_id: string): Promise<ITwitterAPIResult | null> {
 
-        // DELETE でも操作対象の URI が必要なので、Axios の data 経由でリクエスト本文を渡す
-        const response = await APIClient.delete<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/repost`, {
-            data: action_request,
+        // リポスト取り消しはサーバー側で viewer.repost を引き直すため、対象投稿の AT URI だけ渡す
+        const response = await APIClient.delete<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/${encodeURIComponent(post_id)}/repost`, {
             timeout: 60 * 1000,
         });
 
@@ -147,13 +139,13 @@ class Bluesky {
     /**
      * Bluesky 投稿をいいねする
      * @param handle Bluesky の handle
-     * @param action_request Bluesky 投稿への操作リクエスト
+     * @param post_id Bluesky 投稿の AT URI
      * @returns いいねの実行結果
      */
-    static async favorite(handle: string, action_request: IBlueskyPostActionRequest): Promise<ITwitterAPIResult | null> {
+    static async favorite(handle: string, post_id: string): Promise<ITwitterAPIResult | null> {
 
-        // いいね実行もリポストと同じ StrongRef を使うため、共通のリクエスト型で扱う
-        const response = await APIClient.put<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/like`, action_request, {
+        // いいね作成に必要な CID は、AT URI からサーバー側で直前取得する
+        const response = await APIClient.put<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/${encodeURIComponent(post_id)}/like`, null, {
             timeout: 60 * 1000,
         });
 
@@ -172,14 +164,13 @@ class Bluesky {
     /**
      * Bluesky 投稿のいいねを取り消す
      * @param handle Bluesky の handle
-     * @param action_request Bluesky 投稿への操作リクエスト
+     * @param post_id Bluesky 投稿の AT URI
      * @returns いいね取り消しの実行結果
      */
-    static async cancelFavorite(handle: string, action_request: IBlueskyPostActionRequest): Promise<ITwitterAPIResult | null> {
+    static async cancelFavorite(handle: string, post_id: string): Promise<ITwitterAPIResult | null> {
 
-        // いいね取り消しはサーバー側で viewer.like を引き直してから削除するため、クライアントからは URI だけでも送れる
-        const response = await APIClient.delete<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/like`, {
-            data: action_request,
+        // いいね取り消しはサーバー側で viewer.like を引き直すため、対象投稿の AT URI だけ渡す
+        const response = await APIClient.delete<ITwitterAPIResult>(`/bluesky/accounts/${handle}/posts/${encodeURIComponent(post_id)}/like`, {
             timeout: 60 * 1000,
         });
 

@@ -20,8 +20,6 @@ export interface ITweet {
     via: string;
     image_urls: string[] | null;
     movie_url: string | null;
-    bluesky_uri: string | null;
-    bluesky_cid: string | null;
     retweet_count: number;
     retweeted: boolean;
     favorite_count: number;
