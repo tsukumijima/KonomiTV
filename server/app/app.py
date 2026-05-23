@@ -23,6 +23,7 @@ from app.metadata.RecordedScanTask import RecordedScanTask
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.routers import (
+    BlueskyRouter,
     CapturesRouter,
     ChannelsRouter,
     DataBroadcastingRouter,
@@ -79,6 +80,7 @@ app.include_router(CapturesRouter.router)
 app.include_router(DataBroadcastingRouter.router)
 app.include_router(NiconicoRouter.router)
 app.include_router(TwitterRouter.router)
+app.include_router(BlueskyRouter.router)
 app.include_router(UsersRouter.router)
 app.include_router(SettingsRouter.router)
 app.include_router(MaintenanceRouter.router)
