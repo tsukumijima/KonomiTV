@@ -189,8 +189,9 @@
                         <img class="linked-account-icon__badge" :src="account_link.bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
                     </div>
                     <div class="twitter-account__info">
-                        <div class="twitter-account__info-name">
-                            <span class="twitter-account__info-name-text">{{account_link.twitter_account.name}} / {{account_link.bluesky_account.name}}</span>
+                        <div v-for="row in getAccountLinkNameRows(account_link)" :key="row.id" class="twitter-account__info-name">
+                            <Icon v-if="row.icon" class="twitter-account__info-name-service-icon" :icon="row.icon" width="14px" />
+                            <span class="twitter-account__info-name-text">{{row.text}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
                             <span class="twitter-account__info-screen-name-handle">@{{account_link.twitter_account.screen_name}}</span>
@@ -306,10 +307,18 @@ import Message from '@/message';
 import AccountLinks from '@/services/AccountLinks';
 import Bluesky, { IBlueskyAuthRequest } from '@/services/Bluesky';
 import Twitter, { ITwitterCookieAuthRequest } from '@/services/Twitter';
+import { IAccountLink } from '@/services/Users';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
+
+/** 紐付けアカウントの表示名行を表すインターフェイス */
+interface IAccountLinkNameRow {
+    id: string;
+    icon?: string;
+    text: string;
+}
 
 export default defineComponent({
     name: 'Settings-Twitter',
@@ -440,6 +449,22 @@ export default defineComponent({
                 return 'Bluesky ハンドルを入力してください。';
             }
             return true;
+        },
+
+        getAccountLinkNameRows(account_link: IAccountLink): IAccountLinkNameRow[] {
+            const twitter_name = account_link.twitter_account.name;
+            const bluesky_name = account_link.bluesky_account.name;
+
+            // 表示名が完全一致する場合は重複表示せず、1行だけ出す
+            if (twitter_name === bluesky_name) {
+                return [{id: 'shared-name', text: twitter_name}];
+            }
+
+            // 表示名が異なる場合はサービスアイコン付きで各行を独立して ellipsis する
+            return [
+                {id: 'twitter-name', icon: 'fa-brands:twitter', text: twitter_name},
+                {id: 'bluesky-name', icon: 'simple-icons:bluesky', text: bluesky_name},
+            ];
         },
 
         async loginTwitterAccountWithCookieForm() {
@@ -795,12 +820,17 @@ export default defineComponent({
             &-name {
                 display: flex;
                 align-items: center;
+                column-gap: 6px;
                 min-width: 0;
+                color: rgb(var(--v-theme-text));
+
+                &-service-icon {
+                    flex-shrink: 0;
+                }
 
                 &-text {
                     min-width: 0;
                     flex: 1 1 auto;
-                    color: rgb(var(--v-theme-text));
                     font-size: 20px;
                     font-weight: bold;
                     overflow: hidden;
