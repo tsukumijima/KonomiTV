@@ -190,7 +190,7 @@
                     </div>
                     <div class="twitter-account__info">
                         <div v-for="row in getAccountLinkNameRows(account_link)" :key="row.id" class="twitter-account__info-name">
-                            <Icon v-if="row.icon" class="twitter-account__info-name-service-icon" :icon="row.icon" width="14px" />
+                            <Icon v-if="row.icon" class="twitter-account__info-name-service-icon" :icon="row.icon" />
                             <span class="twitter-account__info-name-text">{{row.text}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
@@ -822,10 +822,27 @@ export default defineComponent({
                 align-items: center;
                 column-gap: 6px;
                 min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
                 color: rgb(var(--v-theme-text));
 
                 &-service-icon {
+                    display: block;
                     flex-shrink: 0;
+                    // Iconify は width/height 未指定時に SVG へ 1em を設定するため、font-size も合わせて指定する
+                    width: 16px;
+                    height: 16px;
+                    font-size: 16px;
+                    @include smartphone-horizontal {
+                        width: 13px;
+                        height: 13px;
+                        font-size: 13px;
+                    }
+                    @include smartphone-vertical {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
                 }
 
                 &-text {
