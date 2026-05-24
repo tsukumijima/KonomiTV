@@ -50,8 +50,8 @@ export interface IPostTweetResult extends ITwitterAPIResult {
 
 /** タイムラインのツイート取得結果を表すインターフェイス */
 export interface ITimelineTweetsResult extends ITwitterAPIResult {
-    next_cursor_id: string;
-    previous_cursor_id: string;
+    next_cursor_id: string | null;
+    previous_cursor_id: string | null;
     tweets: ITweet[];
 }
 

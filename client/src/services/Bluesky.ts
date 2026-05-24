@@ -67,9 +67,6 @@ class Bluesky {
 
         // 画像変換やアップロードに時間がかかる場合があるため、通常の API より長めのタイムアウトにする
         const response = await APIClient.post<IPostTweetResult>(`/bluesky/accounts/${handle}/posts`, form_data, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
             timeout: 10 * 60 * 1000,
         });
 
