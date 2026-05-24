@@ -12,10 +12,16 @@ export class TweetUtils {
     /**
      * ツイートの同一性比較に使うキーを取得する
      * Bluesky 投稿の id は AT URI なので、source + ID だけで識別できる
+     * Bluesky のリポストは元投稿と同じ AT URI を持つため、リポストしたユーザーも含める
      * @param tweet ツイート
      * @returns 同一性比較用のキー文字列
      */
     static getTweetIdentityKey(tweet: ITweet): string {
+        // Bluesky のリポスト通知は元投稿と同じ AT URI を共有する
+        // 投稿本体とリポスト行を同じキーで畳むと、タイムライン上のリポスト表示が消えてしまう
+        if (tweet.source === 'Bluesky' && tweet.retweeted_tweet !== null) {
+            return `${tweet.source}:${tweet.id}:repost:${tweet.user.id}`;
+        }
         return `${tweet.source}:${tweet.id}`;
     }
 

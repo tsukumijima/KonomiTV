@@ -534,10 +534,18 @@ export default defineComponent({
             if (result === false) {
                 return;
             }
-            await this.userStore.fetchUser(true);
-            const current_bluesky_account = [...(this.userStore.user?.bluesky_accounts ?? [])].sort((a, b) => {
+            const fetched_user = await this.userStore.fetchUser(true);
+            if (fetched_user === null) {
+                Message.warning('Bluesky 連携情報の再取得に失敗しました。画面を再読み込みしてください。');
+                return;
+            }
+            const current_bluesky_account = [...fetched_user.bluesky_accounts].sort((a, b) => {
                 return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
             })[0];
+            if (current_bluesky_account === undefined) {
+                Message.warning('Bluesky 連携情報の再取得に失敗しました。画面を再読み込みしてください。');
+                return;
+            }
             Message.success(`Bluesky @${current_bluesky_account.handle} と連携しました。`);
             (this.$refs.bluesky_form as VForm).reset();
             this.bluesky_app_password_showing = false;
