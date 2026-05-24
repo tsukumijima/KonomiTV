@@ -191,7 +191,7 @@ class Bluesky {
      */
     static async getHomeTimeline(handle: string, cursor_id?: string): Promise<ITimelineTweetsResult | null> {
 
-        // Bluesky の cursor は一方向のページング値なので、Twitter 側とは別の cursor_id として呼び出し元で保持する
+        // Bluesky のカーソルは一方向のページング値なので、Twitter 側とは別の `cursor_id` として呼び出し元で保持する
         const response = await APIClient.get<ITimelineTweetsResult>(`/bluesky/accounts/${handle}/timeline`, {
             params: { cursor_id },
             timeout: 60 * 1000,

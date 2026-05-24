@@ -622,7 +622,13 @@ class BlueskyAPI:
                     trailing_chars = token_text[-1] + trailing_chars
                     token_text = token_text[:-1]
                 if len(token_text) > 0:
-                    text_builder.tag(token_text, token_text.lstrip('#＃'))
+                    tag_text = token_text.lstrip('#＃')
+                    # 記号だけのハッシュタグは Bluesky 側の facet として意味を持たない
+                    ## 空タグ名を渡すと不正な facet になるため、本文として残して投稿内容を壊さない
+                    if tag_text != '':
+                        text_builder.tag(token_text, tag_text)
+                    else:
+                        text_builder.text(token_text)
                 if trailing_chars != '':
                     text_builder.text(trailing_chars)
             cursor = match.end()
