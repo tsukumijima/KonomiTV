@@ -62,6 +62,10 @@ class TwitterGraphQLAPI:
     MINIMUM_TWEET_INTERVAL_JITTER_MIN = 0.1
     MINIMUM_TWEET_INTERVAL_JITTER_MAX = 4.0
 
+    # タイムライン / 検索のカーソル付き取得の最小間隔 (秒)
+    ## Twitter Web App の最小 TL 取得間隔が 30 秒だったので、凍結対策の安全策として決め打ち
+    MIN_FETCH_INTERVAL_SECONDS: ClassVar[float] = 30.0
+
     # ヘッドレスブラウザの自動シャットダウンまでの無操作時間 (秒)
     BROWSER_IDLE_TIMEOUT = 60
 
@@ -102,6 +106,12 @@ class TwitterGraphQLAPI:
             instance._shutdown_task_lock = asyncio.Lock()
             # GraphQL API の前回呼び出し時刻 (UNIX 時間)
             instance._last_graphql_api_call_time = 0.0
+            # ホームタイムラインを実際に取得しに行った時刻 (UNIX 時間)
+            ## カーソルなしの初回取得は許可し、カーソル付きの更新だけ 30 秒制限に掛ける
+            instance._last_home_fetched_at = 0.0
+            # 検索タイムラインを実際に取得しに行った時刻 (UNIX 時間)
+            ## ホームタイムラインとは別画面の別リクエストなので、互いに待たせないよう独立して管理する
+            instance._last_search_fetched_at = 0.0
 
             # ツイート送信時の排他制御用のロック (最小送信間隔の制御に使用)
             instance._tweet_lock = asyncio.Lock()
@@ -143,6 +153,8 @@ class TwitterGraphQLAPI:
         self._shutdown_task: asyncio.Task[None] | None
         self._shutdown_task_lock: asyncio.Lock
         self._last_graphql_api_call_time: float
+        self._last_home_fetched_at: float
+        self._last_search_fetched_at: float
         self._tweet_lock: asyncio.Lock
         self._last_tweet_time: float
         self._consecutive_compose_failures: int
@@ -1233,6 +1245,19 @@ class TwitterGraphQLAPI:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
         """
 
+        # カーソル付き取得は、既に表示しているタイムラインの続きを取得する操作に限定される
+        ## Twitter Web App のリロード相当であるカーソルなし初回取得は制限せず、短時間リロードで空 TL になる事故を避ける
+        if cursor_id is not None:
+            elapsed_seconds = time.time() - self._last_home_fetched_at
+            if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
+                return schemas.TimelineTweetsResult(
+                    is_success=True,
+                    detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
+                    next_cursor_id=cursor_id,
+                    previous_cursor_id=cursor_id,
+                    tweets=[],
+                )
+
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
         additional_flags: dict[str, Any] | None = None
@@ -1254,6 +1279,9 @@ class TwitterGraphQLAPI:
             ## seenTweetIds は件数が多くなりやすいため (本家では最大150件程度) 、Twitter Web App と同様に forcePost を指定して POST で送信する
             variables['seenTweetIds'] = seen_tweet_ids
             additional_flags = {'forcePost': True}
+
+        # 実リクエストを投げる直前に時刻を更新し、失敗直後の即時リトライ連打も同じ制限で吸収する
+        self._last_home_fetched_at = time.time()
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
@@ -1318,6 +1346,19 @@ class TwitterGraphQLAPI:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
         """
 
+        # 検索も Twitter Web App と同じく、初回検索はカーソルなし、以降の更新 / 追加取得はカーソル付きになる
+        ## ホームタイムラインとは独立した画面なので、検索専用の最終取得時刻だけで制限する
+        if cursor_id is not None:
+            elapsed_seconds = time.time() - self._last_search_fetched_at
+            if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
+                return schemas.TimelineTweetsResult(
+                    is_success=True,
+                    detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
+                    next_cursor_id=cursor_id,
+                    previous_cursor_id=cursor_id,
+                    tweets=[],
+                )
+
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
         variables: dict[str, Any] = {}
         variables['rawQuery'] = query.strip() + ' lang:ja -filter:replies'
@@ -1338,6 +1379,9 @@ class TwitterGraphQLAPI:
         variables['product'] = search_type
         ## Twitter Web App の挙動に合わせて設定
         variables['withGrokTranslatedBio'] = False
+
+        # 実リクエストを投げる直前に時刻を更新し、仕様変更やネットワーク失敗時の連打も吸収する
+        self._last_search_fetched_at = time.time()
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
