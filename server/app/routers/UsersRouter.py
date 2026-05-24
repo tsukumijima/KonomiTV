@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from PIL import Image
+from tortoise.exceptions import IntegrityError
 
 from app import logging, schemas
 from app.constants import (
@@ -397,25 +398,34 @@ async def AccountLinkCreateAPI(
             detail = 'Specified Bluesky account does not exist',
         )
 
-    # 紐付けは一対一の投稿先として扱うため、同じ Twitter アカウントの二重紐付けを禁止する
-    if await AccountLink.filter(twitter_account_id=twitter_account.id).exists() is True:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified Twitter account is already linked',
-        )
-    # Bluesky 側も一対一に制限し、視聴画面の選択候補が同じアカウントを複数組で持たないようにする
-    if await AccountLink.filter(bluesky_account_id=bluesky_account.id).exists() is True:
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified Bluesky account is already linked',
-        )
-
     # 返却直後にクライアントが表示名やアイコンを表示できるように、両方の子レコードを取得しておく
-    account_link = await AccountLink.create(
-        user = current_user,
-        twitter_account = twitter_account,
-        bluesky_account = bluesky_account,
-    )
+    try:
+        account_link = await AccountLink.create(
+            user = current_user,
+            twitter_account = twitter_account,
+            bluesky_account = bluesky_account,
+        )
+    except IntegrityError as ex:
+        # 紐付けは DB の一意制約で一対一を最終保証する
+        ## 事前確認だけでは複数タブの同時作成を防げないため、競合後に実際の重複側を調べて既存のエラー文へ戻す
+        if await AccountLink.filter(twitter_account_id=twitter_account.id).exists() is True:
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified Twitter account is already linked',
+            ) from ex
+        if await AccountLink.filter(bluesky_account_id=bluesky_account.id).exists() is True:
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified Bluesky account is already linked',
+            ) from ex
+        logging.error(
+            f'[UsersRouter][AccountLinkCreateAPI] Failed to create account link due to an unexpected integrity error. [user_id: {current_user.id}]',
+            exc_info=ex,
+        )
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Failed to create account link',
+        ) from ex
     await account_link.fetch_related('twitter_account', 'bluesky_account')
     return account_link
 

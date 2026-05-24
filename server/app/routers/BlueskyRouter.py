@@ -13,6 +13,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from tortoise.exceptions import IntegrityError
 
 from app import logging, schemas
 from app.models.BlueskyAccount import BlueskyAccount
@@ -85,7 +86,28 @@ async def BlueskyAuthAPI(
         logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account. [id: {existing_account.id}, handle: {existing_account.handle}]')
         return
 
-    await bluesky_account.save()
+    try:
+        await bluesky_account.save()
+    except IntegrityError as ex:
+        # 同じ DID の連携が同時に走った場合、事前の存在確認だけでは一意制約違反を避けられない
+        ## 競合相手が作成したレコードを更新して、連打や複数タブでも連携済み状態に収束させる
+        existing_account = await BlueskyAccount.filter(user_id=current_user.id, did=bluesky_account.did).get_or_none()
+        if existing_account is None:
+            logging.error(
+                f'[BlueskyRouter][BlueskyAuthAPI] Failed to save Bluesky account due to an unexpected integrity error. [user_id: {current_user.id}]',
+                exc_info=ex,
+            )
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Failed to link Bluesky account',
+            ) from ex
+        existing_account.handle = bluesky_account.handle
+        existing_account.name = bluesky_account.name
+        existing_account.icon_url = bluesky_account.icon_url
+        existing_account.session_string = bluesky_account.session_string
+        await existing_account.save()
+        logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account after conflict. [id: {existing_account.id}, handle: {existing_account.handle}]')
+        return
     logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Created new Bluesky account. [id: {bluesky_account.id}, handle: {bluesky_account.handle}]')
 
 

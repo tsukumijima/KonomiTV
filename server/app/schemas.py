@@ -666,8 +666,8 @@ class PostTweetResult(TwitterAPIResult):
     tweet_url: str
 
 class TimelineTweetsResult(TwitterAPIResult):
-    next_cursor_id: str
-    previous_cursor_id: str
+    next_cursor_id: str | None
+    previous_cursor_id: str | None
     tweets: list[Tweet]
 
 class TwitterGraphQLAPIEndpointInfo(BaseModel):

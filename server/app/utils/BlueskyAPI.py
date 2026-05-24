@@ -8,7 +8,8 @@ from datetime import datetime
 from typing import Any, ClassVar, Final
 
 from atproto import AsyncClient, Session, SessionEvent, client_utils, models
-from fastapi import UploadFile
+from atproto_client.exceptions import UnauthorizedError
+from fastapi import HTTPException, UploadFile
 from PIL import Image
 
 from app import logging, schemas
@@ -127,11 +128,19 @@ class BlueskyAPI:
 
         try:
             await self._login()
+        except (HTTPException, UnauthorizedError) as ex:
+            # 復号不能な session_string と PDS 側の認証拒否は、どちらもユーザーの再連携で解消する状態
+            ## 通信障害や SDK 側の不具合まで再連携扱いにすると、実際には不要なアカウント再設定を促してしまう
+            logging.error(f'{self.log_prefix} Failed to restore Bluesky session due to authorization error:', exc_info=ex)
+            return schemas.TwitterAPIResult(
+                is_success=False,
+                detail='Bluesky のセッションが期限切れです。設定画面から再連携してください。',
+            )
         except Exception as ex:
             logging.error(f'{self.log_prefix} Failed to restore Bluesky session:', exc_info=ex)
             return schemas.TwitterAPIResult(
                 is_success=False,
-                detail='Bluesky のセッションが期限切れです。設定画面から再連携してください。',
+                detail='Bluesky との通信エラーまたは内部エラーが発生しました。後でもう一度お試しください。',
             )
         return None
 
@@ -457,11 +466,11 @@ class BlueskyAPI:
 
         # KonomiTV クライアントは Twitter と同じ TimelineTweetsResult を期待するため、PostView を Tweet に正規化する
         tweets = [self._formatPostView(feed_view.post, feed_view.reason) for feed_view in response.feed]
-        cursor = response.cursor or ''
+        cursor = response.cursor or None
         return schemas.TimelineTweetsResult(
             is_success=True,
             detail='Bluesky のタイムラインを取得しました。',
-            next_cursor_id=cursor,
+            next_cursor_id=None,
             previous_cursor_id=cursor,
             tweets=tweets,
         )
@@ -500,11 +509,11 @@ class BlueskyAPI:
 
         # search_posts は reason を持たない PostView 配列なので、リポスト表示用の変換は通さない
         tweets = [self._formatPostView(post) for post in response.posts]
-        cursor = response.cursor or ''
+        cursor = response.cursor or None
         return schemas.TimelineTweetsResult(
             is_success=True,
             detail='Bluesky の検索結果を取得しました。',
-            next_cursor_id=cursor,
+            next_cursor_id=None,
             previous_cursor_id=cursor,
             tweets=tweets,
         )
@@ -607,7 +616,15 @@ class BlueskyAPI:
                     text_builder.text(trailing_chars)
             else:
                 # Bluesky の tag facet には # を含まないタグ名を渡す必要がある
-                text_builder.tag(token_text, token_text.lstrip('#＃'))
+                # URL と同じく末尾記号を facet に含めると、タグ名に句読点が混ざって検索性が落ちる
+                trailing_chars = ''
+                while len(token_text) > 0 and token_text[-1] in URL_TRAILING_PUNCTUATIONS:
+                    trailing_chars = token_text[-1] + trailing_chars
+                    token_text = token_text[:-1]
+                if len(token_text) > 0:
+                    text_builder.tag(token_text, token_text.lstrip('#＃'))
+                if trailing_chars != '':
+                    text_builder.text(trailing_chars)
             cursor = match.end()
 
         # 最後の URL / ハッシュタグ以降に残った通常本文を追加する
