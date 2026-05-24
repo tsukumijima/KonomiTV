@@ -25,13 +25,18 @@
                 <div class="twitter-account"
                     v-for="twitter_account in (userStore.user !== null ? userStore.user.twitter_accounts: [])"
                     :key="`twitter-${twitter_account.id}`">
-                    <img class="twitter-account__icon" :src="twitter_account.icon_url">
+                    <div class="twitter-account__icon-wrapper">
+                        <img class="twitter-account__icon" :src="twitter_account.icon_url">
+                        <span class="twitter-account__service-badge twitter-account__service-badge--twitter">
+                            <Icon icon="fa-brands:twitter" />
+                        </span>
+                    </div>
                     <div class="twitter-account__info">
                         <div class="twitter-account__info-name">
                             <span class="twitter-account__info-name-text">{{twitter_account.name}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
-                            @{{twitter_account.screen_name}}
+                            <span class="twitter-account__info-screen-name-handle">@{{twitter_account.screen_name}}</span>
                         </span>
                     </div>
                     <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
@@ -42,13 +47,18 @@
                 <div class="twitter-account"
                     v-for="bluesky_account in (userStore.user !== null ? userStore.user.bluesky_accounts: [])"
                     :key="`bluesky-${bluesky_account.id}`">
-                    <img class="twitter-account__icon" :src="bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                    <div class="twitter-account__icon-wrapper">
+                        <img class="twitter-account__icon" :src="bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                        <span class="twitter-account__service-badge twitter-account__service-badge--bluesky">
+                            <Icon icon="simple-icons:bluesky" />
+                        </span>
+                    </div>
                     <div class="twitter-account__info">
                         <div class="twitter-account__info-name">
                             <span class="twitter-account__info-name-text">{{bluesky_account.name}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
-                            @{{bluesky_account.handle}}
+                            <span class="twitter-account__info-screen-name-handle">@{{bluesky_account.handle}}</span>
                         </span>
                     </div>
                     <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
@@ -183,7 +193,9 @@
                             <span class="twitter-account__info-name-text">{{account_link.twitter_account.name}} / {{account_link.bluesky_account.name}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
-                            @{{account_link.twitter_account.screen_name}} / @{{account_link.bluesky_account.handle}}
+                            <span class="twitter-account__info-screen-name-handle">@{{account_link.twitter_account.screen_name}}</span>
+                            <Icon class="twitter-account__info-screen-name-link-icon" icon="fluent:link-20-filled" height="17px" />
+                            <span class="twitter-account__info-screen-name-handle">@{{account_link.bluesky_account.handle}}</span>
                         </span>
                     </div>
                     <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
@@ -606,13 +618,22 @@ export default defineComponent({
 
 .linked-account-icon {
     position: relative;
+    flex-shrink: 0;
+    margin-right: 16px;
+    @include smartphone-vertical {
+        margin-right: 10px;
+    }
+
+    .twitter-account__icon {
+        margin-right: 0;
+    }
 
     &__badge {
         position: absolute;
-        top: -4px;
-        right: 10px;
-        width: 28px;
-        height: 28px;
+        top: -6px;
+        right: -6px;
+        width: 32px;
+        height: 32px;
         border: 2px solid rgb(var(--v-theme-background-lighten-2));
         border-radius: 50%;
         object-fit: cover;
@@ -680,11 +701,19 @@ export default defineComponent({
             margin-top: 16px;
         }
 
-        &__icon {
+        &__icon-wrapper {
+            position: relative;
             flex-shrink: 0;
+            margin-right: 16px;
+            @include smartphone-vertical {
+                margin-right: 10px;
+            }
+        }
+
+        &__icon {
+            display: block;
             width: 70px;
             height: 70px;
-            margin-right: 16px;
             border-radius: 50%;
             object-fit: cover;
             // 読み込まれるまでのアイコンの背景
@@ -699,13 +728,64 @@ export default defineComponent({
             @include smartphone-vertical {
                 width: 48px;
                 height: 48px;
-                margin-right: 10px;
+            }
+        }
+
+        &__service-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            left: 0px;
+            bottom: 0px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            color: #fff;
+            line-height: 0;
+
+            :deep(svg) {
+                width: 13px;
+                height: 13px;
+            }
+
+            // 視聴パネルのツイートボタンと同じ Twitter ブランドカラー
+            &--twitter {
+                background: rgb(var(--v-theme-twitter));
+            }
+
+            // 視聴パネルのポストボタンと同じ Bluesky ブランドカラー
+            &--bluesky {
+                background: #0F73FF;
+            }
+
+            @include smartphone-horizontal {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+
+                :deep(svg) {
+                    width: 11px;
+                    height: 11px;
+                }
+            }
+
+            @include smartphone-vertical {
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+
+                :deep(svg) {
+                    width: 10px;
+                    height: 10px;
+                }
             }
         }
 
         &__info {
             display: flex;
             flex-direction: column;
+            flex: 1;
             min-width: 0;
             margin-right: 16px;
             @include smartphone-vertical {
@@ -713,11 +793,13 @@ export default defineComponent({
             }
 
             &-name {
-                display: inline-flex;
+                display: flex;
                 align-items: center;
+                min-width: 0;
 
                 &-text {
-                    display: inline-block;
+                    min-width: 0;
+                    flex: 1 1 auto;
                     color: rgb(var(--v-theme-text));
                     font-size: 20px;
                     font-weight: bold;
@@ -734,14 +816,37 @@ export default defineComponent({
             }
 
             &-screen-name {
-                display: inline-block;
+                min-width: 0;
+                overflow: hidden;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 16px;
+                line-height: 1.4;
                 @include smartphone-horizontal {
                     font-size: 14px;
                 }
                 @include smartphone-vertical {
                     font-size: 13.5px;
+                }
+
+                &-handle {
+                    display: inline-block;
+                    max-width: 100%;
+                    vertical-align: middle;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;  // はみ出た部分を … で省略
+
+                    // 単体アカウント行は1行全体を使って ellipsis する
+                    &:only-child {
+                        display: block;
+                    }
+                }
+
+                &-link-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    vertical-align: middle;
+                    margin: 0 6px;
                 }
             }
         }
@@ -772,6 +877,7 @@ export default defineComponent({
         }
 
         &__logout {
+            flex-shrink: 0;
             background: rgb(var(--v-theme-gray));
             border-radius: 7px;
             font-size: 15px;
