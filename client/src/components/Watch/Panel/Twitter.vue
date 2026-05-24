@@ -223,6 +223,10 @@ interface ITweetPostNotificationResult {
     settled_at: number;
 }
 
+// Twitter / Bluesky 同時投稿時、両方の結果を一つの DPlayer notice にまとめる最大待ち時間 (ミリ秒)
+// waitForRemainingTweetPostResult のタイムアウトと、完了時刻差の統合判定の両方で同じ値を使う
+const SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS = 2000;
+
 // 投稿先サービスと、そのサービスへ投げた非同期処理を対応づける
 // Promise だけではどのサービスの結果か後から安全に判定できないため、service を外側にも保持する
 interface ITweetPostRequest {
@@ -1017,15 +1021,20 @@ export default defineComponent({
             // DPlayer の notice は同時に一つしか表示できないため、近いタイミングの二重投稿結果だけを短時間待ち合わせる
             // Twitter 側だけ大きく遅い場合は先に返ったサービスを従来通り個別通知し、待たされる体感を避ける
             const first_result = await Promise.race(send_results.map(send_result => send_result.promise));
-            const second_result = await this.waitForRemainingTweetPostResult(send_results, first_result.service, 1500);
-            if (second_result !== null && second_result.settled_at - first_result.settled_at <= 1500) {
-                // 1.5 秒以内に両方返った場合だけ一つの notice へまとめる
+            const second_result = await this.waitForRemainingTweetPostResult(
+                send_results,
+                first_result.service,
+                SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS,
+            );
+            if (second_result !== null &&
+                second_result.settled_at - first_result.settled_at <= SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS) {
+                // 待ち合わせ時間以内に両方返った場合だけ一つの notice へまとめる
                 // ここでまとめないと DPlayer 側で後勝ち上書きになり、片方の結果をユーザーが見落とす
                 this.emitTweetPostNotification(this.formatMergedTweetPostNotification([first_result, second_result]));
                 return;
             }
 
-            // 片方だけ先に返り、もう片方が 1.5 秒以内に返らない場合は待たせず個別通知へ戻す
+            // 片方だけ先に返り、もう片方が待ち合わせ時間以内に返らない場合は待たせず個別通知へ戻す
             // Twitter の投稿 UI 経路は遅くなることがあるため、同時投稿でも常に統合待ちにはしない
             this.emitTweetPostNotification(this.formatSingleTweetPostNotification(first_result));
             if (second_result !== null) {
