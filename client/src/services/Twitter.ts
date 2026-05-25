@@ -48,11 +48,21 @@ export interface IPostTweetResult extends ITwitterAPIResult {
     tweet_url: string;
 }
 
+/** タイムラインの追加取得カーソルを表すインターフェイス */
+export interface ITimelineLoadMoreCursor {
+    cursor_type: 'Older' | 'Gap' | 'ShowMore';
+    cursor_id: string;
+    entry_id: string | null;
+    upper_created_at: string | null;
+    lower_created_at: string | null;
+}
+
 /** タイムラインのツイート取得結果を表すインターフェイス */
 export interface ITimelineTweetsResult extends ITwitterAPIResult {
-    next_cursor_id: string | null;
-    previous_cursor_id: string | null;
     tweets: ITweet[];
+    newer_cursor_id: string | null;
+    load_more_cursors: ITimelineLoadMoreCursor[];
+    is_cursor_consumed: boolean;
 }
 
 
@@ -319,15 +329,22 @@ class Twitter {
      * ホームタイムラインを取得する
      * @param screen_name Twitter のスクリーンネーム
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
+     * @param cursor_type カーソル ID の種類
      * @param seenTweetIds Twitter Web App 上で閲覧済みとして扱われるツイート ID のリスト
      * @returns タイムラインのツイートのリスト
      */
-    static async getHomeTimeline(screen_name: string, cursor_id?: string, seenTweetIds?: string[]): Promise<ITimelineTweetsResult | null> {
+    static async getHomeTimeline(
+        screen_name: string,
+        cursor_id?: string,
+        cursor_type: 'Top' | 'Bottom' | 'Gap' | 'ShowMore' = 'Top',
+        seenTweetIds?: string[],
+    ): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/timeline`, {
             params: {
                 cursor_id,
+                cursor_type,
                 seen_tweet_ids: seenTweetIds && seenTweetIds.length > 0 ? seenTweetIds.join(',') : undefined,
             },
             // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
@@ -357,14 +374,14 @@ class Twitter {
      * @param screen_name Twitter のスクリーンネーム
      * @param query 検索クエリ
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
-     * @param cursor_type カーソル ID の種類 (Top: より新しいツイート, Bottom: より古いツイート)
+     * @param cursor_type カーソル ID の種類
      * @returns 検索結果のツイートのリスト
      */
     static async searchTweets(
         screen_name: string,
         query: string,
         cursor_id?: string,
-        cursor_type: 'Top' | 'Bottom' = 'Top',
+        cursor_type: 'Top' | 'Bottom' | 'Gap' | 'ShowMore' = 'Top',
     ): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行
