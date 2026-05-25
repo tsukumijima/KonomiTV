@@ -394,6 +394,10 @@ async def TwitterFavoriteCancelAPI(
 async def TwitterTimelineAPI(
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
+    cursor_type: Annotated[
+        Literal['Top', 'Bottom', 'Gap', 'ShowMore'],
+        Query(description='カーソル ID の種類。Top はより新しいツイート、Bottom / Gap / ShowMore は未取得範囲のツイート。'),
+    ] = 'Top',
     seen_tweet_ids: Annotated[
         str | None,
         Query(description='Twitter Web App 上で閲覧済みとして扱われるツイート ID のカンマ区切りリスト。'),
@@ -414,6 +418,7 @@ async def TwitterTimelineAPI(
 
     return await TwitterGraphQLAPI(twitter_account).homeLatestTimeline(
         cursor_id = cursor_id,
+        cursor_type = cursor_type,
         seen_tweet_ids = parsed_seen_tweet_ids,
     )
 
@@ -429,7 +434,10 @@ async def TwitterSearchAPI(
     query: Annotated[str, Query(description='検索クエリ。')],
     search_type: Annotated[Literal['Top', 'Latest'], Query(description='検索タイプ。Top は話題のツイート、Latest は最新のツイート。')] = 'Latest',
     cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
-    cursor_type: Annotated[Literal['Top', 'Bottom'], Query(description='カーソル ID の種類。Top はより新しいツイート、Bottom はより古いツイート。')] = 'Top',
+    cursor_type: Annotated[
+        Literal['Top', 'Bottom', 'Gap', 'ShowMore'],
+        Query(description='カーソル ID の種類。Top はより新しいツイート、Bottom / Gap / ShowMore は未取得範囲のツイート。'),
+    ] = 'Top',
 ):
     """
     指定されたクエリでツイートを検索する。

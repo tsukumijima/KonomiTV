@@ -228,7 +228,7 @@ async def BlueskyLikeCancelAPI(
 )
 async def BlueskyTimelineAPI(
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
-    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するための cursor 。')] = None,
+    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
 ):
     """
     Bluesky のホームタイムラインを取得する。<br>
@@ -247,7 +247,7 @@ async def BlueskyTimelineAPI(
 async def BlueskySearchAPI(
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
     query: Annotated[str, Query(description='検索クエリ。')],
-    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するための cursor 。')] = None,
+    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
 ):
     """
     指定されたクエリで Bluesky 投稿を検索する。

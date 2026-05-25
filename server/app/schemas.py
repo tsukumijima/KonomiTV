@@ -665,10 +665,18 @@ class TwitterAPIResult(BaseModel):
 class PostTweetResult(TwitterAPIResult):
     tweet_url: str
 
+class TimelineLoadMoreCursor(BaseModel):
+    cursor_type: Literal['Older', 'Gap', 'ShowMore']
+    cursor_id: str
+    entry_id: str | None
+    upper_created_at: datetime | None
+    lower_created_at: datetime | None
+
 class TimelineTweetsResult(TwitterAPIResult):
-    next_cursor_id: str | None
-    previous_cursor_id: str | None
     tweets: list[Tweet]
+    newer_cursor_id: str | None
+    load_more_cursors: list[TimelineLoadMoreCursor]
+    is_cursor_consumed: bool
 
 class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']

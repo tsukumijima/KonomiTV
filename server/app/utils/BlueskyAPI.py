@@ -446,7 +446,7 @@ class BlueskyAPI:
         Bluesky のホームタイムラインを取得する
 
         Args:
-            cursor_id (str | None, optional): 前回レスポンスの cursor
+            cursor_id (str | None, optional): 前回レスポンスのカーソル
 
         Returns:
             schemas.TimelineTweetsResult | schemas.TwitterAPIResult: タイムライン取得結果
@@ -458,7 +458,7 @@ class BlueskyAPI:
                 return session_error
 
             try:
-                # Bluesky のホームタイムラインは cursor だけでページングするため、Twitter の Top / Bottom 区別は持ち込まない
+                # Bluesky のホームタイムラインはカーソル 1 本でページングするため、Twitter の Top / Bottom 区別は持ち込まない
                 response = await self.client.get_timeline(limit=30, cursor=cursor_id)
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to fetch home timeline:', exc_info=ex)
@@ -470,9 +470,18 @@ class BlueskyAPI:
         return schemas.TimelineTweetsResult(
             is_success=True,
             detail='Bluesky のタイムラインを取得しました。',
-            next_cursor_id=None,
-            previous_cursor_id=cursor,
             tweets=tweets,
+            newer_cursor_id=None,
+            load_more_cursors=[
+                schemas.TimelineLoadMoreCursor(
+                    cursor_type='Older',
+                    cursor_id=cursor,
+                    entry_id=None,
+                    upper_created_at=tweets[-1].created_at if len(tweets) > 0 else None,
+                    lower_created_at=None,
+                )
+            ] if cursor is not None else [],
+            is_cursor_consumed=True,
         )
 
 
@@ -482,7 +491,7 @@ class BlueskyAPI:
 
         Args:
             query (str): 検索クエリ
-            cursor_id (str | None, optional): 前回レスポンスの cursor
+            cursor_id (str | None, optional): 前回レスポンスのカーソル
 
         Returns:
             schemas.TimelineTweetsResult | schemas.TwitterAPIResult: 検索結果
@@ -513,9 +522,18 @@ class BlueskyAPI:
         return schemas.TimelineTweetsResult(
             is_success=True,
             detail='Bluesky の検索結果を取得しました。',
-            next_cursor_id=None,
-            previous_cursor_id=cursor,
             tweets=tweets,
+            newer_cursor_id=None,
+            load_more_cursors=[
+                schemas.TimelineLoadMoreCursor(
+                    cursor_type='Older',
+                    cursor_id=cursor,
+                    entry_id=None,
+                    upper_created_at=tweets[-1].created_at if len(tweets) > 0 else None,
+                    lower_created_at=None,
+                )
+            ] if cursor is not None else [],
+            is_cursor_consumed=True,
         )
 
 

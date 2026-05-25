@@ -1032,27 +1032,23 @@ class TwitterGraphQLAPI:
             detail='いいねを取り消しました。',
         )
 
-    def __getCursorIDFromTimelineAPIResponse(
-        self, response: dict[str, Any], cursor_type: Literal['Top', 'Bottom']
-    ) -> str | None:
+    def __getTimelineInstructions(self, response: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        GraphQL API のうちツイートタイムライン系の API レスポンスから、指定されたタイプに一致するカーソル ID を取得する
-        次の API リクエスト時にカーソル ID を指定すると、そのカーソル ID から次のページを取得できる
+        GraphQL API のうちツイートタイムライン系の API レスポンスから命令列を取得する
 
         Args:
             response (dict[str, Any]): ツイートタイムライン系の API レスポンス
-            cursor_type (Literal['Top', 'Bottom']): カーソル ID タイプ (Top: 現在より最新のツイート, Bottom: 現在より過去のツイート)
 
         Returns:
-            str | None: カーソル ID (仕様変更などで取得できなかった場合は None)
+            list[dict[str, Any]]: タイムライン命令列
         """
 
         # HomeLatestTimeline からのレスポンス
         if 'home' in response:
-            instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
+            return response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
         # SearchTimeline からのレスポンス
         elif 'search_by_raw_query' in response:
-            instructions = (
+            return (
                 response.get('search_by_raw_query', {})
                 .get('search_timeline', {})
                 .get('timeline', {})
@@ -1060,42 +1056,157 @@ class TwitterGraphQLAPI:
             )
         # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
         else:
-            instructions = []
             logging.warning(f'{self.log_prefix} Unknown timeline response format: {response}')
+            return []
 
-        for instruction in instructions:
-            if instruction.get('type') == 'TimelineAddEntries':
-                entries = instruction.get('entries', [])
-                for entry in entries:
-                    content = entry.get('content', {})
-                    if (
-                        content.get('entryType') == 'TimelineTimelineCursor'
-                        and content.get('cursorType') == cursor_type
-                    ):
-                        return content.get('value')
-                    # Bottom 指定時、たまに通常 cursorType が Bottom になるところ Gap になっている場合がある
-                    # その場合は Bottom の Cursor として解釈する
-                    elif (
-                        content.get('entryType') == 'TimelineTimelineCursor'
-                        and content.get('cursorType') == 'Gap'
-                        and cursor_type == 'Bottom'
-                    ):
-                        return content.get('value')
-            elif instruction.get('type') == 'TimelineReplaceEntry':
-                entry = instruction.get('entry', {})
-                content = entry.get('content', {})
-                if content.get('entryType') == 'TimelineTimelineCursor' and content.get('cursorType') == cursor_type:
-                    return content.get('value')
-                # Bottom 指定時、たまに通常 cursorType が Bottom になるところ Gap になっている場合がある
-                # その場合は Bottom の Cursor として解釈する
-                elif (
-                    content.get('entryType') == 'TimelineTimelineCursor'
-                    and content.get('cursorType') == 'Gap'
-                    and cursor_type == 'Bottom'
-                ):
-                    return content.get('value')
+    def __getRawTweetObjectFromTimelineEntry(self, entry: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        タイムラインエントリから生のツイートオブジェクトを取得する
+
+        Args:
+            entry (dict[str, Any]): タイムラインエントリ
+
+        Returns:
+            dict[str, Any] | None: ツイートオブジェクト (ツイートエントリではない場合は None)
+        """
+
+        # 広告ツイートは表示対象外なので、境界計算にも含めない
+        if entry.get('entryId', '').startswith('promoted-') is True:
+            return None
+
+        content = entry.get('content', {})
+        if (
+            content.get('entryType') != 'TimelineTimelineItem'
+            or content.get('itemContent', {}).get('itemType') != 'TimelineTweet'
+        ):
+            return None
+
+        tweet_results = content.get('itemContent', {}).get('tweet_results', {}).get('result')
+        if tweet_results and tweet_results.get('__typename') in ['Tweet', 'TweetWithVisibilityResults']:
+            return tweet_results
 
         return None
+
+    def __getCreatedAtFromRawTweetObject(self, raw_tweet_object: dict[str, Any]) -> datetime | None:
+        """
+        生のツイートオブジェクトから作成日時を取得する
+
+        Args:
+            raw_tweet_object (dict[str, Any]): ツイートオブジェクト
+
+        Returns:
+            datetime | None: ツイートの作成日時 (取得できない場合は None)
+        """
+
+        # 可視性制限付きツイートは実体が tweet に入るため、通常ツイートと同じ位置へ揃える
+        if raw_tweet_object.get('__typename') == 'TweetWithVisibilityResults':
+            raw_tweet_object = raw_tweet_object.get('tweet', {})
+
+        created_at = raw_tweet_object.get('legacy', {}).get('created_at')
+        if isinstance(created_at, str) is False:
+            return None
+
+        return datetime.strptime(created_at, '%a %b %d %H:%M:%S %z %Y').astimezone(JST)
+
+    def __getCursorsFromTimelineAPIResponse(
+        self, response: dict[str, Any]
+    ) -> tuple[str | None, list[schemas.TimelineLoadMoreCursor]]:
+        """
+        ツイートタイムライン系レスポンスから KonomiTV が扱うカーソル情報を取得する
+
+        Args:
+            response (dict[str, Any]): ツイートタイムライン系の API レスポンス
+
+        Returns:
+            tuple[str | None, list[schemas.TimelineLoadMoreCursor]]: 新着方向カーソルとさらに表示用カーソル
+        """
+
+        timeline_entries: list[dict[str, Any]] = []
+        for instruction in self.__getTimelineInstructions(response):
+            if instruction.get('type') == 'TimelineAddEntries':
+                timeline_entries.extend(instruction.get('entries', []))
+            elif instruction.get('type') == 'TimelineReplaceEntry':
+                timeline_entries.append(instruction.get('entry', {}))
+
+        parsed_entries: list[dict[str, Any]] = []
+        for entry in timeline_entries:
+            content = entry.get('content', {})
+            raw_tweet_object = self.__getRawTweetObjectFromTimelineEntry(entry)
+
+            # Twitter が返すカーソルは、投稿と同じ命令列上の位置を持っている
+            ## gap の表示位置を再構成できるよう、カーソルと投稿を同じ配列で扱う
+            if raw_tweet_object is not None:
+                parsed_entries.append({
+                    'type': 'Tweet',
+                    'created_at': self.__getCreatedAtFromRawTweetObject(raw_tweet_object),
+                })
+                continue
+
+            if content.get('entryType') != 'TimelineTimelineCursor':
+                continue
+
+            twitter_cursor_type = content.get('cursorType')
+            cursor_id = content.get('value')
+            if isinstance(cursor_id, str) is False:
+                continue
+
+            if twitter_cursor_type in ['Top', 'Bottom', 'Gap', 'ShowMore']:
+                parsed_entries.append({
+                    'type': 'Cursor',
+                    'entry_id': entry.get('entryId'),
+                    'cursor_type': twitter_cursor_type,
+                    'cursor_id': cursor_id,
+                })
+            # スレッド展開用カーソルはホームタイムライン / 検索タイムラインの追加取得ボタンでは使わない
+            ## もし混入した場合も、ツイート一覧のページング状態を壊さないよう無視する
+            elif twitter_cursor_type in ['ShowMoreThreads', 'ShowMoreThreadsPrompt']:
+                logging.debug(f'{self.log_prefix} Ignored unsupported timeline cursor: {twitter_cursor_type}')
+
+        newer_cursor_id: str | None = None
+        load_more_cursors: list[schemas.TimelineLoadMoreCursor] = []
+        for index, parsed_entry in enumerate(parsed_entries):
+            if parsed_entry.get('type') != 'Cursor':
+                continue
+
+            twitter_cursor_type = parsed_entry['cursor_type']
+            if twitter_cursor_type == 'Top':
+                newer_cursor_id = parsed_entry['cursor_id']
+                continue
+
+            cursor_type_map: dict[str, Literal['Older', 'Gap', 'ShowMore']] = {
+                'Bottom': 'Older',
+                'Gap': 'Gap',
+                'ShowMore': 'ShowMore',
+            }
+            cursor_type = cursor_type_map.get(twitter_cursor_type)
+            if cursor_type is None:
+                continue
+
+            upper_created_at: datetime | None = None
+            lower_created_at: datetime | None = None
+
+            # カーソルの前後にある最も近い投稿を時刻境界にする
+            ## Twitter の命令列は投稿とカーソルを同じ表示順で返すため、その前後関係だけを使う
+            for upper_index in range(index - 1, -1, -1):
+                candidate_created_at = parsed_entries[upper_index].get('created_at')
+                if candidate_created_at is not None:
+                    upper_created_at = candidate_created_at
+                    break
+            for lower_index in range(index + 1, len(parsed_entries)):
+                candidate_created_at = parsed_entries[lower_index].get('created_at')
+                if candidate_created_at is not None:
+                    lower_created_at = candidate_created_at
+                    break
+
+            load_more_cursors.append(schemas.TimelineLoadMoreCursor(
+                cursor_type=cursor_type,
+                cursor_id=parsed_entry['cursor_id'],
+                entry_id=parsed_entry.get('entry_id') if isinstance(parsed_entry.get('entry_id'), str) else None,
+                upper_created_at=upper_created_at,
+                lower_created_at=lower_created_at,
+            ))
+
+        return newer_cursor_id, load_more_cursors
 
     def __getTweetsFromTimelineAPIResponse(self, response: dict[str, Any]) -> list[schemas.Tweet]:
         """
@@ -1193,44 +1304,21 @@ class TwitterGraphQLAPI:
                 quoted_tweet=quoted_tweet,
             )
 
-        # HomeLatestTimeline からのレスポンス
-        if 'home' in response:
-            instructions = response.get('home', {}).get('home_timeline_urt', {}).get('instructions', [])
-        # SearchTimeline からのレスポンス
-        elif 'search_by_raw_query' in response:
-            instructions = (
-                response.get('search_by_raw_query', {})
-                .get('search_timeline', {})
-                .get('timeline', {})
-                .get('instructions', [])
-            )
-        # それ以外のレスポンス (通常あり得ないため、ここに到達した場合はレスポンス構造が変わった可能性が高い)
-        else:
-            instructions = []
-            logging.warning(f'{self.log_prefix} Unknown timeline response format: {response}')
-
         tweets: list[schemas.Tweet] = []
-        for instruction in instructions:
+        for instruction in self.__getTimelineInstructions(response):
             if instruction.get('type') == 'TimelineAddEntries':
                 entries = instruction.get('entries', [])
                 for entry in entries:
-                    # entryId が promoted- から始まるツイートは広告ツイートなので除外
-                    if entry.get('entryId', '').startswith('promoted-'):
-                        continue
-                    content = entry.get('content', {})
-                    if (
-                        content.get('entryType') == 'TimelineTimelineItem'
-                        and content.get('itemContent', {}).get('itemType') == 'TimelineTweet'
-                    ):
-                        tweet_results = content.get('itemContent', {}).get('tweet_results', {}).get('result')
-                        if tweet_results and tweet_results.get('__typename') in ['Tweet', 'TweetWithVisibilityResults']:
-                            tweets.append(format_tweet(tweet_results))
+                    tweet_results = self.__getRawTweetObjectFromTimelineEntry(entry)
+                    if tweet_results is not None:
+                        tweets.append(format_tweet(tweet_results))
 
         return tweets
 
     async def homeLatestTimeline(
         self,
         cursor_id: str | None = None,
+        cursor_type: Literal['Top', 'Bottom', 'Gap', 'ShowMore'] = 'Top',
         seen_tweet_ids: list[str] | None = None,
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
@@ -1239,6 +1327,7 @@ class TwitterGraphQLAPI:
 
         Args:
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
+            cursor_type (Literal['Top', 'Bottom', 'Gap', 'ShowMore'], optional): カーソル ID タイプ
             seen_tweet_ids (list[str] | None, optional): Twitter Web App 上で閲覧済みとして扱われるツイート ID のリスト (デフォルトは None)
 
         Returns:
@@ -1253,9 +1342,10 @@ class TwitterGraphQLAPI:
                 return schemas.TimelineTweetsResult(
                     is_success=True,
                     detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
-                    next_cursor_id=cursor_id,
-                    previous_cursor_id=cursor_id,
                     tweets=[],
+                    newer_cursor_id=None,
+                    load_more_cursors=[],
+                    is_cursor_consumed=False,
                 )
 
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
@@ -1264,9 +1354,12 @@ class TwitterGraphQLAPI:
         if cursor_id is None:
             ## カーソル ID が指定されていないときは20件取得する (Twitter Web App の挙動に合わせる)
             variables['count'] = 20
-        else:
-            ## カーソル ID が指定されているときは40件取得する (Twitter Web App の挙動に合わせる)
+        elif cursor_type == 'Top':
+            ## より新しいツイートを取得するためのカーソル ID が指定されているときは40件取得する
             variables['count'] = 40
+        else:
+            ## より古い過去のツイートや未取得範囲を取得するためのカーソル ID が指定されているときは20件取得する
+            variables['count'] = 20
         if cursor_id is not None:
             variables['cursor'] = cursor_id
         variables['enableRanking'] = False   # 人気順ではなく、常に最新ツイートを取得する
@@ -1299,31 +1392,21 @@ class TwitterGraphQLAPI:
                 detail=response,  # エラーメッセージをそのまま返す
             )
 
-        # まずはカーソル ID を取得
-        ## カーソル ID が取得できなかった場合は仕様変更があったとみなし、エラーを返す
-        next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(
-            response, 'Top'
-        )  # 現在よりも新しいツイートを取得するためのカーソル ID
-        previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(
-            response, 'Bottom'
-        )  # 現在よりも過去のツイートを取得するためのカーソル ID
-        if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'{self.log_prefix} Failed to fetch timeline: Cursor ID not found')
-            return schemas.TwitterAPIResult(
-                is_success=False,
-                detail='タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
-            )
+        # Twitter がレスポンス内に入れているカーソルエントリをそのまま抽象化する
+        ## Gap, ShowMore についても、API サーバーが指示した未取得範囲としてフロントエンドへ渡す
+        newer_cursor_id, load_more_cursors = self.__getCursorsFromTimelineAPIResponse(response)
 
-        # ツイートリストを取得
+        # ツイートリストを取得する
         ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
         tweets = self.__getTweetsFromTimelineAPIResponse(response)
 
         return schemas.TimelineTweetsResult(
             is_success=True,
-            detail='タイムラインを取得しました。',
-            next_cursor_id=next_cursor_id,
-            previous_cursor_id=previous_cursor_id,
+            detail='Twitter のタイムラインを取得しました。',
             tweets=tweets,
+            newer_cursor_id=newer_cursor_id,
+            load_more_cursors=load_more_cursors,
+            is_cursor_consumed=True,
         )
 
     async def searchTimeline(
@@ -1331,7 +1414,7 @@ class TwitterGraphQLAPI:
         search_type: Literal['Top', 'Latest'],
         query: str,
         cursor_id: str | None = None,
-        cursor_type: Literal['Top', 'Bottom'] = 'Top',
+        cursor_type: Literal['Top', 'Bottom', 'Gap', 'ShowMore'] = 'Top',
     ) -> schemas.TimelineTweetsResult | schemas.TwitterAPIResult:
         """
         ツイートを検索する
@@ -1340,7 +1423,7 @@ class TwitterGraphQLAPI:
             search_type (Literal['Top', 'Latest']): 検索タイプ (Top: トップツイート, Latest: 最新ツイート)
             query (str): 検索クエリ
             cursor_id (str | None, optional): 次のページを取得するためのカーソル ID (デフォルトは None)
-            cursor_type (Literal['Top', 'Bottom'], optional): カーソル ID タイプ (Top: 現在より最新のツイート, Bottom: 現在より過去のツイート)
+            cursor_type (Literal['Top', 'Bottom', 'Gap', 'ShowMore'], optional): カーソル ID タイプ
 
         Returns:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
@@ -1354,9 +1437,10 @@ class TwitterGraphQLAPI:
                 return schemas.TimelineTweetsResult(
                     is_success=True,
                     detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
-                    next_cursor_id=cursor_id,
-                    previous_cursor_id=cursor_id,
                     tweets=[],
+                    newer_cursor_id=None,
+                    load_more_cursors=[],
+                    is_cursor_consumed=False,
                 )
 
         # variables の挿入順序を Twitter Web App に厳密に合わせるためにこのような実装としている
@@ -1369,7 +1453,7 @@ class TwitterGraphQLAPI:
             ## より新しいツイートを取得するためのカーソル ID が指定されているときは40件取得する
             variables['count'] = 40
         else:
-            ## より古い過去のツイートを取得するためのカーソル ID が指定されているときは20件取得する
+            ## より古い過去のツイートや未取得範囲を取得するためのカーソル ID が指定されているときは20件取得する
             variables['count'] = 20
         if cursor_id is not None:
             variables['cursor'] = cursor_id
@@ -1398,29 +1482,19 @@ class TwitterGraphQLAPI:
                 detail=response,  # エラーメッセージをそのまま返す
             )
 
-        # まずはカーソル ID を取得
-        ## カーソル ID が取得できなかった場合は仕様変更があったとみなし、エラーを返す
-        next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(
-            response, 'Top'
-        )  # 現在よりも新しいツイートを取得するためのカーソル ID
-        previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(
-            response, 'Bottom'
-        )  # 現在よりも過去のツイートを取得するためのカーソル ID
-        if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'{self.log_prefix} Failed to search tweets: Cursor ID not found')
-            return schemas.TwitterAPIResult(
-                is_success=False,
-                detail='ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
-            )
+        # Twitter がレスポンス内に入れているカーソルエントリをそのまま抽象化する
+        ## Gap, ShowMore についても、API サーバーが指示した未取得範囲としてフロントエンドへ渡す
+        newer_cursor_id, load_more_cursors = self.__getCursorsFromTimelineAPIResponse(response)
 
-        # ツイートリストを取得
+        # ツイートリストを取得する
         ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
         tweets = self.__getTweetsFromTimelineAPIResponse(response)
 
         return schemas.TimelineTweetsResult(
             is_success=True,
-            detail='ツイートを検索しました。',
-            next_cursor_id=next_cursor_id,
-            previous_cursor_id=previous_cursor_id,
+            detail='Twitter のツイートを検索しました。',
             tweets=tweets,
+            newer_cursor_id=newer_cursor_id,
+            load_more_cursors=load_more_cursors,
+            is_cursor_consumed=True,
         )
