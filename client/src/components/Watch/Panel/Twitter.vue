@@ -45,7 +45,9 @@
                 @focus="is_tweet_text_form_focused = true"
                 @blur="is_tweet_text_form_focused = false">
             </textarea>
-            <div class="tweet-form__control">
+            <div class="tweet-form__control" :class="{
+                'tweet-form__control--linked': twitterStore.selected_account?.kind === 'Linked',
+            }">
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.is_logged_in_twitter}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
@@ -53,7 +55,7 @@
                     <span class="account-button__screen-name">
                         {{twitterStore.is_logged_in_twitter ? selectedAccountDisplayId : '連携されていません'}}
                     </span>
-                    <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
+                    <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="18px" />
                 </div>
                 <button v-if="twitterStore.selected_account?.kind === 'Linked'" v-ripple
                     class="post-target-button" @click="cycleLinkedPostTarget()">
@@ -144,21 +146,39 @@
         <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
             <div v-ripple class="twitter-account" v-for="account in twitterStore.selectable_accounts"
                 :key="getSelectableAccountKey(account)" @click="updateSelectedAccount(account)">
-                <!-- 紐付けアカウントは Twitter 側のアバターを主表示にし、Bluesky 側を小さく重ねる -->
+                <!-- 単体アカウントは左下のサービスバッジ、紐付けアカウントは設定画面同様に Bluesky アバターを重ねる -->
                 <div class="twitter-account__icon-wrapper">
                     <img class="twitter-account__icon" :src="getSelectableAccountIconUrl(account)">
                     <img v-if="account.kind === 'Linked'" class="twitter-account__icon-badge"
                         :src="account.account_link.bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                    <span v-if="account.kind === 'Twitter'" class="twitter-account__service-badge twitter-account__service-badge--twitter">
+                        <Icon icon="fa-brands:twitter" />
+                    </span>
+                    <span v-if="account.kind === 'Bluesky'" class="twitter-account__service-badge twitter-account__service-badge--bluesky">
+                        <Icon icon="simple-icons:bluesky" />
+                    </span>
+                    <span v-if="account.kind === 'Linked'" class="twitter-account__service-badge twitter-account__service-badge--linked">
+                        <span class="twitter-account__service-badge-segment twitter-account__service-badge-segment--twitter">
+                            <Icon icon="fa-brands:twitter" />
+                        </span>
+                        <span class="twitter-account__service-badge-segment twitter-account__service-badge-segment--bluesky">
+                            <Icon icon="simple-icons:bluesky" />
+                        </span>
+                    </span>
                 </div>
                 <div class="twitter-account__info">
                     <div v-for="row in getSelectableAccountNameRows(account)" :key="row.id" class="twitter-account__name">
-                        <Icon class="twitter-account__service-icon" :icon="row.icon" width="13px" />
+                        <Icon v-if="row.icon" class="twitter-account__name-service-icon" :icon="row.icon" />
                         <span class="twitter-account__text">{{row.text}}</span>
                     </div>
-                    <div v-for="row in getSelectableAccountDisplayIdRows(account)" :key="row.id" class="twitter-account__screen-name">
-                        <Icon class="twitter-account__service-icon" :icon="row.icon" width="12px" />
-                        <span class="twitter-account__text">{{row.text}}</span>
-                    </div>
+                    <span v-if="account.kind === 'Linked'" class="twitter-account__screen-name">
+                        <span class="twitter-account__screen-name-handle">@{{account.account_link.twitter_account.screen_name}}</span>
+                        <Icon class="twitter-account__screen-name-link-icon" icon="fluent:link-20-filled" />
+                        <span class="twitter-account__screen-name-handle">@{{account.account_link.bluesky_account.handle}}</span>
+                    </span>
+                    <span v-else class="twitter-account__screen-name">
+                        <span class="twitter-account__screen-name-handle">{{getSelectableAccountDisplayId(account)}}</span>
+                    </span>
                 </div>
                 <svg class="twitter-account__check iconify iconify--fluent" width="24px" height="24px" viewBox="0 0 16 16"
                     v-show="isSelectableAccountSelected(account)">
@@ -206,7 +226,7 @@ interface IHashtag {
 
 interface ISelectableAccountDisplayRow {
     id: string;
-    icon: string;
+    icon?: string;
     text: string;
 }
 
@@ -595,31 +615,36 @@ export default defineComponent({
         },
 
         getSelectableAccountNameRows(account: ISelectableAccount): ISelectableAccountDisplayRow[] {
-            // 紐付け行では二つの表示名を縦に並べ、同名アカウントや別画像アカウントを選ぶ時の誤認を減らす
             if (account.kind === 'Twitter') {
-                return [{id: 'twitter-name', icon: 'fa-brands:twitter', text: account.twitter_account.name}];
+                return [{id: 'twitter-name', text: account.twitter_account.name}];
             }
             if (account.kind === 'Bluesky') {
-                return [{id: 'bluesky-name', icon: 'simple-icons:bluesky', text: account.bluesky_account.name}];
+                return [{id: 'bluesky-name', text: account.bluesky_account.name}];
             }
+
+            const twitter_name = account.account_link.twitter_account.name;
+            const bluesky_name = account.account_link.bluesky_account.name;
+
+            // 表示名が完全一致する場合は重複表示せず、1行だけ出す
+            if (twitter_name === bluesky_name) {
+                return [{id: 'shared-name', text: twitter_name}];
+            }
+
+            // 表示名が異なる場合だけサービスアイコン付きで2段表示する
             return [
-                {id: 'twitter-name', icon: 'fa-brands:twitter', text: account.account_link.twitter_account.name},
-                {id: 'bluesky-name', icon: 'simple-icons:bluesky', text: account.account_link.bluesky_account.name},
+                {id: 'twitter-name', icon: 'fa-brands:twitter', text: twitter_name},
+                {id: 'bluesky-name', icon: 'simple-icons:bluesky', text: bluesky_name},
             ];
         },
 
-        getSelectableAccountDisplayIdRows(account: ISelectableAccount): ISelectableAccountDisplayRow[] {
-            // Bluesky handle はドメイン形式で長くなりやすいので、名前とは別行構造で省略表示させる
+        getSelectableAccountDisplayId(account: ISelectableAccount): string {
             if (account.kind === 'Twitter') {
-                return [{id: 'twitter-id', icon: 'fa-brands:twitter', text: `@${account.twitter_account.screen_name}`}];
+                return `@${account.twitter_account.screen_name}`;
             }
             if (account.kind === 'Bluesky') {
-                return [{id: 'bluesky-id', icon: 'simple-icons:bluesky', text: `@${account.bluesky_account.handle}`}];
+                return `@${account.bluesky_account.handle}`;
             }
-            return [
-                {id: 'twitter-id', icon: 'fa-brands:twitter', text: `@${account.account_link.twitter_account.screen_name}`},
-                {id: 'bluesky-id', icon: 'simple-icons:bluesky', text: `@${account.account_link.bluesky_account.handle}`},
-            ];
+            return `@${account.account_link.twitter_account.screen_name}`;
         },
 
         isSelectableAccountSelected(account: ISelectableAccount): boolean {
@@ -1471,8 +1496,9 @@ export default defineComponent({
                     font-size: 11px;
                 }
                 @include smartphone-vertical {
+                    flex: 1 1 0;
+                    min-width: 0;
                     width: auto;
-                    flex-grow: 1;
                     border-radius: 5px;
                     font-size: 11.5px;
                 }
@@ -1502,6 +1528,8 @@ export default defineComponent({
                 &__screen-name {
                     flex-grow: 1;
                     min-width: 0;
+                    padding-left: 3px;
+                    padding-right: 3px;
                     line-height: 2;
                     text-align: center;
                     font-weight: bold;
@@ -1576,7 +1604,7 @@ export default defineComponent({
                     }
                     span {
                         width: 16px;
-                        margin-left: 5px;
+                        margin-left: 4.5px;
                         text-align: center;
                         font-weight: bold;
                         @include tablet-vertical {
@@ -1699,6 +1727,92 @@ export default defineComponent({
 
                 &--both {
                     background: linear-gradient(90deg, rgb(var(--v-theme-twitter)) 0%, #0F73FF 100%);
+                }
+            }
+
+            &--linked {
+                .account-button {
+                    // Linked アカウントでは投稿ボタンの寸法を固定したまま、
+                    // 送信先切り替えボタン・文字数表示を詰めて名前表示を広げる
+                    min-width: 0;
+                    @include tablet-vertical {
+                        width: 200px;
+                    }
+                    @include tablet-horizontal {
+                        width: 162px;
+                        border-radius: 5px;
+                    }
+                    @include desktop {
+                        width: 162px;
+                    }
+
+                    .account-button__menu {
+                        width: 18px;
+                        height: 18px;
+                        margin-right: 2px;
+                        @include smartphone-horizontal {
+                            width: 16px;
+                            height: 16px;
+                        }
+                        @include smartphone-vertical {
+                            width: 16px;
+                            height: 16px;
+                        }
+                    }
+                }
+
+                .post-target-button {
+                    width: 26px;
+                    column-gap: 2px;
+                    margin-left: 3px;
+                    @include smartphone-horizontal {
+                        width: 20px;
+                        margin-left: 0;
+                    }
+                    @include smartphone-vertical {
+                        width: 24px;
+                        margin-left: 3px;
+                    }
+                }
+
+                .dual-service-icon--post-target :deep(svg) {
+                    width: 10px;
+                    height: 10px;
+                    @include smartphone-horizontal {
+                        width: 8px;
+                        height: 8px;
+                    }
+                    @include smartphone-vertical {
+                        width: 9px;
+                        height: 9px;
+                    }
+                }
+
+                .limit-meter {
+                    min-width: 42px;
+                    @include smartphone-horizontal {
+                        min-width: 31px;
+                    }
+                    @include smartphone-vertical {
+                        width: 80px;
+                    }
+
+                    .limit-meter__content {
+                        svg {
+                            @include smartphone-horizontal {
+                                width: 12px;
+                                height: 12px;
+                            }
+                        }
+
+                        span {
+                            @include smartphone-horizontal {
+                                width: 14px;
+                                margin-left: 3.5px;
+                                font-size: 8.5px;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2029,6 +2143,134 @@ export default defineComponent({
                     height: 18px;
                 }
             }
+            &__service-badge {
+                position: absolute;
+                left: 0px;
+                bottom: 0px;
+                color: #fff;
+                line-height: 0;
+
+                &--twitter,
+                &--bluesky {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 5px;
+
+                    :deep(svg) {
+                        width: 11px;
+                        height: 11px;
+                    }
+                }
+
+                // 視聴パネルのツイートボタンと同じ Twitter ブランドカラー
+                &--twitter {
+                    background: rgb(var(--v-theme-twitter));
+                }
+
+                // 視聴パネルのポストボタンと同じ Bluesky ブランドカラー
+                &--bluesky {
+                    background: #0F73FF;
+                }
+
+                &--linked {
+                    display: flex;
+                    width: 40px;
+                    height: 20px;
+                }
+
+                &-segment {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 1 1 50%;
+                    height: 100%;
+
+                    :deep(svg) {
+                        width: 10px;
+                        height: 10px;
+                    }
+
+                    &--twitter {
+                        background: rgb(var(--v-theme-twitter));
+                        border-radius: 5px 0 0 5px;
+                    }
+
+                    &--bluesky {
+                        background: #0F73FF;
+                        border-radius: 0 5px 5px 0;
+                    }
+                }
+
+                @include smartphone-horizontal {
+                    &--twitter,
+                    &--bluesky {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 4px;
+
+                        :deep(svg) {
+                            width: 9px;
+                            height: 9px;
+                        }
+                    }
+
+                    &--linked {
+                        width: 32px;
+                        height: 16px;
+                    }
+
+                    &-segment {
+                        :deep(svg) {
+                            width: 8px;
+                            height: 8px;
+                        }
+
+                        &--twitter {
+                            border-radius: 4px 0 0 4px;
+                        }
+
+                        &--bluesky {
+                            border-radius: 0 4px 4px 0;
+                        }
+                    }
+                }
+                @include smartphone-vertical {
+                    &--twitter,
+                    &--bluesky {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 4px;
+
+                        :deep(svg) {
+                            width: 9px;
+                            height: 9px;
+                        }
+                    }
+
+                    &--linked {
+                        width: 32px;
+                        height: 16px;
+                    }
+
+                    &-segment {
+                        :deep(svg) {
+                            width: 8px;
+                            height: 8px;
+                        }
+
+                        &--twitter {
+                            border-radius: 4px 0 0 4px;
+                        }
+
+                        &--bluesky {
+                            border-radius: 0 4px 4px 0;
+                        }
+                    }
+                }
+            }
             &__info {
                 display: flex;
                 flex-direction: column;
@@ -2041,10 +2283,12 @@ export default defineComponent({
                 align-items: center;
                 column-gap: 6px;
                 min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
                 font-size: 17px;
                 font-weight: bold;
                 white-space: nowrap;
-                overflow: hidden;
+                color: rgb(var(--v-theme-text));
                 @include smartphone-horizontal {
                     font-size: 14px;
                     line-height: 1.3;
@@ -2052,29 +2296,75 @@ export default defineComponent({
                 @include smartphone-vertical {
                     font-size: 14px;
                     line-height: 1.3;
+                }
+            }
+            &__name-service-icon {
+                display: block;
+                flex-shrink: 0;
+                width: 13px;
+                height: 13px;
+                font-size: 13px;
+                @include smartphone-horizontal {
+                    width: 11px;
+                    height: 11px;
+                    font-size: 11px;
+                }
+                @include smartphone-vertical {
+                    width: 11px;
+                    height: 11px;
+                    font-size: 11px;
                 }
             }
             &__screen-name {
-                display: flex;
-                align-items: center;
-                column-gap: 6px;
                 min-width: 0;
+                overflow: hidden;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 14px;
-                white-space: nowrap;
-                overflow: hidden;
+                line-height: 1.4;
                 @include smartphone-horizontal {
                     font-size: 13px;
                 }
                 @include smartphone-vertical {
                     font-size: 13px;
                 }
-            }
-            &__service-icon {
-                flex-shrink: 0;
+
+                &-handle {
+                    display: inline-block;
+                    max-width: 100%;
+                    vertical-align: middle;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+
+                    // 単体アカウント行は1行全体を使って ellipsis する
+                    &:only-child {
+                        display: block;
+                    }
+                }
+
+                &-link-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    vertical-align: middle;
+                    margin: 0 6px;
+                    width: 14px;
+                    height: 14px;
+                    font-size: 14px;
+                    @include smartphone-horizontal {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
+                    @include smartphone-vertical {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
+                }
             }
             &__text {
                 min-width: 0;
+                flex: 1 1 auto;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
