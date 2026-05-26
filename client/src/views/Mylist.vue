@@ -176,6 +176,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    min-width: 0;  // サイドナビゲーション横のフレックス子要素を親幅内で縮め、タブレット縦画面でのはみ出しを防ぐ
     @include smartphone-vertical {
         padding-top: 10px !important;
     }

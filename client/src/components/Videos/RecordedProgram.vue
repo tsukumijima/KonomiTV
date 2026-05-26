@@ -281,6 +281,8 @@ const deleteVideo = async () => {
     display: flex;
     position: relative;
     width: 100%;
+    min-width: 0;  // 一覧側の横幅が狭いときも、カード自身が親要素を押し広げないようにする
+    max-width: 100%;
     height: 125px;
     padding: 0px 16px;
     color: rgb(var(--v-theme-text));
@@ -312,6 +314,7 @@ const deleteVideo = async () => {
         display: flex;
         align-items: center;
         width: 100%;
+        min-width: 0;  // サムネイルと本文を同じ行に収め、長い番組名は本文側の省略表示に任せる
         height: 100%;
         padding: 12px 0px;
         @include smartphone-vertical {

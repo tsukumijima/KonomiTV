@@ -182,6 +182,8 @@ const handleProgramDeleted = (id: number) => {
     flex-direction: column;
     width: 100%;
     height: 100%;
+    min-width: 0;  // 親ページ側が縮んだとき、録画番組リスト自身も横幅を押し広げないようにする
+    max-width: 100%;
 
     &--show-sort {
         .recorded-program-list__grid {
@@ -194,6 +196,7 @@ const handleProgramDeleted = (id: number) => {
     &__header {
         display: flex;
         align-items: center;
+        min-width: 0;  // タイトルと操作ボタンの合計幅が狭い画面で親を押し広げないようにする
         @include smartphone-vertical {
             padding: 0px 8px;
         }
@@ -203,6 +206,7 @@ const handleProgramDeleted = (id: number) => {
         display: flex;
         align-items: center;
         position: relative;
+        min-width: 0;  // 長い検索語や一覧名は省略表示へ倒し、右側の操作ボタンを画面内に残す
         font-size: 24px;
         font-weight: 700;
         padding-top: 8px;
@@ -254,11 +258,19 @@ const handleProgramDeleted = (id: number) => {
                 }
             }
         }
+
+        &-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     }
 
     &__actions {
         display: flex;
         align-items: center;
+        flex-shrink: 0;
         margin-left: auto;
         :deep(.v-field) {
             padding-right: 4px !important;
@@ -302,6 +314,8 @@ const handleProgramDeleted = (id: number) => {
         flex-direction: column;
         position: relative;
         width: 100%;
+        min-width: 0;  // 仮想スクローラー領域も親幅に追従させ、内部カードの最小幅で膨らまないようにする
+        max-width: 100%;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: hidden;
