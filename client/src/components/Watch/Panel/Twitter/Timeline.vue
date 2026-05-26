@@ -65,6 +65,22 @@ import { VList as VirtuaList } from 'virtua/vue';
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 
 import Tweet from '@/components/Watch/Panel/Twitter/Tweet.vue';
+import {
+    appendTwitterGaps,
+    buildMergedTimelineItems,
+    classifyTimelineCursors,
+    createEmptyMergedFeedCoverage,
+    decideLoadMoreTargets,
+    getOldestTweet,
+    ILoadMoreItem,
+    IMergedFeedCoverage,
+    isCursorConsumed,
+    ITwitterGap,
+    shouldFetchBlueskyForDisplayLowerBound,
+    TimelineAccountKind,
+    TimelineSource,
+    updateCoverageFromFetchedPage,
+} from '@/components/Watch/Panel/Twitter/TweetTimelineMergeUtils';
 import Message from '@/message';
 import Bluesky from '@/services/Bluesky';
 import Twitter, { ITimelineLoadMoreCursor, ITimelineTweetsResult, ITweet } from '@/services/Twitter';
@@ -83,38 +99,16 @@ const props = defineProps<{
     isTimelineTabActive: boolean;
 }>();
 
-interface ILoadMoreItem {
-    type: 'load_more';
-    gap_ids: string[];
-    twitter_cursor_id?: string;
-    twitter_cursor_type?: ITimelineLoadMoreCursor['cursor_type'];
-    bluesky_cursor_id?: string;
-    upper_created_at: string;
-    lower_created_at: string | null;
-    id: string;
-}
-
-interface IFeedGap {
-    id: string;
-    upper_created_at: string;
-    lower_created_at: string | null;
-    twitter_cursor_id?: string;
-    twitter_cursor_type?: ITimelineLoadMoreCursor['cursor_type'];
-    bluesky_cursor_id?: string;
-    is_twitter_exhausted: boolean;
-    is_bluesky_exhausted: boolean;
-}
-
 interface ISeenTweetTrackingState {
     pendingSeenTweetIds: string[];
     confirmedVisibleTweetIds: Set<string>;
 }
 
 const MAX_BLUESKY_CATCHUP_PAGES = 5;
-const GAP_GROUP_ADJACENT_MILLISECONDS = 60 * 1000;
 
 const tweetsByKey = ref<Map<string, ITweet>>(new Map());
-const gaps = ref<IFeedGap[]>([]);
+const twitterGaps = ref<ITwitterGap[]>([]);
+const feedCoverage = ref<IMergedFeedCoverage>(createEmptyMergedFeedCoverage());
 const showSettings = ref(false);
 const showRetweets = ref(true);
 const isFetching = ref(false);
@@ -146,23 +140,6 @@ watch([filterQuery, isNotFilter], async () => {
     isRefreshingFilter.value = false;  // フラグを下ろす
 });
 
-const getCreatedAtMilliseconds = (createdAt: Date | string) => {
-    return dayjs(createdAt).valueOf();
-};
-
-const getTweetCreatedAtMilliseconds = (tweet: ITweet) => {
-    return getCreatedAtMilliseconds(tweet.created_at);
-};
-
-const getOldestTweet = (tweets: ITweet[]) => {
-    if (tweets.length === 0) {
-        return null;
-    }
-    return tweets.reduce((oldestTweet, tweet) => (
-        getTweetCreatedAtMilliseconds(tweet) < getTweetCreatedAtMilliseconds(oldestTweet) ? tweet : oldestTweet
-    ));
-};
-
 const createExistingTweetIds = () => {
     return new Set([...tweetsByKey.value.keys()]);
 };
@@ -180,64 +157,15 @@ const addTweetsToMap = (tweets: ITweet[]) => {
     tweetsByKey.value = nextTweetsByKey;
 };
 
-const isGapVisible = (gap: IFeedGap) => {
-    return (
-        (gap.is_twitter_exhausted === false && !!gap.twitter_cursor_id) ||
-        (gap.is_bluesky_exhausted === false && !!gap.bluesky_cursor_id)
-    );
-};
-
-// 内部ではサービスごとに gap を保持し、画面上では近接する未取得範囲を 1 つのボタンに束ねる
-// Twitter と Bluesky ではカーソルの意味が違うため、内部 gap をマージせず表示層だけでまとめる
-const createGroupedLoadMoreItems = () => {
-    // 取得可能なカーソルが残っている gap だけを、新しい時刻境界から順に処理する
-    const visibleGaps = gaps.value
-        .filter(gap => isGapVisible(gap))
-        .sort((a, b) => getCreatedAtMilliseconds(b.upper_created_at) - getCreatedAtMilliseconds(a.upper_created_at));
-    const groupedItems: ILoadMoreItem[] = [];
-
-    for (const gap of visibleGaps) {
-        const gapUpperTime = getCreatedAtMilliseconds(gap.upper_created_at);
-        const lastGroup = groupedItems[groupedItems.length - 1];
-        const lastGroupLowerTime = lastGroup?.lower_created_at ? getCreatedAtMilliseconds(lastGroup.lower_created_at) : null;
-        // 直前グループの時刻範囲と重なる、または近接する gap は同じ未取得範囲として 1 ボタンへ束ねる
-        // 画面上の分断を減らしつつ、クリック時には `gap_ids` から元のサービス別カーソルを引き直す
-        const shouldJoinLastGroup = lastGroup !== undefined && (
-            lastGroupLowerTime === null ||
-            gapUpperTime >= lastGroupLowerTime - GAP_GROUP_ADJACENT_MILLISECONDS
-        );
-
-        if (shouldJoinLastGroup === true) {
-            // 内部 gap はカーソル単位で保持しつつ、画面上は近接する未取得区間を 1 つのボタンに見せる
-            // 同じ時系列リストの中でサービス別ボタンが並ぶ違和感を避けるため、押下時に gap_ids から元の gap 群を引き直す
-            lastGroup.gap_ids.push(gap.id);
-            lastGroup.twitter_cursor_id ??= gap.twitter_cursor_id;
-            lastGroup.twitter_cursor_type ??= gap.twitter_cursor_type;
-            lastGroup.bluesky_cursor_id ??= gap.bluesky_cursor_id;
-            if (
-                lastGroup.lower_created_at !== null &&
-                (gap.lower_created_at === null ||
-                    getCreatedAtMilliseconds(gap.lower_created_at) < getCreatedAtMilliseconds(lastGroup.lower_created_at))
-            ) {
-                lastGroup.lower_created_at = gap.lower_created_at;
-            }
-            continue;
-        }
-
-        // 新しい未取得範囲は単独のボタンとして追加し、`flattenedItems` 側で時刻境界へ差し込む
-        groupedItems.push({
-            type: 'load_more',
-            gap_ids: [gap.id],
-            twitter_cursor_id: gap.twitter_cursor_id,
-            twitter_cursor_type: gap.twitter_cursor_type,
-            bluesky_cursor_id: gap.bluesky_cursor_id,
-            upper_created_at: gap.upper_created_at,
-            lower_created_at: gap.lower_created_at,
-            id: `load_more_${gap.id}`,
-        });
+const getTimelineAccountKind = (): TimelineAccountKind => {
+    const account = selected_account.value;
+    if (account?.kind === 'Bluesky') {
+        return 'Bluesky';
     }
-
-    return groupedItems;
+    if (account?.kind === 'Linked') {
+        return 'Linked';
+    }
+    return 'Twitter';
 };
 
 // フラットな構造の配列を生成する computed プロパティ
@@ -247,7 +175,6 @@ const flattenedItems = computed(() => {
         return [];
     }
 
-    const items: (ITweet | ILoadMoreItem)[] = [];
     // `tweetsByKey` は順序を持たない正規化ストアなので、描画直前に必ず時刻降順へ並べ直す
     const sortedTweets = TweetUtils.sortTweetsByCreatedAt([...tweetsByKey.value.values()]);
     const filteredTweets = sortedTweets.filter(tweet => {
@@ -259,27 +186,12 @@ const flattenedItems = computed(() => {
         const hasText = targetText.toLowerCase().includes(filterQuery.value.toLowerCase());
         return isNotFilter.value ? !hasText : hasText;
     });
-    const groupedLoadMoreItems = createGroupedLoadMoreItems();
-    let tweetIndex = 0;
-
-    for (const loadMoreItem of groupedLoadMoreItems) {
-        const upperTime = getCreatedAtMilliseconds(loadMoreItem.upper_created_at);
-        // gap の新しい側境界より新しいツイートを先に流し込み、ボタンを正しい時刻位置へ置く
-        while (
-            tweetIndex < filteredTweets.length &&
-            getTweetCreatedAtMilliseconds(filteredTweets[tweetIndex]) >= upperTime
-        ) {
-            items.push(filteredTweets[tweetIndex]);
-            tweetIndex++;
-        }
-        items.push(loadMoreItem);
-    }
-
-    // すべての gap より古いツイートは最後にそのまま流し込む
-    while (tweetIndex < filteredTweets.length) {
-        items.push(filteredTweets[tweetIndex]);
-        tweetIndex++;
-    }
+    const items = buildMergedTimelineItems(
+        filteredTweets,
+        twitterGaps.value,
+        feedCoverage.value,
+        getTimelineAccountKind(),
+    );
 
     // フィルタリング中で、かつツイートが1件も含まれていない場合は空配列を返す
     if (filterQuery.value && !items.some(item => 'text' in item)) {
@@ -486,6 +398,27 @@ const filterTimelineTweets = (tweets: ITweet[]) => {
     });
 };
 
+const addFetchedTweetsToTimeline = (
+    twitterPageTweets: ITweet[],
+    blueskyPageTweets: ITweet[],
+    existingIds: Set<string>,
+) => {
+    // 表示フィルターは投稿追加前にサービス別で適用し、取得範囲の計算にはフィルター前のページを使う
+    // ここで混ぜてしまうと、非表示投稿だけのページで古い方向カーソルやクランプ下端を誤って失う
+    const twitterTweets = filterTimelineTweets(twitterPageTweets);
+    const blueskyTweets = filterTimelineTweets(blueskyPageTweets);
+    const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
+    const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
+    const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
+        ...twitterUniqueTweets,
+        ...blueskyUniqueTweets,
+    ]);
+
+    if (uniqueTweets.length > 0) {
+        addTweetsToMap(uniqueTweets);
+    }
+};
+
 const restorePendingSeenTweetIds = (seenTweetIds: string[]) => {
     if (seenTweetIds.length === 0) {
         return;
@@ -501,78 +434,62 @@ const restorePendingSeenTweetIds = (seenTweetIds: string[]) => {
     state.pendingSeenTweetIds = [...seenTweetIds, ...state.pendingSeenTweetIds].slice(0, SEEN_TWEET_IDS_LIMIT);
 };
 
-const isCursorConsumed = (result: ITimelineTweetsResult | null) => {
-    return result !== null && result.is_cursor_consumed === true;
-};
-
-const buildGapFromLoadMoreCursor = (
-    source: 'Twitter' | 'Bluesky',
-    loadMoreCursor: ITimelineLoadMoreCursor,
-    pageTweets: ITweet[],
-): IFeedGap | null => {
-    // 表示位置はサーバー側が抽出したカーソル近傍の投稿時刻を優先する
-    // Bluesky は古い方向カーソルだけなので、境界が空の場合は取得ページの最古投稿を上側境界にする
-    const oldestTweet = getOldestTweet(pageTweets);
-    const upperCreatedAt = loadMoreCursor.upper_created_at ?? (oldestTweet !== null ? String(oldestTweet.created_at) : null);
-    if (upperCreatedAt === null) {
-        return null;
-    }
-
-    const baseGap: IFeedGap = {
-        id: `${source.toLowerCase()}_${loadMoreCursor.cursor_id}_${upperCreatedAt}`,
-        upper_created_at: upperCreatedAt,
-        lower_created_at: loadMoreCursor.lower_created_at,
-        is_twitter_exhausted: true,
-        is_bluesky_exhausted: true,
-    };
-
-    if (source === 'Twitter') {
-        return {
-            ...baseGap,
-            twitter_cursor_id: loadMoreCursor.cursor_id,
-            twitter_cursor_type: loadMoreCursor.cursor_type,
-            is_twitter_exhausted: false,
-        };
-    }
-
-    return {
-        ...baseGap,
-        bluesky_cursor_id: loadMoreCursor.cursor_id,
-        is_bluesky_exhausted: false,
-    };
-};
-
-const buildGapsFromLoadMoreCursors = (
-    source: 'Twitter' | 'Bluesky',
+const applyFetchedPageState = (
+    source: TimelineSource,
     result: ITimelineTweetsResult | null,
     pageTweets: ITweet[],
+    options: { should_preserve_older_state?: boolean } = {},
 ) => {
-    // Twitter はレスポンス内の Gap / ShowMore / Older を、Bluesky は古い方向カーソルを同じ表示モデルへ変換する
-    // どちらも取得結果の順序は信用せず、表示時に作成日時で再ソートする
-    if (result === null || isCursorConsumed(result) === false) {
-        return [];
-    }
-    return result.load_more_cursors
-        .map(loadMoreCursor => buildGapFromLoadMoreCursor(source, loadMoreCursor, pageTweets))
-        .filter((gap): gap is IFeedGap => gap !== null);
-};
-
-const removeGapsById = (gapIds: string[]) => {
-    const gapIdSet = new Set(gapIds);
-    gaps.value = gaps.value.filter(gap => !gapIdSet.has(gap.id));
-};
-
-const appendGaps = (newGaps: IFeedGap[]) => {
-    if (newGaps.length === 0) {
+    if (isCursorConsumed(result) === false) {
         return;
     }
-    // 同じカーソルが再度返った場合は既存 gap を優先し、同じボタンが重複して並ばないようにする
-    // Twitter のサーバー由来 gap はカーソル単位で安定しているため、ID で十分に重複を抑止できる
-    const existingGapIds = new Set(gaps.value.map(gap => gap.id));
-    gaps.value = [
-        ...gaps.value,
-        ...newGaps.filter(gap => existingGapIds.has(gap.id) === false),
-    ];
+
+    // 取得結果はまず取得範囲と Twitter 中央 gap に分類する
+    // Bluesky の古い方向カーソルは取得範囲の境界であり、中央 gap には絶対に混ぜない
+    const coverageKey = source === 'Twitter' ? 'twitter' : 'bluesky';
+    const nextCoverage = updateCoverageFromFetchedPage(feedCoverage.value[coverageKey], result, pageTweets, options);
+    feedCoverage.value = {
+        ...feedCoverage.value,
+        [coverageKey]: nextCoverage,
+    };
+
+    const classifiedCursors = classifyTimelineCursors(source, result, pageTweets);
+    if (classifiedCursors.twitter_gaps.length > 0) {
+        twitterGaps.value = appendTwitterGaps(twitterGaps.value, classifiedCursors.twitter_gaps);
+    }
+};
+
+const removeTwitterGapById = (gapId: string | null) => {
+    if (gapId === null) {
+        return;
+    }
+    twitterGaps.value = twitterGaps.value.filter(gap => gap.id !== gapId);
+};
+
+const fetchBlueskyUntilDisplayLowerBound = async (blueskyHandle: string | null) => {
+    if (blueskyHandle === null) {
+        return;
+    }
+
+    // 混合表示では Twitter の表示下端を満たす分だけ Bluesky を補充する
+    // Bluesky の古い方向カーソルはユーザー操作の中央 gap ではなく、表示範囲を埋めるための内部境界として扱う
+    for (let pageIndex = 0; pageIndex < MAX_BLUESKY_CATCHUP_PAGES; pageIndex++) {
+        if (shouldFetchBlueskyForDisplayLowerBound(feedCoverage.value, getTimelineAccountKind()) === false) {
+            break;
+        }
+        const blueskyCursorId = feedCoverage.value.bluesky.older_cursor;
+        if (blueskyCursorId === null) {
+            break;
+        }
+        const existingIds = createExistingTweetIds();
+        const nextResult = await Bluesky.getHomeTimeline(blueskyHandle, blueskyCursorId);
+        if (nextResult === null) {
+            break;
+        }
+        const blueskyPageTweets = nextResult.tweets;
+        addFetchedTweetsToTimeline([], blueskyPageTweets, existingIds);
+        applyFetchedPageState('Bluesky', nextResult, blueskyPageTweets);
+    }
 };
 
 const toggleSettings = () => {
@@ -592,7 +509,8 @@ const fetchTimelineTweets = async () => {
             Message.warning('タイムラインを更新するには、Twitter または Bluesky アカウントと連携してください。');
         }
         tweetsByKey.value = new Map();
-        gaps.value = [];
+        twitterGaps.value = [];
+        feedCoverage.value = createEmptyMergedFeedCoverage();
         clearVisibleTweetTimers();
         isFetching.value = false;
         isFirstFetchCompleted = true;
@@ -633,7 +551,6 @@ const fetchTimelineTweets = async () => {
     }
     // 表示用フィルターとページ境界計算を分け、非表示対象だけのページでもカーソルを失わないようにする
     const twitterPageTweets = isCursorConsumed(twitter_result) === true ? [...(twitter_result?.tweets ?? [])] : [];
-    const twitterTweets = filterTimelineTweets(twitterPageTweets);
     const targetOldestTweet = getOldestTweet(twitterPageTweets);
     const targetOldestCreatedAt = targetOldestTweet !== null ? String(targetOldestTweet.created_at) : null;
     let bluesky_result = getTimelineFetchResult(bluesky_first_settled_result);
@@ -644,10 +561,10 @@ const fetchTimelineTweets = async () => {
         let loadMoreCursorId = bluesky_result.load_more_cursors[0]?.cursor_id;
         let loadMoreCursors = bluesky_result.load_more_cursors;
         if (targetOldestCreatedAt !== null) {
-            const targetOldestTime = getCreatedAtMilliseconds(targetOldestCreatedAt);
+            const targetOldestTime = dayjs(targetOldestCreatedAt).valueOf();
             for (let pageIndex = 0; pageIndex < MAX_BLUESKY_CATCHUP_PAGES; pageIndex++) {
                 const oldestTweet = getOldestTweet(collectedTweets);
-                const hasReachedTarget = oldestTweet !== null && getTweetCreatedAtMilliseconds(oldestTweet) < targetOldestTime;
+                const hasReachedTarget = oldestTweet !== null && dayjs(oldestTweet.created_at).valueOf() < targetOldestTime;
                 const hasOverlap = collectedTweets.some(tweet => existingIds.has(TweetUtils.getTweetIdentityKey(tweet)));
                 if (hasReachedTarget === true || hasOverlap === true || !loadMoreCursorId) {
                     break;
@@ -669,19 +586,7 @@ const fetchTimelineTweets = async () => {
     }
     const result = twitter_result ?? bluesky_result;
     if (result && result.tweets) {
-        // フィルタと自分の RT 除外はサービス別に先に適用する
-        // 統合後にまとめて判定すると、どちらのサービスに未取得区間が残ったかを判定しにくくなる
         const blueskyPageTweets = bluesky_result?.tweets ?? [];
-        const blueskyTweets = filterTimelineTweets(blueskyPageTweets);
-        // 既存表示との重複もサービス別に見る
-        // Twitter と Bluesky の ID 空間は違うため、TweetUtils 側の `source` / URI ベースのキーで比較する
-        const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
-        const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
-        // API ごとの戻り順に依存すると紐付け時にサービス単位で固まるため、作成日時で再ソートする
-        const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
-            ...twitterUniqueTweets,
-            ...blueskyUniqueTweets,
-        ]);
 
         // Twitter の新着方向カーソルは表示対象の有無に関係なく、実レスポンスが進んだときだけ更新する
         // 30 秒制限の空応答では既存カーソルを維持し、次回も同じ位置から更新できるようにする
@@ -689,18 +594,14 @@ const fetchTimelineTweets = async () => {
             twitterNewerCursorId.value = twitter_result.newer_cursor_id;
         }
 
-        // サービスごとの新規投稿を正規化ストアへ追加し、表示順は `flattenedItems` 側に任せる
-        if (uniqueTweets.length > 0) {
-            addTweetsToMap(uniqueTweets);
-        }
-
-        // 更新取得でページ間に未取得範囲が残る場合、API レスポンス内の追加取得カーソルを gap として保存する
-        // Twitter はサーバー由来の Gap / ShowMore を信用し、Bluesky は古い方向カーソルだけを控えめに扱う
-        const newGaps = [
-            ...buildGapsFromLoadMoreCursors('Twitter', twitter_result, twitterPageTweets),
-            ...buildGapsFromLoadMoreCursors('Bluesky', bluesky_result, blueskyPageTweets),
-        ];
-        appendGaps(newGaps);
+        addFetchedTweetsToTimeline(twitterPageTweets, blueskyPageTweets, existingIds);
+        // 通常更新は新着方向カーソルの取得であり、古い方向の終端確認ではない
+        // 初回は末尾用の `Older` を取り込み、既存状態がある通常更新だけ巻き戻りを防ぐ
+        applyFetchedPageState('Twitter', twitter_result, twitterPageTweets, {
+            should_preserve_older_state: feedCoverage.value.twitter.oldest_created_at !== null,
+        });
+        applyFetchedPageState('Bluesky', bluesky_result, blueskyPageTweets);
+        await fetchBlueskyUntilDisplayLowerBound(blueskyHandle);
 
         // 仮想スクローラーの描画をリフレッシュ
         refreshScroller();
@@ -728,106 +629,57 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
         account.kind === 'Linked' ? account.account_link.twitter_account.screen_name : null;
     const blueskyHandle = account.kind === 'Bluesky' ? account.bluesky_account.handle :
         account.kind === 'Linked' ? account.account_link.bluesky_account.handle : null;
-    // 表示用ボタンを作ったときの gap 順を保ち、最も新しい未取得範囲から 1 件ずつ消費する
-    // `gaps.value` の追加順に戻すと、画面上のボタン位置と実際に取得するカーソルがずれる可能性がある
-    const targetGaps = item.gap_ids
-        .map(gapId => gaps.value.find(gap => gap.id === gapId))
-        .filter((gap): gap is IFeedGap => gap !== undefined);
-    const consumedGapIds: string[] = [];
-    const replacementGaps: IFeedGap[] = [];
-    let hasFetchedTwitter = false;
-    let hasFetchedBluesky = false;
-
-    for (const gap of targetGaps) {
-        // この gap を消費する前の状態を基準に、取得済み投稿の重複だけを除外する
-        // 次の gap は API レスポンス内の追加取得カーソルから作るため、境界はサーバー側の指示に従う
-        const existingIds = createExistingTweetIds();
-        // UI 上の 1 ボタンに複数 gap が束ねられていても、1 回の押下ではサービスごとに 1 カーソルだけ消費する
-        // 近接 gap をまとめて描画しているだけなので、同じサービスへ複数リクエストを投げると Twitter 側の制限や順序管理が崩れる
-        const shouldFetchTwitter = hasFetchedTwitter === false && twitterScreenName !== null && !!gap.twitter_cursor_id;
-        const shouldFetchBluesky = hasFetchedBluesky === false && blueskyHandle !== null && !!gap.bluesky_cursor_id;
-        if (shouldFetchTwitter === false && shouldFetchBluesky === false) {
-            continue;
-        }
-        hasFetchedTwitter = hasFetchedTwitter || shouldFetchTwitter;
-        hasFetchedBluesky = hasFetchedBluesky || shouldFetchBluesky;
-        // Twitter にリクエストしない gap では seenTweetIds キューを触らない
-        // Bluesky-only gap の押下で Twitter 側の閲覧済み情報が消えるのを防ぐ
-        const seenTweetIds = shouldFetchTwitter === true ? dequeuePendingSeenTweetIds() : [];
-        // 表示上は 1 つのボタンでも、内部 gap はカーソルの意味を壊さないよう 1 件ずつ処理する
-        // 同じサービスの gap を無理に結合すると、Twitter の Bottom カーソルが指す範囲を失うためここで順に消化する
-        const [twitter_settled_result, bluesky_settled_result] = await Promise.allSettled([
-            shouldFetchTwitter === true ?
-                Twitter.getHomeTimeline(twitterScreenName, gap.twitter_cursor_id, getTwitterTimelineCursorType(gap.twitter_cursor_type), seenTweetIds) :
-                Promise.resolve(null),
-            shouldFetchBluesky === true ?
-                Bluesky.getHomeTimeline(blueskyHandle, gap.bluesky_cursor_id) :
-                Promise.resolve(null),
-        ]);
-        const twitter_result = getTimelineFetchResult(twitter_settled_result);
-        const bluesky_result = getTimelineFetchResult(bluesky_settled_result);
-        // Twitter の空応答や通信失敗では `seenTweetIds` がサーバーへ反映されていない
-        // 次回の実取得で同じ閲覧済み情報を再送するため、取り出した ID をキューへ戻す
-        if (isCursorConsumed(twitter_result) === false || (shouldFetchTwitter === true && twitter_result === null)) {
-            restorePendingSeenTweetIds(seenTweetIds);
-        }
-
-        // Twitter の空応答は投稿なしとして扱い、gap とカーソルは後段で温存する
-        // gap 境界には取得ページそのものを使い、表示フィルターで全件落ちても次のカーソルを残す
-        const twitterPageTweets = isCursorConsumed(twitter_result) === true ? [...(twitter_result?.tweets ?? [])] : [];
-        const blueskyPageTweets = bluesky_result?.tweets ?? [];
-        const twitterTweets = filterTimelineTweets(twitterPageTweets);
-        const blueskyTweets = filterTimelineTweets(blueskyPageTweets);
-        const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
-        const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
-        const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
-            ...twitterUniqueTweets,
-            ...blueskyUniqueTweets,
-        ]);
-
-        // 取得できた投稿だけを先に Map へ反映し、ボタン位置は preserved / next gap の再構築で決め直す
-        if (uniqueTweets.length > 0) {
-            addTweetsToMap(uniqueTweets);
-        }
-
-        // 取得に成功したサービスのカーソルは消費し、失敗または制限されたサービスのカーソルだけを残す
-        // 片側だけ成功した場合に、もう片側の未取得範囲まで誤って消さないための退避用 gap
-        const preservedGap: IFeedGap = {
-            ...gap,
-            twitter_cursor_id: undefined,
-            twitter_cursor_type: undefined,
-            bluesky_cursor_id: undefined,
-            is_twitter_exhausted: true,
-            is_bluesky_exhausted: true,
-        };
-        // Twitter 側が空応答や通信失敗になった場合、そのカーソルは消費できていない
-        // ここで元の gap の Twitter 側だけを残し、後から同じ範囲を再取得できるようにする
-        if (shouldFetchTwitter === true && (isCursorConsumed(twitter_result) === false || twitter_result === null)) {
-            preservedGap.twitter_cursor_id = gap.twitter_cursor_id;
-            preservedGap.twitter_cursor_type = gap.twitter_cursor_type;
-            preservedGap.is_twitter_exhausted = false;
-        }
-        // Bluesky 側も API へ到達していない場合はカーソルを消費していない
-        // Twitter の制限と同時に Bluesky が失敗したケースで、Bluesky のページング状態まで失わないようにする
-        if (shouldFetchBluesky === true && bluesky_result === null) {
-            preservedGap.bluesky_cursor_id = gap.bluesky_cursor_id;
-            preservedGap.is_bluesky_exhausted = false;
-        }
-
-        // 実際にレスポンスが進んだサービスだけ、返却された追加取得カーソルから次の gap を作る
-        // Twitter の gap カーソルはサーバー指示なので、投稿重複の有無で勝手に消さない
-        const nextTwitterGaps = buildGapsFromLoadMoreCursors('Twitter', twitter_result, twitterPageTweets);
-        const nextBlueskyGaps = buildGapsFromLoadMoreCursors('Bluesky', bluesky_result, blueskyPageTweets);
-        consumedGapIds.push(gap.id);
-        if (isGapVisible(preservedGap)) {
-            replacementGaps.push(preservedGap);
-        }
-        replacementGaps.push(...nextTwitterGaps, ...nextBlueskyGaps);
+    const loadMoreTargets = decideLoadMoreTargets(item, feedCoverage.value, getTimelineAccountKind());
+    const shouldFetchTwitter = loadMoreTargets.should_fetch_twitter === true && twitterScreenName !== null && loadMoreTargets.twitter_cursor_id !== null;
+    const shouldFetchBluesky = loadMoreTargets.should_fetch_bluesky === true && blueskyHandle !== null && loadMoreTargets.bluesky_cursor_id !== null;
+    if (shouldFetchTwitter === false && shouldFetchBluesky === false) {
+        isFetching.value = false;
+        return;
     }
 
-    // 処理対象の gap は一度取り除き、未消費カーソルと新しいカーソルから作り直した gap へ差し替える
-    removeGapsById(consumedGapIds);
-    appendGaps(replacementGaps);
+    const existingIds = createExistingTweetIds();
+    // Twitter を実際に取得する場合だけ seenTweetIds キューを消費する
+    // Bluesky の補充や Bluesky 単独の末尾取得で Twitter 側の閲覧済み情報が消えないようにする
+    const seenTweetIds = shouldFetchTwitter === true ? dequeuePendingSeenTweetIds() : [];
+    const [twitter_settled_result, bluesky_settled_result] = await Promise.allSettled([
+        shouldFetchTwitter === true ?
+            Twitter.getHomeTimeline(
+                twitterScreenName,
+                loadMoreTargets.twitter_cursor_id!,
+                getTwitterTimelineCursorType(loadMoreTargets.twitter_cursor_type ?? undefined),
+                seenTweetIds,
+            ) :
+            Promise.resolve(null),
+        shouldFetchBluesky === true ?
+            Bluesky.getHomeTimeline(blueskyHandle, loadMoreTargets.bluesky_cursor_id!) :
+            Promise.resolve(null),
+    ]);
+    const twitter_result = getTimelineFetchResult(twitter_settled_result);
+    const bluesky_result = getTimelineFetchResult(bluesky_settled_result);
+    // Twitter の空応答や通信失敗では seenTweetIds が Twitter に反映されない
+    // 取得範囲も進めず同じカーソルを再利用するため、閲覧済み情報も次回へ戻す
+    if (isCursorConsumed(twitter_result) === false || (shouldFetchTwitter === true && twitter_result === null)) {
+        restorePendingSeenTweetIds(seenTweetIds);
+    }
+
+    const twitterPageTweets = isCursorConsumed(twitter_result) === true ? [...(twitter_result?.tweets ?? [])] : [];
+    const blueskyPageTweets = bluesky_result?.tweets ?? [];
+    addFetchedTweetsToTimeline(twitterPageTweets, blueskyPageTweets, existingIds);
+
+    // 中央 gap は Twitter のレスポンスが実際に進んだ場合だけ消費する
+    // 30 秒制限や通信失敗で取り除くと、同じ未取得範囲を二度と埋められなくなる
+    if (isCursorConsumed(twitter_result) === true) {
+        removeTwitterGapById(loadMoreTargets.consumed_twitter_gap_id);
+    }
+    applyFetchedPageState('Twitter', twitter_result, twitterPageTweets, {
+        should_preserve_older_state: item.type === 'twitter_gap',
+    });
+    applyFetchedPageState('Bluesky', bluesky_result, blueskyPageTweets);
+    // 中央 gap は Twitter だけを埋める操作なので、Bluesky 補充は末尾取得の後だけ行う
+    if (item.type === 'tail') {
+        await fetchBlueskyUntilDisplayLowerBound(blueskyHandle);
+    }
+
     await nextTick();
     updateSeenTweetTracking();
     isFetching.value = false;
@@ -839,7 +691,8 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
 watch(selected_account, (newAccount, oldAccount) => {
     // アカウント種別や紐付け先が変わったら、前アカウントのカーソルと表示ブロックを持ち越さない
     tweetsByKey.value = new Map();
-    gaps.value = [];
+    twitterGaps.value = [];
+    feedCoverage.value = createEmptyMergedFeedCoverage();
     twitterNewerCursorId.value = null;  // 新着方向カーソルをリセット
     clearVisibleTweetTimers();
     // 離脱元アカウントの表示中判定を破棄し、移動先アカウントにも前回表示時の判定が残っていない状態で再取得する
@@ -854,7 +707,8 @@ watch(selected_account, (newAccount, oldAccount) => {
 watch(showRetweets, () => {
     // RT 表示設定は既存ブロックを後から完全に復元できないため、カーソルごと初期化して取り直す
     tweetsByKey.value = new Map();
-    gaps.value = [];
+    twitterGaps.value = [];
+    feedCoverage.value = createEmptyMergedFeedCoverage();
     twitterNewerCursorId.value = null;  // 新着方向カーソルをリセット
     clearVisibleTweetTimers();
     clearConfirmedVisibleTweetIds(selected_twitter_account.value?.screen_name);
@@ -879,7 +733,7 @@ const checkScrollPosition = () => {
     if (scrollHeight - scrollTop - clientHeight < 30) {
         // 最後のアイテムが「さらに読み込む」ボタンの場合、それをクリックする
         const lastItem = flattenedItems.value[flattenedItems.value.length - 1];
-        if (lastItem && !('text' in lastItem) && lastItem.type === 'load_more') {
+        if (lastItem && !('text' in lastItem)) {
             handleLoadMore(lastItem);
         }
     }
