@@ -203,7 +203,7 @@ const addFetchedTweetsToSearch = (
     const blueskyTweets = filterTweetsByRetweetFlag(blueskyPageTweets);
     const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
     const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
-    const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
+    const uniqueTweets = TweetUtils.sortTweetsByCreatedAtInPlace([
         ...twitterUniqueTweets,
         ...blueskyUniqueTweets,
     ]);
@@ -308,24 +308,6 @@ const isSameSearchAccountIdentity = (
         first.twitterAccountId === second.twitterAccountId &&
         first.blueskyAccountId === second.blueskyAccountId
     );
-};
-
-const removeServicePagingState = (service: 'Twitter' | 'Bluesky') => {
-    // 検索結果本体は維持し、切替先で使えないカーソルだけを落とす
-    // Twitter の中央 gap は Twitter アカウントに紐づくため、Twitter 切替時は安全側で破棄する
-    if (service === 'Twitter') {
-        twitterGaps.value = [];
-        feedCoverage.value = {
-            ...feedCoverage.value,
-            twitter: createEmptyMergedFeedCoverage().twitter,
-        };
-        twitterNewerCursorId.value = null;
-        return;
-    }
-    feedCoverage.value = {
-        ...feedCoverage.value,
-        bluesky: createEmptyMergedFeedCoverage().bluesky,
-    };
 };
 
 const toggleSettings = () => {
@@ -551,15 +533,14 @@ watch(showRetweets, () => {
     performSearchTweets();
 });
 
-// 検索結果はアカウントごとの差が小さいため、Twitter アカウント同士の切替では維持する
-// 利用可能なサービスが減る切替だけ、消費不能な古いカーソルを残さないよう検索状態を破棄する
+// 検索結果にはリツイート済み・いいね済みなど、閲覧中アカウントに依存する状態が含まれる
+// 具体アカウントや利用可能サービスが変わった場合は、別アカウントの状態を混ぜないよう本文ごと破棄する
 watch(selected_account, (newAccount, oldAccount) => {
     const oldProviders = getAvailableSearchProviders(oldAccount);
     const newProviders = getAvailableSearchProviders(newAccount);
     const oldIdentity = getSearchAccountIdentity(oldAccount);
     const newIdentity = getSearchAccountIdentity(newAccount);
-    // Twitter アカウント同士の切替では検索結果を維持する
-    // ただし利用可能なサービスが減る切替では、押しても消費できない古い gap が残るため状態を破棄する
+    // サービスが消えた場合は、押しても消費できない古い gap やカーソルが残るため状態を破棄する
     if (
         (oldProviders.hasTwitter === true && newProviders.hasTwitter === false) ||
         (oldProviders.hasBluesky === true && newProviders.hasBluesky === false)
@@ -568,23 +549,13 @@ watch(selected_account, (newAccount, oldAccount) => {
         return;
     }
 
-    // サービス自体は残っていても、具体アカウントが変わるとサーバー側カーソルの持ち主が変わる
-    // 検索結果の表示は維持し、次の更新だけは新アカウントの初回検索として取り直す
+    // サービス自体は残っていても、具体アカウントが変わるとサーバー側カーソルと投稿状態の持ち主が変わる
+    // 検索結果を維持すると旧アカウントのリツイート済み・いいね済み表示が残るため、本文まで破棄する
     if (
-        oldIdentity.twitterAccountId !== null &&
-        oldIdentity.twitterAccountId !== newIdentity.twitterAccountId
+        (oldIdentity.twitterAccountId !== null && oldIdentity.twitterAccountId !== newIdentity.twitterAccountId) ||
+        (oldIdentity.blueskyAccountId !== null && oldIdentity.blueskyAccountId !== newIdentity.blueskyAccountId)
     ) {
-        twitterNewerCursorId.value = null;
-        removeServicePagingState('Twitter');
-    }
-
-    // Bluesky 検索の続きカーソルもアカウント単位の状態なので、紐付け先変更時にだけ破棄する
-    // 投稿本体まで消すと検索タブの見た目が大きく揺れるため、未取得範囲だけを現在のアカウントに合わせる
-    if (
-        oldIdentity.blueskyAccountId !== null &&
-        oldIdentity.blueskyAccountId !== newIdentity.blueskyAccountId
-    ) {
-        removeServicePagingState('Bluesky');
+        resetSearchState();
     }
 });
 

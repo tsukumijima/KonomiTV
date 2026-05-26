@@ -36,12 +36,12 @@ export class TweetUtils {
     }
 
     /**
-     * ツイート配列を投稿時刻の新しい順に並べ替える
+     * ツイート配列を投稿時刻の新しい順に破壊的に並べ替える
      * 元の配列を破壊的にソートして返す (呼び出し側で配列を保護したい場合は事前にコピーすること)
      * @param tweets ソート対象のツイート配列
      * @returns ソート後のツイート配列
      */
-    static sortTweetsByCreatedAt(tweets: ITweet[]): ITweet[] {
+    static sortTweetsByCreatedAtInPlace(tweets: ITweet[]): ITweet[] {
         return tweets.sort((a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf());
     }
 }

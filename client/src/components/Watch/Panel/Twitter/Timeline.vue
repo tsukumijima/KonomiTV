@@ -191,7 +191,7 @@ const flattenedItems = computed(() => {
     }
 
     // `tweetsByKey` は順序を持たない正規化ストアなので、描画直前に必ず時刻降順へ並べ直す
-    const sortedTweets = TweetUtils.sortTweetsByCreatedAt([...tweetsByKey.value.values()]);
+    const sortedTweets = TweetUtils.sortTweetsByCreatedAtInPlace([...tweetsByKey.value.values()]);
     const filteredTweets = sortedTweets.filter(tweet => {
         if (!filterQuery.value) {
             return true;
@@ -427,7 +427,7 @@ const addFetchedTweetsToTimeline = (
     const blueskyTweets = filterTimelineTweets(blueskyPageTweets);
     const twitterUniqueTweets = TweetUtils.filterDuplicateTweets(twitterTweets, existingIds);
     const blueskyUniqueTweets = TweetUtils.filterDuplicateTweets(blueskyTweets, existingIds);
-    const uniqueTweets = TweetUtils.sortTweetsByCreatedAt([
+    const uniqueTweets = TweetUtils.sortTweetsByCreatedAtInPlace([
         ...twitterUniqueTweets,
         ...blueskyUniqueTweets,
     ]);

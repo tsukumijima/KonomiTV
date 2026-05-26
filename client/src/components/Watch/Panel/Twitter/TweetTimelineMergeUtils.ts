@@ -178,8 +178,10 @@ export const classifyTimelineCursors = (
             if (upperCreatedAt === null) {
                 return null;
             }
+            // 上側境界は再取得時に変わることがあるため、カーソル本体と古い側境界で ID を安定させる
+            const stableGapBoundary = loadMoreCursor.lower_created_at ?? 'tail';
             return {
-                id: `twitter_gap_${loadMoreCursor.cursor_id}_${upperCreatedAt}`,
+                id: `twitter_gap_${loadMoreCursor.cursor_id}_${loadMoreCursor.cursor_type}_${stableGapBoundary}`,
                 cursor_id: loadMoreCursor.cursor_id,
                 cursor_type: loadMoreCursor.cursor_type,
                 upper_created_at: upperCreatedAt,
@@ -334,7 +336,7 @@ export const buildMergedTimelineItems = (
     accountKind: TimelineAccountKind,
 ): TimelineDisplayItem[] => {
     const displayLowerBound = resolveDisplayLowerBound(coverage, accountKind);
-    const sortedTweets = TweetUtils.sortTweetsByCreatedAt([...tweets])
+    const sortedTweets = TweetUtils.sortTweetsByCreatedAtInPlace([...tweets])
         .filter(tweet => shouldShowTweet(tweet, displayLowerBound));
     const sortedTwitterGaps = [...twitterGaps]
         .sort((a, b) => getCreatedAtMilliseconds(b.upper_created_at) - getCreatedAtMilliseconds(a.upper_created_at));

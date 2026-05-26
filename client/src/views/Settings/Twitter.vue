@@ -160,7 +160,7 @@
                         </v-card-text>
                         <v-card-actions class="pt-0 px-6 pb-6">
                             <v-spacer></v-spacer>
-                            <v-btn color="text" variant="text" height="40" @click="bluesky_auth_dialog = false">キャンセル</v-btn>
+                            <v-btn color="text" variant="text" height="40" @click="closeBlueskyAuthDialog()">キャンセル</v-btn>
                             <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="loginBlueskyAccountWithAppPassword()">
                                 <Icon icon="fa:sign-in" class="mr-2" height="17px" />ログイン
                             </v-btn>
@@ -429,6 +429,15 @@ export default defineComponent({
         // ローディング状態を解除
         this.is_loading = false;
     },
+    watch: {
+        bluesky_auth_dialog(is_bluesky_auth_dialog_open: boolean) {
+            // ダイヤログ外クリックや Esc キーで閉じた場合も、保存しない App Password を画面状態から確実に消す
+            if (is_bluesky_auth_dialog_open === false) {
+                this.bluesky_app_password = '';
+                this.bluesky_app_password_showing = false;
+            }
+        },
+    },
     methods: {
         normalizeBlueskyHandle(handle: string): string {
             let normalized_handle = handle.trim();
@@ -547,6 +556,13 @@ export default defineComponent({
             }
             this.bluesky_auth_dialog = true;
             this.bluesky_app_password_showing = false;
+        },
+
+        closeBlueskyAuthDialog() {
+            // App Password は永続化しない一時入力値なので、キャンセル時点で即座に破棄する
+            this.bluesky_app_password = '';
+            this.bluesky_app_password_showing = false;
+            this.bluesky_auth_dialog = false;
         },
 
         async loginBlueskyAccountWithAppPassword() {
