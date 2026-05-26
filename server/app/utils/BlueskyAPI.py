@@ -68,6 +68,9 @@ class BlueskyAPI:
         # 現状の認証 UI は Bluesky 公式 PDS 向けなので、接続先は SDK の標準設定に任せる
         # SDK の既定 5 秒タイムアウトでは画像アップロードや混雑時の応答待ちが失敗しやすいため、HTTPX 側の待機時間を広げる
         self.client = AsyncClient(request=AsyncRequest(timeout=self.REQUEST_TIMEOUT))
+        # セッション更新通知の登録状態
+        # `_login()` は各 API 操作の前に呼ばれるため、同じコールバックを重複登録しないようインスタンス単位で保持する
+        self.is_session_change_handler_registered = False
 
 
     @classmethod
@@ -203,7 +206,12 @@ class BlueskyAPI:
             await self.bluesky_account.save()
             logging.info(f'{self.log_prefix} Bluesky session string updated.')
 
-        self.client.on_session_change(on_session_change)
+        # atproto SDK のセッション更新通知は追加登録型なので、API 操作のたびに登録すると保存処理が重複する
+        ## セッション復元自体は毎回必要だが、通知ハンドラーは同じクライアントに 1 回だけ紐づければよい
+        if self.is_session_change_handler_registered is False:
+            self.client.on_session_change(on_session_change)
+            self.is_session_change_handler_registered = True
+
         # 保存済みの session_string を復元し、SDK 側にアクセストークン更新を任せる
         await self._invokeWithRetry(
             'restore_session',

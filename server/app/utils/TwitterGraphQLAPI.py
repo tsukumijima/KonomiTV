@@ -1456,11 +1456,6 @@ class TwitterGraphQLAPI:
             variables['seenTweetIds'] = seen_tweet_ids
             additional_flags = {'forcePost': True}
 
-        # 新着方向の実リクエストだけ取得時刻を更新する
-        ## 初回取得後すぐの更新は止めつつ、古い方向の追加取得が更新側の待ち時間を延ばさないようにする
-        if cursor_id is None or cursor_type == 'Top':
-            self._last_home_fetched_at = time.time()
-
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             endpoint_name='HomeLatestTimeline',
@@ -1484,6 +1479,11 @@ class TwitterGraphQLAPI:
         # ツイートリストを取得する
         ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
         tweets = self.__getTweetsFromTimelineAPIResponse(response)
+
+        # 新着方向の実リクエストだけ、成功後に取得時刻を更新する
+        ## 失敗時まで更新すると一時的な通信失敗の直後に 30 秒待ちになり、ユーザー操作でリトライできなくなる
+        if cursor_id is None or cursor_type == 'Top':
+            self._last_home_fetched_at = time.time()
 
         return schemas.TimelineTweetsResult(
             is_success=True,
@@ -1549,11 +1549,6 @@ class TwitterGraphQLAPI:
         ## Twitter Web App の挙動に合わせて設定
         variables['withGrokTranslatedBio'] = False
 
-        # 新着方向の検索取得だけ時刻を更新し、古い方向の追加取得は次回更新の待ち時間に含めない
-        ## 初回検索はカーソルなしだが、その直後の更新連打を避けるため更新側タイマーの基準に含める
-        if cursor_id is None or cursor_type == 'Top':
-            self._last_search_fetched_at = time.time()
-
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
             endpoint_name='SearchTimeline',
@@ -1576,6 +1571,11 @@ class TwitterGraphQLAPI:
         # ツイートリストを取得する
         ## 取得できなかった場合、あるいは単純に一致する結果がない場合は空のリストになる
         tweets = self.__getTweetsFromTimelineAPIResponse(response)
+
+        # 新着方向の検索取得だけ、成功後に取得時刻を更新する
+        ## 失敗時まで更新すると一時的な通信失敗の直後に 30 秒待ちになり、ユーザー操作でリトライできなくなる
+        if cursor_id is None or cursor_type == 'Top':
+            self._last_search_fetched_at = time.time()
 
         return schemas.TimelineTweetsResult(
             is_success=True,
