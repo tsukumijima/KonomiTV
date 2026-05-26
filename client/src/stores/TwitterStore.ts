@@ -12,8 +12,8 @@ import useUserStore from '@/stores/UserStore';
 const useTwitterStore = defineStore('twitter', {
     state: () => ({
 
-        // Twitter アカウントを1つでも連携しているかどうか
-        is_logged_in_twitter: false,
+        // Twitter タブで利用できる Twitter / Bluesky / 紐付け済みアカウントを 1 つでも連携しているかどうか
+        has_twitter_panel_account: false,
 
         // Twitter タブで利用できる Twitter / Bluesky / 紐付け済みアカウントの一覧
         selectable_accounts: [] as ISelectableAccount[],
@@ -51,11 +51,11 @@ const useTwitterStore = defineStore('twitter', {
                 );
                 this.selectable_accounts = selectable_accounts;
 
-                // 連携している Twitter / Bluesky / 紐付け アカウントが一つでもあれば is_logged_in_twitter を true に設定
+                // 連携している Twitter / Bluesky / 紐付け アカウントが一つでもあれば has_twitter_panel_account を true に設定
                 if (selectable_accounts.length === 0) {
                     // ユーザー自体はログイン中でも、実況用アカウントをすべて解除した場合は Twitter タブを未連携状態に戻す
                     // 保存済みの選択アカウントも同時に消し、後から同じローカル ID が別アカウントに再利用される事故を避ける
-                    this.is_logged_in_twitter = false;
+                    this.has_twitter_panel_account = false;
                     this.selected_account = null;
                     this.selected_twitter_account = null;
                     this.account_api_activity = {};
@@ -63,7 +63,7 @@ const useTwitterStore = defineStore('twitter', {
                     return;
                 }
 
-                this.is_logged_in_twitter = true;
+                this.has_twitter_panel_account = true;
                 // 永続化された選択中アカウントを復元 (該当が無ければ resolveSelectedAccount 側で先頭にフォールバックされる)
                 // selectAccount() を経由することで、selected_account / selected_twitter_account / SettingsStore への書き戻しを一括で行う
                 // フォールバック発動時に SettingsStore に書き戻すことで、無効な永続化値が残り続けるのを防ぐ
@@ -77,7 +77,7 @@ const useTwitterStore = defineStore('twitter', {
                     this.resetAccountAPIActivity(this.selected_twitter_account.screen_name);
                 }
             } else {
-                this.is_logged_in_twitter = false;
+                this.has_twitter_panel_account = false;
                 this.selectable_accounts = [];
                 this.selected_account = null;
                 this.selected_twitter_account = null;

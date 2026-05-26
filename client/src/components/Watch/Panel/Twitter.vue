@@ -48,12 +48,12 @@
             <div class="tweet-form__control" :class="{
                 'tweet-form__control--linked': twitterStore.selected_account?.kind === 'Linked',
             }">
-                <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.is_logged_in_twitter}"
+                <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.has_twitter_panel_account}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
-                        :src="twitterStore.is_logged_in_twitter ? selectedAccountIconUrl : '/assets/images/account-icon-default.png'">
+                        :src="twitterStore.has_twitter_panel_account ? selectedAccountIconUrl : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{twitterStore.is_logged_in_twitter ? selectedAccountDisplayId : '連携されていません'}}
+                        {{twitterStore.has_twitter_panel_account ? selectedAccountDisplayId : '連携されていません'}}
                     </span>
                     <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="18px" />
                 </div>
@@ -578,8 +578,8 @@ export default defineComponent({
         // アカウントボタンが押されたときのイベント
         clickAccountButton() {
 
-            // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
-            if (!this.twitterStore.is_logged_in_twitter) {
+            // Twitter タブで利用できる連携アカウントがない場合は Twitter 設定画面に飛ばす
+            if (!this.twitterStore.has_twitter_panel_account) {
 
                 // 視聴画面以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
                 if (document.fullscreenElement) {
