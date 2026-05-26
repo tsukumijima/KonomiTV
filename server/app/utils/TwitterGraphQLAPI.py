@@ -1334,9 +1334,9 @@ class TwitterGraphQLAPI:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
         """
 
-        # カーソル付き取得は、既に表示しているタイムラインの続きを取得する操作に限定される
-        ## Twitter Web App のリロード相当であるカーソルなし初回取得は制限せず、短時間リロードで空 TL になる事故を避ける
-        if cursor_id is not None:
+        # 30 秒制限は新着方向の更新だけに掛ける
+        ## スクロールや gap ボタンによる追加取得は Twitter Web App でも短い間隔で発生するため、ここで止めると未取得範囲が埋まらない
+        if cursor_id is not None and cursor_type == 'Top':
             elapsed_seconds = time.time() - self._last_home_fetched_at
             if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
                 return schemas.TimelineTweetsResult(
@@ -1373,8 +1373,10 @@ class TwitterGraphQLAPI:
             variables['seenTweetIds'] = seen_tweet_ids
             additional_flags = {'forcePost': True}
 
-        # 実リクエストを投げる直前に時刻を更新し、失敗直後の即時リトライ連打も同じ制限で吸収する
-        self._last_home_fetched_at = time.time()
+        # 新着方向の実リクエストだけ取得時刻を更新する
+        ## 初回取得後すぐの更新は止めつつ、古い方向の追加取得が更新側の待ち時間を延ばさないようにする
+        if cursor_id is None or cursor_type == 'Top':
+            self._last_home_fetched_at = time.time()
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
@@ -1429,9 +1431,9 @@ class TwitterGraphQLAPI:
             schemas.TimelineTweets | schemas.TwitterAPIResult: 検索結果
         """
 
-        # 検索も Twitter Web App と同じく、初回検索はカーソルなし、以降の更新 / 追加取得はカーソル付きになる
-        ## ホームタイムラインとは独立した画面なので、検索専用の最終取得時刻だけで制限する
-        if cursor_id is not None:
+        # 検索でも 30 秒制限は新着方向の更新だけに掛ける
+        ## 古い方向や gap の追加取得まで止めると、検索結果の中央 gap をユーザー操作で埋められなくなる
+        if cursor_id is not None and cursor_type == 'Top':
             elapsed_seconds = time.time() - self._last_search_fetched_at
             if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
                 return schemas.TimelineTweetsResult(
@@ -1464,8 +1466,10 @@ class TwitterGraphQLAPI:
         ## Twitter Web App の挙動に合わせて設定
         variables['withGrokTranslatedBio'] = False
 
-        # 実リクエストを投げる直前に時刻を更新し、仕様変更やネットワーク失敗時の連打も吸収する
-        self._last_search_fetched_at = time.time()
+        # 新着方向の検索取得だけ時刻を更新し、古い方向の追加取得は次回更新の待ち時間に含めない
+        ## 初回検索はカーソルなしだが、その直後の更新連打を避けるため更新側タイマーの基準に含める
+        if cursor_id is None or cursor_type == 'Top':
+            self._last_search_fetched_at = time.time()
 
         # Twitter GraphQL API にリクエスト
         response = await self.invokeGraphQLAPI(
