@@ -175,13 +175,13 @@ class Twitter {
             if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
                     // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
-                    return {message: `ツイートの送信に失敗しました。(${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(${response.data.detail})`, is_error: true};
                 } else {
                     // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
-                    return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
                 }
             } else {
-                return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
+                return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status})`, is_error: true};
             }
         }
 

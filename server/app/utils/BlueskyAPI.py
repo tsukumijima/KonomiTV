@@ -460,14 +460,14 @@ class BlueskyAPI:
                 logging.error(f'{self.log_prefix} Failed to create post:', exc_info=ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail='Bluesky への投稿に失敗しました。',
+                    detail='Bluesky へのポストに失敗しました。',
                 )
 
             # 投稿完了通知から直接開けるよう、AT URI の record key を bsky.app の URL へ変換する
             post_url = f'https://bsky.app/profile/{self.bluesky_account.handle}/post/{self._extractRecordKey(post_response.uri)}'
             return schemas.PostTweetResult(
                 is_success=True,
-                detail='Bluesky に投稿しました。',
+                detail='Bluesky にポストしました。',
                 tweet_url=post_url,
             )
 

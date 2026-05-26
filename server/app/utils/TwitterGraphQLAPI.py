@@ -279,7 +279,7 @@ class TwitterGraphQLAPI:
             endpoint_name (str): GraphQL API のエンドポイント名 (例: 'CreateTweet')
             variables (dict[str, Any]): GraphQL API へのリクエストパラメータ (ペイロードのうち "variables" の部分)
             additional_flags (dict[str, Any] | None): 追加のフラグ（オプション）
-            error_message_prefix (str, optional): エラー発生時に付与する prefix (例: 'ツイートの送信に失敗しました。')
+            error_message_prefix (str, optional): エラー発生時に付与する prefix (例: 'Twitter へのツイートに失敗しました。')
 
         Returns:
             dict[str, Any] | str: GraphQL API のレスポンス (失敗時は日本語のエラーメッセージを返す)
@@ -730,7 +730,7 @@ class TwitterGraphQLAPI:
                         logging.warning(f'{self.log_prefix} Error during browser restart marking:', exc_info=restart_ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail='ツイートの送信に失敗しました。Twitter API に接続できませんでした。',
+                    detail='Twitter へのツイートに失敗しました。Twitter API に接続できませんでした。',
                 )
             finally:
                 # ツイート送信完了後、更新された可能性があるヘッドレスブラウザの Cookie を DB 側に反映
@@ -776,7 +776,7 @@ class TwitterGraphQLAPI:
                         logging.warning(f'{self.log_prefix} Error during browser restart marking:', exc_info=restart_ex)
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail=f'ツイートの送信に失敗しました。{error_message}',
+                    detail=f'Twitter へのツイートに失敗しました。{error_message}',
                 )
 
             # CreateTweet のレスポンスを解析する
@@ -789,7 +789,7 @@ class TwitterGraphQLAPI:
                 logging.error(f'{self.log_prefix} Failed to get CreateTweet response: graphql_api_result is None')
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail='ツイートの送信に失敗しました。CreateTweet のレスポンスが取得できませんでした。',
+                    detail='Twitter へのツイートに失敗しました。CreateTweet のレスポンスが取得できませんでした。',
                 )
 
             parsed_response = graphql_api_result.parsed_response
@@ -811,12 +811,12 @@ class TwitterGraphQLAPI:
                     )
                     return schemas.TwitterAPIResult(
                         is_success=False,
-                        detail=f'ツイートの送信に失敗しました。{error_message}',
+                        detail=f'Twitter へのツイートに失敗しました。{error_message}',
                     )
 
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail=f'ツイートの送信に失敗しました。Twitter API から HTTP {status_code} エラーが返されました。',
+                    detail=f'Twitter へのツイートに失敗しました。Twitter API から HTTP {status_code} エラーが返されました。',
                 )
 
             # レスポンスから data を取り出す
@@ -826,7 +826,7 @@ class TwitterGraphQLAPI:
                 logging.error(f'{self.log_prefix} Response: {parsed_response}')
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail='ツイートの送信に失敗しました。レスポンスの形式が不正です。',
+                    detail='Twitter へのツイートに失敗しました。レスポンスの形式が不正です。',
                 )
 
             # エラーが含まれていて data がない場合
@@ -841,7 +841,7 @@ class TwitterGraphQLAPI:
                 logging.error(f'{self.log_prefix} CreateTweet API error: {error_message}')
                 return schemas.TwitterAPIResult(
                     is_success=False,
-                    detail=f'ツイートの送信に失敗しました。{error_message}',
+                    detail=f'Twitter へのツイートに失敗しました。{error_message}',
                 )
 
             # data キーからツイート ID を抽出する
@@ -870,7 +870,7 @@ class TwitterGraphQLAPI:
                     await self._browser.captureDebugScreenshot('empty_tweet_results')
                     return schemas.TwitterAPIResult(
                         is_success=False,
-                        detail='ツイートの送信に失敗しました。Twitter からの応答が空でした。レートリミットまたはスパム制限の可能性があります。',
+                        detail='Twitter へのツイートに失敗しました。Twitter からの応答が空でした。レートリミットまたはスパム制限の可能性があります。',
                     )
 
                 tweet_id = str(response_data['create_tweet']['tweet_results']['result']['rest_id'])
@@ -885,7 +885,7 @@ class TwitterGraphQLAPI:
                 self._consecutive_compose_failures = 0
                 return schemas.PostTweetResult(
                     is_success=True,
-                    detail='ツイートを送信しましたが、ツイート ID を取得できませんでした。',
+                    detail='Twitter にツイートしましたが、ツイート ID を取得できませんでした。',
                     tweet_url='https://x.com/i/status/__error__',
                 )
 
@@ -894,7 +894,7 @@ class TwitterGraphQLAPI:
             logging.info(f'{self.log_prefix} Tweet posted successfully. tweet_id: {tweet_id}')
             return schemas.PostTweetResult(
                 is_success=True,
-                detail='ツイートを送信しました。',
+                detail='Twitter にツイートしました。',
                 tweet_url=f'https://x.com/i/status/{tweet_id}',
             )
 

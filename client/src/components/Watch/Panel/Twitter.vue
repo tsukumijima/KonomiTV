@@ -1022,7 +1022,7 @@ export default defineComponent({
                 console.error('Tweet sending promise rejected unexpectedly.', error);
                 return {
                     service,
-                    message: service === 'Twitter' ? 'ツイートの Twitter への送信に失敗しました。' : 'ツイートの Bluesky への送信に失敗しました。',
+                    message: service === 'Twitter' ? 'Twitter へのツイートに失敗しました。' : 'Bluesky へのポストに失敗しました。',
                     is_error: true,
                     settled_at: performance.now(),
                 };
@@ -1105,7 +1105,7 @@ export default defineComponent({
 
             return {
                 service: result.service,
-                message: result.service === 'Twitter' ? 'ツイートを Twitter に送信しました。' : 'ツイートを Bluesky に送信しました。',
+                message: result.service === 'Twitter' ? 'Twitter にツイートしました。' : 'Bluesky にポストしました。',
                 is_error: false,
             };
         },
@@ -1119,7 +1119,7 @@ export default defineComponent({
             if (twitter_result?.is_error === false && bluesky_result?.is_error === false) {
                 return {
                     service: 'Twitter',
-                    message: 'ツイートを Twitter と Bluesky に同時送信しました。',
+                    message: 'Twitter と Bluesky に同時ツイートしました。',
                     is_error: false,
                 };
             }
@@ -1129,7 +1129,7 @@ export default defineComponent({
             if (twitter_result?.is_error === true && bluesky_result?.is_error === false) {
                 return {
                     service: 'Twitter',
-                    message: `ツイートを Bluesky に送信しました。Twitter への送信は失敗しました。(${twitter_result.message})`,
+                    message: `Bluesky にポストしました。Twitter へのツイートは失敗しました。(${twitter_result.message})`,
                     is_error: true,
                 };
             }
@@ -1139,7 +1139,7 @@ export default defineComponent({
             if (twitter_result?.is_error === false && bluesky_result?.is_error === true) {
                 return {
                     service: 'Bluesky',
-                    message: `ツイートを Twitter に送信しました。Bluesky への送信は失敗しました。(${bluesky_result.message})`,
+                    message: `Twitter にツイートしました。Bluesky へのポストは失敗しました。(${bluesky_result.message})`,
                     is_error: true,
                 };
             }
@@ -1148,7 +1148,7 @@ export default defineComponent({
             // どちらか一方だけ失敗したように見えないよう、サービス横断の失敗として扱う
             return {
                 service: 'Twitter',
-                message: `ツイートの Twitter と Bluesky への送信に失敗しました。(${results.map(result => result.message).join(' / ')})`,
+                message: `Twitter と Bluesky へのツイートに失敗しました。(${results.map(result => result.message).join(' / ')})`,
                 is_error: true,
             };
         },

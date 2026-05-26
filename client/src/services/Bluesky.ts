@@ -74,9 +74,9 @@ class Bluesky {
         if (response.type === 'error') {
             // 送信 UI は Promise を reject させず結果通知を並列に扱うため、HTTP エラーも戻り値へ正規化する
             if (typeof response.data.detail === 'string') {
-                return {message: `Bluesky への投稿に失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
+                return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
             }
-            return {message: `Bluesky への投稿に失敗しました。(HTTP Error ${response.status})`, is_error: true};
+            return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status})`, is_error: true};
         }
 
         return {message: response.data.detail, is_error: response.data.is_success === false};
