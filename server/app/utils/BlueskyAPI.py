@@ -265,39 +265,77 @@ class BlueskyAPI:
         return post_response.posts[0]
 
 
-    async def _buildImageEmbed(self, images: list[UploadFile]) -> models.AppBskyEmbedImages.Main | None:
+    async def _prepareAndUploadImage(self, image: UploadFile) -> models.AppBskyEmbedImages.Image:
         """
-        アップロードされた画像を Bluesky の画像 embed に変換する
+        アップロードされた 1 枚の画像を Bluesky の画像 embed 要素へ変換する
 
         Args:
-            images (list[UploadFile]): 添付画像
+            image (UploadFile): 添付画像
 
         Returns:
-            models.AppBskyEmbedImages.Main | None: Bluesky の画像 embed
+            models.AppBskyEmbedImages.Image: Bluesky の画像 embed 要素
         """
 
-        if len(images) == 0:
-            return None
+        def ConvertLargeImageToWebP(image_bytes: bytes) -> bytes:
+            """
+            2MB を超える画像を WebP に変換し、必要に応じて長辺を縮小する
 
-        embed_images: list[models.AppBskyEmbedImages.Image] = []
-        for image in images:
-            # UploadFile は非同期に読み出し、後続の画像検証と再エンコードだけを別スレッドへ逃がす
-            image_bytes = await image.read()
-            # Pillow の画像解析・再エンコードは同期 I/O と CPU 負荷を含むため、非同期関数内では直接実行しない
-            image_bytes, aspect_ratio = await asyncio.to_thread(self._prepareImageForUpload, image_bytes)
+            Args:
+                image_bytes (bytes): 変換前の画像データ
 
-            # atproto の画像 embed には先に blob をアップロードし、その参照と縦横比を Image として詰める
-            upload_response = await self._invokeWithRetry(
-                'upload_blob',
-                lambda: self.client.upload_blob(image_bytes),
-            )
-            embed_images.append(models.AppBskyEmbedImages.Image(
-                alt='',
-                image=upload_response.blob,
-                aspect_ratio=aspect_ratio,
-            ))
+            Returns:
+                bytes: Bluesky にアップロード可能な WebP 画像データ
+            """
 
-        return models.AppBskyEmbedImages.Main(images=embed_images)
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                # アルファチャンネル付き画像も WebP に保存できるよう RGBA に寄せる
+                if image.mode not in ('RGB', 'RGBA'):
+                    image = image.convert('RGBA')
+
+                # 1 ループ目は元解像度のまま quality だけ 85 → 50 と段階的に下げて 2MB 以下を狙う
+                # それでも収まらない場合は長辺を 1920 → 1600 → 1280 → 1024 → 800 と段階的に縮めて再試行する
+                # 画質より解像度の維持を優先するための順序
+                original_image = image.copy()
+                original_long_edge = max(original_image.width, original_image.height)
+                for max_long_edge in [original_long_edge, 1920, 1600, 1280, 1024, 800]:
+                    working_image = original_image
+                    current_long_edge = max(working_image.width, working_image.height)
+                    # 現在の試行サイズより大きい画像だけを縮小し、小さい画像を拡大して画質を落とさない
+                    if current_long_edge > max_long_edge:
+                        resize_ratio = max_long_edge / current_long_edge
+                        resized_width = max(1, int(working_image.width * resize_ratio))
+                        resized_height = max(1, int(working_image.height * resize_ratio))
+                        working_image = working_image.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
+
+                    for quality in [85, 80, 70, 60, 50]:
+                        output_buffer = io.BytesIO()
+                        working_image.save(output_buffer, format='WEBP', quality=quality, method=6)
+                        converted_bytes = output_buffer.getvalue()
+                        # 2MB 以下になった最初の組み合わせを採用し、必要以上の画質低下や縮小を避ける
+                        if len(converted_bytes) <= self.MAX_IMAGE_BYTES:
+                            return converted_bytes
+
+            raise ValueError('Image size exceeds the Bluesky limit after WebP conversion.')
+
+        # UploadFile は非同期に読み出し、サイズだけで分かる変換要否は Pillow を呼ぶ前に判定する
+        image_bytes = await image.read()
+        # Bluesky の blob 上限を超える場合だけ WebP 変換を試し、通常のキャプチャは元の JPEG をそのままアップロードする
+        if len(image_bytes) > self.MAX_IMAGE_BYTES:
+            image_bytes = await asyncio.to_thread(ConvertLargeImageToWebP, image_bytes)
+
+        if len(image_bytes) > self.MAX_IMAGE_BYTES:
+            raise ValueError('Image size exceeds the Bluesky limit.')
+
+        # atproto の画像 embed には先に blob をアップロードし、その参照を Image として詰める
+        # aspectRatio は任意項目なので、縦横比取得のためだけに画像を再オープンしない
+        upload_response = await self._invokeWithRetry(
+            'upload_blob',
+            lambda: self.client.upload_blob(image_bytes),
+        )
+        return models.AppBskyEmbedImages.Image(
+            alt='',
+            image=upload_response.blob,
+        )
 
 
     def _formatPostView(self, post: models.AppBskyFeedDefs.PostView, reason: Any | None = None) -> schemas.Tweet:
@@ -317,7 +355,7 @@ class BlueskyAPI:
         # Bluesky のフィード投稿は実態として常に app.bsky.feed.post レコードのはずだが、SDK の型上は保証されない
         record = post.record
         if isinstance(record, models.AppBskyFeedPost.Record):
-            text = record.text
+            text = self._expandFacetLinksInText(record.text, record.facets)
             created_at_text = record.created_at
         else:
             text = ''
@@ -404,7 +442,15 @@ class BlueskyAPI:
 
             try:
                 # 画像 embed と facets 付き本文を組み立ててから投稿し、Bluesky 上で URL / ハッシュタグがリンク化されるようにする
-                embed = await self._buildImageEmbed(images)
+                embed: models.AppBskyEmbedImages.Main | None = None
+                if len(images) > 0:
+                    # 画像ごとの読み込み・必要時の再エンコード・blob アップロードは互いに独立しているため、
+                    # 投稿前に同時に進めて 4 枚添付時の待ち時間が単純加算されないようにする
+                    embed_images = await asyncio.gather(*[
+                        self._prepareAndUploadImage(image)
+                        for image in images
+                    ])
+                    embed = models.AppBskyEmbedImages.Main(images=embed_images)
                 post_response = await self.client.send_post(
                     text=self._buildTextBuilder(text),
                     embed=embed,
@@ -766,72 +812,57 @@ class BlueskyAPI:
 
 
     @classmethod
-    def _prepareImageForUpload(cls, image_bytes: bytes) -> tuple[bytes, models.AppBskyEmbedDefs.AspectRatio]:
+    def _expandFacetLinksInText(
+        cls,
+        text: str,
+        facets: list[models.AppBskyRichtextFacet.Main] | None,
+    ) -> str:
         """
-        Bluesky にアップロードする画像データと縦横比を同期処理で準備する
+        Bluesky の link facet が持つ実 URL を表示用テキストへ反映する
 
         Args:
-            image_bytes (bytes): アップロード前の画像データ
+            text (str): Bluesky レコード上の本文
+            facets (list[models.AppBskyRichtextFacet.Main] | None): 本文上の装飾情報
 
         Returns:
-            tuple[bytes, models.AppBskyEmbedDefs.AspectRatio]: アップロードする画像データと縦横比
+            str: link facet の表示範囲を実 URL に置換した本文
         """
 
-        # 2MB を超える場合だけ WebP に変換し、通常のキャプチャは元の JPEG をそのままアップロードする
-        if len(image_bytes) > cls.MAX_IMAGE_BYTES:
-            image_bytes = cls._convertImageToWebP(image_bytes)
+        if facets is None or len(facets) == 0:
+            return text
 
-        if len(image_bytes) > cls.MAX_IMAGE_BYTES:
-            raise ValueError('Image size exceeds the Bluesky limit.')
+        text_bytes = text.encode('utf-8')
+        replacements: list[tuple[int, int, str]] = []
+        for facet in facets:
+            link_uri: str | None = None
+            for feature in facet.features:
+                # Bluesky 公式 Web は短縮表示された URL でも link facet の uri に実 URL を保持している
+                # KonomiTV 側では本文へ実 URL を戻し、既存のフロント側リンク化処理に乗せる
+                if isinstance(feature, models.AppBskyRichtextFacet.Link):
+                    link_uri = feature.uri
+                    break
 
-        # Bluesky の画像 embed は縦横比情報を持てるため、アップロード直前の実画像サイズから aspect_ratio を作る
-        with Image.open(io.BytesIO(image_bytes)) as pillow_image:
-            aspect_ratio = models.AppBskyEmbedDefs.AspectRatio(
-                width=pillow_image.width,
-                height=pillow_image.height,
-            )
+            if link_uri is None:
+                continue
 
-        return image_bytes, aspect_ratio
+            byte_start = facet.index.byte_start
+            byte_end = facet.index.byte_end
+            # PDS 由来の byte slice が壊れている場合は表示本文を壊さず、その facet だけを無視する
+            if byte_start < 0 or byte_end <= byte_start or byte_end > len(text_bytes):
+                logging.warning(
+                    f'{cls.__name__} Ignored invalid Bluesky link facet range. '
+                    f'[byte_start: {byte_start}, byte_end: {byte_end}, text_bytes: {len(text_bytes)}]',
+                )
+                continue
 
+            replacements.append((byte_start, byte_end, link_uri))
 
-    @classmethod
-    def _convertImageToWebP(cls, image_bytes: bytes) -> bytes:
-        """
-        2MB を超える画像を WebP に変換し、必要に応じて長辺を縮小する
+        if len(replacements) == 0:
+            return text
 
-        Args:
-            image_bytes (bytes): 変換前の画像データ
+        # byte slice の後ろから置換すると、前方 facet の byte offset を維持したまま安全に差し替えられる
+        expanded_text_bytes = bytearray(text_bytes)
+        for byte_start, byte_end, link_uri in sorted(replacements, key=lambda replacement: replacement[0], reverse=True):
+            expanded_text_bytes[byte_start:byte_end] = link_uri.encode('utf-8')
 
-        Returns:
-            bytes: Bluesky にアップロード可能な WebP 画像データ
-        """
-
-        with Image.open(io.BytesIO(image_bytes)) as image:
-            # アルファチャンネル付き画像も WebP に保存できるよう RGBA に寄せる
-            if image.mode not in ('RGB', 'RGBA'):
-                image = image.convert('RGBA')
-
-            # 1 ループ目は元解像度のまま quality だけ 85 → 50 と段階的に下げて 2MB 以下を狙う
-            # それでも収まらない場合は長辺を 1920 → 1600 → 1280 → 1024 → 800 と段階的に縮めて再試行する
-            # 画質より解像度の維持を優先するための順序
-            original_image = image.copy()
-            original_long_edge = max(original_image.width, original_image.height)
-            for max_long_edge in [original_long_edge, 1920, 1600, 1280, 1024, 800]:
-                working_image = original_image
-                current_long_edge = max(working_image.width, working_image.height)
-                # 現在の試行サイズより大きい画像だけを縮小し、小さい画像を拡大して画質を落とさない
-                if current_long_edge > max_long_edge:
-                    resize_ratio = max_long_edge / current_long_edge
-                    resized_width = max(1, int(working_image.width * resize_ratio))
-                    resized_height = max(1, int(working_image.height * resize_ratio))
-                    working_image = working_image.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
-
-                for quality in [85, 80, 70, 60, 50]:
-                    output_buffer = io.BytesIO()
-                    working_image.save(output_buffer, format='WEBP', quality=quality, method=6)
-                    converted_bytes = output_buffer.getvalue()
-                    # 2MB 以下になった最初の組み合わせを採用し、必要以上の画質低下や縮小を避ける
-                    if len(converted_bytes) <= cls.MAX_IMAGE_BYTES:
-                        return converted_bytes
-
-            raise ValueError('Image size exceeds the Bluesky limit after WebP conversion.')
+        return expanded_text_bytes.decode('utf-8')
