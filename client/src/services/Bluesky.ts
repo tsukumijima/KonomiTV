@@ -65,9 +65,10 @@ class Bluesky {
             form_data.append('images', tweet_capture);
         }
 
-        // 画像変換やアップロードに時間がかかる場合があるため、通常の API より長めのタイムアウトにする
+        // Bluesky 投稿はサーバー側の画像変換と最大 4 枚の blob アップロードを含むため、
+        // 通常 API より長めに 3 分 (180 秒) だけ待つ
         const response = await APIClient.post<IPostTweetResult>(`/bluesky/accounts/${handle}/posts`, form_data, {
-            timeout: 10 * 60 * 1000,
+            timeout: 3 * 60 * 1000,
         });
 
         if (response.type === 'error') {
