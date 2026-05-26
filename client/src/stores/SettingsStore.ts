@@ -141,7 +141,7 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // 視聴画面 Twitter タブで最後に選択していたアカウント (Twitter / Bluesky / 紐付け の tagged union、同期無効)
     // ID は Twitter / Bluesky / 紐付け それぞれの DB 連番 ID で、別環境間で意味が異なるため同期対象外
     selected_twitter_panel_account: null,
-    // 紐付けアカウントごとの投稿先設定 (同期無効)
+    // 紐付けアカウントごとの送信先設定 (同期無効)
     // 視聴中に頻繁に変える UI 状態なので、サーバー側の AccountLink レコードには保存しない
     twitter_panel_post_targets: {},
     // 保存している Twitter のハッシュタグが入るリスト

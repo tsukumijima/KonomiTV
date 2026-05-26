@@ -230,7 +230,7 @@ interface ISelectableAccountDisplayRow {
     text: string;
 }
 
-// 同時投稿時の通知文と待ち合わせ処理で扱う投稿先サービス
+// 同時投稿時の通知文と待ち合わせ処理で扱う送信先サービス
 // 実際の選択状態は送信開始時点で別途スナップショットし、通知処理は現在のトグル状態を参照しない
 type TweetPostService = 'Twitter' | 'Bluesky';
 
@@ -247,7 +247,7 @@ interface ITweetPostNotificationResult {
 // waitForRemainingTweetPostResult のタイムアウトと、完了時刻差の統合判定の両方で同じ値を使う
 const SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS = 2000;
 
-// 投稿先サービスと、そのサービスへ投げた非同期処理を対応づける
+// 送信先サービスと、そのサービスへ投げた非同期処理を対応づける
 // Promise だけではどのサービスの結果か後から安全に判定できないため、service を外側にも保持する
 interface ITweetPostRequest {
     service: TweetPostService;
@@ -381,7 +381,7 @@ export default defineComponent({
 
         linkedPostTargetKey(): string | null {
             const account = this.twitterStore.selected_account;
-            // 投稿先の切替状態は視聴中に頻繁に変わる軽い UI 状態なので DB には置かない
+            // 送信先の切替状態は視聴中に頻繁に変わる軽い UI 状態なので DB には置かない
             // 紐付け ID ごとの LocalStorage キーにして、リンク解除後の単独アカウントへ状態を漏らさない
             if (account?.kind !== 'Linked') return null;
             return `Linked-${account.account_link.id}`;
@@ -675,7 +675,7 @@ export default defineComponent({
             const current_bluesky = this.linkedPostTarget.is_post_to_bluesky;
             let is_post_to_twitter = true;
             let is_post_to_bluesky = true;
-            // 両方 → Twitter のみ → Bluesky のみ → 両方 の順で循環させ、空投稿先の状態は作らない
+            // 両方 → Twitter のみ → Bluesky のみ → 両方 の順で循環させ、空送信先の状態は作らない
             if (current_twitter === true && current_bluesky === true) {
                 is_post_to_twitter = true;
                 is_post_to_bluesky = false;
@@ -873,7 +873,7 @@ export default defineComponent({
             if (this.is_tweet_sending === true) return;
             this.is_tweet_sending = true;
 
-            // 投稿先トグルは送信中でも操作できるため、以降の処理では現在値を見ない
+            // 送信先トグルは送信中でも操作できるため、以降の処理では現在値を見ない
             // ここで固定した送信先だけを使い、API 呼び出しと完了通知の整合性を保つ
             const post_target_snapshot = this.createTweetPostTargetSnapshot();
             if (post_target_snapshot.twitter_screen_name === null && post_target_snapshot.bluesky_handle === null) {
@@ -937,7 +937,7 @@ export default defineComponent({
             // 片方が凍結や API エラーで失敗しても、もう片方の投稿結果は通知として残す
             if (post_target_snapshot.twitter_screen_name !== null) {
                 // Twitter 送信は押下時点の screen_name だけを参照する
-                // 送信中にアカウント選択や投稿先トグルが変わっても、この Promise の宛先は変えない
+                // 送信中にアカウント選択や送信先トグルが変わっても、この Promise の宛先は変えない
                 send_results.push({
                     service: 'Twitter',
                     promise: this.sendTweetToService('Twitter',
@@ -989,7 +989,7 @@ export default defineComponent({
             // 画像処理や API 待ちの間にユーザーがトグルを変更しても、この送信の宛先と通知内容は変えない
             if (account?.kind === 'Linked') {
                 // 投稿ボタンを押した瞬間のトグル状態を固定する
-                // 送信中にユーザーが投稿先を切り替えても、この送信と完了通知は押下時点の対象だけを参照する
+                // 送信中にユーザーが送信先を切り替えても、この送信と完了通知は押下時点の対象だけを参照する
                 return {
                     twitter_screen_name: this.linkedPostTarget.is_post_to_twitter === true ? account.account_link.twitter_account.screen_name : null,
                     bluesky_handle: this.linkedPostTarget.is_post_to_bluesky === true ? account.account_link.bluesky_account.handle : null,

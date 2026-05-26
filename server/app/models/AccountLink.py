@@ -23,7 +23,7 @@ class AccountLink(TortoiseModel):
 
     id = fields.IntField(pk=True)
     # 紐付けを所有する KonomiTV ユーザー
-    # ユーザー削除時は投稿先設定としての紐付けも不要になるため cascade で削除する
+    # ユーザー削除時は送信先設定としての紐付けも不要になるため cascade で削除する
     user: fields.ForeignKeyRelation[User] = \
         fields.ForeignKeyField('models.User', related_name='account_links', on_delete=fields.CASCADE)
     user_id: int
