@@ -217,7 +217,7 @@ const applyFetchedPageState = (
     source: TimelineSource,
     result: ITimelineTweetsResult | null,
     pageTweets: ITweet[],
-    options: { should_preserve_older_state?: boolean } = {},
+    options: { should_preserve_older_state?: boolean; should_keep_older_uninitialized_when_missing?: boolean } = {},
 ) => {
     if (isCursorConsumed(result) === false) {
         return;
@@ -245,7 +245,10 @@ const removeTwitterGapById = (gapId: string | null) => {
     twitterGaps.value = twitterGaps.value.filter(gap => gap.id !== gapId);
 };
 
-const fetchBlueskyUntilDisplayLowerBound = async (blueskyHandle: string | null) => {
+const fetchBlueskyUntilDisplayLowerBound = async (
+    blueskyHandle: string | null,
+    shouldContinue: () => boolean = () => true,
+) => {
     if (blueskyHandle === null) {
         return;
     }
@@ -253,6 +256,9 @@ const fetchBlueskyUntilDisplayLowerBound = async (blueskyHandle: string | null) 
     // 混合検索でも表示下端は Twitter の取得範囲に合わせる
     // Bluesky の追加検索は画面の末尾を埋める分だけ行い、Twitter の中央 gap には混ぜない
     for (let pageIndex = 0; pageIndex < MAX_BLUESKY_CATCHUP_PAGES; pageIndex++) {
+        if (shouldContinue() === false) {
+            break;
+        }
         if (shouldFetchBlueskyForDisplayLowerBound(feedCoverage.value, getSearchAccountKind()) === false) {
             break;
         }
@@ -263,6 +269,9 @@ const fetchBlueskyUntilDisplayLowerBound = async (blueskyHandle: string | null) 
         const existingIds = createExistingTweetIds();
         const nextResult = await Bluesky.searchPosts(blueskyHandle, searchQuery.value, blueskyCursorId);
         if (nextResult === null) {
+            break;
+        }
+        if (shouldContinue() === false) {
             break;
         }
         const blueskyPageTweets = nextResult.tweets;
@@ -289,6 +298,16 @@ const getSearchAccountIdentity = (account: typeof selected_account.value) => {
         blueskyAccountId: account?.kind === 'Bluesky' ? account.bluesky_account.id :
             account?.kind === 'Linked' ? account.account_link.bluesky_account.id : null,
     };
+};
+
+const isSameSearchAccountIdentity = (
+    first: ReturnType<typeof getSearchAccountIdentity>,
+    second: ReturnType<typeof getSearchAccountIdentity>,
+) => {
+    return (
+        first.twitterAccountId === second.twitterAccountId &&
+        first.blueskyAccountId === second.blueskyAccountId
+    );
 };
 
 const removeServicePagingState = (service: 'Twitter' | 'Bluesky') => {
@@ -347,7 +366,10 @@ const performSearchTweets = async () => {
     // 検索結果のツイートを「投稿時刻が新しい順」に取得
     // 初回取得は 20 件、より新しいツイートを取得する新着方向カーソル指定時は 40 件返ってくる
     const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
+    const requestSearchQuery = searchQuery.value;
+    const requestShowRetweets = showRetweets.value;
     const account = selected_account.value;
+    const requestAccountIdentity = getSearchAccountIdentity(account);
     // 重複判定は、取得結果を追加する前の状態を基準に固定する
     const existingIds = createExistingTweetIds();
     // 紐付けアカウントでは Twitter と Bluesky の検索を並列実行し、片方だけ連携している場合は不要な API を呼ばない
@@ -357,9 +379,27 @@ const performSearchTweets = async () => {
             Promise.resolve(null),
         account.kind === 'Bluesky' || account.kind === 'Linked' ?
             // Bluesky の検索カーソルは古い方向の続きなので、検索更新では常にカーソルなしで最新検索結果を取り直す
-            Bluesky.searchPosts(account.kind === 'Bluesky' ? account.bluesky_account.handle : account.account_link.bluesky_account.handle, searchQuery.value) :
+            Bluesky.searchPosts(account.kind === 'Bluesky' ? account.bluesky_account.handle : account.account_link.bluesky_account.handle, requestSearchQuery) :
             Promise.resolve(null),
     ]);
+
+    // 検索語・表示条件・アカウントが変わった後に古いレスポンスを書き込むと、別条件のカーソルが混ざる
+    // 監視処理側で状態を初期化しても進行中の非同期処理は止まらないため、反映直前に再確認する
+    if (
+        requestSearchQuery !== searchQuery.value ||
+        requestShowRetweets !== showRetweets.value ||
+        isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === false
+    ) {
+        isFetching.value = false;
+        return;
+    }
+
+    const isSameSearchRequest = () => (
+        requestSearchQuery === searchQuery.value &&
+        requestShowRetweets === showRetweets.value &&
+        isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === true
+    );
+
     const twitter_result = getSearchFetchResult(twitter_settled_result);
     const bluesky_result = getSearchFetchResult(bluesky_settled_result);
     const result = twitter_result ?? bluesky_result;
@@ -375,15 +415,27 @@ const performSearchTweets = async () => {
 
         addFetchedTweetsToSearch(twitterPageTweets, blueskyPageTweets, existingIds);
         // 通常検索は新着方向カーソルの取得であり、古い方向の終端確認ではない
-        // 初回は末尾用の `Older` を取り込み、既存状態がある通常検索だけ巻き戻りを防ぐ
+        // 末尾状態が確立するまでは `Older` を採用し、確立後の通常検索では巻き戻りを防ぐ
         applyFetchedPageState('Twitter', twitter_result, twitterPageTweets, {
-            should_preserve_older_state: feedCoverage.value.twitter.oldest_created_at !== null,
+            should_preserve_older_state: feedCoverage.value.twitter.older_cursor !== null || feedCoverage.value.twitter.is_older_exhausted === true,
+            should_keep_older_uninitialized_when_missing: true,
         });
         applyFetchedPageState('Bluesky', bluesky_result, blueskyPageTweets);
         await fetchBlueskyUntilDisplayLowerBound(
             account.kind === 'Bluesky' ? account.bluesky_account.handle :
                 account.kind === 'Linked' ? account.account_link.bluesky_account.handle : null,
+            isSameSearchRequest,
         );
+
+        // Bluesky の補完検索中に条件が変わった場合も、旧条件の統合結果を画面へ混ぜない
+        if (
+            requestSearchQuery !== searchQuery.value ||
+            requestShowRetweets !== showRetweets.value ||
+            isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === false
+        ) {
+            isFetching.value = false;
+            return;
+        }
 
         // 仮想スクローラーの描画をリフレッシュ
         refreshScroller();
@@ -405,7 +457,10 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     }
 
     const query = `${searchQuery.value}${showRetweets.value ? 'include:nativeretweets' : ''}`;
+    const requestSearchQuery = searchQuery.value;
+    const requestShowRetweets = showRetweets.value;
     const account = selected_account.value;
+    const requestAccountIdentity = getSearchAccountIdentity(account);
     const twitterScreenName = account.kind === 'Twitter' ? account.twitter_account.screen_name :
         account.kind === 'Linked' ? account.account_link.twitter_account.screen_name : null;
     const blueskyHandle = account.kind === 'Bluesky' ? account.bluesky_account.handle :
@@ -429,9 +484,27 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
             ) :
             Promise.resolve(null),
         shouldFetchBluesky === true ?
-            Bluesky.searchPosts(blueskyHandle, searchQuery.value, loadMoreTargets.bluesky_cursor_id!) :
+            Bluesky.searchPosts(blueskyHandle, requestSearchQuery, loadMoreTargets.bluesky_cursor_id!) :
             Promise.resolve(null),
     ]);
+
+    // 続き取得中に検索条件が変わった場合、取得済みの古い範囲を新しい検索結果へ差し込まない
+    // 特に中央 gap は Twitter アカウントと検索語に紐づくため、反映直前の確認が必要になる
+    if (
+        requestSearchQuery !== searchQuery.value ||
+        requestShowRetweets !== showRetweets.value ||
+        isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === false
+    ) {
+        isFetching.value = false;
+        return;
+    }
+
+    const isSameSearchRequest = () => (
+        requestSearchQuery === searchQuery.value &&
+        requestShowRetweets === showRetweets.value &&
+        isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === true
+    );
+
     const twitter_result = getSearchFetchResult(twitter_settled_result);
     const bluesky_result = getSearchFetchResult(bluesky_settled_result);
     const twitterPageTweets = isCursorConsumed(twitter_result) === true ? [...(twitter_result?.tweets ?? [])] : [];
@@ -449,8 +522,19 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     applyFetchedPageState('Bluesky', bluesky_result, blueskyPageTweets);
     // 中央 gap は Twitter だけを埋める操作なので、Bluesky 補充は末尾取得の後だけ行う
     if (item.type === 'tail') {
-        await fetchBlueskyUntilDisplayLowerBound(blueskyHandle);
+        await fetchBlueskyUntilDisplayLowerBound(blueskyHandle, isSameSearchRequest);
     }
+
+    // Bluesky 補充中の条件変更でも、古い検索結果を現在の画面へ混ぜない
+    if (
+        requestSearchQuery !== searchQuery.value ||
+        requestShowRetweets !== showRetweets.value ||
+        isSameSearchAccountIdentity(requestAccountIdentity, getSearchAccountIdentity(selected_account.value)) === false
+    ) {
+        isFetching.value = false;
+        return;
+    }
+
     await nextTick();
     refreshScroller();
     isFetching.value = false;

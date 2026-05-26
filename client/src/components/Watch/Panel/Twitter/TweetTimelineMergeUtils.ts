@@ -206,7 +206,7 @@ export const updateCoverageFromFetchedPage = (
     previousCoverage: IFeedCoverage,
     result: ITimelineTweetsResult | null,
     pageTweets: ITweet[],
-    options: { should_preserve_older_state?: boolean } = {},
+    options: { should_preserve_older_state?: boolean; should_keep_older_uninitialized_when_missing?: boolean } = {},
 ): IFeedCoverage => {
     if (isCursorConsumed(result) === false) {
         return previousCoverage;
@@ -231,10 +231,27 @@ export const updateCoverageFromFetchedPage = (
     // 新着方向取得と中央 gap 取得は、末尾の古い方向カーソルを消費する操作ではない
     // レスポンスに `Older` が含まれていても中間位置の可能性があるため、既存の末尾状態を優先する
     const shouldPreserveOlderState = options.should_preserve_older_state === true;
+    if (shouldPreserveOlderState === true) {
+        return {
+            oldest_created_at: oldestCreatedAt,
+            older_cursor: previousCoverage.older_cursor,
+            is_older_exhausted: previousCoverage.is_older_exhausted,
+        };
+    }
+
+    // 初回や通常更新直後は、サーバーが `Older` を返すまで「未確立」として扱う
+    // ここで枯渇扱いにすると、Twitter 単独でも末尾の「さらに表示」ボタンが二度と出なくなる
+    const shouldKeepOlderUninitialized = (
+        options.should_keep_older_uninitialized_when_missing === true &&
+        previousCoverage.older_cursor === null &&
+        previousCoverage.is_older_exhausted === false &&
+        olderCursor === null
+    );
+
     return {
         oldest_created_at: oldestCreatedAt,
-        older_cursor: shouldPreserveOlderState === true ? previousCoverage.older_cursor : olderCursor?.cursor_id ?? null,
-        is_older_exhausted: shouldPreserveOlderState === true ? previousCoverage.is_older_exhausted : olderCursor === null,
+        older_cursor: olderCursor?.cursor_id ?? null,
+        is_older_exhausted: shouldKeepOlderUninitialized === true ? false : olderCursor === null,
     };
 };
 
