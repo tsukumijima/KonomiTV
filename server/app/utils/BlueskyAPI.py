@@ -4,17 +4,33 @@ from __future__ import annotations
 import asyncio
 import io
 import re
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Final, TypeVar, cast
 
-from atproto import AsyncClient, Session, SessionEvent, client_utils, models
-from atproto_client.exceptions import UnauthorizedError
+from atproto import (
+    AsyncClient,
+    AsyncRequest,
+    Session,
+    SessionEvent,
+    client_utils,
+    models,
+)
+from atproto_client.exceptions import (
+    InvokeTimeoutError,
+    NetworkError,
+    UnauthorizedError,
+)
 from fastapi import HTTPException, UploadFile
+from httpx import Timeout
 from PIL import Image
 
 from app import logging, schemas
 from app.constants import JST
 from app.models.BlueskyAccount import BlueskyAccount
+
+
+_RetriableResultT = TypeVar('_RetriableResultT')
 
 
 class BlueskyAPI:
@@ -26,6 +42,11 @@ class BlueskyAPI:
     MAX_IMAGE_COUNT: Final[int] = 4
     # app.bsky.embed.images の blob 上限
     MAX_IMAGE_BYTES: Final[int] = 2_000_000
+    # atproto SDK の既定タイムアウトは短めなので、画像アップロードや混雑時の PDS 応答を待てる値に広げる
+    REQUEST_TIMEOUT: ClassVar[Timeout] = Timeout(timeout=30.0, connect=10.0)
+    # Bluesky 側の一時的な遅延を吸収するため、読み書きタイムアウトと 502 応答だけを短く再試行する
+    API_RETRY_ATTEMPTS: Final[int] = 3
+    API_RETRY_BASE_DELAY_SECONDS: Final[float] = 0.8
     # atproto SDK は更新トークンを更新する可能性があるため、同一 Bluesky アカウントの操作は直列化する
     ## 複数クライアントが同時に古い session_string を保存し直すと、後続リクエストが再認証を要求される可能性がある
     ACCOUNT_LOCKS: ClassVar[dict[int, asyncio.Lock]] = {}
@@ -45,7 +66,8 @@ class BlueskyAPI:
         self.log_prefix = f'[BlueskyAPI][{self.bluesky_account.handle}]'
         # atproto SDK の非同期クライアント
         # 現状の認証 UI は Bluesky 公式 PDS 向けなので、接続先は SDK の標準設定に任せる
-        self.client = AsyncClient()
+        # SDK の既定 5 秒タイムアウトでは画像アップロードや混雑時の応答待ちが失敗しやすいため、HTTPX 側の待機時間を広げる
+        self.client = AsyncClient(request=AsyncRequest(timeout=self.REQUEST_TIMEOUT))
 
 
     @classmethod
@@ -82,7 +104,7 @@ class BlueskyAPI:
         """
 
         normalized_handle = BlueskyAPI.normalizeBlueskyHandle(handle)
-        client = AsyncClient()
+        client = AsyncClient(request=AsyncRequest(timeout=BlueskyAPI.REQUEST_TIMEOUT))
         # App Password は保存せず、ログイン成功後に SDK の session_string だけを暗号化して保持する
         profile = await client.login(normalized_handle, app_password)
         session_string = client.export_session_string()
@@ -97,6 +119,74 @@ class BlueskyAPI:
         )
         account.session_string = account.encryptSessionString(session_string)
         return account
+
+
+    def _isRetriableBlueskyError(self, ex: Exception) -> bool:
+        """
+        Bluesky API 呼び出しを再試行してよい一時的な例外かを判定する
+
+        Args:
+            ex (Exception): 判定する例外
+
+        Returns:
+            bool: 一時的な通信失敗として再試行してよい場合は True
+        """
+
+        # HTTPX の読み書きタイムアウトは atproto SDK で InvokeTimeoutError に丸められるため、操作単位で短く再試行する
+        if isinstance(ex, InvokeTimeoutError) is True:
+            return True
+
+        if isinstance(ex, NetworkError) is False:
+            return False
+
+        network_error = cast(NetworkError, ex)
+
+        # SDK は 413 も NetworkError として扱うが、blob サイズ超過は再試行しても解消しない
+        # レスポンス情報がない NetworkError は接続断などの通信失敗なので、タイムアウトと同じ一時失敗として扱う
+        if network_error.response is None:
+            return True
+
+        return network_error.response.status_code in {502}
+
+
+    async def _invokeWithRetry(
+        self,
+        operation_name: str,
+        operation: Callable[[], Awaitable[_RetriableResultT]],
+    ) -> _RetriableResultT:
+        """
+        Bluesky API 呼び出しを一時的な通信失敗に限って再試行する
+
+        Args:
+            operation_name (str): ログに出力する操作名
+            operation (Callable[[], Awaitable[_RetriableResultT]]): 実行する非同期 API 呼び出し
+
+        Returns:
+            _RetriableResultT: API 呼び出しの戻り値
+        """
+
+        for attempt_number in range(1, self.API_RETRY_ATTEMPTS + 1):
+            try:
+                return await operation()
+            except Exception as ex:
+                is_retriable_error = self._isRetriableBlueskyError(ex)
+                is_last_attempt = attempt_number >= self.API_RETRY_ATTEMPTS
+
+                # 投稿作成そのもののような重複実行の実害がある呼び出しでは使わず、再試行しても状態が壊れにくい操作だけを渡す
+                if is_retriable_error is False or is_last_attempt is True:
+                    raise
+
+                retry_delay_seconds = self.API_RETRY_BASE_DELAY_SECONDS * attempt_number
+                logging.warning(
+                    f'{self.log_prefix} Retrying Bluesky API operation after transient error. '
+                    f'[operation: {operation_name}, attempt: {attempt_number}/{self.API_RETRY_ATTEMPTS}, '
+                    f'retry_delay: {retry_delay_seconds:.1f}s]',
+                    exc_info=ex,
+                )
+                await asyncio.sleep(retry_delay_seconds)
+
+        # for ループ内で必ず return か raise されるが、型チェッカーに制御フローを明示する
+        raise RuntimeError(f'Bluesky API retry loop unexpectedly finished. [operation: {operation_name}]')
 
 
     async def _login(self) -> None:
@@ -115,7 +205,10 @@ class BlueskyAPI:
 
         self.client.on_session_change(on_session_change)
         # 保存済みの session_string を復元し、SDK 側にアクセストークン更新を任せる
-        await self.client.login(session_string=self.bluesky_account.decryptSessionString())
+        await self._invokeWithRetry(
+            'restore_session',
+            lambda: self.client.login(session_string=self.bluesky_account.decryptSessionString()),
+        )
 
 
     async def _restoreSession(self) -> schemas.TwitterAPIResult | None:
@@ -161,7 +254,12 @@ class BlueskyAPI:
             return None
 
         # リポスト / いいね作成には CID が必要で、取り消しには viewer.repost / viewer.like が必要になる
-        post_response = await self.client.app.bsky.feed.get_posts(models.AppBskyFeedGetPosts.Params(uris=[post_uri]))
+        post_response = await self._invokeWithRetry(
+            'get_posts',
+            lambda: self.client.app.bsky.feed.get_posts(
+                models.AppBskyFeedGetPosts.Params(uris=[post_uri]),
+            ),
+        )
         if len(post_response.posts) == 0:
             return None
         return post_response.posts[0]
@@ -189,7 +287,10 @@ class BlueskyAPI:
             image_bytes, aspect_ratio = await asyncio.to_thread(self._prepareImageForUpload, image_bytes)
 
             # atproto の画像 embed には先に blob をアップロードし、その参照と縦横比を Image として詰める
-            upload_response = await self.client.upload_blob(image_bytes)
+            upload_response = await self._invokeWithRetry(
+                'upload_blob',
+                lambda: self.client.upload_blob(image_bytes),
+            )
             embed_images.append(models.AppBskyEmbedImages.Image(
                 alt='',
                 image=upload_response.blob,
@@ -459,7 +560,10 @@ class BlueskyAPI:
 
             try:
                 # Bluesky のホームタイムラインはカーソル 1 本でページングするため、Twitter の Top / Bottom 区別は持ち込まない
-                response = await self.client.get_timeline(limit=30, cursor=cursor_id)
+                response = await self._invokeWithRetry(
+                    'get_timeline',
+                    lambda: self.client.get_timeline(limit=30, cursor=cursor_id),
+                )
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to fetch home timeline:', exc_info=ex)
                 return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のタイムライン取得に失敗しました。')
@@ -504,13 +608,16 @@ class BlueskyAPI:
 
             try:
                 # 検索結果もホームタイムラインと同じ Tweet 配列へ変換できるよう、最新順で一定件数だけ取得する
-                response = await self.client.app.bsky.feed.search_posts(
-                    models.AppBskyFeedSearchPosts.Params(
-                        q=query,
-                        cursor=cursor_id,
-                        limit=30,
-                        sort='latest',
-                    )
+                response = await self._invokeWithRetry(
+                    'search_posts',
+                    lambda: self.client.app.bsky.feed.search_posts(
+                        models.AppBskyFeedSearchPosts.Params(
+                            q=query,
+                            cursor=cursor_id,
+                            limit=30,
+                            sort='latest',
+                        ),
+                    ),
                 )
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to search posts:', exc_info=ex)
