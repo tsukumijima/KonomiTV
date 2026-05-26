@@ -1059,6 +1059,90 @@ class TwitterGraphQLAPI:
             logging.warning(f'{self.log_prefix} Unknown timeline response format: {response}')
             return []
 
+    def __getRawTweetObjectFromTimelineItemContent(self, item_content: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        タイムライン項目から生のツイートオブジェクトを取得する
+
+        Args:
+            item_content (dict[str, Any]): タイムライン項目
+
+        Returns:
+            dict[str, Any] | None: ツイートオブジェクト (ツイート項目ではない場合は None)
+        """
+
+        if item_content.get('itemType') != 'TimelineTweet':
+            return None
+
+        tweet_results = item_content.get('tweet_results', {}).get('result')
+        if isinstance(tweet_results, dict) is False:
+            return None
+
+        if tweet_results.get('__typename') in ['Tweet', 'TweetWithVisibilityResults']:
+            return tweet_results
+
+        return None
+
+    def __getRawTweetObjectFromTimelineModule(self, content: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        タイムラインモジュールから代表ツイート 1 件分の生オブジェクトを取得する
+
+        Args:
+            content (dict[str, Any]): タイムラインモジュール
+
+        Returns:
+            dict[str, Any] | None: 代表ツイートのオブジェクト (対象外モジュールの場合は None)
+        """
+
+        # Twitter Web App はスレッドや返信チェーンを `TimelineTimelineModule` として返す
+        ## KonomiTV ではスレッド全体を表示しないため、実況として流れてきた最新の 1 件だけを通常ツイートとして扱う
+        if (
+            content.get('entryType') != 'TimelineTimelineModule'
+            or content.get('displayType') != 'VerticalConversation'
+        ):
+            return None
+
+        raw_tweet_objects: list[dict[str, Any]] = []
+        for module_item in content.get('items', []):
+            if isinstance(module_item, dict) is False:
+                continue
+
+            module_item_body = module_item.get('item', {})
+            if isinstance(module_item_body, dict) is False:
+                continue
+
+            # 通常は `item.itemContent` にツイート本体が入る
+            ## レスポンス形状が少し変わった場合でも、同じ項目内の `itemContent` だけは候補にする
+            item_content = module_item_body.get('itemContent')
+            if isinstance(item_content, dict) is False:
+                item_content = module_item.get('itemContent')
+            if isinstance(item_content, dict) is False:
+                continue
+
+            raw_tweet_object = self.__getRawTweetObjectFromTimelineItemContent(item_content)
+            if raw_tweet_object is not None:
+                raw_tweet_objects.append(raw_tweet_object)
+
+        if len(raw_tweet_objects) == 0:
+            return None
+
+        newest_raw_tweet_object: dict[str, Any] | None = None
+        newest_created_at: datetime | None = None
+        for raw_tweet_object in raw_tweet_objects:
+            created_at = self.__getCreatedAtFromRawTweetObject(raw_tweet_object)
+            if created_at is None:
+                continue
+
+            # 返信チェーンではタイムラインに流れてきた最新投稿を代表として抜き出す
+            ## 作成日時が取れない場合に備え、最後の有効ツイートを後段のフォールバックに残す
+            if newest_created_at is None or created_at > newest_created_at:
+                newest_raw_tweet_object = raw_tweet_object
+                newest_created_at = created_at
+
+        if newest_raw_tweet_object is not None:
+            return newest_raw_tweet_object
+
+        return raw_tweet_objects[-1]
+
     def __getRawTweetObjectFromTimelineEntry(self, entry: dict[str, Any]) -> dict[str, Any] | None:
         """
         タイムラインエントリから生のツイートオブジェクトを取得する
@@ -1075,17 +1159,10 @@ class TwitterGraphQLAPI:
             return None
 
         content = entry.get('content', {})
-        if (
-            content.get('entryType') != 'TimelineTimelineItem'
-            or content.get('itemContent', {}).get('itemType') != 'TimelineTweet'
-        ):
-            return None
+        if content.get('entryType') == 'TimelineTimelineItem':
+            return self.__getRawTweetObjectFromTimelineItemContent(content.get('itemContent', {}))
 
-        tweet_results = content.get('itemContent', {}).get('tweet_results', {}).get('result')
-        if tweet_results and tweet_results.get('__typename') in ['Tweet', 'TweetWithVisibilityResults']:
-            return tweet_results
-
-        return None
+        return self.__getRawTweetObjectFromTimelineModule(content)
 
     def __getCreatedAtFromRawTweetObject(self, raw_tweet_object: dict[str, Any]) -> datetime | None:
         """
@@ -1312,6 +1389,12 @@ class TwitterGraphQLAPI:
                     tweet_results = self.__getRawTweetObjectFromTimelineEntry(entry)
                     if tweet_results is not None:
                         tweets.append(format_tweet(tweet_results))
+            elif instruction.get('type') == 'TimelineReplaceEntry':
+                # Twitter は gap 展開やスレッド差し替えで単一エントリを返すことがある
+                ## 通常の追加命令と同じ抽出関数を通し、会話モジュール内の代表ツイートも取りこぼさない
+                tweet_results = self.__getRawTweetObjectFromTimelineEntry(instruction.get('entry', {}))
+                if tweet_results is not None:
+                    tweets.append(format_tweet(tweet_results))
 
         return tweets
 
