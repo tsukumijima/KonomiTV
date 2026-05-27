@@ -19,7 +19,7 @@ from app import logging, schemas
 from app.models.BlueskyAccount import BlueskyAccount
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
-from app.utils.BlueskyAPI import BlueskyAPI
+from app.utils.BlueskyAPI import BlueskyAPI, BlueskyReplyReference
 
 
 # ルーター
@@ -138,14 +138,43 @@ async def BlueskyPostAPI(
     bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
     post: Annotated[str, Form(description='Bluesky 投稿の本文。')] = '',
     images: Annotated[list[UploadFile], File(description='Bluesky 投稿に添付する画像 (4枚まで) 。')] = [],
+    reply_root_uri: Annotated[str | None, Form(description='スレッドのルートポストの AT URI 。')] = None,
+    reply_root_cid: Annotated[str | None, Form(description='スレッドのルートポストの CID 。')] = None,
+    reply_parent_uri: Annotated[str | None, Form(description='直前の親ポストの AT URI 。')] = None,
+    reply_parent_cid: Annotated[str | None, Form(description='直前の親ポストの CID 。')] = None,
 ):
     """
     Bluesky に投稿を送信する。投稿本文 or 画像のみ送信することもできる。<br>
     投稿には handle で指定した Bluesky アカウントが利用される。
     """
 
+    normalized_reply_root_uri = reply_root_uri.strip() if reply_root_uri is not None and reply_root_uri.strip() != '' else None
+    normalized_reply_root_cid = reply_root_cid.strip() if reply_root_cid is not None and reply_root_cid.strip() != '' else None
+    normalized_reply_parent_uri = reply_parent_uri.strip() if reply_parent_uri is not None and reply_parent_uri.strip() != '' else None
+    normalized_reply_parent_cid = reply_parent_cid.strip() if reply_parent_cid is not None and reply_parent_cid.strip() != '' else None
+    reply_fields = [normalized_reply_root_uri, normalized_reply_root_cid, normalized_reply_parent_uri, normalized_reply_parent_cid]
+    reply_to: BlueskyReplyReference | None = None
+    # Bluesky の StrongRef はルートと親ポストの uri / cid が揃って初めて意味を持つ
+    # 一部欠けた状態はクライアント側状態の破損や手動リクエストのミスなので、単独投稿へ丸めず明示的に拒否する
+    if any(reply_field is not None for reply_field in reply_fields):
+        if not all(reply_field is not None for reply_field in reply_fields):
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'reply_root_uri / reply_root_cid / reply_parent_uri / reply_parent_cid must all be specified together.',
+            )
+        assert normalized_reply_root_uri is not None
+        assert normalized_reply_root_cid is not None
+        assert normalized_reply_parent_uri is not None
+        assert normalized_reply_parent_cid is not None
+        reply_to = BlueskyReplyReference(
+            root_uri=normalized_reply_root_uri,
+            root_cid=normalized_reply_root_cid,
+            parent_uri=normalized_reply_parent_uri,
+            parent_cid=normalized_reply_parent_cid,
+        )
+
     # 本文と画像の検証・画像圧縮・セッション復元は BlueskyAPI 側に集約する
-    return await BlueskyAPI(bluesky_account).createPost(post, images)
+    return await BlueskyAPI(bluesky_account).createPost(post, images, reply_to)
 
 
 @router.put(

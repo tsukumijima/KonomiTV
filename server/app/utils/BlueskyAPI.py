@@ -24,6 +24,7 @@ from atproto_client.exceptions import (
 from fastapi import HTTPException, UploadFile
 from httpx import Timeout
 from PIL import Image
+from typing_extensions import TypedDict
 
 from app import logging, schemas
 from app.constants import JST
@@ -31,6 +32,15 @@ from app.models.BlueskyAccount import BlueskyAccount
 
 
 _RetriableResultT = TypeVar('_RetriableResultT')
+
+
+class BlueskyReplyReference(TypedDict):
+    """Bluesky のリプライ先参照情報"""
+
+    root_uri: str
+    root_cid: str
+    parent_uri: str
+    parent_cid: str
 
 
 class BlueskyAPI:
@@ -423,13 +433,19 @@ class BlueskyAPI:
         return tweet
 
 
-    async def createPost(self, text: str, images: list[UploadFile]) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
+    async def createPost(
+        self,
+        text: str,
+        images: list[UploadFile],
+        reply_to: BlueskyReplyReference | None = None,
+    ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
         Bluesky にポストを送信する
 
         Args:
             text (str): 投稿本文
             images (list[UploadFile]): 添付画像
+            reply_to (BlueskyReplyReference | None): リプライ先情報 (None の場合は単独ポスト)
 
         Returns:
             schemas.PostTweetResult | schemas.TwitterAPIResult: 投稿結果
@@ -459,10 +475,27 @@ class BlueskyAPI:
                         for image in images
                     ])
                     embed = models.AppBskyEmbedImages.Main(images=embed_images)
+
+                reply_ref: models.AppBskyFeedPost.ReplyRef | None = None
+                if reply_to is not None:
+                    # Bluesky のリプライはツリー全体のルートと直前の親ポストの両方を要求する
+                    # フロント側の状態は送信成功レスポンスの uri / cid だけで更新し、削除済み親への失敗時は状態を触らない
+                    reply_ref = models.AppBskyFeedPost.ReplyRef(
+                        root=models.ComAtprotoRepoStrongRef.Main(
+                            uri=reply_to['root_uri'],
+                            cid=reply_to['root_cid'],
+                        ),
+                        parent=models.ComAtprotoRepoStrongRef.Main(
+                            uri=reply_to['parent_uri'],
+                            cid=reply_to['parent_cid'],
+                        ),
+                    )
+
                 post_response = await self.client.send_post(
                     text=self._buildTextBuilder(text),
                     embed=embed,
                     langs=['ja'],
+                    reply_to=reply_ref,
                 )
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to create post:', exc_info=ex)
@@ -477,6 +510,8 @@ class BlueskyAPI:
                 is_success=True,
                 detail='Bluesky にポストしました。',
                 tweet_url=post_url,
+                post_uri=post_response.uri,
+                post_cid=post_response.cid,
             )
 
 
