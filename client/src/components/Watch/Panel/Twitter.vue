@@ -194,6 +194,8 @@ import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 import draggable from 'vuedraggable';
 
+import type { IPostTweetSendResult } from '@/services/Twitter';
+
 import TwitterCaptures from '@/components/Watch/Panel/Twitter/Captures.vue';
 import TwitterSearch from '@/components/Watch/Panel/Twitter/Search.vue';
 import TwitterTimeline from '@/components/Watch/Panel/Twitter/Timeline.vue';
@@ -206,7 +208,9 @@ import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore, { ITwitterPanelPostTarget } from '@/stores/SettingsStore';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
-import Utils, { ChannelUtils } from '@/utils';
+import Utils, { ChannelUtils, dayjs } from '@/utils';
+import { TweetUtils } from '@/utils/TweetUtils';
+
 
 // このコンポーネント内でのキャプチャのインターフェイス
 export interface ITweetCapture {
@@ -884,6 +888,9 @@ export default defineComponent({
             // ハッシュタグを整形
             this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
             const tweet_hashtag = this.tweet_hashtag;
+            const tweet_hashtags = tweet_hashtag !== '' ? tweet_hashtag.split(' ') : [];
+            // 局タグの自動追加も反映済みのハッシュタグセットで判定し、ユーザーが実際に投稿する文脈とツリーを一致させる
+            const hashtag_key = TweetUtils.normalizeHashtagKey(tweet_hashtags);
             this.updateTweetLetterCount();
 
             // 実際に送るツイート本文を作成
@@ -941,7 +948,7 @@ export default defineComponent({
                 send_results.push({
                     service: 'Twitter',
                     promise: this.sendTweetToService('Twitter',
-                        Twitter.sendTweet(post_target_snapshot.twitter_screen_name, tweet_text, tweet_capture_blobs)),
+                        this.sendTweetWithReplyThread(post_target_snapshot.twitter_screen_name, tweet_text, tweet_capture_blobs, hashtag_key)),
                 });
             }
             if (post_target_snapshot.bluesky_handle !== null) {
@@ -950,7 +957,7 @@ export default defineComponent({
                 send_results.push({
                     service: 'Bluesky',
                     promise: this.sendTweetToService('Bluesky',
-                        Bluesky.sendPost(post_target_snapshot.bluesky_handle, tweet_text, tweet_capture_blobs)),
+                        this.sendBlueskyPostWithReplyThread(post_target_snapshot.bluesky_handle, tweet_text, tweet_capture_blobs, hashtag_key)),
                 });
             }
 
@@ -1001,9 +1008,104 @@ export default defineComponent({
             };
         },
 
+        async sendTweetWithReplyThread(
+            screen_name: string,
+            tweet_text: string,
+            tweet_capture_blobs: Blob[],
+            hashtag_key: string,
+        ): Promise<IPostTweetSendResult> {
+
+            const settings = this.settingsStore.settings;
+            const state = settings.twitter_reply_thread_states[screen_name];
+            const now = dayjs();
+            const decision = TweetUtils.decideReplyThread({
+                mode: settings.twitter_reply_thread_mode,
+                state,
+                current_hashtag_key: hashtag_key,
+                now,
+            });
+
+            // リプライ先は送信直前の状態から固定し、API 待ちの間に状態が変わってもこの投稿の宛先を変えない
+            const in_reply_to_status_id = decision.send_as_reply === true && state !== undefined ? state.last_tweet_id : null;
+            const result = await Twitter.sendTweet(screen_name, tweet_text, tweet_capture_blobs, in_reply_to_status_id);
+            if (result.is_error === true || result.tweet_id === null) {
+                return result;
+            }
+
+            // リプライツリー状態は送信成功時だけ更新し、失敗時は前回の親へ再試行できる余地を残す
+            if (decision.send_as_reply === true && state !== undefined) {
+                settings.twitter_reply_thread_states[screen_name] = {
+                    ...state,
+                    last_tweet_id: result.tweet_id,
+                };
+            } else if (decision.reset_state_after === true) {
+                settings.twitter_reply_thread_states[screen_name] = {
+                    last_tweet_id: result.tweet_id,
+                    started_at: now.toISOString(),
+                    hashtag_key,
+                };
+            } else if (decision.clear_state === true) {
+                delete settings.twitter_reply_thread_states[screen_name];
+            }
+
+            return result;
+        },
+
+        async sendBlueskyPostWithReplyThread(
+            handle: string,
+            tweet_text: string,
+            tweet_capture_blobs: Blob[],
+            hashtag_key: string,
+        ): Promise<IPostTweetSendResult> {
+
+            const settings = this.settingsStore.settings;
+            const state = settings.bluesky_reply_thread_states[handle];
+            const now = dayjs();
+            const decision = TweetUtils.decideReplyThread({
+                mode: settings.bluesky_reply_thread_mode,
+                state,
+                current_hashtag_key: hashtag_key,
+                now,
+            });
+
+            // Bluesky のリプライはルートと親ポストの StrongRef が必要なので、保存済み状態が揃う時だけ渡す
+            const reply_to = decision.send_as_reply === true && state !== undefined ? {
+                root_uri: state.root_uri,
+                root_cid: state.root_cid,
+                parent_uri: state.parent_uri,
+                parent_cid: state.parent_cid,
+            } : null;
+            const result = await Bluesky.sendPost(handle, tweet_text, tweet_capture_blobs, reply_to);
+            if (result.is_error === true || result.post_uri === null || result.post_cid === null) {
+                return result;
+            }
+
+            // ルートはツリーの起点として固定し、返信が伸びた時は直前の親ポストだけを新しい投稿へ進める
+            if (decision.send_as_reply === true && state !== undefined) {
+                settings.bluesky_reply_thread_states[handle] = {
+                    ...state,
+                    parent_uri: result.post_uri,
+                    parent_cid: result.post_cid,
+                };
+            } else if (decision.reset_state_after === true) {
+                settings.bluesky_reply_thread_states[handle] = {
+                    root_uri: result.post_uri,
+                    root_cid: result.post_cid,
+                    parent_uri: result.post_uri,
+                    parent_cid: result.post_cid,
+                    started_at: now.toISOString(),
+                    hashtag_key,
+                };
+            } else if (decision.clear_state === true) {
+                delete settings.bluesky_reply_thread_states[handle];
+            }
+
+            return result;
+        },
+
         async sendTweetToService(
             service: TweetPostService,
-            send_result: Promise<{message: string; is_error: boolean;}>,
+            send_result: Promise<IPostTweetSendResult>,
         ): Promise<ITweetPostNotificationResult> {
 
             try {
