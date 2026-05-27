@@ -209,8 +209,8 @@ class Bluesky {
             APIClient.showGenericError(response, 'Bluesky のホームタイムラインを取得できませんでした。');
             return null;
         }
-        // タイムライン系 API は成功時に Tweet リスト、失敗時に TwitterAPIResult が返る Union なので is_success の有無で判定する
-        if ('is_success' in response.data && response.data.is_success === false) {
+        // HTTP エラーではないが、実際には処理が失敗した場合
+        if (response.data.is_success === false) {
             Message.error(response.data.detail);
             return null;
         }
@@ -237,7 +237,8 @@ class Bluesky {
             APIClient.showGenericError(response, 'Bluesky 投稿の検索に失敗しました。');
             return null;
         }
-        if ('is_success' in response.data && response.data.is_success === false) {
+        // HTTP エラーではないが、実際には処理が失敗した場合
+        if (response.data.is_success === false) {
             Message.error(response.data.detail);
             return null;
         }

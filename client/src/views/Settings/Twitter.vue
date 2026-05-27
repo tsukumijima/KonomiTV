@@ -441,11 +441,21 @@ export default defineComponent({
     methods: {
         normalizeBlueskyHandle(handle: string): string {
             let normalized_handle = handle.trim();
-            for (const profile_url_prefix of ['https://bsky.app/profile/', 'http://bsky.app/profile/']) {
-                if (normalized_handle.startsWith(profile_url_prefix) === true) {
-                    normalized_handle = normalized_handle.slice(profile_url_prefix.length).split('/')[0].split('?')[0];
-                    break;
+
+            // プロフィール URL はクエリや末尾パスが付くことがあるため、URL として分解する
+            // 通常のハンドルは URL として解釈できないので、その場合は従来通り入力文字列を正規化する
+            try {
+                const profile_url = new URL(normalized_handle);
+                const profile_path_segments = profile_url.pathname.split('/').filter(segment => segment.length > 0);
+                const is_bluesky_profile_url =
+                    (profile_url.hostname === 'bsky.app' || profile_url.hostname.endsWith('.bsky.app')) &&
+                    profile_path_segments[0] === 'profile' &&
+                    profile_path_segments[1] !== undefined;
+                if (is_bluesky_profile_url === true && profile_path_segments[1] !== undefined) {
+                    normalized_handle = decodeURIComponent(profile_path_segments[1]);
                 }
+            } catch {
+                // URL として解釈できない入力は、通常のハンドルとして後続の正規化へ進める
             }
             if (normalized_handle.startsWith('@') === true) {
                 normalized_handle = normalized_handle.slice(1).trim();
