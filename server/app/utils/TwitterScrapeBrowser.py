@@ -549,11 +549,12 @@ class TwitterScrapeBrowser:
         tweet_text: str,
         images: list[UploadFile],
         throttle_remaining_seconds: float,
+        in_reply_to_status_id: str | None = None,
     ) -> PostTweetViaComposeUIResult:
         """
         Twitter Web App のツイート送信モーダルを DOM 操作で自動化し、ツイートを送信する
-        "n" キーのショートカットで ツイート送信モーダルを開き、ツイート送信モーダルを開いたまま自然な待機を入れた後、
-        テキスト入力・画像添付・Ctrl+Enter 送信を行う
+        通常投稿では "n" キーのショートカット、リプライ投稿では履歴状態と query を使ってツイート送信モーダルを開く
+        ツイート送信モーダルを開いたまま自然な待機を入れた後、テキスト入力・画像添付・Ctrl+Enter 送信を行う
         読み取り系 API と異なり、Web App の正規 UI 経路を通すため user_flow.json の scribe イベントが自然に発火する
         画像アップロードの完了と CreateTweet のレスポンスは CDP Network ドメインで監視する
 
@@ -561,6 +562,7 @@ class TwitterScrapeBrowser:
             tweet_text (str): ツイートの本文
             images (list[UploadFile]): 添付する画像（無いときは空リスト）
             throttle_remaining_seconds (float): ツイート送信モーダルを開いた後に吸収したいスロットル残り時間
+            in_reply_to_status_id (str | None): リプライ先のツイート ID (None の場合は単独ツイート)
 
         Returns:
             PostTweetViaComposeUIResult: ツイート送信結果
@@ -764,43 +766,66 @@ class TwitterScrapeBrowser:
             """
 
             # ===========================================
-            # Step 1: "n" キーのショートカットで ツイート送信モーダルを開く
+            # Step 1: ツイート送信モーダルを開く
             # (この時点では CDP Network 監視はまだ有効化しない)
             # ===========================================
-            # "n" キーは Twitter Web App のキーボードショートカットで、ツイート送信モーダルを開く
-            # SideNav ボタンのクリックと異なり、ビューポートサイズに依存しない
-            # モーダルが開くと URL が /compose/post に SPA 遷移する
-            #
-            # CDP Input.dispatchKeyEvent で "n" ショートカットを発火させるには以下の条件が必要:
-            # 1. ページがアクティブ (bring_to_front) であること
-            # 2. document.body にフォーカスが当たっていること (テキスト入力欄にフォーカスがあると "n" が入力される)
-            # 3. keyDown イベントに text='n' を含めること
-            #    text パラメータなしだと keydown DOM イベントのみが生成され、keypress イベントが発生しない
-            #    Twitter のキーボードショートカットハンドラが keypress に依存している場合、ショートカットが発火しない
-            logging.info(f'{self.log_prefix} Opening tweet posting modal via "n" keyboard shortcut...')
-            # ページをアクティブにし、フォーカスを document.body に設定する
-            await page.send(cdp.page.bring_to_front())
-            await page.send(cdp.runtime.evaluate(
-                expression='document.body.focus()',
-                return_by_value=True,
-            ))
-            await asyncio.sleep(0.1)
-            # keyDown (text='n' を含めて keypress も生成させる) → keyUp の順に送信
-            await page.send(cdp.input_.dispatch_key_event(
-                type_='keyDown',
-                key='n',
-                code='KeyN',
-                text='n',
-                windows_virtual_key_code=78,
-                native_virtual_key_code=78,
-            ))
-            await page.send(cdp.input_.dispatch_key_event(
-                type_='keyUp',
-                key='n',
-                code='KeyN',
-                windows_virtual_key_code=78,
-                native_virtual_key_code=78,
-            ))
+            if in_reply_to_status_id is None:
+                # "n" キーは Twitter Web App のキーボードショートカットで、ツイート送信モーダルを開く
+                # SideNav ボタンのクリックと異なり、ビューポートサイズに依存しない
+                # モーダルが開くと URL が /compose/post に SPA 遷移する
+                #
+                # CDP Input.dispatchKeyEvent で "n" ショートカットを発火させるには以下の条件が必要:
+                # 1. ページがアクティブ (bring_to_front) であること
+                # 2. document.body にフォーカスが当たっていること (テキスト入力欄にフォーカスがあると "n" が入力される)
+                # 3. keyDown イベントに text='n' を含めること
+                #    text パラメータなしだと keydown DOM イベントのみが生成され、keypress イベントが発生しない
+                #    Twitter のキーボードショートカットハンドラが keypress に依存している場合、ショートカットが発火しない
+                logging.info(f'{self.log_prefix} Opening tweet posting modal via "n" keyboard shortcut...')
+                # ページをアクティブにし、フォーカスを document.body に設定する
+                await page.send(cdp.page.bring_to_front())
+                await page.send(cdp.runtime.evaluate(
+                    expression='document.body.focus()',
+                    return_by_value=True,
+                ))
+                await asyncio.sleep(0.1)
+                # keyDown (text='n' を含めて keypress も生成させる) → keyUp の順に送信
+                await page.send(cdp.input_.dispatch_key_event(
+                    type_='keyDown',
+                    key='n',
+                    code='KeyN',
+                    text='n',
+                    windows_virtual_key_code=78,
+                    native_virtual_key_code=78,
+                ))
+                await page.send(cdp.input_.dispatch_key_event(
+                    type_='keyUp',
+                    key='n',
+                    code='KeyN',
+                    windows_virtual_key_code=78,
+                    native_virtual_key_code=78,
+                ))
+            else:
+                # リプライ投稿では Twitter Web App の compose ルートが読む履歴状態と query の両方にリプライ先 ID を渡す
+                # query も併用することで、親ツイートが未取得のページ状態でも Web App 側の取得処理へ入れる
+                logging.info(f'{self.log_prefix} Opening reply modal via SPA navigation. in_reply_to_status_id: {in_reply_to_status_id}')
+                reply_state = {
+                    'state': {
+                        'inReplyToStatusId': in_reply_to_status_id,
+                    },
+                    'key': ''.join(random.choice('abcdefghijklmnopqrstuvwxyz0123456789') for _ in range(6)),
+                }
+                await page.send(cdp.page.bring_to_front())
+                await page.send(cdp.runtime.evaluate(
+                    expression=f'''
+                    (() => {{
+                        const wrappedState = {json.dumps(reply_state)};
+                        const composeUrl = `/compose/post?in_reply_to=${{encodeURIComponent({json.dumps(in_reply_to_status_id)})}}`;
+                        window.history.pushState(wrappedState, '', composeUrl);
+                        window.dispatchEvent(new PopStateEvent('popstate', {{ state: wrappedState }}));
+                    }})()
+                    ''',
+                    return_by_value=True,
+                ))
 
             # ===========================================
             # Step 2: ツイート送信モーダルが開くのを待機する

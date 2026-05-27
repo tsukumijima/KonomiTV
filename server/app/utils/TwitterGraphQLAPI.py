@@ -626,6 +626,7 @@ class TwitterGraphQLAPI:
         self,
         tweet: str,
         images: list[UploadFile],
+        in_reply_to_status_id: str | None = None,
     ) -> schemas.PostTweetResult | schemas.TwitterAPIResult:
         """
         Twitter Web App のツイート送信モーダルを通じてツイートを送信する
@@ -636,6 +637,7 @@ class TwitterGraphQLAPI:
         Args:
             tweet (str): ツイート内容
             images (list[UploadFile]): 添付する画像（無いときは空リスト）
+            in_reply_to_status_id (str | None): リプライ先のツイート ID (None の場合は単独ツイート)
 
         Returns:
             schemas.PostTweetResult | schemas.TwitterAPIResult: ツイートの送信結果
@@ -714,6 +716,7 @@ class TwitterGraphQLAPI:
                     tweet_text=tweet,
                     images=images,
                     throttle_remaining_seconds=throttle_remaining_seconds,
+                    in_reply_to_status_id=in_reply_to_status_id,
                 )
             except Exception as ex:
                 logging.error(f'{self.log_prefix} Failed to post tweet via tweet posting modal:', exc_info=ex)
@@ -887,6 +890,7 @@ class TwitterGraphQLAPI:
                     is_success=True,
                     detail='Twitter にツイートしましたが、ツイート ID を取得できませんでした。',
                     tweet_url='https://x.com/i/status/__error__',
+                    tweet_id=None,
                 )
 
             # ツイートの送信に成功し、tweet_id も取得できたので連続失敗カウンターをリセットする
@@ -896,6 +900,7 @@ class TwitterGraphQLAPI:
                 is_success=True,
                 detail='Twitter にツイートしました。',
                 tweet_url=f'https://x.com/i/status/{tweet_id}',
+                tweet_id=tweet_id,
             )
 
     async def createRetweet(self, tweet_id: str) -> schemas.TwitterAPIResult:
