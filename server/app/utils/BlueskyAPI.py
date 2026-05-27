@@ -335,6 +335,20 @@ class BlueskyAPI:
 
             raise ValueError('Image size exceeds the Bluesky limit after WebP conversion.')
 
+        def GetImageSize(image_bytes: bytes) -> tuple[int, int]:
+            """
+            画像データから Bluesky の表示比率に使う幅と高さを取得する
+
+            Args:
+                image_bytes (bytes): Bluesky にアップロードする最終的な画像データ
+
+            Returns:
+                tuple[int, int]: 画像の幅と高さ
+            """
+
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                return image.width, image.height
+
         # UploadFile は非同期に読み出し、サイズだけで分かる変換要否は Pillow を呼ぶ前に判定する
         image_bytes = await image.read()
         # Bluesky の blob 上限を超える場合だけ WebP 変換を試し、通常のキャプチャは元の JPEG をそのままアップロードする
@@ -344,8 +358,11 @@ class BlueskyAPI:
         if len(image_bytes) > self.MAX_IMAGE_BYTES:
             raise ValueError('Image size exceeds the Bluesky limit.')
 
+        # Bluesky クライアントは投稿レコード上の aspectRatio を表示枠のヒントとして使うため、
+        # blob 参照だけでなく最終的な画像データの縦横比も明示する
+        image_width, image_height = await asyncio.to_thread(GetImageSize, image_bytes)
+
         # atproto の画像 embed には先に blob をアップロードし、その参照を Image として詰める
-        # aspectRatio は任意項目なので、縦横比取得のためだけに画像を再オープンしない
         upload_response = await self._invokeWithRetry(
             'upload_blob',
             lambda: self.client.upload_blob(image_bytes),
@@ -353,6 +370,10 @@ class BlueskyAPI:
         return models.AppBskyEmbedImages.Image(
             alt='',
             image=upload_response.blob,
+            aspect_ratio=models.AppBskyEmbedDefs.AspectRatio(
+                width=image_width,
+                height=image_height,
+            ),
         )
 
 
