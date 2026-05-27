@@ -1745,12 +1745,24 @@ export default defineComponent({
                     }
                 }
 
-                &--tweet-button :deep(svg) {
-                    width: 13.5px;
-                    height: 13.5px;
-                    @include smartphone-horizontal {
-                        width: 10px;
-                        height: 10px;
+                &--tweet-button {
+                    // スマホ・タブレット縦画面ではツイートボタン幅に余裕があるため、同時投稿アイコンを横並びにする
+                    @include tablet-vertical {
+                        flex-direction: row;
+                        column-gap: 2px;
+                    }
+                    @include smartphone-vertical {
+                        flex-direction: row;
+                        column-gap: 2px;
+                    }
+
+                    :deep(svg) {
+                        width: 13.5px;
+                        height: 13.5px;
+                        @include smartphone-horizontal {
+                            width: 10px;
+                            height: 10px;
+                        }
                     }
                 }
             }
@@ -1798,6 +1810,13 @@ export default defineComponent({
                     width: 200px;
                     border-radius: 5px;
                     font-size: 11.8px;
+                    // ボタン幅に余裕があるため、アイコン群とラベルの間隔を広げる
+                    column-gap: 2px;
+
+                    .ml-1 {
+                        // column-gap で間隔を取るため Vuetify の ml-1 は打ち消す
+                        margin-left: 0;
+                    }
                 }
                 @include smartphone-horizontal {
                     width: 80px;
