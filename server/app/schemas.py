@@ -664,6 +664,9 @@ class TwitterAPIResult(BaseModel):
 
 class PostTweetResult(TwitterAPIResult):
     tweet_url: str
+    tweet_id: str | None = None
+    post_uri: str | None = None
+    post_cid: str | None = None
 
 class TimelineLoadMoreCursor(BaseModel):
     cursor_type: Literal['Older', 'Gap', 'ShowMore']

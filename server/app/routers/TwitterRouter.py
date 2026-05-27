@@ -285,6 +285,7 @@ async def TwitterTweetAPI(
     twitter_account: Annotated[TwitterAccount, Depends(GetCurrentTwitterAccount)],
     tweet: Annotated[str, Form(description='ツイートの本文 (基本的には140文字までだが、プレミアムの加入状態や英数字の量に依存する) 。')] = '',
     images: Annotated[list[UploadFile], File(description='ツイートに添付する画像 (4枚まで) 。')] = [],
+    in_reply_to_status_id: Annotated[str | None, Form(description='リプライ先のツイート ID (省略時は単独ツイート) 。')] = None,
 ):
     """
     Twitter にツイートを送信する。ツイート本文 or 画像のみ送信することもできる。<br>
@@ -302,7 +303,7 @@ async def TwitterTweetAPI(
         )
 
     # Twitter Web App 経由でツイートを送信し、結果をそのまま返す
-    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, images)
+    return await TwitterGraphQLAPI(twitter_account).createTweet(tweet, images, in_reply_to_status_id)
 
 
 @router.put(
