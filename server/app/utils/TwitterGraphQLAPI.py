@@ -1424,7 +1424,7 @@ class TwitterGraphQLAPI:
             if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
                 return schemas.TimelineTweetsResult(
                     is_success=True,
-                    detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
+                    detail=f'取得制限により抑制されました (経過: {elapsed_seconds:.1f} 秒)',
                     tweets=[],
                     newer_cursor_id=None,
                     load_more_cursors=[],
@@ -1521,7 +1521,7 @@ class TwitterGraphQLAPI:
             if elapsed_seconds < self.MIN_FETCH_INTERVAL_SECONDS:
                 return schemas.TimelineTweetsResult(
                     is_success=True,
-                    detail=f'Throttled (elapsed: {elapsed_seconds:.1f}s)',
+                    detail=f'取得制限により抑制されました (経過: {elapsed_seconds:.1f} 秒)',
                     tweets=[],
                     newer_cursor_id=None,
                     load_more_cursors=[],

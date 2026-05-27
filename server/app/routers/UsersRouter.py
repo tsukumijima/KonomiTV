@@ -256,7 +256,12 @@ async def UserCreateAPI(
     )
 
     # 外部テーブルのデータを取得してから返す
-    await current_user.fetch_related('twitter_accounts', 'bluesky_accounts', 'account_links')
+    await current_user.fetch_related(
+        'twitter_accounts',
+        'bluesky_accounts',
+        'account_links__twitter_account',
+        'account_links__bluesky_account',
+    )
     return current_user
 
 
