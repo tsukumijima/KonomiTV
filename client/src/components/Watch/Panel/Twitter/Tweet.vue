@@ -36,6 +36,7 @@
                 </a>
                 <div class="tweet__actions">
                     <button v-ripple class="tweet__action tweet__action--retweet" :class="{ 'tweet__action--active': displayedTweet.retweeted }"
+                        :disabled="isReactionDisabled"
                         @click.stop="handleRetweet">
                         <svg xmlns="http://www.w3.org/2000/svg" role="img" width="1.25em" height="1em" viewBox="0 0 640 512">
                             <path fill="currentColor" d="M629.657 343.598L528.971 444.284c-9.373 9.372-24.568 9.372-33.941 0L394.343 343.598c-9.373-9.373-9.373-24.569 0-33.941l10.823-10.823c9.562-9.562 25.133-9.34 34.419.492L480 342.118V160H292.451a24.005 24.005 0 0 1-16.971-7.029l-16-16C244.361 121.851 255.069 96 276.451 96H520c13.255 0 24 10.745 24 24v222.118l40.416-42.792c9.285-9.831 24.856-10.054 34.419-.492l10.823 10.823c9.372 9.372 9.372 24.569-.001 33.941m-265.138 15.431A23.999 23.999 0 0 0 347.548 352H160V169.881l40.416 42.792c9.286 9.831 24.856 10.054 34.419.491l10.822-10.822c9.373-9.373 9.373-24.569 0-33.941L144.971 67.716c-9.373-9.373-24.569-9.373-33.941 0L10.343 168.402c-9.373 9.373-9.373 24.569 0 33.941l10.822 10.822c9.562 9.562 25.133 9.34 34.419-.491L96 169.881V392c0 13.255 10.745 24 24 24h243.549c21.382 0 32.09-25.851 16.971-40.971z"></path>
@@ -43,6 +44,7 @@
                         <span>{{ displayedTweet.retweet_count }}</span>
                     </button>
                     <button v-ripple class="tweet__action tweet__action--favorite" :class="{ 'tweet__action--active': displayedTweet.favorited }"
+                        :disabled="isReactionDisabled"
                         @click.stop="handleFavorite">
                         <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512">
                             <path fill="currentColor" d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9"></path>
@@ -57,8 +59,9 @@
 <script lang="ts" setup>
 
 import { storeToRefs } from 'pinia';
-import { ref, computed } from 'vue';
+import { computed, toRef } from 'vue';
 
+import Message from '@/message';
 import Bluesky from '@/services/Bluesky';
 import Twitter, { ITweet } from '@/services/Twitter';
 import { ITweetUser } from '@/services/Twitter';
@@ -72,7 +75,7 @@ const props = defineProps<{
 const twitterStore = useTwitterStore();
 const { selected_twitter_account } = storeToRefs(twitterStore);
 
-const tweet = ref(props.tweet);
+const tweet = toRef(props, 'tweet');
 
 // RT / リポスト表示では外側の「誰が共有したか」と内側の原投稿を分け、本文や画像は原投稿側を表示する
 const displayedTweet = computed(() => tweet.value.retweeted_tweet || tweet.value);
@@ -158,6 +161,14 @@ const getSelectedBlueskyHandle = () => {
     return null;
 };
 
+const isReactionDisabled = computed(() => {
+    // 表示中の投稿元サービスを操作できるアカウントが選択されていない場合は、誤操作に見える無反応を避ける
+    if (displayedTweet.value.source === 'Bluesky') {
+        return getSelectedBlueskyHandle() === null;
+    }
+    return selected_twitter_account.value === null;
+});
+
 const handleTweetClick = (event: MouseEvent) => {
     // テキストが選択されている場合は、クリックイベントを無視する
     if (window.getSelection()?.toString()) {
@@ -174,7 +185,10 @@ const handleRetweet = async () => {
     if (displayedTweet.value.source === 'Bluesky') {
         const handle = getSelectedBlueskyHandle();
         // Bluesky の ID は AT URI で、CID はサーバー側で直前取得する
-        if (handle === null) return;
+        if (handle === null) {
+            Message.warning('Bluesky 投稿を操作するには、Bluesky アカウントまたは紐付けアカウントを選択してください。');
+            return;
+        }
         if (displayedTweet.value.retweeted) {
             const result = await Bluesky.cancelRepost(handle, displayedTweet.value.id);
             if (result && result.is_success) {
@@ -193,7 +207,10 @@ const handleRetweet = async () => {
 
     // Twitter 投稿への操作は TwitterScrapeBrowser の選択アカウントが必要
     // Bluesky 単独アカウント選択中に Twitter 投稿が残っていても操作 API を呼ばない
-    if (!selected_twitter_account.value) return;
+    if (selected_twitter_account.value === null) {
+        Message.warning('Twitter 投稿を操作するには、Twitter アカウントまたは紐付けアカウントを選択してください。');
+        return;
+    }
 
     if (displayedTweet.value.retweeted) {
         const result = await Twitter.cancelRetweet(selected_twitter_account.value.screen_name, displayedTweet.value.id);
@@ -214,7 +231,10 @@ const handleFavorite = async () => {
     if (displayedTweet.value.source === 'Bluesky') {
         const handle = getSelectedBlueskyHandle();
         // いいねも AT URI だけを渡し、作成時の CID と取り消し時の viewer.like はサーバー側で引き直す
-        if (handle === null) return;
+        if (handle === null) {
+            Message.warning('Bluesky 投稿を操作するには、Bluesky アカウントまたは紐付けアカウントを選択してください。');
+            return;
+        }
         if (displayedTweet.value.favorited) {
             const result = await Bluesky.cancelFavorite(handle, displayedTweet.value.id);
             if (result && result.is_success) {
@@ -232,7 +252,10 @@ const handleFavorite = async () => {
     }
 
     // Twitter のいいね操作は現在の Twitter アカウントに紐づけて実行する
-    if (!selected_twitter_account.value) return;
+    if (selected_twitter_account.value === null) {
+        Message.warning('Twitter 投稿を操作するには、Twitter アカウントまたは紐付けアカウントを選択してください。');
+        return;
+    }
 
     if (displayedTweet.value.favorited) {
         const result = await Twitter.cancelFavorite(selected_twitter_account.value.screen_name, displayedTweet.value.id);
@@ -475,6 +498,14 @@ const handleFavorite = async () => {
 
         &:hover {
             background-color: rgba(var(--v-theme-on-surface), 0.1);
+        }
+        &:disabled {
+            color: rgba(var(--v-theme-on-surface), 0.3);
+            background: none;
+            cursor: not-allowed;
+        }
+        &:disabled:hover {
+            background: none;
         }
         // タッチデバイスで hover を無効にする
         @media (hover: none) {

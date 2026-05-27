@@ -79,8 +79,8 @@ export class TweetUtils {
      * @returns 大文字小文字と順序を無視した正規化キー
      */
     static normalizeHashtagKey(hashtags: string[]): string {
-        return hashtags
-            .map(hashtag => hashtag.replace(/^#/, '').toLowerCase())
+        return [...new Set(hashtags
+            .map(hashtag => hashtag.replace(/^#/, '').toLowerCase()))]
             .sort()
             .join(',');
     }
