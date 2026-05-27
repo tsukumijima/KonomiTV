@@ -2,6 +2,8 @@
 import { isEqual, hash } from 'ohash';
 import { defineStore } from 'pinia';
 
+import type { IBlueskyReplyThreadState, ITwitterReplyThreadState } from '@/utils/TweetUtils';
+
 import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
 import Utils from '@/utils';
 
@@ -45,6 +47,8 @@ export interface ILocalClientSettings extends IClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_panel_account: {kind: 'Twitter' | 'Bluesky' | 'Linked'; id: number;} | null;
     twitter_panel_post_targets: Record<string, ITwitterPanelPostTarget>;
+    twitter_reply_thread_states: Record<string, ITwitterReplyThreadState>;
+    bluesky_reply_thread_states: Record<string, IBlueskyReplyThreadState>;
     saved_twitter_hashtags: string[];
     mylist: {
         type: 'Series' | 'RecordedProgram';
@@ -144,6 +148,12 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // 紐付けアカウントごとの送信先設定 (同期無効)
     // 視聴中に頻繁に変える UI 状態なので、サーバー側の AccountLink レコードには保存しない
     twitter_panel_post_targets: {},
+    // Twitter アカウントごとのリプライツリー状態 (同期無効)
+    // 実況中の一時的な投稿状態なので、サーバー設定同期で別端末へ引き継がない
+    twitter_reply_thread_states: {},
+    // Bluesky アカウントごとのリプライツリー状態 (同期無効)
+    // 実況中の一時的な投稿状態なので、サーバー設定同期で別端末へ引き継がない
+    bluesky_reply_thread_states: {},
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
 
@@ -326,6 +336,10 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     reset_hashtag_when_program_switches: true,
     // 視聴中のチャンネルに対応する局タグを自動で追加する (Default: オン)
     auto_add_watching_channel_hashtag: true,
+    // リプライツリー実況モード (Twitter) (Default: ハッシュタグごとにリプライツリーを切り替える)
+    twitter_reply_thread_mode: 'PerHashtag',
+    // リプライツリー実況モード (Bluesky) (Default: リプライツリー実況を行わない)
+    bluesky_reply_thread_mode: 'Disabled',
     // デフォルトで表示される Twitter タブ内のタブ (Default: キャプチャタブ)
     twitter_active_tab: 'Capture',
     // ツイートにつけるハッシュタグの位置 (Default: ツイート本文の後に追加する)
@@ -341,6 +355,8 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // showed_panel_last_time: 同期無効
     // selected_twitter_panel_account: 同期無効
     // twitter_panel_post_targets: 同期無効
+    // twitter_reply_thread_states: 同期無効
+    // bluesky_reply_thread_states: 同期無効
     'saved_twitter_hashtags',
     'mylist',
     'watched_history',
@@ -405,6 +421,8 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'fold_panel_after_sending_tweet',
     'reset_hashtag_when_program_switches',
     'auto_add_watching_channel_hashtag',
+    'twitter_reply_thread_mode',
+    'bluesky_reply_thread_mode',
     'twitter_active_tab',
     'tweet_hashtag_position',
     'tweet_capture_watermark_position',

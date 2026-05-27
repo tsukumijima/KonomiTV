@@ -94,7 +94,7 @@
                             <blockquote class="mt-3">
                                 ⚠️ 不審判定されないよう様々な技術的対策を施してはいますが、<strong>非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。</strong>自己の責任のもとでご利用ください。<br>
                                 <p class="mt-2">
-                                    <strong>📢 レート制限緩和のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に加入している Twitter アカウントでの利用をおすすめします。</strong><br>
+                                    <strong>📢 レート制限緩和のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に課金済みのアカウントでの利用をおすすめします。</strong><br>
                                     また、万が一の凍結リスクに備え、<strong>実況専用に作成したサブアカウントでの連携をおすすめします。</strong>
                                 </p>
                             </blockquote>
@@ -260,6 +260,45 @@
                 </v-switch>
             </div>
             <div class="settings__item">
+                <div class="settings__item-heading">リプライツリー実況の設定 (Twitter)</div>
+                <div class="settings__item-label">
+                    <strong>実況ツイートを「直前の自分の実況ツイートへのリプライ」としてつなげていくことで、X Premium 未加入アカウントでのツイート数上限を緩和し、スパム判定されづらくするための機能です。</strong>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <a class="link" href="https://pc.watch.impress.co.jp/docs/news/2109474.html" target="_blank">2026年5月現在、X Premium 未加入アカウントの1日あたりのツイート数は、通常ツイートで 50 件、リプライで 200 件と大きく制限されています。</a> 実況中に1日のツイート数上限に達してしまうケースも珍しくありません。<br>
+                    このため Twitter の実況コミュニティでは、ツイート数上限の緩いリプライ機能を使い、実況ツイートをぶら下げていく「リプライツリー実況」が、苦肉の策として標準的になりつつあります。<br>
+                    リプライツリー実況なら「短期間のハッシュタグ付き通常ツイートの連投」というスパマーと間違われやすい行為を回避できるため、スパム判定確率を下げる効果も期待できます。
+                </div>
+                <div class="settings__item-label mt-2">
+                    <strong>ハッシュタグごとにリプライツリーを切り替える（推奨）：</strong>連続した同一ハッシュタグの実況ツイートを、1つのリプライツリーにまとめます。<br>
+                    このモードではハッシュタグが変わるたびに新しいリプライツリーが開始されるため、実況ツイートが自動的に番組単位でまとまります。ハッシュタグがついていないツイートは、独立したツイートとして送信されます。
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>1日ごとにリプライツリーを切り替える：</strong>ハッシュタグに関係なく、朝4時から翌朝4時直前までを1つのリプライツリーとしてまとめます。1日単位で実況ツイートをひとまとめにしたい方におすすめです。
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>リプライツリー実況を行わない：</strong>すべてのツイートを独立したツイートとして送信します。従来通りの動作ですが、未課金アカウントではツイート数上限の影響を受けやすくなるほか、凍結リスクが高まる恐れもあります。
+                </div>
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :items="twitter_reply_thread_mode" v-model="settingsStore.settings.twitter_reply_thread_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">リプライツリー実況の設定 (Bluesky)</div>
+                <div class="settings__item-label">
+                    Bluesky は1日あたりのツイート数上限が緩いため、Twitter のように制限回避の目的でリプライツリー実況を行う必要はありません。とはいえハッシュタグごとに実況ツイートをまとめられる点は便利ですので、後で番組ごとに実況ツイートを遡りたい方は設定しておくと便利です。
+                </div>
+                <div class="settings__item-label mt-1">
+                    各モードの動作は Twitter 側と同じです。Twitter と Bluesky のアカウントを紐付けていて同時にツイートする際も、リプライツリーの状態は Twitter / Bluesky それぞれで独立して管理されます。<br>
+                    Twitter だけ実況ツイートをリプライツリーにまとめ、Bluesky では独立したポストのままにしておく、といった使い分けも可能です。
+                </div>
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :items="bluesky_reply_thread_mode" v-model="settingsStore.settings.bluesky_reply_thread_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
                 <div class="settings__item-heading">デフォルトで表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
@@ -330,6 +369,20 @@ export default defineComponent({
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
+
+            // Twitter のリプライツリー実況モードの選択肢
+            twitter_reply_thread_mode: [
+                {title: 'ハッシュタグごとにリプライツリーを切り替える（推奨）', value: 'PerHashtag'},
+                {title: '1日ごとにリプライツリーを切り替える', value: 'PerDay'},
+                {title: 'リプライツリー実況を行わない', value: 'Disabled'},
+            ],
+
+            // Bluesky のリプライツリー実況モードの選択肢
+            bluesky_reply_thread_mode: [
+                {title: 'ハッシュタグごとにリプライツリーを切り替える', value: 'PerHashtag'},
+                {title: '1日ごとにリプライツリーを切り替える', value: 'PerDay'},
+                {title: 'リプライツリー実況を行わない（推奨）', value: 'Disabled'},
+            ],
 
             // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [

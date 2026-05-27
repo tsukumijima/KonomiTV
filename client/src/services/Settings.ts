@@ -93,6 +93,8 @@ export interface IClientSettings {
     fold_panel_after_sending_tweet: boolean;
     reset_hashtag_when_program_switches: boolean;
     auto_add_watching_channel_hashtag: boolean;
+    twitter_reply_thread_mode: 'PerHashtag' | 'PerDay' | 'Disabled';
+    bluesky_reply_thread_mode: 'PerHashtag' | 'PerDay' | 'Disabled';
     twitter_active_tab: 'Search' | 'Timeline' | 'Capture';
     tweet_hashtag_position: 'Prepend' | 'Append' | 'PrependWithLineBreak' | 'AppendWithLineBreak';
     tweet_capture_watermark_position: 'None' | 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';

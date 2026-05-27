@@ -124,6 +124,8 @@ class ClientSettings(BaseModel):
     fold_panel_after_sending_tweet: bool = False
     reset_hashtag_when_program_switches: bool = True
     auto_add_watching_channel_hashtag: bool = True
+    twitter_reply_thread_mode: Literal['PerHashtag', 'PerDay', 'Disabled'] = 'PerHashtag'
+    bluesky_reply_thread_mode: Literal['PerHashtag', 'PerDay', 'Disabled'] = 'Disabled'
     twitter_active_tab: Literal['Search', 'Timeline', 'Capture'] = 'Capture'
     tweet_hashtag_position: Literal['Prepend', 'Append', 'PrependWithLineBreak', 'AppendWithLineBreak'] = 'Append'
     tweet_capture_watermark_position: Literal['None', 'TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'] = 'None'
