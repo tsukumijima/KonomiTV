@@ -1,4 +1,6 @@
 
+import type { IPostTweetSendResult } from '@/services/Twitter';
+
 import Message from '@/message';
 import APIClient from '@/services/APIClient';
 import { IPostTweetResult, ITimelineTweetsResult, ITwitterAPIResult } from '@/services/Twitter';
@@ -55,12 +57,29 @@ class Bluesky {
      * @param handle Bluesky の handle
      * @param text 投稿本文
      * @param captures 添付するキャプチャ画像
+     * @param reply_to リプライ先情報
      */
-    static async sendPost(handle: string, text: string, captures: Blob[]): Promise<{message: string; is_error: boolean;}> {
+    static async sendPost(
+        handle: string,
+        text: string,
+        captures: Blob[],
+        reply_to: {
+            root_uri: string;
+            root_cid: string;
+            parent_uri: string;
+            parent_cid: string;
+        } | null = null,
+    ): Promise<IPostTweetSendResult> {
 
         // FastAPI 側は multipart/form-data で本文と画像を受け取るため、Twitter 投稿と同じ Blob 配列をそのまま詰め替える
         const form_data = new FormData();
         form_data.append('post', text);
+        if (reply_to !== null) {
+            form_data.append('reply_root_uri', reply_to.root_uri);
+            form_data.append('reply_root_cid', reply_to.root_cid);
+            form_data.append('reply_parent_uri', reply_to.parent_uri);
+            form_data.append('reply_parent_cid', reply_to.parent_cid);
+        }
         for (const tweet_capture of captures) {
             form_data.append('images', tweet_capture);
         }
@@ -76,17 +95,23 @@ class Bluesky {
             // 通信自体が成立しなかった場合はステータスコードが NaN になり、HTTP エラー番号として表示できない
             if (Number.isNaN(response.status)) {
                 if (typeof response.data.detail === 'string') {
-                    return {message: `Bluesky へのポストに失敗しました。(${response.data.detail})`, is_error: true};
+                    return {message: `Bluesky へのポストに失敗しました。(${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
                 }
-                return {message: 'Bluesky へのポストに失敗しました。(HTTP リクエストに失敗しました)', is_error: true};
+                return {message: 'Bluesky へのポストに失敗しました。(HTTP リクエストに失敗しました)', is_error: true, tweet_id: null, post_uri: null, post_cid: null};
             }
             if (typeof response.data.detail === 'string') {
-                return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
+                return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
             }
-            return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status})`, is_error: true};
+            return {message: `Bluesky へのポストに失敗しました。(HTTP Error ${response.status})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
         }
 
-        return {message: response.data.detail, is_error: response.data.is_success === false};
+        return {
+            message: response.data.detail,
+            is_error: response.data.is_success === false,
+            tweet_id: null,
+            post_uri: response.data.is_success === false ? null : response.data.post_uri,
+            post_cid: response.data.is_success === false ? null : response.data.post_cid,
+        };
     }
 
 

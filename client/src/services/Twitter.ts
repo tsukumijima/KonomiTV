@@ -46,6 +46,18 @@ export interface ITwitterAPIResult {
 /** ツイートの送信結果を表すインターフェイス */
 export interface IPostTweetResult extends ITwitterAPIResult {
     tweet_url: string;
+    tweet_id: string | null;
+    post_uri: string | null;
+    post_cid: string | null;
+}
+
+/** 投稿フォームから呼び出す送信処理の結果 */
+export interface IPostTweetSendResult {
+    message: string;
+    is_error: boolean;
+    tweet_id: string | null;
+    post_uri: string | null;
+    post_cid: string | null;
 }
 
 /** タイムラインの追加取得カーソルを表すインターフェイス */
@@ -149,12 +161,16 @@ class Twitter {
      * @param screen_name Twitter のスクリーンネーム
      * @param text ツイート本文
      * @param captures 添付するキャプチャ画像
+     * @param in_reply_to_status_id リプライ先のツイート ID
      */
-    static async sendTweet(screen_name: string, text: string, captures: Blob[]): Promise<{message: string; is_error: boolean;}> {
+    static async sendTweet(screen_name: string, text: string, captures: Blob[], in_reply_to_status_id: string | null = null): Promise<IPostTweetSendResult> {
 
         // multipart/form-data でツイート本文と画像（選択されている場合）を送る
         const form_data = new FormData();
         form_data.append('tweet', text);
+        if (in_reply_to_status_id !== null) {
+            form_data.append('in_reply_to_status_id', in_reply_to_status_id);
+        }
         for (const tweet_capture of captures) {
             form_data.append('images', tweet_capture);
         }
@@ -175,24 +191,30 @@ class Twitter {
             if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
                     // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
-                    return {message: `Twitter へのツイートに失敗しました。(${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
                 } else {
                     // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
-                    return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
                 }
             } else {
-                return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status})`, is_error: true};
+                return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
             }
         }
 
         // 成功 or 失敗に関わらず detail の内容をそのまま通知する
         if (response.data.is_success === false) {
             // ツイート失敗
-            return {message: response.data.detail, is_error: true};
+            return {message: response.data.detail, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
         } else {
             // ツイート成功
             Twitter.recordAccountActivity(screen_name);
-            return {message: response.data.detail, is_error: false};
+            return {
+                message: response.data.detail,
+                is_error: false,
+                tweet_id: response.data.tweet_id,
+                post_uri: null,
+                post_cid: null,
+            };
         }
     }
 
