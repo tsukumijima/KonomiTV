@@ -807,10 +807,14 @@ class TwitterScrapeBrowser:
             else:
                 # リプライ投稿では Twitter Web App の compose ルートが読む履歴状態と query の両方にリプライ先 ID を渡す
                 # query も併用することで、親ツイートが未取得のページ状態でも Web App 側の取得処理へ入れる
-                logging.info(f'{self.log_prefix} Opening reply modal via SPA navigation. in_reply_to_status_id: {in_reply_to_status_id}')
+                if re.fullmatch(r'\d+', in_reply_to_status_id) is None:
+                    logging.error(f'{self.log_prefix} Invalid in_reply_to_status_id for reply modal: {in_reply_to_status_id}')
+                    return await MakeErrorResult('リプライ先のツイート ID が不正です。')
+                validated_reply_to_status_id = in_reply_to_status_id
+                logging.info(f'{self.log_prefix} Opening reply modal via SPA navigation. in_reply_to_status_id: {validated_reply_to_status_id}')
                 reply_state = {
                     'state': {
-                        'inReplyToStatusId': in_reply_to_status_id,
+                        'inReplyToStatusId': validated_reply_to_status_id,
                     },
                     'key': ''.join(random.choice('abcdefghijklmnopqrstuvwxyz0123456789') for _ in range(6)),
                 }
@@ -819,7 +823,7 @@ class TwitterScrapeBrowser:
                     expression=f'''
                     (() => {{
                         const wrappedState = {json.dumps(reply_state)};
-                        const composeUrl = `/compose/post?in_reply_to=${{encodeURIComponent({json.dumps(in_reply_to_status_id)})}}`;
+                        const composeUrl = `/compose/post?in_reply_to=${{encodeURIComponent({json.dumps(validated_reply_to_status_id)})}}`;
                         window.history.pushState(wrappedState, '', composeUrl);
                         window.dispatchEvent(new PopStateEvent('popstate', {{ state: wrappedState }}));
                     }})()
