@@ -24,7 +24,7 @@
                         <img :src="url" alt="Tweet Image" class="tweet__image" loading="lazy" decoding="async">
                     </a>
                 </div>
-                <video class="tweet__movie" v-if="proxyMovieUrl" :src="proxyMovieUrl" controls @click.stop></video>
+                <video class="tweet__movie" v-if="proxyMovieUrl" :src="proxyMovieUrl" controls loop @click.stop></video>
                 <a v-if="displayedTweet.quoted_tweet"
                     :href="getTweetUrl(displayedTweet.quoted_tweet)"
                     target="_blank" class="tweet__quoted-tweet" @click.stop>
