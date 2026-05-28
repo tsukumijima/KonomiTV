@@ -45,16 +45,27 @@
                 @focus="is_tweet_text_form_focused = true"
                 @blur="is_tweet_text_form_focused = false">
             </textarea>
-            <div class="tweet-form__control">
-                <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.is_logged_in_twitter}"
+            <div class="tweet-form__control" :class="{
+                'tweet-form__control--linked': twitterStore.selected_account?.kind === 'Linked',
+            }">
+                <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.has_twitter_panel_account}"
                     @click="clickAccountButton()">
                     <img class="account-button__icon"
-                        :src="twitterStore.is_logged_in_twitter ? twitterStore.selected_twitter_account?.icon_url : '/assets/images/account-icon-default.png'">
+                        :src="twitterStore.has_twitter_panel_account ? selectedAccountIconUrl : '/assets/images/account-icon-default.png'">
                     <span class="account-button__screen-name">
-                        {{twitterStore.is_logged_in_twitter ? `@${twitterStore.selected_twitter_account?.screen_name}` : '連携されていません'}}
+                        {{twitterStore.has_twitter_panel_account ? selectedAccountDisplayId : '連携されていません'}}
                     </span>
-                    <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="22px" />
+                    <Icon class="account-button__menu" icon="fluent:more-circle-20-regular" width="18px" />
                 </div>
+                <button v-if="twitterStore.selected_account?.kind === 'Linked'" v-ripple
+                    class="post-target-button" @click="cycleLinkedPostTarget()">
+                    <span v-if="isLinkedPostTargetBoth" class="dual-service-icon dual-service-icon--post-target">
+                        <Icon icon="fa-brands:twitter" />
+                        <Icon icon="simple-icons:bluesky" />
+                    </span>
+                    <Icon v-else-if="shouldPostToTwitter" icon="fa-brands:twitter" width="14px" />
+                    <Icon v-else-if="shouldPostToBluesky" icon="simple-icons:bluesky" width="14px" />
+                </button>
                 <div class="limit-meter">
                     <div class="limit-meter__content" :class="{
                         'limit-meter__content--yellow': tweet_letter_remain_count <= 20,
@@ -68,10 +79,15 @@
                         <span>{{playerStore.twitter_selected_capture_blobs.length}}/4</span>
                     </div>
                 </div>
-                <button class="tweet-button" v-ripple="Utils.isTouchDevice() === false" :disabled="is_tweet_button_disabled"
+                <button class="tweet-button" :class="tweetButtonClass" v-ripple="Utils.isTouchDevice() === false" :disabled="is_tweet_button_disabled"
                     @click="sendTweet()" @touchstart="sendTweet()">
-                    <Icon icon="fa-brands:twitter" height="16px" />
-                    <span class="ml-1">ツイート</span>
+                    <span v-if="shouldPostToBothServices" class="dual-service-icon dual-service-icon--tweet-button">
+                        <Icon icon="fa-brands:twitter" />
+                        <Icon icon="simple-icons:bluesky" />
+                    </span>
+                    <Icon v-else-if="shouldPostToTwitter" icon="fa-brands:twitter" height="16px" />
+                    <Icon v-else-if="shouldPostToBluesky" icon="simple-icons:bluesky" height="15px" />
+                    <span class="ml-1">{{tweetButtonLabel}}</span>
                 </button>
             </div>
         </div>
@@ -128,16 +144,44 @@
             </draggable>
         </div>
         <div class="twitter-account-list" :class="{'twitter-account-list--display': is_twitter_account_list_display}">
-            <div v-ripple class="twitter-account" v-for="twitter_account in userStore.user ? userStore.user.twitter_accounts : []"
-                :key="twitter_account.id" @click="updateSelectedTwitterAccount(twitter_account)">
-                <!-- 以下では Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
-                <img class="twitter-account__icon" :src="twitter_account.icon_url">
+            <div v-ripple class="twitter-account" v-for="account in twitterStore.selectable_accounts"
+                :key="getSelectableAccountKey(account)" @click="updateSelectedAccount(account)">
+                <!-- 単体アカウントは左下のサービスバッジ、紐付けアカウントは設定画面同様に Bluesky アバターを重ねる -->
+                <div class="twitter-account__icon-wrapper">
+                    <img class="twitter-account__icon" :src="getSelectableAccountIconUrl(account)">
+                    <img v-if="account.kind === 'Linked'" class="twitter-account__icon-badge"
+                        :src="account.account_link.bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                    <span v-if="account.kind === 'Twitter'" class="twitter-account__service-badge twitter-account__service-badge--twitter">
+                        <Icon icon="fa-brands:twitter" />
+                    </span>
+                    <span v-if="account.kind === 'Bluesky'" class="twitter-account__service-badge twitter-account__service-badge--bluesky">
+                        <Icon icon="simple-icons:bluesky" />
+                    </span>
+                    <span v-if="account.kind === 'Linked'" class="twitter-account__service-badge twitter-account__service-badge--linked">
+                        <span class="twitter-account__service-badge-segment twitter-account__service-badge-segment--twitter">
+                            <Icon icon="fa-brands:twitter" />
+                        </span>
+                        <span class="twitter-account__service-badge-segment twitter-account__service-badge-segment--bluesky">
+                            <Icon icon="simple-icons:bluesky" />
+                        </span>
+                    </span>
+                </div>
                 <div class="twitter-account__info">
-                    <div class="twitter-account__name">{{twitter_account.name}}</div>
-                    <div class="twitter-account__screen-name">@{{twitter_account.screen_name}}</div>
+                    <div v-for="row in getSelectableAccountNameRows(account)" :key="row.id" class="twitter-account__name">
+                        <Icon v-if="row.icon" class="twitter-account__name-service-icon" :icon="row.icon" />
+                        <span class="twitter-account__text">{{row.text}}</span>
+                    </div>
+                    <span v-if="account.kind === 'Linked'" class="twitter-account__screen-name">
+                        <span class="twitter-account__screen-name-handle">@{{account.account_link.twitter_account.screen_name}}</span>
+                        <Icon class="twitter-account__screen-name-link-icon" icon="fluent:link-20-filled" />
+                        <span class="twitter-account__screen-name-handle">@{{account.account_link.bluesky_account.handle}}</span>
+                    </span>
+                    <span v-else class="twitter-account__screen-name">
+                        <span class="twitter-account__screen-name-handle">{{getSelectableAccountDisplayId(account)}}</span>
+                    </span>
                 </div>
                 <svg class="twitter-account__check iconify iconify--fluent" width="24px" height="24px" viewBox="0 0 16 16"
-                    v-show="twitter_account.id === settingsStore.settings.selected_twitter_account_id">
+                    v-show="isSelectableAccountSelected(account)">
                     <path fill="currentColor" d="M14.046 3.486a.75.75 0 0 1-.032 1.06l-7.93 7.474a.85.85 0 0 1-1.188-.022l-2.68-2.72a.75.75 0 1 1 1.068-1.053l2.234 2.267l7.468-7.038a.75.75 0 0 1 1.06.032Z"></path>
                 </svg>
             </div>
@@ -150,18 +194,23 @@ import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 import draggable from 'vuedraggable';
 
+import type { IPostTweetSendResult } from '@/services/Twitter';
+
 import TwitterCaptures from '@/components/Watch/Panel/Twitter/Captures.vue';
 import TwitterSearch from '@/components/Watch/Panel/Twitter/Search.vue';
 import TwitterTimeline from '@/components/Watch/Panel/Twitter/Timeline.vue';
+import Bluesky from '@/services/Bluesky';
 import { IProgram } from '@/services/Programs';
 import Twitter from '@/services/Twitter';
-import { ITwitterAccount } from '@/services/Users';
+import { ISelectableAccount } from '@/services/Users';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import useSettingsStore from '@/stores/SettingsStore';
+import useSettingsStore, { ITwitterPanelPostTarget } from '@/stores/SettingsStore';
 import useTwitterStore from '@/stores/TwitterStore';
 import useUserStore from '@/stores/UserStore';
-import Utils, { ChannelUtils } from '@/utils';
+import Utils, { ChannelUtils, dayjs } from '@/utils';
+import { TweetUtils } from '@/utils/TweetUtils';
+
 
 // このコンポーネント内でのキャプチャのインターフェイス
 export interface ITweetCapture {
@@ -177,6 +226,51 @@ interface IHashtag {
     id: number;
     text: string;
     editing: boolean;
+}
+
+interface ISelectableAccountDisplayRow {
+    id: string;
+    icon?: string;
+    text: string;
+}
+
+// 同時投稿時の通知文と待ち合わせ処理で扱う送信先サービス
+// 実際の選択状態は送信開始時点で別途スナップショットし、通知処理は現在のトグル状態を参照しない
+type TweetPostService = 'Twitter' | 'Bluesky';
+
+// 投稿 API の戻り値を DPlayer notice 向けの通知単位へ正規化した結果
+// settled_at は 2 サービスの完了時刻差を判定するための値で、通知文そのものには使わない
+interface ITweetPostNotificationResult {
+    service: TweetPostService;
+    message: string;
+    is_error: boolean;
+    settled_at: number;
+}
+
+// Twitter / Bluesky 同時投稿時、両方の結果を一つの DPlayer notice にまとめる最大待ち時間 (ミリ秒)
+// waitForRemainingTweetPostResult のタイムアウトと、完了時刻差の統合判定の両方で同じ値を使う
+const SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS = 2000;
+
+// 送信先サービスと、そのサービスへ投げた非同期処理を対応づける
+// Promise だけではどのサービスの結果か後から安全に判定できないため、service を外側にも保持する
+interface ITweetPostRequest {
+    service: TweetPostService;
+    promise: Promise<ITweetPostNotificationResult>;
+}
+
+// 実際に DPlayer notice へ流す通知内容
+// 複数サービスの結果をまとめた場合も、最終的にはこの一つの型へ畳み込む
+interface ITweetPostSettledResult {
+    service: TweetPostService;
+    message: string;
+    is_error: boolean;
+}
+
+// 投稿ボタン押下時点の送信先を固定したスナップショット
+// API 応答待ちの間にトグルが変わっても、送信処理と通知文が現在の UI 状態へ引っ張られないようにする
+interface ITweetPostTargetSnapshot {
+    twitter_screen_name: string | null;
+    bluesky_handle: string | null;
 }
 
 export default defineComponent({
@@ -241,8 +335,90 @@ export default defineComponent({
 
         // ツイートボタンが無効かどうか
         is_tweet_button_disabled(): boolean {
-            return this.twitterStore.is_logged_in_twitter === false || this.tweet_letter_remain_count < 0 ||
+            return this.twitterStore.selected_account === null || this.tweet_letter_remain_count < 0 ||
                 ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.playerStore.twitter_selected_capture_blobs.length === 0);
+        },
+
+        selectedAccountIconUrl(): string {
+            const account = this.twitterStore.selected_account;
+            // 紐付けアカウントの代表表示は既存 Twitter タブの見え方を保つため Twitter 側へ寄せる
+            // Bluesky 側の識別はアカウント選択リスト内のバッジと二段表示で補う
+            if (account?.kind === 'Twitter') return account.twitter_account.icon_url;
+            if (account?.kind === 'Bluesky') return account.bluesky_account.icon_url || '/assets/images/account-icon-default.png';
+            if (account?.kind === 'Linked') return account.account_link.twitter_account.icon_url;
+            return '/assets/images/account-icon-default.png';
+        },
+
+        selectedAccountDisplayId(): string {
+            const account = this.twitterStore.selected_account;
+            // 入力欄横の短い ID 表示は一行に収める必要があるため、紐付け時は代表として Twitter 側を出す
+            // Bluesky 側の handle はドロップダウン内で省略表示込みの二段表示に任せる
+            if (account?.kind === 'Twitter') return `@${account.twitter_account.screen_name}`;
+            if (account?.kind === 'Bluesky') return `@${account.bluesky_account.handle}`;
+            if (account?.kind === 'Linked') return `@${account.account_link.twitter_account.screen_name}`;
+            return '連携されていません';
+        },
+
+        shouldPostToTwitter(): boolean {
+            const account = this.twitterStore.selected_account;
+            if (account?.kind === 'Twitter') return true;
+            if (account?.kind === 'Linked') return this.linkedPostTarget.is_post_to_twitter;
+            return false;
+        },
+
+        shouldPostToBluesky(): boolean {
+            const account = this.twitterStore.selected_account;
+            if (account?.kind === 'Bluesky') return true;
+            if (account?.kind === 'Linked') return this.linkedPostTarget.is_post_to_bluesky;
+            return false;
+        },
+
+        shouldPostToBothServices(): boolean {
+            return this.shouldPostToTwitter === true && this.shouldPostToBluesky === true;
+        },
+
+        isLinkedPostTargetBoth(): boolean {
+            const account = this.twitterStore.selected_account;
+            if (account?.kind !== 'Linked') return false;
+            return this.shouldPostToBothServices;
+        },
+
+        linkedPostTargetKey(): string | null {
+            const account = this.twitterStore.selected_account;
+            // 送信先の切替状態は視聴中に頻繁に変わる軽い UI 状態なので DB には置かない
+            // 紐付け ID ごとの LocalStorage キーにして、リンク解除後の単独アカウントへ状態を漏らさない
+            if (account?.kind !== 'Linked') return null;
+            return `Linked-${account.account_link.id}`;
+        },
+
+        linkedPostTarget(): ITwitterPanelPostTarget {
+            const linked_post_target_key = this.linkedPostTargetKey;
+            if (linked_post_target_key === null) {
+                return {
+                    is_post_to_twitter: true,
+                    is_post_to_bluesky: true,
+                };
+            }
+            return this.settingsStore.settings.twitter_panel_post_targets[linked_post_target_key] ?? {
+                is_post_to_twitter: true,
+                is_post_to_bluesky: true,
+            };
+        },
+
+        tweetButtonLabel(): string {
+            // Bluesky 単独投稿では「ポスト」に変え、Twitter を含む場合は抗議的に残している「ツイート」を維持する
+            if (this.shouldPostToTwitter === false && this.shouldPostToBluesky === true) {
+                return 'ポスト';
+            }
+            return 'ツイート';
+        },
+
+        tweetButtonClass(): Record<string, boolean> {
+            return {
+                'tweet-button--twitter': this.shouldPostToTwitter === true && this.shouldPostToBluesky === false,
+                'tweet-button--bluesky': this.shouldPostToTwitter === false && this.shouldPostToBluesky === true,
+                'tweet-button--both': this.shouldPostToTwitter === true && this.shouldPostToBluesky === true,
+            };
         },
 
         // パネルで Twitter タブが表示されているかどうか
@@ -406,8 +582,8 @@ export default defineComponent({
         // アカウントボタンが押されたときのイベント
         clickAccountButton() {
 
-            // Twitter アカウントが連携されていない場合は Twitter 設定画面に飛ばす
-            if (!this.twitterStore.is_logged_in_twitter) {
+            // Twitter タブで利用できる連携アカウントがない場合は Twitter 設定画面に飛ばす
+            if (!this.twitterStore.has_twitter_panel_account) {
 
                 // 視聴画面以外に遷移するため、フルスクリーンを解除しないと画面が崩れる
                 if (document.fullscreenElement) {
@@ -427,15 +603,94 @@ export default defineComponent({
             }
         },
 
-        // 選択されている Twitter アカウントを更新する
-        updateSelectedTwitterAccount(twitter_account: ITwitterAccount) {
-            this.settingsStore.settings.selected_twitter_account_id = twitter_account.id;
-            this.twitterStore.selected_twitter_account = twitter_account;
+        getSelectableAccountKey(account: ISelectableAccount): string {
+            // DB 上の連番 ID はテーブルごとに重複しうるため、種別を含めたキーで選択状態を安定させる
+            if (account.kind === 'Twitter') return `Twitter-${account.twitter_account.id}`;
+            if (account.kind === 'Bluesky') return `Bluesky-${account.bluesky_account.id}`;
+            return `Linked-${account.account_link.id}`;
+        },
+
+        getSelectableAccountIconUrl(account: ISelectableAccount): string {
+            // 紐付け行は Twitter 側を主アイコン、Bluesky 側を重ねバッジにする
+            // 丸アバター同士を合成せず、既存の Twitter アカウント選択体験を崩さない
+            if (account.kind === 'Twitter') return account.twitter_account.icon_url;
+            if (account.kind === 'Bluesky') return account.bluesky_account.icon_url || '/assets/images/account-icon-default.png';
+            return account.account_link.twitter_account.icon_url;
+        },
+
+        getSelectableAccountNameRows(account: ISelectableAccount): ISelectableAccountDisplayRow[] {
+            if (account.kind === 'Twitter') {
+                return [{id: 'twitter-name', text: account.twitter_account.name}];
+            }
+            if (account.kind === 'Bluesky') {
+                return [{id: 'bluesky-name', text: account.bluesky_account.name}];
+            }
+
+            const twitter_name = account.account_link.twitter_account.name;
+            const bluesky_name = account.account_link.bluesky_account.name;
+
+            // 表示名が完全一致する場合は重複表示せず、1行だけ出す
+            if (twitter_name === bluesky_name) {
+                return [{id: 'shared-name', text: twitter_name}];
+            }
+
+            // 表示名が異なる場合だけサービスアイコン付きで2段表示する
+            return [
+                {id: 'twitter-name', icon: 'fa-brands:twitter', text: twitter_name},
+                {id: 'bluesky-name', icon: 'simple-icons:bluesky', text: bluesky_name},
+            ];
+        },
+
+        getSelectableAccountDisplayId(account: ISelectableAccount): string {
+            if (account.kind === 'Twitter') {
+                return `@${account.twitter_account.screen_name}`;
+            }
+            if (account.kind === 'Bluesky') {
+                return `@${account.bluesky_account.handle}`;
+            }
+            return `@${account.account_link.twitter_account.screen_name}`;
+        },
+
+        isSelectableAccountSelected(account: ISelectableAccount): boolean {
+            // fetchUser() のたびに選択候補のオブジェクト参照が作り直されるため、種別付きキーで比較する
+            return this.twitterStore.selected_account !== null &&
+                this.getSelectableAccountKey(account) === this.getSelectableAccountKey(this.twitterStore.selected_account);
+        },
+
+        // 選択されている Twitter タブ用アカウントを更新する
+        updateSelectedAccount(account: ISelectableAccount) {
+            // selectAccount() 内で selected_twitter_panel_account への永続化と selected_twitter_account の導出を行うため、ここでの個別更新は不要
+            this.twitterStore.selectAccount(account);
             // アカウント切り替え時は API アクティビティをリセットして、不要な Keep-Alive を抑止する
-            this.twitterStore.resetAccountAPIActivity(twitter_account.screen_name);
+            if (this.twitterStore.selected_twitter_account !== null) {
+                this.twitterStore.resetAccountAPIActivity(this.twitterStore.selected_twitter_account.screen_name);
+            }
 
             // Twitter アカウントリストのオーバーレイを閉じる (少し待ってから閉じたほうが体感が良い)
             window.setTimeout(() => this.is_twitter_account_list_display = false, 150);
+        },
+
+        cycleLinkedPostTarget() {
+            const linked_post_target_key = this.linkedPostTargetKey;
+            if (linked_post_target_key === null) {
+                return;
+            }
+            const current_twitter = this.linkedPostTarget.is_post_to_twitter;
+            const current_bluesky = this.linkedPostTarget.is_post_to_bluesky;
+            let is_post_to_twitter = true;
+            let is_post_to_bluesky = true;
+            // 両方 → Twitter のみ → Bluesky のみ → 両方 の順で循環させ、空送信先の状態は作らない
+            if (current_twitter === true && current_bluesky === true) {
+                is_post_to_twitter = true;
+                is_post_to_bluesky = false;
+            } else if (current_twitter === true && current_bluesky === false) {
+                is_post_to_twitter = false;
+                is_post_to_bluesky = true;
+            }
+            this.settingsStore.settings.twitter_panel_post_targets[linked_post_target_key] = {
+                is_post_to_twitter,
+                is_post_to_bluesky,
+            };
         },
 
         // Twitter パネルが表示されている間は一定間隔で Keep-Alive API を叩く
@@ -615,16 +870,27 @@ export default defineComponent({
             // ツイートボタンが無効なら何もしない
             if (this.is_tweet_button_disabled === true) return;
 
-            // Twitter アカウントが連携されていない場合は何もしない
-            if (this.twitterStore.selected_twitter_account === null) return;
+            // Twitter タブ用アカウントが連携されていない場合は何もしない
+            if (this.twitterStore.selected_account === null) return;
 
             // 送信中フラグを立てる (重複送信防止)
             if (this.is_tweet_sending === true) return;
             this.is_tweet_sending = true;
 
+            // 送信先トグルは送信中でも操作できるため、以降の処理では現在値を見ない
+            // ここで固定した送信先だけを使い、API 呼び出しと完了通知の整合性を保つ
+            const post_target_snapshot = this.createTweetPostTargetSnapshot();
+            if (post_target_snapshot.twitter_screen_name === null && post_target_snapshot.bluesky_handle === null) {
+                this.is_tweet_sending = false;
+                return;
+            }
+
             // ハッシュタグを整形
             this.tweet_hashtag = this.formatHashtag(this.tweet_hashtag);
             const tweet_hashtag = this.tweet_hashtag;
+            const tweet_hashtags = tweet_hashtag !== '' ? tweet_hashtag.split(' ') : [];
+            // 局タグの自動追加も反映済みのハッシュタグセットで判定し、ユーザーが実際に投稿する文脈とツリーを一致させる
+            const hashtag_key = TweetUtils.normalizeHashtagKey(tweet_hashtags);
             this.updateTweetLetterCount();
 
             // 実際に送るツイート本文を作成
@@ -673,14 +939,29 @@ export default defineComponent({
             }
             this.playerStore.twitter_selected_capture_blobs = [];
 
-            // ツイート送信 API にリクエスト
-            // レスポンスは待たない
-            Twitter.sendTweet(this.twitterStore.selected_twitter_account.screen_name, tweet_text, tweet_capture_blobs).then((result) => {
-                this.playerStore.event_emitter.emit('SendNotification', {
-                    message: result.message,
-                    color: result.is_error ? '#FF6F6A' : undefined,
+            const send_results: ITweetPostRequest[] = [];
+            // 紐付けアカウントでもサーバー側の統合投稿 API は作らず、フロントから各サービスへ独立して送る
+            // 片方が凍結や API エラーで失敗しても、もう片方の投稿結果は通知として残す
+            if (post_target_snapshot.twitter_screen_name !== null) {
+                // Twitter 送信は押下時点の screen_name だけを参照する
+                // 送信中にアカウント選択や送信先トグルが変わっても、この Promise の宛先は変えない
+                send_results.push({
+                    service: 'Twitter',
+                    promise: this.sendTweetToService('Twitter',
+                        this.sendTweetWithReplyThread(post_target_snapshot.twitter_screen_name, tweet_text, tweet_capture_blobs, hashtag_key)),
                 });
-            });
+            }
+            if (post_target_snapshot.bluesky_handle !== null) {
+                // Bluesky 送信も押下時点の handle へ固定する
+                // 同時投稿から単独投稿へ即座に戻しても、完了通知はこの送信で実際に投げた対象だけを扱う
+                send_results.push({
+                    service: 'Bluesky',
+                    promise: this.sendTweetToService('Bluesky',
+                        this.sendBlueskyPostWithReplyThread(post_target_snapshot.bluesky_handle, tweet_text, tweet_capture_blobs, hashtag_key)),
+                });
+            }
+
+            await this.notifyTweetPostResults(send_results);
 
             // 送信中フラグを下ろす
             this.is_tweet_sending = false;
@@ -690,6 +971,298 @@ export default defineComponent({
                 this.playerStore.is_panel_display = false;
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す
             }
+        },
+
+        createTweetPostTargetSnapshot(): ITweetPostTargetSnapshot {
+
+            const account = this.twitterStore.selected_account;
+            // 単独 Twitter アカウントでは Twitter だけへ送る
+            // 紐付けアカウントのトグル状態は存在しないため、現在の選択アカウントそのものが送信先になる
+            if (account?.kind === 'Twitter') {
+                return {
+                    twitter_screen_name: account.twitter_account.screen_name,
+                    bluesky_handle: null,
+                };
+            }
+            // 単独 Bluesky アカウントでは Bluesky だけへ送る
+            // 通知文もこのスナップショットに基づいて単体送信として扱う
+            if (account?.kind === 'Bluesky') {
+                return {
+                    twitter_screen_name: null,
+                    bluesky_handle: account.bluesky_account.handle,
+                };
+            }
+            // 紐付けアカウントでは投稿ボタン押下時点のトグル状態を固定する
+            // 画像処理や API 待ちの間にユーザーがトグルを変更しても、この送信の宛先と通知内容は変えない
+            if (account?.kind === 'Linked') {
+                // 投稿ボタンを押した瞬間のトグル状態を固定する
+                // 送信中にユーザーが送信先を切り替えても、この送信と完了通知は押下時点の対象だけを参照する
+                return {
+                    twitter_screen_name: this.linkedPostTarget.is_post_to_twitter === true ? account.account_link.twitter_account.screen_name : null,
+                    bluesky_handle: this.linkedPostTarget.is_post_to_bluesky === true ? account.account_link.bluesky_account.handle : null,
+                };
+            }
+            return {
+                twitter_screen_name: null,
+                bluesky_handle: null,
+            };
+        },
+
+        async sendTweetWithReplyThread(
+            screen_name: string,
+            tweet_text: string,
+            tweet_capture_blobs: Blob[],
+            hashtag_key: string,
+        ): Promise<IPostTweetSendResult> {
+
+            const settings = this.settingsStore.settings;
+            const state = settings.twitter_reply_thread_states[screen_name];
+            const now = dayjs();
+            const decision = TweetUtils.decideReplyThread({
+                mode: settings.twitter_reply_thread_mode,
+                state,
+                current_hashtag_key: hashtag_key,
+                now,
+            });
+
+            // リプライ先は送信直前の状態から固定し、API 待ちの間に状態が変わってもこの投稿の宛先を変えない
+            const in_reply_to_status_id = decision.send_as_reply === true && state !== undefined ? state.last_tweet_id : null;
+            const result = await Twitter.sendTweet(screen_name, tweet_text, tweet_capture_blobs, in_reply_to_status_id);
+            if (result.is_error === true || result.tweet_id === null) {
+                return result;
+            }
+
+            // リプライツリー状態は送信成功時だけ更新し、失敗時は前回の親へ再試行できる余地を残す
+            if (decision.send_as_reply === true && state !== undefined) {
+                settings.twitter_reply_thread_states[screen_name] = {
+                    ...state,
+                    last_tweet_id: result.tweet_id,
+                };
+            } else if (decision.reset_state_after === true) {
+                settings.twitter_reply_thread_states[screen_name] = {
+                    last_tweet_id: result.tweet_id,
+                    started_at: now.toISOString(),
+                    hashtag_key,
+                };
+            } else if (decision.clear_state === true) {
+                delete settings.twitter_reply_thread_states[screen_name];
+            }
+
+            return result;
+        },
+
+        async sendBlueskyPostWithReplyThread(
+            handle: string,
+            tweet_text: string,
+            tweet_capture_blobs: Blob[],
+            hashtag_key: string,
+        ): Promise<IPostTweetSendResult> {
+
+            const settings = this.settingsStore.settings;
+            const state = settings.bluesky_reply_thread_states[handle];
+            const now = dayjs();
+            const decision = TweetUtils.decideReplyThread({
+                mode: settings.bluesky_reply_thread_mode,
+                state,
+                current_hashtag_key: hashtag_key,
+                now,
+            });
+
+            // Bluesky のリプライはルートと親ポストの StrongRef が必要なので、保存済み状態が揃う時だけ渡す
+            const reply_to = decision.send_as_reply === true && state !== undefined ? {
+                root_uri: state.root_uri,
+                root_cid: state.root_cid,
+                parent_uri: state.parent_uri,
+                parent_cid: state.parent_cid,
+            } : null;
+            const result = await Bluesky.sendPost(handle, tweet_text, tweet_capture_blobs, reply_to);
+            if (result.is_error === true || result.post_uri === null || result.post_cid === null) {
+                return result;
+            }
+
+            // ルートはツリーの起点として固定し、返信が伸びた時は直前の親ポストだけを新しい投稿へ進める
+            if (decision.send_as_reply === true && state !== undefined) {
+                settings.bluesky_reply_thread_states[handle] = {
+                    ...state,
+                    parent_uri: result.post_uri,
+                    parent_cid: result.post_cid,
+                };
+            } else if (decision.reset_state_after === true) {
+                settings.bluesky_reply_thread_states[handle] = {
+                    root_uri: result.post_uri,
+                    root_cid: result.post_cid,
+                    parent_uri: result.post_uri,
+                    parent_cid: result.post_cid,
+                    started_at: now.toISOString(),
+                    hashtag_key,
+                };
+            } else if (decision.clear_state === true) {
+                delete settings.bluesky_reply_thread_states[handle];
+            }
+
+            return result;
+        },
+
+        async sendTweetToService(
+            service: TweetPostService,
+            send_result: Promise<IPostTweetSendResult>,
+        ): Promise<ITweetPostNotificationResult> {
+
+            try {
+                // 成功 / 失敗の詳細文は各サービスの送信関数に任せる
+                // ここでは完了時刻とサービス名を付与し、後段で統合通知できる形へ揃える
+                const result = await send_result;
+                return {
+                    service,
+                    message: result.message,
+                    is_error: result.is_error,
+                    settled_at: performance.now(),
+                };
+            } catch (error) {
+                // 各送信関数は通常 reject せずに {message, is_error: true} を返す設計だが、
+                // APIClient 以前のネットワーク断などで reject が漏れる経路を想定して保険を入れる
+                console.error('Tweet sending promise rejected unexpectedly.', error);
+                return {
+                    service,
+                    message: service === 'Twitter' ? 'Twitter へのツイートに失敗しました。' : 'Bluesky へのポストに失敗しました。',
+                    is_error: true,
+                    settled_at: performance.now(),
+                };
+            }
+        },
+
+        async notifyTweetPostResults(send_results: ITweetPostRequest[]): Promise<void> {
+
+            if (send_results.length === 0) {
+                return;
+            }
+
+            if (send_results.length === 1) {
+                // 単体投稿では待ち合わせせず、従来通りそのサービスの結果だけを即時通知する
+                // 成功文はサービスごとに統一し、API 側 detail の揺れを画面へ出さない
+                const result = await send_results[0].promise;
+                this.emitTweetPostNotification(this.formatSingleTweetPostNotification(result));
+                return;
+            }
+
+            // DPlayer の notice は同時に一つしか表示できないため、近いタイミングの二重投稿結果だけを短時間待ち合わせる
+            // Twitter 側だけ大きく遅い場合は先に返ったサービスを従来通り個別通知し、待たされる体感を避ける
+            const first_result = await Promise.race(send_results.map(send_result => send_result.promise));
+            const second_result = await this.waitForRemainingTweetPostResult(
+                send_results,
+                first_result.service,
+                SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS,
+            );
+            if (second_result !== null &&
+                second_result.settled_at - first_result.settled_at <= SIMULTANEOUS_TWEET_POST_NOTIFICATION_MERGE_TIMEOUT_MS) {
+                // 待ち合わせ時間以内に両方返った場合だけ一つの notice へまとめる
+                // ここでまとめないと DPlayer 側で後勝ち上書きになり、片方の結果をユーザーが見落とす
+                this.emitTweetPostNotification(this.formatMergedTweetPostNotification([first_result, second_result]));
+                return;
+            }
+
+            // 片方だけ先に返り、もう片方が待ち合わせ時間以内に返らない場合は待たせず個別通知へ戻す
+            // Twitter の投稿 UI 経路は遅くなることがあるため、同時投稿でも常に統合待ちにはしない
+            this.emitTweetPostNotification(this.formatSingleTweetPostNotification(first_result));
+            if (second_result !== null) {
+                this.emitTweetPostNotification(this.formatSingleTweetPostNotification(second_result));
+                return;
+            }
+
+            // タイムアウト後に遅れて返ったサービスは、その時点で単体結果として通知する
+            // 先に表示した notice を無理に再統合すると、実際の完了順とユーザー体感がずれる
+            const delayed_result = await send_results.find(send_result => send_result.service !== first_result.service)!.promise;
+            this.emitTweetPostNotification(this.formatSingleTweetPostNotification(delayed_result));
+        },
+
+        async waitForRemainingTweetPostResult(
+            send_results: ITweetPostRequest[],
+            first_result_service: TweetPostService,
+            timeout_milliseconds: number,
+        ): Promise<ITweetPostNotificationResult | null> {
+
+            const remaining_result = send_results.find(send_result => send_result.service !== first_result_service);
+            if (remaining_result === undefined) {
+                return null;
+            }
+            // もう片方の投稿結果が短時間で返るかだけを見る
+            // タイムアウト時は null を返し、呼び出し側で個別通知へ切り替える
+            const timeout_result = new Promise<null>(resolve => {
+                window.setTimeout(() => resolve(null), timeout_milliseconds);
+            });
+            return await Promise.race([remaining_result.promise, timeout_result]);
+        },
+
+        formatSingleTweetPostNotification(result: ITweetPostNotificationResult): ITweetPostSettledResult {
+
+            if (result.is_error === true) {
+                // 失敗時は API 側やネットワーク層で作った詳細文をそのまま出す
+                // 成功時だけ UI 文言をサービス名つきの統一文へ差し替える
+                return {
+                    service: result.service,
+                    message: result.message,
+                    is_error: true,
+                };
+            }
+
+            return {
+                service: result.service,
+                message: result.service === 'Twitter' ? 'Twitter にツイートしました。' : 'Bluesky にポストしました。',
+                is_error: false,
+            };
+        },
+
+        formatMergedTweetPostNotification(results: ITweetPostNotificationResult[]): ITweetPostSettledResult {
+
+            const twitter_result = results.find(result => result.service === 'Twitter');
+            const bluesky_result = results.find(result => result.service === 'Bluesky');
+            // 両方成功した場合は、DPlayer notice の一枠で同時送信成功を伝える
+            // 送信先は押下時点のスナップショット由来なので、現在のトグル状態はここでも参照しない
+            if (twitter_result?.is_error === false && bluesky_result?.is_error === false) {
+                return {
+                    service: 'Twitter',
+                    message: 'Twitter と Bluesky に同時ツイートしました。',
+                    is_error: false,
+                };
+            }
+
+            // 片方だけ失敗した場合は、成功側と失敗側を一文にまとめる
+            // notice が上書きされる制約下でも、どちらが成功したかを一目で分かるようにする
+            if (twitter_result?.is_error === true && bluesky_result?.is_error === false) {
+                return {
+                    service: 'Twitter',
+                    message: `Bluesky にポストしました。Twitter へのツイートは失敗しました。(${twitter_result.message})`,
+                    is_error: true,
+                };
+            }
+
+            // Twitter 成功 / Bluesky 失敗も同じく一つの notice に集約する
+            // 失敗詳細は原因調査に使えるため、括弧内に元メッセージを残す
+            if (twitter_result?.is_error === false && bluesky_result?.is_error === true) {
+                return {
+                    service: 'Bluesky',
+                    message: `Twitter にツイートしました。Bluesky へのポストは失敗しました。(${bluesky_result.message})`,
+                    is_error: true,
+                };
+            }
+
+            // 両方失敗した場合は、各サービスの失敗理由を一つの notice に連結する
+            // どちらか一方だけ失敗したように見えないよう、サービス横断の失敗として扱う
+            return {
+                service: 'Twitter',
+                message: `Twitter と Bluesky へのツイートに失敗しました。(${results.map(result => result.message).join(' / ')})`,
+                is_error: true,
+            };
+        },
+
+        emitTweetPostNotification(result: ITweetPostSettledResult): void {
+
+            // DPlayer 側の notice 表示は SendNotification イベントに集約されている
+            // エラー時だけ赤系の色を指定し、成功時は既存 notice の既定色を使う
+            this.playerStore.event_emitter.emit('SendNotification', {
+                message: result.message,
+                color: result.is_error ? '#FF6F6A' : undefined,
+            });
         },
     }
 });
@@ -981,10 +1554,12 @@ export default defineComponent({
         &__control {
             display: flex;
             align-items: center;
+            min-width: 0;
             height: 32px;
             margin-top: 6px;
             @include smartphone-horizontal {
                 height: 26px;
+                column-gap: 3px;
             }
             @include smartphone-vertical {
                 height: 26px;
@@ -1016,13 +1591,16 @@ export default defineComponent({
                     font-size: 11.5px;
                 }
                 @include smartphone-horizontal {
-                    width: 156px;
+                    flex: 1 1 0;
+                    min-width: 0;
+                    width: auto;
                     border-radius: 5px;
                     font-size: 11px;
                 }
                 @include smartphone-vertical {
+                    flex: 1 1 0;
+                    min-width: 0;
                     width: auto;
-                    flex-grow: 1;
                     border-radius: 5px;
                     font-size: 11.5px;
                 }
@@ -1051,12 +1629,27 @@ export default defineComponent({
                 }
                 &__screen-name {
                     flex-grow: 1;
+                    min-width: 0;
+                    padding-left: 3px;
+                    padding-right: 3px;
                     line-height: 2;
                     text-align: center;
                     font-weight: bold;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
                 &__menu {
+                    flex-shrink: 0;
                     margin-right: 4px;
+                    @include smartphone-horizontal {
+                        margin-right: 2px;
+
+                        :deep(svg) {
+                            width: 18px;
+                            height: 18px;
+                        }
+                    }
                 }
             }
 
@@ -1067,6 +1660,7 @@ export default defineComponent({
                 flex-direction: column;
                 flex-grow: 1;
                 row-gap: 0.5px;
+                min-width: 45px;
                 font-size: 10px;
                 color: rgb(var(--v-theme-text-darken-1));
                 user-select: none;
@@ -1076,6 +1670,9 @@ export default defineComponent({
                     width: auto;
                 }
                 @include smartphone-horizontal {
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    min-width: 34px;
                     font-size: 9px;
                 }
                 @include smartphone-vertical {
@@ -1109,7 +1706,7 @@ export default defineComponent({
                     }
                     span {
                         width: 16px;
-                        margin-left: 5px;
+                        margin-left: 4.5px;
                         text-align: center;
                         font-weight: bold;
                         @include tablet-vertical {
@@ -1127,10 +1724,78 @@ export default defineComponent({
                 }
             }
 
+            .dual-service-icon {
+                display: inline-flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                line-height: 0;
+
+                :deep(svg) {
+                    display: block;
+                }
+
+                &--post-target :deep(svg) {
+                    width: 12.5px;
+                    height: 12.5px;
+                    @include smartphone-horizontal {
+                        width: 9px;
+                        height: 9px;
+                    }
+                }
+
+                &--tweet-button {
+                    // スマホ・タブレット縦画面ではツイートボタン幅に余裕があるため、同時投稿アイコンを横並びにする
+                    @include tablet-vertical {
+                        flex-direction: row;
+                        column-gap: 2px;
+                    }
+                    @include smartphone-vertical {
+                        flex-direction: row;
+                        column-gap: 2px;
+                    }
+
+                    :deep(svg) {
+                        width: 13.5px;
+                        height: 13.5px;
+                        @include smartphone-horizontal {
+                            width: 10px;
+                            height: 10px;
+                        }
+                    }
+                }
+            }
+
+            .post-target-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                column-gap: 3px;
+                width: 34px;
+                height: 100%;
+                border-radius: 7px;
+                margin-left: 4px;
+                color: rgb(var(--v-theme-text));
+                background: rgb(var(--v-theme-background-lighten-2));
+                cursor: pointer;
+                @include smartphone-horizontal {
+                    width: 24px;
+                    margin-left: 0;
+                    border-radius: 5px;
+                }
+                @include smartphone-vertical {
+                    width: 30px;
+                    border-radius: 5px;
+                }
+            }
+
             .tweet-button {
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                flex-shrink: 0;
                 width: 94px;
                 height: 100%;
                 border-radius: 7px;
@@ -1145,9 +1810,18 @@ export default defineComponent({
                     width: 200px;
                     border-radius: 5px;
                     font-size: 11.8px;
+                    // ボタン幅に余裕があるため、アイコン群とラベルの間隔を広げる
+                    column-gap: 2px;
+
+                    .ml-1 {
+                        // column-gap で間隔を取るため Vuetify の ml-1 は打ち消す
+                        margin-left: 0;
+                    }
                 }
                 @include smartphone-horizontal {
-                    width: 86px;
+                    width: 80px;
+                    padding-left: 4px;
+                    padding-right: 4px;
                     border-radius: 5px;
                     font-size: 11.8px;
                 }
@@ -1162,6 +1836,104 @@ export default defineComponent({
                     cursor: auto;
                     // スマホでクリック時の波紋が発動しないようにする
                     pointer-events: none;
+                }
+
+                &--twitter {
+                    background: rgb(var(--v-theme-twitter));
+                }
+
+                &--bluesky {
+                    background: #0F73FF;
+                }
+
+                &--both {
+                    background: linear-gradient(90deg, rgb(var(--v-theme-twitter)) 0%, #0F73FF 100%);
+                }
+            }
+
+            &--linked {
+                .account-button {
+                    // Linked アカウントでは投稿ボタンの寸法を固定したまま、
+                    // 送信先切り替えボタン・文字数表示を詰めて名前表示を広げる
+                    min-width: 0;
+                    @include tablet-vertical {
+                        width: 200px;
+                    }
+                    @include tablet-horizontal {
+                        width: 162px;
+                        border-radius: 5px;
+                    }
+                    @include desktop {
+                        width: 162px;
+                    }
+
+                    .account-button__menu {
+                        width: 18px;
+                        height: 18px;
+                        margin-right: 2px;
+                        @include smartphone-horizontal {
+                            width: 16px;
+                            height: 16px;
+                        }
+                        @include smartphone-vertical {
+                            width: 16px;
+                            height: 16px;
+                        }
+                    }
+                }
+
+                .post-target-button {
+                    width: 26px;
+                    column-gap: 2px;
+                    margin-left: 3px;
+                    @include smartphone-horizontal {
+                        width: 20px;
+                        margin-left: 0;
+                    }
+                    @include smartphone-vertical {
+                        width: 24px;
+                        margin-left: 3px;
+                    }
+                }
+
+                .dual-service-icon--post-target :deep(svg) {
+                    width: 10px;
+                    height: 10px;
+                    @include smartphone-horizontal {
+                        width: 8px;
+                        height: 8px;
+                    }
+                    @include smartphone-vertical {
+                        width: 9px;
+                        height: 9px;
+                    }
+                }
+
+                .limit-meter {
+                    min-width: 42px;
+                    @include smartphone-horizontal {
+                        min-width: 31px;
+                    }
+                    @include smartphone-vertical {
+                        width: 80px;
+                    }
+
+                    .limit-meter__content {
+                        svg {
+                            @include smartphone-horizontal {
+                                width: 12px;
+                                height: 12px;
+                            }
+                        }
+
+                        span {
+                            @include smartphone-horizontal {
+                                width: 14px;
+                                margin-left: 3.5px;
+                                font-size: 8.5px;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1456,6 +2228,10 @@ export default defineComponent({
                 padding: 8px 12px;
             }
 
+            &__icon-wrapper {
+                position: relative;
+                flex-shrink: 0;
+            }
             &__icon {
                 display: block;
                 width: 50px;
@@ -1470,6 +2246,152 @@ export default defineComponent({
                     height: 36px;
                 }
             }
+            &__icon-badge {
+                position: absolute;
+                top: -6px;
+                right: -6px;
+                width: 26px;
+                height: 26px;
+                border: 2px solid rgb(var(--v-theme-background-lighten-2));
+                border-radius: 50%;
+                object-fit: cover;
+                @include smartphone-horizontal {
+                    width: 18px;
+                    height: 18px;
+                }
+                @include smartphone-vertical {
+                    width: 18px;
+                    height: 18px;
+                }
+            }
+            &__service-badge {
+                position: absolute;
+                left: 0px;
+                bottom: 0px;
+                color: #fff;
+                line-height: 0;
+
+                &--twitter,
+                &--bluesky {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 5px;
+
+                    :deep(svg) {
+                        width: 11px;
+                        height: 11px;
+                    }
+                }
+
+                // 視聴パネルのツイートボタンと同じ Twitter ブランドカラー
+                &--twitter {
+                    background: rgb(var(--v-theme-twitter));
+                }
+
+                // 視聴パネルのポストボタンと同じ Bluesky ブランドカラー
+                &--bluesky {
+                    background: #0F73FF;
+                }
+
+                &--linked {
+                    display: flex;
+                    width: 40px;
+                    height: 20px;
+                }
+
+                &-segment {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 1 1 50%;
+                    height: 100%;
+
+                    :deep(svg) {
+                        width: 10px;
+                        height: 10px;
+                    }
+
+                    &--twitter {
+                        background: rgb(var(--v-theme-twitter));
+                        border-radius: 5px 0 0 5px;
+                    }
+
+                    &--bluesky {
+                        background: #0F73FF;
+                        border-radius: 0 5px 5px 0;
+                    }
+                }
+
+                @include smartphone-horizontal {
+                    &--twitter,
+                    &--bluesky {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 4px;
+
+                        :deep(svg) {
+                            width: 9px;
+                            height: 9px;
+                        }
+                    }
+
+                    &--linked {
+                        width: 32px;
+                        height: 16px;
+                    }
+
+                    &-segment {
+                        :deep(svg) {
+                            width: 8px;
+                            height: 8px;
+                        }
+
+                        &--twitter {
+                            border-radius: 4px 0 0 4px;
+                        }
+
+                        &--bluesky {
+                            border-radius: 0 4px 4px 0;
+                        }
+                    }
+                }
+                @include smartphone-vertical {
+                    &--twitter,
+                    &--bluesky {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 4px;
+
+                        :deep(svg) {
+                            width: 9px;
+                            height: 9px;
+                        }
+                    }
+
+                    &--linked {
+                        width: 32px;
+                        height: 16px;
+                    }
+
+                    &-segment {
+                        :deep(svg) {
+                            width: 8px;
+                            height: 8px;
+                        }
+
+                        &--twitter {
+                            border-radius: 4px 0 0 4px;
+                        }
+
+                        &--bluesky {
+                            border-radius: 0 4px 4px 0;
+                        }
+                    }
+                }
+            }
             &__info {
                 display: flex;
                 flex-direction: column;
@@ -1478,11 +2400,16 @@ export default defineComponent({
                 margin-left: 12px;
             }
             &__name {
+                display: flex;
+                align-items: center;
+                column-gap: 6px;
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
                 font-size: 17px;
                 font-weight: bold;
                 white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                color: rgb(var(--v-theme-text));
                 @include smartphone-horizontal {
                     font-size: 14px;
                     line-height: 1.3;
@@ -1492,15 +2419,75 @@ export default defineComponent({
                     line-height: 1.3;
                 }
             }
+            &__name-service-icon {
+                display: block;
+                flex-shrink: 0;
+                width: 13px;
+                height: 13px;
+                font-size: 13px;
+                @include smartphone-horizontal {
+                    width: 11px;
+                    height: 11px;
+                    font-size: 11px;
+                }
+                @include smartphone-vertical {
+                    width: 11px;
+                    height: 11px;
+                    font-size: 11px;
+                }
+            }
             &__screen-name {
+                min-width: 0;
+                overflow: hidden;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 14px;
+                line-height: 1.4;
                 @include smartphone-horizontal {
                     font-size: 13px;
                 }
                 @include smartphone-vertical {
                     font-size: 13px;
                 }
+
+                &-handle {
+                    display: inline-block;
+                    max-width: 100%;
+                    vertical-align: middle;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+
+                    // 単体アカウント行は1行全体を使って ellipsis する
+                    &:only-child {
+                        display: block;
+                    }
+                }
+
+                &-link-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    vertical-align: middle;
+                    margin: 0 6px;
+                    width: 14px;
+                    height: 14px;
+                    font-size: 14px;
+                    @include smartphone-horizontal {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
+                    @include smartphone-vertical {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
+                }
+            }
+            &__text {
+                min-width: 0;
+                flex: 1 1 auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             &__check {
                 flex-shrink: 0;

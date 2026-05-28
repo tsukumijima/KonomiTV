@@ -11,6 +11,7 @@ export interface ITwitterCookieAuthRequest {
 
 /** ツイートを表すインターフェイス */
 export interface ITweet {
+    source: 'Twitter' | 'Bluesky';
     id: string;
     created_at: Date;
     user: ITweetUser;
@@ -29,6 +30,7 @@ export interface ITweet {
 
 /** ツイートのユーザーを表すインターフェイス */
 export interface ITweetUser {
+    source: 'Twitter' | 'Bluesky';
     id: string;
     name: string;
     screen_name: string;
@@ -44,13 +46,35 @@ export interface ITwitterAPIResult {
 /** ツイートの送信結果を表すインターフェイス */
 export interface IPostTweetResult extends ITwitterAPIResult {
     tweet_url: string;
+    tweet_id: string | null;
+    post_uri: string | null;
+    post_cid: string | null;
+}
+
+/** 投稿フォームから呼び出す送信処理の結果 */
+export interface IPostTweetSendResult {
+    message: string;
+    is_error: boolean;
+    tweet_id: string | null;
+    post_uri: string | null;
+    post_cid: string | null;
+}
+
+/** タイムラインの追加取得カーソルを表すインターフェイス */
+export interface ITimelineLoadMoreCursor {
+    cursor_type: 'Older' | 'Gap' | 'ShowMore';
+    cursor_id: string;
+    entry_id: string | null;
+    upper_created_at: string | null;
+    lower_created_at: string | null;
 }
 
 /** タイムラインのツイート取得結果を表すインターフェイス */
 export interface ITimelineTweetsResult extends ITwitterAPIResult {
-    next_cursor_id: string;
-    previous_cursor_id: string;
     tweets: ITweet[];
+    newer_cursor_id: string | null;
+    load_more_cursors: ITimelineLoadMoreCursor[];
+    is_cursor_consumed: boolean;
 }
 
 
@@ -137,12 +161,16 @@ class Twitter {
      * @param screen_name Twitter のスクリーンネーム
      * @param text ツイート本文
      * @param captures 添付するキャプチャ画像
+     * @param in_reply_to_status_id リプライ先のツイート ID
      */
-    static async sendTweet(screen_name: string, text: string, captures: Blob[]): Promise<{message: string; is_error: boolean;}> {
+    static async sendTweet(screen_name: string, text: string, captures: Blob[], in_reply_to_status_id: string | null = null): Promise<IPostTweetSendResult> {
 
         // multipart/form-data でツイート本文と画像（選択されている場合）を送る
         const form_data = new FormData();
         form_data.append('tweet', text);
+        if (in_reply_to_status_id !== null) {
+            form_data.append('in_reply_to_status_id', in_reply_to_status_id);
+        }
         for (const tweet_capture of captures) {
             form_data.append('images', tweet_capture);
         }
@@ -163,24 +191,30 @@ class Twitter {
             if (typeof response.data.detail === 'string') {
                 if (Number.isNaN(response.status)) {
                     // HTTP リクエスト自体が失敗し、HTTP ステータスコードが取得できなかった場合
-                    return {message: `ツイートの送信に失敗しました。(${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
                 } else {
                     // HTTP リクエスト自体は成功したが、API からエラーレスポンスが返ってきた場合
-                    return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true};
+                    return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status} / ${response.data.detail})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
                 }
             } else {
-                return {message: `ツイートの送信に失敗しました。(HTTP Error ${response.status})`, is_error: true};
+                return {message: `Twitter へのツイートに失敗しました。(HTTP Error ${response.status})`, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
             }
         }
 
         // 成功 or 失敗に関わらず detail の内容をそのまま通知する
         if (response.data.is_success === false) {
             // ツイート失敗
-            return {message: response.data.detail, is_error: true};
+            return {message: response.data.detail, is_error: true, tweet_id: null, post_uri: null, post_cid: null};
         } else {
             // ツイート成功
             Twitter.recordAccountActivity(screen_name);
-            return {message: response.data.detail, is_error: false};
+            return {
+                message: response.data.detail,
+                is_error: false,
+                tweet_id: response.data.tweet_id,
+                post_uri: null,
+                post_cid: null,
+            };
         }
     }
 
@@ -317,15 +351,22 @@ class Twitter {
      * ホームタイムラインを取得する
      * @param screen_name Twitter のスクリーンネーム
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
+     * @param cursor_type カーソル ID の種類
      * @param seenTweetIds Twitter Web App 上で閲覧済みとして扱われるツイート ID のリスト
      * @returns タイムラインのツイートのリスト
      */
-    static async getHomeTimeline(screen_name: string, cursor_id?: string, seenTweetIds?: string[]): Promise<ITimelineTweetsResult | null> {
+    static async getHomeTimeline(
+        screen_name: string,
+        cursor_id?: string,
+        cursor_type: 'Top' | 'Bottom' | 'Gap' | 'ShowMore' = 'Top',
+        seenTweetIds?: string[],
+    ): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ITimelineTweetsResult>(`/twitter/accounts/${screen_name}/timeline`, {
             params: {
                 cursor_id,
+                cursor_type,
                 seen_tweet_ids: seenTweetIds && seenTweetIds.length > 0 ? seenTweetIds.join(',') : undefined,
             },
             // サーバー側でヘッドレスブラウザのセットアップやリトライが発生する可能性があるため、
@@ -355,14 +396,14 @@ class Twitter {
      * @param screen_name Twitter のスクリーンネーム
      * @param query 検索クエリ
      * @param cursor_id 前回のレスポンスから取得した、次のページを取得するためのカーソル ID
-     * @param cursor_type カーソル ID の種類 (Top: より新しいツイート, Bottom: より古いツイート)
+     * @param cursor_type カーソル ID の種類
      * @returns 検索結果のツイートのリスト
      */
     static async searchTweets(
         screen_name: string,
         query: string,
         cursor_id?: string,
-        cursor_type: 'Top' | 'Bottom' = 'Top',
+        cursor_type: 'Top' | 'Bottom' | 'Gap' | 'ShowMore' = 'Top',
     ): Promise<ITimelineTweetsResult | null> {
 
         // API リクエストを実行

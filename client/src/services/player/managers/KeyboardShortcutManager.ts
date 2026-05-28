@@ -562,6 +562,35 @@ class KeyboardShortcutManager implements PlayerManager {
                 return;
             }
 
+            // Shift + Tab: ツイート送信先を切り替える
+            // Twitter タブ表示中は入力フォームへ移動せず、キーボードだけで送信先を循環できるようにする
+            if ((event.code === 'Tab') &&
+                (is_repeat === false) &&
+                (is_ctrl_or_cmd_pressed === false) &&
+                (is_shift_pressed === true) &&
+                (is_alt_pressed === false) &&
+                (player_store.is_panel_display === true) &&
+                (panel_active_tab === 'Twitter') &&
+                (is_form_focused === false || document.activeElement === tweet_form_element)) {
+
+                // 送信先切り替えボタンは紐付けアカウント選択時だけ存在するため、キー押下時点の画面要素から取り直す
+                const post_target_button_element = document.querySelector<HTMLButtonElement>('.post-target-button');
+
+                // 紐付けアカウントではないなどの理由で送信先切り替えボタンが存在しない場合、
+                // 処理を行わずにブラウザ標準のフォーカス移動へ戻す
+                if (post_target_button_element !== null) {
+
+                    // 送信先切り替えボタンをクリックして、送信先切り替えボタンの表示状態と内部状態を更新する
+                    // 他と同様、コンポーネント間が離れているので DOM クリックが一番手っ取り早い
+                    post_target_button_element.click();
+
+                    // 既定のキーボードショートカットイベントをキャンセルして終了
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
+            }
+
             // Tab: ツイート入力フォームにフォーカスを当てる/フォーカスを外す
             // ツイート入力フォームにフォーカスが当たっていても実行する
             if ((event.code === 'Tab') &&

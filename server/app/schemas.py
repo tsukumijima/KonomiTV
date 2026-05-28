@@ -269,6 +269,8 @@ class User(PydanticModel):
     niconico_user_name: str | None
     niconico_user_premium: bool | None
     twitter_accounts: list[TwitterAccount]  # 追加カラム
+    bluesky_accounts: list[BlueskyAccount]  # 追加カラム
+    account_links: list[AccountLink]  # 追加カラム
     created_at: datetime
     updated_at: datetime
 
@@ -282,6 +284,22 @@ class TwitterAccount(PydanticModel):
     name: str
     screen_name: str
     icon_url: str
+    created_at: datetime
+    updated_at: datetime
+
+class BlueskyAccount(PydanticModel):
+    id: int
+    did: str
+    handle: str
+    name: str
+    icon_url: str
+    created_at: datetime
+    updated_at: datetime
+
+class AccountLink(PydanticModel):
+    id: int
+    twitter_account: TwitterAccount
+    bluesky_account: BlueskyAccount
     created_at: datetime
     updated_at: datetime
 
@@ -330,10 +348,18 @@ class UserUpdateRequest(BaseModel):
 class UserUpdateRequestForAdmin(BaseModel):
     is_admin: bool | None = None
 
+class AccountLinkCreateRequest(BaseModel):
+    twitter_account_id: int
+    bluesky_account_id: int
+
 # ***** Twitter 連携 *****
 
 class TwitterCookieAuthRequest(BaseModel):
     cookies_txt: str
+
+class BlueskyAuthRequest(BaseModel):
+    handle: str
+    app_password: str
 
 # モデルに関連しない API レスポンスの構造を表す Pydantic モデル
 ## レスポンスボディの JSON 構造と一致する
@@ -609,6 +635,7 @@ class ThirdpartyAuthURL(BaseModel):
 # ***** Twitter 連携 *****
 
 class Tweet(BaseModel):
+    source: Literal['Twitter', 'Bluesky']
     id: str
     created_at: datetime
     user: TweetUser
@@ -625,6 +652,7 @@ class Tweet(BaseModel):
     quoted_tweet: Tweet | None
 
 class TweetUser(BaseModel):
+    source: Literal['Twitter', 'Bluesky']
     id: str
     name: str
     screen_name: str
@@ -636,11 +664,22 @@ class TwitterAPIResult(BaseModel):
 
 class PostTweetResult(TwitterAPIResult):
     tweet_url: str
+    tweet_id: str | None = None
+    post_uri: str | None = None
+    post_cid: str | None = None
+
+class TimelineLoadMoreCursor(BaseModel):
+    cursor_type: Literal['Older', 'Gap', 'ShowMore']
+    cursor_id: str
+    entry_id: str | None
+    upper_created_at: datetime | None
+    lower_created_at: datetime | None
 
 class TimelineTweetsResult(TwitterAPIResult):
-    next_cursor_id: str
-    previous_cursor_id: str
     tweets: list[Tweet]
+    newer_cursor_id: str | None
+    load_more_cursors: list[TimelineLoadMoreCursor]
+    is_cursor_consumed: bool
 
 class TwitterGraphQLAPIEndpointInfo(BaseModel):
     method: Literal['GET', 'POST']

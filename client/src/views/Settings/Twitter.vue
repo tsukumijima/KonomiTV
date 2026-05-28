@@ -6,32 +6,37 @@
                 <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="fa-brands:twitter" width="22px" />
-            <span class="ml-3">Twitter</span>
+            <span class="ml-3">Twitter / Bluesky 連携</span>
         </h2>
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="twitter-accounts">
-                <div class="twitter-accounts__heading" v-if="userStore.user !== null && userStore.user.twitter_accounts.length > 0">
+                <div class="twitter-accounts__heading" v-if="has_linked_accounts">
                     <Icon icon="fluent:person-board-20-filled" class="mr-2" height="30" />連携中のアカウント
                 </div>
-                <div class="twitter-accounts__guide" v-if="userStore.user === null || userStore.user.twitter_accounts.length === 0">
+                <div class="twitter-accounts__guide" v-if="has_no_linked_accounts">
                     <Icon class="flex-shrink-0" icon="fa-brands:twitter" width="45px" />
                     <div class="ml-4">
-                        <div class="font-weight-bold text-h6">Twitter アカウントと連携していません</div>
+                        <div class="font-weight-bold text-h6">Twitter / Bluesky アカウントと連携していません</div>
                         <div class="text-text-darken-1 text-subtitle-2 mt-1">
-                            Twitter アカウントと連携すると、テレビを見ながら Twitter にツイートしたり、ほかの実況ツイートをリアルタイムで表示できるようになります。
+                            Twitter / Bluesky アカウントと連携すると、テレビを見ながらキャプ付きで実況ツイートしたり、ほかの実況ツイートをリアルタイムで表示できるようになります。
                         </div>
                     </div>
                 </div>
                 <div class="twitter-account"
                     v-for="twitter_account in (userStore.user !== null ? userStore.user.twitter_accounts: [])"
-                    :key="twitter_account.id">
-                    <img class="twitter-account__icon" :src="twitter_account.icon_url">
+                    :key="`twitter-${twitter_account.id}`">
+                    <div class="twitter-account__icon-wrapper">
+                        <img class="twitter-account__icon" :src="twitter_account.icon_url">
+                        <span class="twitter-account__service-badge twitter-account__service-badge--twitter">
+                            <Icon icon="fa-brands:twitter" />
+                        </span>
+                    </div>
                     <div class="twitter-account__info">
                         <div class="twitter-account__info-name">
                             <span class="twitter-account__info-name-text">{{twitter_account.name}}</span>
                         </div>
                         <span class="twitter-account__info-screen-name">
-                            @{{twitter_account.screen_name}}
+                            <span class="twitter-account__info-screen-name-handle">@{{twitter_account.screen_name}}</span>
                         </span>
                     </div>
                     <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
@@ -39,9 +44,35 @@
                         <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="24" />連携解除
                     </v-btn>
                 </div>
+                <div class="twitter-account"
+                    v-for="bluesky_account in (userStore.user !== null ? userStore.user.bluesky_accounts: [])"
+                    :key="`bluesky-${bluesky_account.id}`">
+                    <div class="twitter-account__icon-wrapper">
+                        <img class="twitter-account__icon" :src="bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                        <span class="twitter-account__service-badge twitter-account__service-badge--bluesky">
+                            <Icon icon="simple-icons:bluesky" />
+                        </span>
+                    </div>
+                    <div class="twitter-account__info">
+                        <div class="twitter-account__info-name">
+                            <span class="twitter-account__info-name-text">{{bluesky_account.name}}</span>
+                        </div>
+                        <span class="twitter-account__info-screen-name">
+                            <span class="twitter-account__info-screen-name-handle">@{{bluesky_account.handle}}</span>
+                        </span>
+                    </div>
+                    <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
+                        @click="logoutBlueskyAccount(bluesky_account.handle)">
+                        <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="24" />連携解除
+                    </v-btn>
+                </div>
                 <v-btn class="twitter-account__login" color="secondary" max-width="300" height="50" variant="flat"
                     @click="loginTwitterAccountWithCookieForm()">
                     <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携する Twitter アカウントを追加
+                </v-btn>
+                <v-btn class="twitter-account__login twitter-account__login--bluesky" color="secondary" max-width="300" height="50" variant="flat"
+                    @click="loginBlueskyAccountWithAppPasswordForm()">
+                    <Icon icon="fluent:plug-connected-20-filled" class="mr-2" height="24" />連携する Bluesky アカウントを追加
                 </v-btn>
                 <v-dialog max-width="740" v-model="twitter_cookie_auth_dialog">
                     <v-card>
@@ -63,8 +94,7 @@
                             <blockquote class="mt-3">
                                 ⚠️ 不審判定されないよう様々な技術的対策を施してはいますが、<strong>非公式な方法で無理やり実装しているため、今後の Twitter の仕様変更や不審判定基準の変更により、アカウントがロック・凍結される可能性も否定できません。</strong>自己の責任のもとでご利用ください。<br>
                                 <p class="mt-2">
-                                    <strong>📢 念のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に加入している Twitter アカウントでの利用をおすすめします。</strong><br>
-                                    Basic プランでは <a class="link" href="https://pro.x.com/" target="_blank">X Pro (新 TweetDeck)</a> が使えないため、凍結避け効果は薄いと思われます。<br>
+                                    <strong>📢 レート制限緩和のため、なるべく <a class="link" href="https://x.com/i/premium_sign_up" target="_blank">X Premium</a> に課金済みのアカウントでの利用をおすすめします。</strong><br>
                                     また、万が一の凍結リスクに備え、<strong>実況専用に作成したサブアカウントでの連携をおすすめします。</strong>
                                 </p>
                             </blockquote>
@@ -96,7 +126,106 @@
                         <v-card-actions class="pt-0 px-6 pb-6">
                             <v-spacer></v-spacer>
                             <v-btn color="text" variant="text" height="40" @click="twitter_cookie_auth_dialog = false">キャンセル</v-btn>
-                            <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="loginTwitterAccountWithCookie()">ログイン</v-btn>
+                            <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="loginTwitterAccountWithCookie()">
+                                <Icon icon="fa:sign-in" class="mr-2" height="17px" />ログイン
+                            </v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
+                <v-dialog max-width="590" v-model="bluesky_auth_dialog">
+                    <v-card>
+                        <v-card-title class="d-flex justify-center pt-6 font-weight-bold">連携する Bluesky アカウントを追加</v-card-title>
+                        <v-card-text class="pt-2 pb-0">
+                            <p>
+                                Bluesky で <a class="link" href="https://bsky.app/settings/app-passwords" target="_blank">App Password</a> を発行し、Bluesky ハンドルと一緒に入力してください。
+                            </p>
+                            <p class="mt-1">
+                                ここで入力された App Password は保存されません。ログイン後に、atproto SDK のセッション文字列だけを、ローカルの KonomiTV サーバーに暗号化して保存します。
+                            </p>
+                            <v-form class="settings__item" ref="bluesky_form" @submit.prevent>
+                                <v-text-field class="settings__item-form mt-6" color="primary" variant="outlined"
+                                    label="Bluesky ハンドル" placeholder="example.bsky.social"
+                                    v-model="bluesky_handle" :density="is_form_dense ? 'compact' : 'default'"
+                                    :rules="[validateBlueskyHandle]">
+                                </v-text-field>
+                                <v-text-field class="settings__item-form mt-3" color="primary" variant="outlined"
+                                    label="App Password" placeholder="xxxx-xxxx-xxxx-xxxx"
+                                    v-model="bluesky_app_password" :density="is_form_dense ? 'compact' : 'default'"
+                                    :type="bluesky_app_password_showing ? 'text' : 'password'"
+                                    :append-inner-icon="bluesky_app_password_showing ? 'mdi-eye' : 'mdi-eye-off'"
+                                    @click:appendInner="bluesky_app_password_showing = !bluesky_app_password_showing"
+                                    :rules="[(value) => { if (!value) return 'App Password を入力してください。'; return true; }]">
+                                </v-text-field>
+                            </v-form>
+                        </v-card-text>
+                        <v-card-actions class="pt-0 px-6 pb-6">
+                            <v-spacer></v-spacer>
+                            <v-btn color="text" variant="text" height="40" @click="closeBlueskyAuthDialog()">キャンセル</v-btn>
+                            <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="loginBlueskyAccountWithAppPassword()">
+                                <Icon icon="fa:sign-in" class="mr-2" height="17px" />ログイン
+                            </v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
+            </div>
+            <div class="twitter-accounts mt-6">
+                <div class="twitter-accounts__heading">
+                    <Icon icon="fluent:link-20-filled" class="mr-2" height="28" />紐付け中の Twitter / Bluesky アカウント
+                </div>
+                <div class="twitter-accounts__guide mt-4" v-if="userStore.user === null || userStore.user.account_links.length === 0">
+                    <Icon class="flex-shrink-0" icon="fluent:link-20-filled" width="45px" />
+                    <div class="ml-4">
+                        <div class="font-weight-bold text-h6">紐付け中の Twitter / Bluesky アカウントはありません</div>
+                        <div class="text-text-darken-1 text-subtitle-2 mt-1">
+                            Twitter と Bluesky のアカウントを紐付けると、視聴画面で両方のタイムラインをまとめて表示し、両方に同時に実況ツイートを投稿できます。
+                        </div>
+                    </div>
+                </div>
+                <div class="twitter-account"
+                    v-for="account_link in (userStore.user !== null ? userStore.user.account_links: [])"
+                    :key="account_link.id">
+                    <div class="linked-account-icon">
+                        <img class="twitter-account__icon" :src="account_link.twitter_account.icon_url">
+                        <img class="linked-account-icon__badge" :src="account_link.bluesky_account.icon_url || '/assets/images/account-icon-default.png'">
+                    </div>
+                    <div class="twitter-account__info">
+                        <div v-for="row in getAccountLinkNameRows(account_link)" :key="row.id" class="twitter-account__info-name">
+                            <Icon v-if="row.icon" class="twitter-account__info-name-service-icon" :icon="row.icon" />
+                            <span class="twitter-account__info-name-text">{{row.text}}</span>
+                        </div>
+                        <span class="twitter-account__info-screen-name">
+                            <span class="twitter-account__info-screen-name-handle">@{{account_link.twitter_account.screen_name}}</span>
+                            <Icon class="twitter-account__info-screen-name-link-icon" icon="fluent:link-20-filled" height="17px" />
+                            <span class="twitter-account__info-screen-name-handle">@{{account_link.bluesky_account.handle}}</span>
+                        </span>
+                    </div>
+                    <v-btn class="twitter-account__logout ml-auto" width="124" height="52" variant="flat"
+                        @click="deleteAccountLink(account_link.id)">
+                        <Icon icon="fluent:link-dismiss-20-filled" class="mr-2" height="24" />紐付け解除
+                    </v-btn>
+                </div>
+                <v-btn class="twitter-account__login" color="secondary" max-width="330" height="50" variant="flat"
+                    :disabled="account_link_twitter_items.length === 0 || account_link_bluesky_items.length === 0"
+                    @click="account_link_dialog = true">
+                    <Icon icon="fluent:link-add-20-filled" class="mr-2" height="24" />紐付けを追加
+                </v-btn>
+                <v-dialog max-width="560" v-model="account_link_dialog">
+                    <v-card>
+                        <v-card-title class="d-flex justify-center pt-6 font-weight-bold">Twitter と Bluesky のアカウントを紐付ける</v-card-title>
+                        <v-card-text class="pt-2 pb-0">
+                            <v-select class="settings__item-form mt-4" color="primary" variant="outlined"
+                                label="Twitter アカウント" :items="account_link_twitter_items" v-model="account_link_twitter_account_id">
+                            </v-select>
+                            <v-select class="settings__item-form mt-3" color="primary" variant="outlined"
+                                label="Bluesky アカウント" :items="account_link_bluesky_items" v-model="account_link_bluesky_account_id">
+                            </v-select>
+                        </v-card-text>
+                        <v-card-actions class="pt-0 px-6 pb-6">
+                            <v-spacer></v-spacer>
+                            <v-btn color="text" variant="text" height="40" @click="account_link_dialog = false">キャンセル</v-btn>
+                            <v-btn color="secondary" variant="flat" height="40" class="px-4" @click="createAccountLink()">
+                                <Icon icon="fluent:add-12-filled" class="mr-2" height="17px" />追加
+                            </v-btn>
                         </v-card-actions>
                     </v-card>
                 </v-dialog>
@@ -131,6 +260,45 @@
                 </v-switch>
             </div>
             <div class="settings__item">
+                <div class="settings__item-heading">リプライツリー実況の設定 (Twitter)</div>
+                <div class="settings__item-label">
+                    <strong>実況ツイートを「直前の自分の実況ツイートへのリプライ」としてつなげていくことで、X Premium 未加入アカウントでのツイート数上限を緩和し、スパム判定されづらくするための機能です。</strong>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <a class="link" href="https://pc.watch.impress.co.jp/docs/news/2109474.html" target="_blank">2026年5月現在、X Premium 未加入アカウントの1日あたりのツイート数は、通常ツイートで 50 件、リプライで 200 件と大きく制限されています。</a> 実況中に1日のツイート数上限に達してしまうケースも珍しくありません。<br>
+                    このため Twitter の実況コミュニティでは、ツイート数上限の緩いリプライ機能を使い、実況ツイートをぶら下げていく「リプライツリー実況」が、苦肉の策として標準的になりつつあります。<br>
+                    リプライツリー実況なら「短期間のハッシュタグ付き通常ツイートの連投」というスパマーと間違われやすい行為を回避できるため、スパム判定確率を下げる効果も期待できます。
+                </div>
+                <div class="settings__item-label mt-2">
+                    <strong>ハッシュタグごとにリプライツリーを切り替える（推奨）：</strong>連続した同一ハッシュタグの実況ツイートを、1つのリプライツリーにまとめます。<br>
+                    このモードではハッシュタグが変わるたびに新しいリプライツリーが開始されるため、実況ツイートが自動的に番組単位でまとまります。ハッシュタグがついていないツイートは、独立したツイートとして送信されます。
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>1日ごとにリプライツリーを切り替える：</strong>ハッシュタグに関係なく、朝4時から翌朝4時直前までを1つのリプライツリーとしてまとめます。1日単位で実況ツイートをひとまとめにしたい方におすすめです。
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>リプライツリー実況を行わない：</strong>すべてのツイートを独立したツイートとして送信します。従来通りの動作ですが、未課金アカウントではツイート数上限の影響を受けやすくなるほか、凍結リスクが高まる恐れもあります。
+                </div>
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :items="twitter_reply_thread_mode" v-model="settingsStore.settings.twitter_reply_thread_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
+                <div class="settings__item-heading">リプライツリー実況の設定 (Bluesky)</div>
+                <div class="settings__item-label">
+                    Bluesky は1日あたりのツイート数上限が緩いため、Twitter のように制限回避の目的でリプライツリー実況を行う必要はありません。とはいえハッシュタグごとに実況ツイートをまとめられる点は便利ですので、後で番組ごとに実況ツイートを遡りたい方は設定しておくと便利です。
+                </div>
+                <div class="settings__item-label mt-1">
+                    各モードの動作は Twitter 側と同じです。Twitter と Bluesky のアカウントを紐付けていて同時にツイートする際も、リプライツリーの状態は Twitter / Bluesky それぞれで独立して管理されます。<br>
+                    Twitter だけ実況ツイートをリプライツリーにまとめ、Bluesky では独立したポストのままにしておく、といった使い分けも可能です。
+                </div>
+                <v-select class="settings__item-form" color="primary" variant="outlined" hide-details
+                    :density="is_form_dense ? 'compact' : 'default'"
+                    :items="bluesky_reply_thread_mode" v-model="settingsStore.settings.bluesky_reply_thread_mode">
+                </v-select>
+            </div>
+            <div class="settings__item">
                 <div class="settings__item-heading">デフォルトで表示される Twitter タブ内のタブ</div>
                 <div class="settings__item-label">
                     視聴画面を開いたときに、パネルの Twitter タブの中で最初に表示されるタブを設定します。<br>
@@ -163,7 +331,7 @@
             </div>
         </div>
         <v-overlay class="align-center justify-center" :persistent="true"
-            :model-value="is_twitter_cookie_auth_sending" z-index="300">
+            :model-value="is_twitter_cookie_auth_sending || is_bluesky_auth_sending" z-index="300">
             <v-progress-circular color="secondary" indeterminate size="64" />
         </v-overlay>
     </SettingsBase>
@@ -175,11 +343,21 @@ import { defineComponent } from 'vue';
 import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
+import AccountLinks from '@/services/AccountLinks';
+import Bluesky, { IBlueskyAuthRequest } from '@/services/Bluesky';
 import Twitter, { ITwitterCookieAuthRequest } from '@/services/Twitter';
+import { IAccountLink } from '@/services/Users';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
+
+/** 紐付けアカウントの表示名行を表すインターフェイス */
+interface IAccountLinkNameRow {
+    id: string;
+    icon?: string;
+    text: string;
+}
 
 export default defineComponent({
     name: 'Settings-Twitter',
@@ -191,6 +369,20 @@ export default defineComponent({
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
+
+            // Twitter のリプライツリー実況モードの選択肢
+            twitter_reply_thread_mode: [
+                {title: 'ハッシュタグごとにリプライツリーを切り替える（推奨）', value: 'PerHashtag'},
+                {title: '1日ごとにリプライツリーを切り替える', value: 'PerDay'},
+                {title: 'リプライツリー実況を行わない', value: 'Disabled'},
+            ],
+
+            // Bluesky のリプライツリー実況モードの選択肢
+            bluesky_reply_thread_mode: [
+                {title: 'ハッシュタグごとにリプライツリーを切り替える', value: 'PerHashtag'},
+                {title: '1日ごとにリプライツリーを切り替える', value: 'PerDay'},
+                {title: 'リプライツリー実況を行わない（推奨）', value: 'Disabled'},
+            ],
 
             // デフォルトで表示されるパネルのタブの選択肢
             twitter_active_tab: [
@@ -222,15 +414,65 @@ export default defineComponent({
             // Cookie 認証実行中かどうか
             is_twitter_cookie_auth_sending: false,
 
+            // Bluesky 認証実行中かどうか
+            is_bluesky_auth_sending: false,
+
             // Cookie 認証用ダイヤログ
             twitter_cookie_auth_dialog: false,
 
             // Twitter の Cookie
             twitter_cookie: '',
+
+            // Bluesky 認証用ダイヤログ
+            bluesky_auth_dialog: false,
+
+            // Bluesky の handle
+            bluesky_handle: '',
+
+            // Bluesky の App Password
+            bluesky_app_password: '',
+
+            // Bluesky の App Password を表示するかどうか
+            bluesky_app_password_showing: false,
+
+            // Twitter / Bluesky 紐付け追加ダイヤログ
+            account_link_dialog: false,
+
+            // 紐付ける Twitter アカウント ID
+            account_link_twitter_account_id: null as number | null,
+
+            // 紐付ける Bluesky アカウント ID
+            account_link_bluesky_account_id: null as number | null,
         };
     },
     computed: {
         ...mapStores(useSettingsStore, useUserStore),
+
+        has_linked_accounts(): boolean {
+            if (this.userStore.user === null) {
+                return false;
+            }
+            return this.userStore.user.twitter_accounts.length > 0 ||
+                this.userStore.user.bluesky_accounts.length > 0;
+        },
+
+        has_no_linked_accounts(): boolean {
+            return this.has_linked_accounts === false;
+        },
+
+        account_link_twitter_items(): {title: string; value: number;}[] {
+            const linked_twitter_ids = new Set(this.userStore.user?.account_links.map(account_link => account_link.twitter_account.id) ?? []);
+            return (this.userStore.user?.twitter_accounts ?? [])
+                .filter(twitter_account => linked_twitter_ids.has(twitter_account.id) === false)
+                .map(twitter_account => ({title: `@${twitter_account.screen_name}`, value: twitter_account.id}));
+        },
+
+        account_link_bluesky_items(): {title: string; value: number;}[] {
+            const linked_bluesky_ids = new Set(this.userStore.user?.account_links.map(account_link => account_link.bluesky_account.id) ?? []);
+            return (this.userStore.user?.bluesky_accounts ?? [])
+                .filter(bluesky_account => linked_bluesky_ids.has(bluesky_account.id) === false)
+                .map(bluesky_account => ({title: `@${bluesky_account.handle}`, value: bluesky_account.id}));
+        },
     },
     async created() {
 
@@ -240,7 +482,63 @@ export default defineComponent({
         // ローディング状態を解除
         this.is_loading = false;
     },
+    watch: {
+        bluesky_auth_dialog(is_bluesky_auth_dialog_open: boolean) {
+            // ダイヤログ外クリックや Esc キーで閉じた場合も、保存しない App Password を画面状態から確実に消す
+            if (is_bluesky_auth_dialog_open === false) {
+                this.bluesky_app_password = '';
+                this.bluesky_app_password_showing = false;
+            }
+        },
+    },
     methods: {
+        normalizeBlueskyHandle(handle: string): string {
+            let normalized_handle = handle.trim();
+
+            // プロフィール URL はクエリや末尾パスが付くことがあるため、URL として分解する
+            // 通常のハンドルは URL として解釈できないので、その場合は従来通り入力文字列を正規化する
+            try {
+                const profile_url = new URL(normalized_handle);
+                const profile_path_segments = profile_url.pathname.split('/').filter(segment => segment.length > 0);
+                const is_bluesky_profile_url =
+                    (profile_url.hostname === 'bsky.app' || profile_url.hostname.endsWith('.bsky.app')) &&
+                    profile_path_segments[0] === 'profile' &&
+                    profile_path_segments[1] !== undefined;
+                if (is_bluesky_profile_url === true && profile_path_segments[1] !== undefined) {
+                    normalized_handle = decodeURIComponent(profile_path_segments[1]);
+                }
+            } catch {
+                // URL として解釈できない入力は、通常のハンドルとして後続の正規化へ進める
+            }
+            if (normalized_handle.startsWith('@') === true) {
+                normalized_handle = normalized_handle.slice(1).trim();
+            }
+            return normalized_handle.toLowerCase();
+        },
+
+        validateBlueskyHandle(value: string): true | string {
+            if (this.normalizeBlueskyHandle(value ?? '') === '') {
+                return 'Bluesky ハンドルを入力してください。';
+            }
+            return true;
+        },
+
+        getAccountLinkNameRows(account_link: IAccountLink): IAccountLinkNameRow[] {
+            const twitter_name = account_link.twitter_account.name;
+            const bluesky_name = account_link.bluesky_account.name;
+
+            // 表示名が完全一致する場合は重複表示せず、1行だけ出す
+            if (twitter_name === bluesky_name) {
+                return [{id: 'shared-name', text: twitter_name}];
+            }
+
+            // 表示名が異なる場合はサービスアイコン付きで各行を独立して ellipsis する
+            return [
+                {id: 'twitter-name', icon: 'fa-brands:twitter', text: twitter_name},
+                {id: 'bluesky-name', icon: 'simple-icons:bluesky', text: bluesky_name},
+            ];
+        },
+
         async loginTwitterAccountWithCookieForm() {
             // ログインしていない場合はエラーにする
             if (this.userStore.is_logged_in === false) {
@@ -311,6 +609,102 @@ export default defineComponent({
 
             Message.success(`Twitter @${screen_name} との連携を解除しました。`);
         },
+
+        async loginBlueskyAccountWithAppPasswordForm() {
+            if (this.userStore.is_logged_in === false) {
+                Message.warning('連携をはじめるには、KonomiTV アカウントにログインしてください。');
+                await Utils.sleep(0.01);
+                this.bluesky_auth_dialog = false;
+                return;
+            }
+            this.bluesky_auth_dialog = true;
+            this.bluesky_app_password_showing = false;
+        },
+
+        closeBlueskyAuthDialog() {
+            // App Password は永続化しない一時入力値なので、キャンセル時点で即座に破棄する
+            this.bluesky_app_password = '';
+            this.bluesky_app_password_showing = false;
+            this.bluesky_auth_dialog = false;
+        },
+
+        async loginBlueskyAccountWithAppPassword() {
+            if ((await (this.$refs.bluesky_form as VForm).validate()).valid === false) {
+                return;
+            }
+            const normalized_handle = this.normalizeBlueskyHandle(this.bluesky_handle);
+            if (normalized_handle === '') {
+                Message.warning('Bluesky ハンドルを入力してください！');
+                return;
+            }
+            this.bluesky_handle = normalized_handle;
+            const bluesky_auth_request: IBlueskyAuthRequest = {
+                handle: normalized_handle,
+                app_password: this.bluesky_app_password,
+            };
+
+            // Bluesky 認証 API にリクエスト
+            this.is_bluesky_auth_sending = true;
+            const result = await Bluesky.auth(bluesky_auth_request);
+            this.is_bluesky_auth_sending = false;
+            if (result === false) {
+                return;
+            }
+            const fetched_user = await this.userStore.fetchUser(true);
+            if (fetched_user === null) {
+                Message.warning('Bluesky 連携情報の再取得に失敗しました。画面を再読み込みしてください。');
+                return;
+            }
+            const current_bluesky_account = [...fetched_user.bluesky_accounts].sort((a, b) => {
+                return (a.updated_at < b.updated_at) ? 1 : ((a.updated_at > b.updated_at) ? -1 : 0);
+            })[0];
+            if (current_bluesky_account === undefined) {
+                Message.warning('Bluesky 連携情報の再取得に失敗しました。画面を再読み込みしてください。');
+                return;
+            }
+            Message.success(`Bluesky @${current_bluesky_account.handle} と連携しました。`);
+            (this.$refs.bluesky_form as VForm).reset();
+            this.bluesky_app_password_showing = false;
+            this.bluesky_auth_dialog = false;
+        },
+
+        async logoutBlueskyAccount(handle: string) {
+            const result = await Bluesky.logoutAccount(handle);
+            if (result === false) {
+                return;
+            }
+            await this.userStore.fetchUser(true);
+            Message.success(`Bluesky @${handle} との連携を解除しました。`);
+        },
+
+        async createAccountLink() {
+            if (this.account_link_twitter_account_id === null || this.account_link_bluesky_account_id === null) {
+                Message.warning('紐付ける Twitter アカウントと Bluesky アカウントを選択してください。');
+                return;
+            }
+            const account_link = await AccountLinks.create({
+                twitter_account_id: this.account_link_twitter_account_id,
+                bluesky_account_id: this.account_link_bluesky_account_id,
+            });
+            if (account_link === null) {
+                return;
+            }
+            await this.userStore.fetchUser(true);
+            // 次回ダイアログを開いた時に前回の選択が残らないよう選択状態をクリアする
+            this.account_link_twitter_account_id = null;
+            this.account_link_bluesky_account_id = null;
+            this.account_link_dialog = false;
+            Message.success('Twitter / Bluesky アカウントを紐付けました。');
+        },
+
+        async deleteAccountLink(link_id: number) {
+            const result = await AccountLinks.delete(link_id);
+            if (result === false) {
+                return;
+            }
+            await this.userStore.fetchUser(true);
+            Message.success('Twitter / Bluesky アカウントの紐付けを解除しました。');
+        },
     }
 });
 
@@ -323,6 +717,30 @@ export default defineComponent({
 
     &--loading {
         opacity: 0;
+    }
+}
+
+.linked-account-icon {
+    position: relative;
+    flex-shrink: 0;
+    margin-right: 16px;
+    @include smartphone-vertical {
+        margin-right: 10px;
+    }
+
+    .twitter-account__icon {
+        margin-right: 0;
+    }
+
+    &__badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 32px;
+        height: 32px;
+        border: 2px solid rgb(var(--v-theme-background-lighten-2));
+        border-radius: 50%;
+        object-fit: cover;
     }
 }
 
@@ -387,11 +805,19 @@ export default defineComponent({
             margin-top: 16px;
         }
 
-        &__icon {
+        &__icon-wrapper {
+            position: relative;
             flex-shrink: 0;
+            margin-right: 16px;
+            @include smartphone-vertical {
+                margin-right: 10px;
+            }
+        }
+
+        &__icon {
+            display: block;
             width: 70px;
             height: 70px;
-            margin-right: 16px;
             border-radius: 50%;
             object-fit: cover;
             // 読み込まれるまでのアイコンの背景
@@ -406,13 +832,64 @@ export default defineComponent({
             @include smartphone-vertical {
                 width: 48px;
                 height: 48px;
-                margin-right: 10px;
+            }
+        }
+
+        &__service-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            left: 0px;
+            bottom: 0px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            color: #fff;
+            line-height: 0;
+
+            :deep(svg) {
+                width: 13px;
+                height: 13px;
+            }
+
+            // 視聴パネルのツイートボタンと同じ Twitter ブランドカラー
+            &--twitter {
+                background: rgb(var(--v-theme-twitter));
+            }
+
+            // 視聴パネルのポストボタンと同じ Bluesky ブランドカラー
+            &--bluesky {
+                background: #0F73FF;
+            }
+
+            @include smartphone-horizontal {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+
+                :deep(svg) {
+                    width: 11px;
+                    height: 11px;
+                }
+            }
+
+            @include smartphone-vertical {
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+
+                :deep(svg) {
+                    width: 10px;
+                    height: 10px;
+                }
             }
         }
 
         &__info {
             display: flex;
             flex-direction: column;
+            flex: 1;
             min-width: 0;
             margin-right: 16px;
             @include smartphone-vertical {
@@ -420,12 +897,36 @@ export default defineComponent({
             }
 
             &-name {
-                display: inline-flex;
+                display: flex;
                 align-items: center;
+                column-gap: 6px;
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
+                color: rgb(var(--v-theme-text));
+
+                &-service-icon {
+                    display: block;
+                    flex-shrink: 0;
+                    // Iconify は width/height 未指定時に SVG へ 1em を設定するため、font-size も合わせて指定する
+                    width: 16px;
+                    height: 16px;
+                    font-size: 16px;
+                    @include smartphone-horizontal {
+                        width: 13px;
+                        height: 13px;
+                        font-size: 13px;
+                    }
+                    @include smartphone-vertical {
+                        width: 12px;
+                        height: 12px;
+                        font-size: 12px;
+                    }
+                }
 
                 &-text {
-                    display: inline-block;
-                    color: rgb(var(--v-theme-text));
+                    min-width: 0;
+                    flex: 1 1 auto;
                     font-size: 20px;
                     font-weight: bold;
                     overflow: hidden;
@@ -441,14 +942,37 @@ export default defineComponent({
             }
 
             &-screen-name {
-                display: inline-block;
+                min-width: 0;
+                overflow: hidden;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 16px;
+                line-height: 1.4;
                 @include smartphone-horizontal {
                     font-size: 14px;
                 }
                 @include smartphone-vertical {
                     font-size: 13.5px;
+                }
+
+                &-handle {
+                    display: inline-block;
+                    max-width: 100%;
+                    vertical-align: middle;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;  // はみ出た部分を … で省略
+
+                    // 単体アカウント行は1行全体を使って ellipsis する
+                    &:only-child {
+                        display: block;
+                    }
+                }
+
+                &-link-icon {
+                    display: inline-flex;
+                    align-items: center;
+                    vertical-align: middle;
+                    margin: 0 6px;
                 }
             }
         }
@@ -472,9 +996,14 @@ export default defineComponent({
                 height: 42px !important;
                 font-size: 14.5px;
             }
+
+            &--bluesky {
+                margin-top: 12px;
+            }
         }
 
         &__logout {
+            flex-shrink: 0;
             background: rgb(var(--v-theme-gray));
             border-radius: 7px;
             font-size: 15px;
@@ -501,6 +1030,19 @@ blockquote {
     background-color: rgb(var(--v-theme-background-lighten-1));
     padding: 8px 12px;
     border-radius: 4px;
+}
+
+.account-link-select__selection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+
+    span {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
 }
 
 </style>

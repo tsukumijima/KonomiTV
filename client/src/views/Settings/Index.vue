@@ -44,7 +44,7 @@
                     </v-btn>
                     <v-btn variant="flat" class="settings-navigation__button" to="/settings/twitter">
                         <Icon icon="fa-brands:twitter" width="26px" style="padding: 0 1px;" />
-                        <span class="ml-4">Twitter</span>
+                        <span class="ml-4">Twitter / Bluesky 連携</span>
                     </v-btn>
                     <v-btn variant="flat" class="settings-navigation__button" to="/settings/server">
                         <Icon icon="fluent:server-surface-16-filled" width="26px" />

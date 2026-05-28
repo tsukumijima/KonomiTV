@@ -1,0 +1,285 @@
+
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Path,
+    Query,
+    UploadFile,
+    status,
+)
+from tortoise.exceptions import IntegrityError
+
+from app import logging, schemas
+from app.models.BlueskyAccount import BlueskyAccount
+from app.models.User import User
+from app.routers.UsersRouter import GetCurrentUser
+from app.utils.BlueskyAPI import BlueskyAPI, BlueskyReplyReference
+
+
+# ルーター
+router = APIRouter(
+    tags = ['Bluesky'],
+    prefix = '/api/bluesky',
+)
+
+
+async def GetCurrentBlueskyAccount(
+    handle: Annotated[str, Path(description='Bluesky アカウントの handle。')],
+    current_user: Annotated[User, Depends(GetCurrentUser)],
+) -> BlueskyAccount:
+    """ 現在ログイン中のユーザーに紐づく Bluesky アカウントを取得する """
+
+    # handle は変更可能だが、API パスでは UI 上の識別子として使う
+    # 実際の更新・削除操作ではログイン中ユーザーに紐づくレコードだけに絞り込み、他ユーザーの認証情報へ触れないようにする
+    normalized_handle = BlueskyAPI.normalizeBlueskyHandle(handle)
+    bluesky_account = await BlueskyAccount.filter(user_id=current_user.id, handle=normalized_handle).get_or_none()
+    if bluesky_account is None:
+        logging.error(f'[BlueskyRouter][GetCurrentBlueskyAccount] BlueskyAccount associated with handle does not exist. [handle: {normalized_handle}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'BlueskyAccount associated with handle does not exist',
+        )
+
+    return bluesky_account
+
+
+@router.post(
+    '/auth',
+    summary = 'Bluesky 認証 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def BlueskyAuthAPI(
+    auth_request: Annotated[schemas.BlueskyAuthRequest, Body(description='Bluesky 認証リクエスト')],
+    current_user: Annotated[User, Depends(GetCurrentUser)],
+):
+    """
+    指定された handle と App Password で Bluesky 連携を行い、ログイン中のユーザーアカウントと Bluesky アカウントを紐づける。
+    """
+
+    # 認証処理では App Password を使って atproto SDK のセッションを作成し、保存用の ORM インスタンスへ変換する
+    try:
+        bluesky_account = await BlueskyAPI.authenticate(auth_request.handle, auth_request.app_password)
+    except Exception as ex:
+        logging.error('[BlueskyRouter][BlueskyAuthAPI] Failed to login to Bluesky:', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Failed to login to Bluesky',
+        ) from ex
+
+    # authenticate() はユーザーに紐づかない未保存インスタンスを返すため、ここでログイン中ユーザーへ接続する
+    bluesky_account.user = current_user
+
+    # 同じ DID のアカウントが既にある場合は、セッションとプロフィール情報を更新する
+    existing_account = await BlueskyAccount.filter(user_id=current_user.id, did=bluesky_account.did).get_or_none()
+    if existing_account is not None:
+        existing_account.handle = bluesky_account.handle
+        existing_account.name = bluesky_account.name
+        existing_account.icon_url = bluesky_account.icon_url
+        existing_account.session_string = bluesky_account.session_string
+        await existing_account.save()
+        logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account. [id: {existing_account.id}, handle: {existing_account.handle}]')
+        return
+
+    try:
+        await bluesky_account.save()
+    except IntegrityError as ex:
+        # 同じ DID の連携が同時に走った場合、事前の存在確認だけでは一意制約違反を避けられない
+        ## 競合相手が作成したレコードを更新して、連打や複数タブでも連携済み状態に収束させる
+        existing_account = await BlueskyAccount.filter(user_id=current_user.id, did=bluesky_account.did).get_or_none()
+        if existing_account is None:
+            logging.error(
+                f'[BlueskyRouter][BlueskyAuthAPI] Failed to save Bluesky account due to an unexpected integrity error. [user_id: {current_user.id}]',
+                exc_info=ex,
+            )
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Failed to link Bluesky account',
+            ) from ex
+        existing_account.handle = bluesky_account.handle
+        existing_account.name = bluesky_account.name
+        existing_account.icon_url = bluesky_account.icon_url
+        existing_account.session_string = bluesky_account.session_string
+        await existing_account.save()
+        logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account after conflict. [id: {existing_account.id}, handle: {existing_account.handle}]')
+        return
+    logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Created new Bluesky account. [id: {bluesky_account.id}, handle: {bluesky_account.handle}]')
+
+
+@router.delete(
+    '/accounts/{handle}',
+    summary = 'Bluesky アカウント連携解除 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def BlueskyAccountDeleteAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+):
+    """
+    指定された Bluesky アカウントの連携を解除する。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
+    """
+
+    # BlueskyAccount に紐づく AccountLink は外部キーの cascade で削除される
+    await bluesky_account.delete()
+
+
+@router.post(
+    '/accounts/{handle}/posts',
+    summary = 'Bluesky 投稿送信 API',
+    response_description = 'Bluesky 投稿の送信結果。',
+    response_model = schemas.PostTweetResult | schemas.TwitterAPIResult,
+)
+async def BlueskyPostAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post: Annotated[str, Form(description='Bluesky 投稿の本文。')] = '',
+    images: Annotated[list[UploadFile], File(description='Bluesky 投稿に添付する画像 (4枚まで) 。')] = [],
+    reply_root_uri: Annotated[str | None, Form(description='スレッドのルートポストの AT URI 。')] = None,
+    reply_root_cid: Annotated[str | None, Form(description='スレッドのルートポストの CID 。')] = None,
+    reply_parent_uri: Annotated[str | None, Form(description='直前の親ポストの AT URI 。')] = None,
+    reply_parent_cid: Annotated[str | None, Form(description='直前の親ポストの CID 。')] = None,
+):
+    """
+    Bluesky に投稿を送信する。投稿本文 or 画像のみ送信することもできる。<br>
+    投稿には handle で指定した Bluesky アカウントが利用される。
+    """
+
+    normalized_reply_root_uri = reply_root_uri.strip() if reply_root_uri is not None and reply_root_uri.strip() != '' else None
+    normalized_reply_root_cid = reply_root_cid.strip() if reply_root_cid is not None and reply_root_cid.strip() != '' else None
+    normalized_reply_parent_uri = reply_parent_uri.strip() if reply_parent_uri is not None and reply_parent_uri.strip() != '' else None
+    normalized_reply_parent_cid = reply_parent_cid.strip() if reply_parent_cid is not None and reply_parent_cid.strip() != '' else None
+    reply_fields = [normalized_reply_root_uri, normalized_reply_root_cid, normalized_reply_parent_uri, normalized_reply_parent_cid]
+    reply_to: BlueskyReplyReference | None = None
+    # Bluesky の StrongRef はルートと親ポストの uri / cid が揃って初めて意味を持つ
+    # 一部欠けた状態はクライアント側状態の破損や手動リクエストのミスなので、単独投稿へ丸めず明示的に拒否する
+    if any(reply_field is not None for reply_field in reply_fields):
+        if not all(reply_field is not None for reply_field in reply_fields):
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'reply_root_uri / reply_root_cid / reply_parent_uri / reply_parent_cid must all be specified together.',
+            )
+        assert normalized_reply_root_uri is not None
+        assert normalized_reply_root_cid is not None
+        assert normalized_reply_parent_uri is not None
+        assert normalized_reply_parent_cid is not None
+        reply_to = BlueskyReplyReference(
+            root_uri=normalized_reply_root_uri,
+            root_cid=normalized_reply_root_cid,
+            parent_uri=normalized_reply_parent_uri,
+            parent_cid=normalized_reply_parent_cid,
+        )
+
+    # 本文と画像の検証・画像圧縮・セッション復元は BlueskyAPI 側に集約する
+    return await BlueskyAPI(bluesky_account).createPost(post, images, reply_to)
+
+
+@router.put(
+    '/accounts/{handle}/posts/{post_id:path}/repost',
+    summary = 'Bluesky リポスト実行 API',
+    response_description = 'Bluesky リポストの実行結果。',
+    response_model = schemas.TwitterAPIResult,
+)
+async def BlueskyRepostAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='リポストする Bluesky 投稿の AT URI 。')],
+):
+    """
+    指定された Bluesky 投稿をリポストする。<br>
+    リポストには handle で指定した Bluesky アカウントが利用される。
+    """
+
+    return await BlueskyAPI(bluesky_account).createRepost(post_id)
+
+
+@router.delete(
+    '/accounts/{handle}/posts/{post_id:path}/repost',
+    summary = 'Bluesky リポスト取り消し API',
+    response_description = 'Bluesky リポストの取り消し結果。',
+    response_model = schemas.TwitterAPIResult,
+)
+async def BlueskyRepostCancelAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='リポストを取り消す Bluesky 投稿の AT URI 。')],
+):
+    """
+    指定された Bluesky 投稿のリポストを取り消す。<br>
+    リポストの取り消しには handle で指定した Bluesky アカウントが利用される。
+    """
+
+    return await BlueskyAPI(bluesky_account).deleteRepost(post_id)
+
+
+@router.put(
+    '/accounts/{handle}/posts/{post_id:path}/like',
+    summary = 'Bluesky いいね実行 API',
+    response_description = 'Bluesky いいねの実行結果。',
+    response_model = schemas.TwitterAPIResult,
+)
+async def BlueskyLikeAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='いいねする Bluesky 投稿の AT URI 。')],
+):
+    """
+    指定された Bluesky 投稿をいいねする。<br>
+    いいねには handle で指定した Bluesky アカウントが利用される。
+    """
+
+    return await BlueskyAPI(bluesky_account).favoritePost(post_id)
+
+
+@router.delete(
+    '/accounts/{handle}/posts/{post_id:path}/like',
+    summary = 'Bluesky いいね取り消し API',
+    response_description = 'Bluesky いいねの取り消し結果。',
+    response_model = schemas.TwitterAPIResult,
+)
+async def BlueskyLikeCancelAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    post_id: Annotated[str, Path(description='いいねを取り消す Bluesky 投稿の AT URI 。')],
+):
+    """
+    指定された Bluesky 投稿のいいねを取り消す。<br>
+    いいねの取り消しには handle で指定した Bluesky アカウントが利用される。
+    """
+
+    return await BlueskyAPI(bluesky_account).unfavoritePost(post_id)
+
+
+@router.get(
+    '/accounts/{handle}/timeline',
+    summary = 'Bluesky ホームタイムライン取得 API',
+    response_description = 'Bluesky タイムラインの投稿リスト。',
+    response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
+)
+async def BlueskyTimelineAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
+):
+    """
+    Bluesky のホームタイムラインを取得する。<br>
+    ホームタイムラインの取得には handle で指定した Bluesky アカウントが利用される。
+    """
+
+    return await BlueskyAPI(bluesky_account).homeLatestTimeline(cursor_id=cursor_id)
+
+
+@router.get(
+    '/accounts/{handle}/search',
+    summary = 'Bluesky 投稿検索 API',
+    response_description = 'Bluesky 検索結果の投稿リスト。',
+    response_model = schemas.TimelineTweetsResult | schemas.TwitterAPIResult,
+)
+async def BlueskySearchAPI(
+    bluesky_account: Annotated[BlueskyAccount, Depends(GetCurrentBlueskyAccount)],
+    query: Annotated[str, Query(description='検索クエリ。')],
+    cursor_id: Annotated[str | None, Query(description='前回のレスポンスから取得した、次のページを取得するためのカーソル ID 。')] = None,
+):
+    """
+    指定されたクエリで Bluesky 投稿を検索する。
+    """
+
+    return await BlueskyAPI(bluesky_account).searchTimeline(query=query, cursor_id=cursor_id)
