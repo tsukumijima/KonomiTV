@@ -354,7 +354,6 @@ async def UserAPI(
     ## Twitter 連携では途中で連携をキャンセルした場合に仮のアカウントデータが残置されてしまうので、それを取り除く
     if await TwitterAccount.filter(icon_url='Temporary').count() > 0:
         await TwitterAccount.filter(icon_url='Temporary').delete()
-        current_user = await User.filter(id=current_user.id).get()  # current_user のデータを更新
 
     # 常に関連するアカウント系テーブルの対応するレコードを全取得して返す
     return await User.filter(id=current_user.id).prefetch_related(

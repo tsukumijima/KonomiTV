@@ -25,6 +25,7 @@ export interface IBlueskyReplyThreadState {
     hashtag_key: string;
 }
 
+// リプライツリー実況有効時のステータス状態
 export interface IReplyThreadDecision {
     send_as_reply: boolean;
     reset_state_after: boolean;

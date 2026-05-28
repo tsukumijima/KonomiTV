@@ -274,10 +274,17 @@ class User(PydanticModel):
     created_at: datetime
     updated_at: datetime
 
+class AccountLink(PydanticModel):
+    id: int
+    twitter_account: TwitterAccount
+    bluesky_account: BlueskyAccount
+    created_at: datetime
+    updated_at: datetime
+
 class Users(RootModel[list[User]]):
     pass
 
-# ***** Twitter 連携 *****
+# ***** Twitter / Bluesky 連携 *****
 
 class TwitterAccount(PydanticModel):
     id: int
@@ -293,13 +300,6 @@ class BlueskyAccount(PydanticModel):
     handle: str
     name: str
     icon_url: str
-    created_at: datetime
-    updated_at: datetime
-
-class AccountLink(PydanticModel):
-    id: int
-    twitter_account: TwitterAccount
-    bluesky_account: BlueskyAccount
     created_at: datetime
     updated_at: datetime
 
