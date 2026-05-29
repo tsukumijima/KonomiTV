@@ -1,6 +1,7 @@
 
 import { isEqual, hash } from 'ohash';
 import { defineStore } from 'pinia';
+import { toRaw } from 'vue';
 
 import type { IBlueskyReplyThreadState, ITwitterReplyThreadState } from '@/utils/TweetUtils';
 
@@ -428,6 +429,16 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'tweet_capture_watermark_position',
 ];
 
+// 設定インポート時に「現在のデバイスの値を維持する」選択ができる、KonomiTV サーバーの DB レコード ID に依存した環境固有の設定キー
+// これらは Series / RecordedProgram / RecordedVideo / 連携アカウントの DB 連番 ID を参照しており、別の KonomiTV サーバーへ
+// インポートすると、同じ ID が全く別のコンテンツ (録画番組やアカウント) を指してしまうため、まとめて上書き対象から外せるようにしている
+// selected_twitter_panel_account は同期無効の一時的な UI 状態だが、同じく DB 連番 ID 依存なので環境固有値として一緒に扱う
+export const ENVIRONMENT_SPECIFIC_SETTINGS_KEYS: (keyof ILocalClientSettings)[] = [
+    'mylist',
+    'watched_history',
+    'selected_twitter_panel_account',
+];
+
 
 /**
  * LocalStorage の KonomiTV-Settings キーから生の設定データを取得する
@@ -572,9 +583,10 @@ const useSettingsStore = defineStore('settings', {
         /**
          * エクスポートした JSON ファイルから設定データをインポートする (既存の設定はすべて上書きされる)
          * @param file エクスポートした JSON ファイル
+         * @param includeEnvironmentSpecific マイリスト・視聴履歴などの環境固有値も上書きするか (false の場合は現在のデバイスの値を維持する)
          * @returns インポートに成功したかどうか
          */
-        async importClientSettings(file: File): Promise<boolean> {
+        async importClientSettings(file: File, includeEnvironmentSpecific: boolean): Promise<boolean> {
 
             // JSON ファイルを読み込む
             const settings_json = await file.text();
@@ -590,8 +602,19 @@ const useSettingsStore = defineStore('settings', {
             // 生の設定データに対してソート・足りない設定キーの補完・不要な設定キーの削除を行う
             const normalized_settings = getNormalizedLocalClientSettings(settings);
 
+            // 環境固有値 (マイリスト・視聴履歴など、KonomiTV サーバーの DB レコード ID に依存する設定値) を取り込まない場合、
+            // インポートデータの該当値を捨てて、現在このデバイスに保存されている値で差し戻す
+            // 別の KonomiTV サーバーへ設定を移すケースで、サーバーごとに異なる録画番組などの ID が誤って引き継がれるのを防ぐ
+            if (includeEnvironmentSpecific === false) {
+                for (const environment_specific_key of ENVIRONMENT_SPECIFIC_SETTINGS_KEYS) {
+                    // 配列やオブジェクト型の参照共有を防ぐためディープコピーしてから代入する
+                    // structuredClone() を使うため、toRaw() で生のオブジェクトを取り出してから複製している
+                    normalized_settings[environment_specific_key as string] = structuredClone(toRaw(this.settings[environment_specific_key]));
+                }
+            }
+
             // この状態の新しい設定データを LocalStorage に保存し、Store の state に反映する
-            // このとき、既存の設定データはすべて上書きされる
+            // このとき、(環境固有値を維持する選択をした場合を除き) 既存の設定データはすべて上書きされる
             setLocalStorageSettings(normalized_settings);
             this.settings = normalized_settings;
 
