@@ -365,7 +365,7 @@ class BrowserEnvironmentInfoRequest(BaseModel):
     timezone: str
 
 class BrowserEnvironmentInfo(TypedDict):
-    http_headers: BrowserEnvironmentHTTPHeaders  # /api/twitter/auth の HTTP リクエストボディから抽出した情報
+    http_headers: BrowserEnvironmentHTTPHeaders  # /api/twitter/auth の HTTP リクエストヘッダーから抽出した情報
     user_agent_data: BrowserEnvironmentUserAgentData
     navigator_platform: str
     locale: str

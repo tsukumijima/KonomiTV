@@ -280,11 +280,11 @@ class TwitterGraphQLAPI:
             response_text (str | None): HTTP レスポンス本文
         """
 
-        # JSON パース失敗時は本文だけでは原因を追いづらいため、HTTP の外形情報を同じ場所にまとめて残す
+        # JSON パース失敗時は本文だけでは原因を追いづらいため、ステータスコードと HTTP レスポンスヘッダーも出力する
         logging.error(f'{self.log_prefix} {reason}. status_code: {status_code}')
         logging.error(f'{self.log_prefix} Response headers: {json.dumps(headers or {}, ensure_ascii=False)}')
 
-        # レスポンス本文は巨大化する可能性があるため、ログ全体を壊さない範囲で先頭部分を残す
+        # レスポンス本文は巨大化しやすいため、原因確認に必要な先頭部分だけを残す
         if response_text is None:
             logging.error(f'{self.log_prefix} Response text: <None>')
             return

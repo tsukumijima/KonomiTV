@@ -34,6 +34,70 @@ router = APIRouter(
     prefix = '/api/twitter',
 )
 
+def ParseAcceptLanguageHeader(accept_language: str | None) -> list[str]:
+    """
+    Accept-Language ヘッダーを CDP に渡しやすい言語タグ配列へ変換する
+
+    Args:
+        accept_language (str | None): HTTP リクエストの Accept-Language ヘッダー
+
+    Returns:
+        list[str]: q 値などの重みを除去した言語タグ配列
+    """
+
+    # CDP の acceptLanguage は q 値付き文字列を渡すと Chrome 側で q 値が二重化するため、
+    # 保存時点でヘッダーの生値とは別に q 値を除いた配列を持っておく
+    if accept_language is None:
+        return []
+
+    language_tags: list[str] = []
+    for language_part in accept_language.split(','):
+        # `ja-JP;q=0.9` のような重み部分は CDP へ渡す値には不要なので、先頭の言語タグだけを使う
+        language_tag = language_part.strip().split(';', maxsplit=1)[0].strip()
+        if language_tag != '':
+            language_tags.append(language_tag)
+    return language_tags
+
+
+def BuildCookieBrowserInfo(
+    request: Request,
+    browser_info: schemas.BrowserEnvironmentInfoRequest | None,
+) -> schemas.BrowserEnvironmentInfo | None:
+    """
+    Cookie 認証 API の HTTP リクエストヘッダーと、クライアント側で採取した情報から、
+    TwitterAccount.cookie_browser_info に永続化するヘッドレスブラウザ向けの環境情報を組み立てる
+
+    Args:
+        request (Request): Twitter Cookie 認証 API のリクエスト
+        browser_info (schemas.BrowserEnvironmentInfoRequest | None): クライアント JavaScript で採取した環境情報
+
+    Returns:
+        schemas.BrowserEnvironmentInfo | None: 永続化するヘッドレスブラウザ向けの環境情報
+    """
+
+    # UA-CH 高エントロピー値が取れないブラウザでは補正に必要な OS 情報が不足しているため諦める
+    if browser_info is None:
+        return None
+
+    # Accept-Language は navigator.languages より実際の HTTP リクエストヘッダーから解析した方が正確なので、サーバー側で直接採取する
+    ## sec-ch-ua 系の低エントロピー値も同じ HTTP リクエストヘッダーから保存しておき、後で実ブラウザ側の送信値と比較できるようにする
+    accept_language = request.headers.get('accept-language')
+    cookie_browser_info = schemas.BrowserEnvironmentInfo(
+        http_headers=schemas.BrowserEnvironmentHTTPHeaders(
+            user_agent=request.headers.get('user-agent'),
+            accept_language=accept_language,
+            accept_languages=ParseAcceptLanguageHeader(accept_language),
+            sec_ch_ua=request.headers.get('sec-ch-ua'),
+            sec_ch_ua_mobile=request.headers.get('sec-ch-ua-mobile'),
+            sec_ch_ua_platform=request.headers.get('sec-ch-ua-platform'),
+        ),
+        user_agent_data=browser_info.user_agent_data,
+        navigator_platform=browser_info.navigator_platform,
+        locale=browser_info.locale,
+        timezone=browser_info.timezone,
+    )
+    return cookie_browser_info
+
 
 async def GetCurrentTwitterAccount(
     screen_name: Annotated[str, Path(description='Twitter アカウントのスクリーンネーム。')],
@@ -93,6 +157,7 @@ async def GetCurrentTwitterAccount(
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def TwitterCookieAuthAPI(
+    request: Request,
     auth_request: Annotated[schemas.TwitterCookieAuthRequest, Body(description='Twitter 認証リクエスト')],
     current_user: Annotated[User, Depends(GetCurrentUser)],
 ):
@@ -124,6 +189,10 @@ async def TwitterCookieAuthAPI(
             detail = 'No valid cookies found in the provided cookies.txt',
         )
 
+    # Cookie 認証 API の HTTP リクエストヘッダーと、クライアント JavaScript で採取した情報から、
+    # TwitterAccount.cookie_browser_info に永続化するヘッドレスブラウザ向けの環境情報を組み立てる
+    cookie_browser_info = BuildCookieBrowserInfo(request, auth_request.browser_info)
+
     # TwitterAccount のレコードを作成
     ## アクセストークンは "NETSCAPE_COOKIE_FILE" の固定値、
     ## アクセストークンシークレットとして Netscape 形式の Cookie ファイルの内容をそのまま保存する
@@ -137,6 +206,8 @@ async def TwitterCookieAuthAPI(
         access_token = 'NETSCAPE_COOKIE_FILE',
         # Netscape 形式の Cookie ファイルの内容をそのまま保存
         access_token_secret = auth_request.cookies_txt,
+        # Cookie 採取元ブラウザの環境情報
+        cookie_browser_info = cookie_browser_info,
     )
 
     # 一時的に作成した TwitterAccount ORM インスタンスの ID (通常 None) を控えておき、後段でシングルトンを付け替える
@@ -195,6 +266,7 @@ async def TwitterCookieAuthAPI(
         oldest_account.icon_url = twitter_account.icon_url  # アイコン URL
         oldest_account.access_token = twitter_account.access_token  # アクセストークン
         oldest_account.access_token_secret = twitter_account.access_token_secret  # アクセストークンシークレット
+        oldest_account.cookie_browser_info = twitter_account.cookie_browser_info  # Cookie 採取元ブラウザ情報
         await oldest_account.save()
 
         # 他の重複アカウントを削除
