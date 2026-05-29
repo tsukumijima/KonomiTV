@@ -2,8 +2,10 @@ import asyncio
 import atexit
 import base64
 import json
+import platform as platform_module
 import random
 import re
+import sys
 import time
 from datetime import datetime
 from typing import Any, ClassVar, cast
@@ -81,6 +83,10 @@ class TwitterScrapeBrowser:
         'Windows': 'Win32',
         'Linux': 'Linux x86_64',
     }
+    # Cookie 採取元ブラウザの情報がない既存アカウント向けに、日本語ロケールを名乗るための既定の言語設定
+    ## 保存値がない場合だけこの既定値を使い、x.com へ `Accept-Language: en-US` を送信しないようにする
+    _FALLBACK_ACCEPT_LANGUAGE: ClassVar[str] = 'ja,en;q=0.9'
+    _FALLBACK_ACCEPT_LANGUAGES: ClassVar[tuple[str, ...]] = ('ja', 'en')
 
     def __init__(self, twitter_account: TwitterAccount) -> None:
         """
@@ -196,6 +202,82 @@ class TwitterScrapeBrowser:
 
         return ','.join(normalized_languages)
 
+    def _buildFallbackBrowserEnvironmentInfo(self) -> schemas.BrowserEnvironmentInfo | None:
+        """
+        Cookie 認証時にブラウザ環境情報を保存していない既存アカウント向けのフォールバックとして、
+        サーバーの実行環境から最低限のブラウザ環境情報を組み立てる
+
+        Returns:
+            schemas.BrowserEnvironmentInfo | None: ヘッドレスブラウザに反映するフォールバック用ブラウザ情報
+        """
+
+        # 既存アカウントは Cookie 再認証後までブラウザ環境情報を持たないため、サーバー OS の情報から代替値を作る
+        ## 保存値がないまま CDP 設定を省くと、headless=True の ZenDriver 既定の UA-CH と Accept-Language がそのまま送信されてしまう
+        system_name = platform_module.system()
+        if system_name == 'Darwin':
+            browser_platform = 'macOS'
+            platform_version = platform_module.mac_ver()[0]
+        elif system_name == 'Windows':
+            browser_platform = 'Windows'
+            platform_version = platform_module.version()
+        elif system_name == 'Linux':
+            browser_platform = 'Linux'
+            platform_version = platform_module.release().split('-', maxsplit=1)[0]
+        else:
+            logging.warning(
+                f'{self.log_prefix} Server OS is unsupported for fallback UA override. '
+                f'system_name: {system_name}',
+            )
+            return None
+
+        # UA-CH の architecture / bitness は、実行中サーバーの CPU 情報を Chrome での表記へ変換する
+        ## 画面サイズ・メモリ・CPU コア数のような変動しやすい値は、Cookie 認証時点の固定値ではなく実行中のサーバー環境の値を使う
+        machine = platform_module.machine().lower()
+        if machine in ('aarch64', 'arm64') or machine.startswith('arm'):
+            architecture = 'arm'
+        else:
+            architecture = 'x86'
+        bitness = '64' if sys.maxsize > 2 ** 32 else '32'
+
+        # navigator.platform は UA-CH とは別に JavaScript から見えるため、OS と CPU に合う代表値を入れる
+        if browser_platform == 'macOS':
+            navigator_platform = 'MacIntel'
+        elif browser_platform == 'Windows':
+            navigator_platform = 'Win32'
+        elif architecture == 'arm':
+            navigator_platform = 'Linux aarch64' if bitness == '64' else 'Linux armv7l'
+        else:
+            navigator_platform = 'Linux x86_64' if bitness == '64' else 'Linux i686'
+
+        fallback_browser_info = schemas.BrowserEnvironmentInfo(
+            http_headers=schemas.BrowserEnvironmentHTTPHeaders(
+                user_agent=None,
+                accept_language=self._FALLBACK_ACCEPT_LANGUAGE,
+                accept_languages=list(self._FALLBACK_ACCEPT_LANGUAGES),
+                sec_ch_ua=None,
+                sec_ch_ua_mobile=None,
+                sec_ch_ua_platform=f'"{browser_platform}"',
+            ),
+            user_agent_data=schemas.BrowserEnvironmentUserAgentData(
+                platform=browser_platform,
+                platform_version=platform_version,
+                architecture=architecture,
+                bitness=bitness,
+                mobile=False,
+                model='',
+                wow64=False,
+            ),
+            navigator_platform=navigator_platform,
+            locale='ja',
+            timezone='Asia/Tokyo',
+        )
+        logging.info(
+            f'{self.log_prefix} Built fallback browser info for UA override. '
+            f'platform: {browser_platform}, architecture: {architecture}, bitness: {bitness}, '
+            f'navigator_platform: {navigator_platform}, accept_language: {self._FALLBACK_ACCEPT_LANGUAGE}',
+        )
+        return fallback_browser_info
+
     async def _detectOverriddenNavigatorInfo(self, page: Tab) -> dict[str, Any] | None:
         """
         UA / UA-CH override 適用後に navigator から見える値を取得する
@@ -298,13 +380,17 @@ class TwitterScrapeBrowser:
             page (Tab): override を適用するタブ
         """
 
-        # 既存アカウントや採取失敗時は保存値がないため、ヘッドレスブラウザの環境でそのまま起動する
+        # Cookie 認証時にブラウザ環境情報を採取できていない既存アカウントでは、サーバー OS の情報から代替値を作る
+        ## Accept-Language: en-US や sec-ch-ua 系ヘッダーが欠落したまま x.com へアクセスしないようにする
         raw_cookie_browser_info: Any = self.twitter_account.cookie_browser_info
         if not isinstance(raw_cookie_browser_info, dict):
-            logging.info(f'{self.log_prefix} No cookie browser info available, skipping UA override.')
-            return
-
-        cookie_browser_info = cast(schemas.BrowserEnvironmentInfo, raw_cookie_browser_info)
+            fallback_browser_info = self._buildFallbackBrowserEnvironmentInfo()
+            if fallback_browser_info is None:
+                logging.info(f'{self.log_prefix} No browser info available, skipping UA override.')
+                return
+            cookie_browser_info = fallback_browser_info
+        else:
+            cookie_browser_info = cast(schemas.BrowserEnvironmentInfo, raw_cookie_browser_info)
         typed_http_headers = cookie_browser_info['http_headers']
         typed_user_agent_data = cookie_browser_info['user_agent_data']
 
@@ -358,7 +444,7 @@ class TwitterScrapeBrowser:
             locale = cookie_browser_info['locale']
             timezone = cookie_browser_info['timezone']
 
-            # CDP に登録する値と、リクエスト上で見える想定の値をログに残す
+            # CDP に渡す値と、その設定から Chrome が送信する HTTP リクエストヘッダーをログに残す
             user_agent_metadata_json = user_agent_metadata.to_json()
             expected_headers: dict[str, str] = {
                 'user-agent': spoofed_user_agent,
