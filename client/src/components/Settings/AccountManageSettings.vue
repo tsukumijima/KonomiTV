@@ -45,7 +45,7 @@
                 </div>
             </div>
         </v-card>
-        <v-dialog max-width="385" v-model="account_delete_confirm_dialog">
+        <v-dialog max-width="440" v-model="account_delete_confirm_dialog">
             <v-card>
                 <v-card-title class="d-flex justify-center pt-6 font-weight-bold">本当にアカウントを削除しますか？</v-card-title>
                 <v-card-text class="pt-2 pb-0">
@@ -55,7 +55,9 @@
                 <v-card-actions class="pt-4 px-6 pb-6">
                     <v-spacer></v-spacer>
                     <v-btn color="text" variant="text" @click="account_delete_confirm_dialog = false">キャンセル</v-btn>
-                    <v-btn color="error" variant="flat" @click="deleteAccount()">削除</v-btn>
+                    <v-btn color="error" variant="flat" class="px-3" height="40" @click="deleteAccount()">
+                        <Icon icon="fluent:delete-16-filled" class="mr-1" />削除
+                    </v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
