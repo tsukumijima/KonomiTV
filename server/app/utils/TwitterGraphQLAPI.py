@@ -263,6 +263,40 @@ class TwitterGraphQLAPI:
                 self._shutdown_task = None
             self._shutdown_task = asyncio.create_task(OnShutdown())
 
+    def __logGraphQLResponseDiagnostics(
+        self,
+        reason: str,
+        status_code: int | None,
+        headers: dict[str, Any] | None,
+        response_text: str | None,
+    ) -> None:
+        """
+        GraphQL API レスポンスの診断情報をログに出力する
+
+        Args:
+            reason (str): 診断ログを出力する理由
+            status_code (int | None): HTTP ステータスコード
+            headers (dict[str, Any] | None): HTTP レスポンスヘッダー
+            response_text (str | None): HTTP レスポンス本文
+        """
+
+        # JSON パース失敗時は本文だけでは原因を追いづらいため、HTTP の外形情報を同じ場所にまとめて残す
+        logging.error(f'{self.log_prefix} {reason}. status_code: {status_code}')
+        logging.error(f'{self.log_prefix} Response headers: {json.dumps(headers or {}, ensure_ascii=False)}')
+
+        # レスポンス本文は巨大化する可能性があるため、ログ全体を壊さない範囲で先頭部分を残す
+        if response_text is None:
+            logging.error(f'{self.log_prefix} Response text: <None>')
+            return
+        response_text_limit = 4000
+        if len(response_text) > response_text_limit:
+            logging.error(
+                f'{self.log_prefix} Response text: '
+                f'{response_text[:response_text_limit]}... (truncated, total_length: {len(response_text)})',
+            )
+        else:
+            logging.error(f'{self.log_prefix} Response text: {response_text}')
+
     async def invokeGraphQLAPI(
         self,
         endpoint_name: str,
@@ -395,6 +429,12 @@ class TwitterGraphQLAPI:
             content_type = headers.get('content-type', '')
             if content_type and 'application/json' not in content_type:
                 logging.error(f'{self.log_prefix} Response is not JSON. (Content-Type: {content_type})')
+                self.__logGraphQLResponseDiagnostics(
+                    reason='GraphQL API returned non-JSON response',
+                    status_code=status_code,
+                    headers=headers,
+                    response_text=response_text,
+                )
                 return (
                     error_message_prefix
                     + f'Twitter API から JSON 以外のレスポンスが返されました。(Content-Type: {content_type})'
@@ -413,15 +453,32 @@ class TwitterGraphQLAPI:
                 # 何もレスポンスが返ってきていないが、HTTP ステータスコードが 200 系以外で返ってきている場合
                 if status_code is not None and not (200 <= status_code < 300):
                     logging.error(f'{self.log_prefix} Failed to invoke GraphQL API. (HTTP Error {status_code})')
-                    logging.error(f'{self.log_prefix} Response: {response_text}')
+                    self.__logGraphQLResponseDiagnostics(
+                        reason='Failed to parse GraphQL API response as JSON after HTTP error',
+                        status_code=status_code,
+                        headers=headers,
+                        response_text=response_text,
+                    )
                     return error_message_prefix + f'Twitter API から HTTP {status_code} エラーが返されました。'
 
                 # HTTP ステータスコードは 200 系だが、何もレスポンスが返ってきていない場合
                 logging.error(f'{self.log_prefix} Failed to parse response as JSON:', exc_info=ex)
+                self.__logGraphQLResponseDiagnostics(
+                    reason='Failed to parse GraphQL API response as JSON',
+                    status_code=status_code,
+                    headers=headers,
+                    response_text=response_text,
+                )
                 return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         if response_json is None:
             logging.error(f'{self.log_prefix} Failed to parse response as JSON.')
+            self.__logGraphQLResponseDiagnostics(
+                reason='GraphQL API response JSON is empty',
+                status_code=status_code,
+                headers=headers,
+                response_text=response_text,
+            )
             return error_message_prefix + 'Twitter API のレスポンスを JSON としてパースできませんでした。'
 
         # API レスポンスにエラーが含まれていて、かつ data キーが存在しない場合
