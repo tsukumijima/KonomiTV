@@ -142,6 +142,9 @@ cython_debug/
 .DS_Store
 ._*
 
+# Codex
+.codex/hooks.json
+
 # config.yaml
 config.yaml
 

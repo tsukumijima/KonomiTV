@@ -11,6 +11,7 @@ from tortoise import connections
 from app import logging, schemas
 from app.config import Config
 from app.constants import JST
+from app.models.Channel import Channel
 from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
 from app.utils import NormalizeToJSTDatetime, ParseDatetimeStringToJST
@@ -218,8 +219,57 @@ async def ProgramSearchAPI(
         # None が返ってきた場合は空のリストを返す
         return schemas.Programs(total=0, programs=[])
 
-    # EDCB の EventInfo オブジェクトを schemas.Program オブジェクトに変換
-    programs = [DecodeEDCBEventInfo(event_info) for event_info in event_info_list]
+    # KonomiTV で管理対象の視聴可能チャンネルだけを検索結果として返す
+    ## EDCB の検索結果はワンセグや KonomiTV では除外しているチャンネル
+    ## (Ch: 042 などの基本イベント共有しかしてないサブチャンネルを含む) も返しうるが、
+    ## クライアント側で整合性を合わせるのが困難になるため、API 側で事前に除外してから返す
+    channel_rows = await Channel.filter(is_watchable=True).values(
+        'id',
+        'network_id',
+        'transport_stream_id',
+        'service_id',
+    )
+    channel_ids_by_service_triplet = {
+        (
+            channel_row['network_id'],
+            channel_row['transport_stream_id'],
+            channel_row['service_id'],
+        ): channel_row['id']
+        for channel_row in channel_rows
+        if channel_row['transport_stream_id'] is not None
+    }
+
+    # EDCB は検索タイミングや EPG 更新状態によって終了済み番組を返すことがあるため、放送開始前・放送中番組に絞る
+    now = datetime.now(JST)
+    programs: list[schemas.Program] = []
+    for event_info in event_info_list:
+        service_key = (event_info['onid'], event_info['tsid'], event_info['sid'])
+        channel_id = channel_ids_by_service_triplet.get(service_key)
+
+        # DB に存在しないサービスは、KonomiTV 上でロゴ表示や予約追加の対象にできないので検索結果から除外する
+        if channel_id is None:
+            continue
+
+        # イベント共有で別サービス側が主番組を指している場合は、Program.updateFromEDCB() と同じく副側を除外する
+        group_info = event_info.get('event_group_info')
+        if group_info is not None and len(group_info['event_data_list']) == 1:
+            primary_event = group_info['event_data_list'][0]
+            is_shared_event_side = (
+                primary_event['onid'] != event_info['onid'] or
+                primary_event['tsid'] != event_info['tsid'] or
+                primary_event['sid'] != event_info['sid'] or
+                primary_event['eid'] != event_info['eid']
+            )
+            if is_shared_event_side is True:
+                continue
+
+        program = DecodeEDCBEventInfo(event_info)
+        if program.end_time <= now:
+            continue
+
+        # DB 上のチャンネル ID を使い、KonomiTV のチャンネル一覧・ロゴ・予約表示の参照先を一致させる
+        program.channel_id = channel_id
+        programs.append(program)
 
     return schemas.Programs(total=len(programs), programs=programs)
 
