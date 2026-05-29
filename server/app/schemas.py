@@ -356,6 +356,37 @@ class AccountLinkCreateRequest(BaseModel):
 
 class TwitterCookieAuthRequest(BaseModel):
     cookies_txt: str
+    browser_info: BrowserEnvironmentInfoRequest | None = None
+
+class BrowserEnvironmentInfoRequest(BaseModel):
+    user_agent_data: BrowserEnvironmentUserAgentData
+    navigator_platform: str
+    locale: str
+    timezone: str
+
+class BrowserEnvironmentInfo(TypedDict):
+    http_headers: BrowserEnvironmentHTTPHeaders  # /api/twitter/auth の HTTP リクエストボディから抽出した情報
+    user_agent_data: BrowserEnvironmentUserAgentData
+    navigator_platform: str
+    locale: str
+    timezone: str
+
+class BrowserEnvironmentHTTPHeaders(TypedDict):
+    user_agent: str | None
+    accept_language: str | None
+    accept_languages: list[str]
+    sec_ch_ua: str | None
+    sec_ch_ua_mobile: str | None
+    sec_ch_ua_platform: str | None
+
+class BrowserEnvironmentUserAgentData(TypedDict):
+    platform: str
+    platform_version: str
+    architecture: str
+    bitness: str
+    mobile: bool
+    model: str
+    wow64: bool
 
 class BlueskyAuthRequest(BaseModel):
     handle: str
