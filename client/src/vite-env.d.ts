@@ -138,6 +138,34 @@ declare global {
         }
     }
 
+    // User-Agent Client Hints API
+    // ref: https://wicg.github.io/ua-client-hints/
+    interface Navigator {
+        readonly userAgentData?: NavigatorUAData;
+    }
+    interface NavigatorUAData {
+        readonly brands: NavigatorUABrandVersion[];
+        readonly mobile: boolean;
+        readonly platform: string;
+        getHighEntropyValues(hints: string[]): Promise<NavigatorUAHighEntropyValues>;
+    }
+    interface NavigatorUABrandVersion {
+        brand: string;
+        version: string;
+    }
+    interface NavigatorUAHighEntropyValues {
+        architecture?: string;
+        bitness?: string;
+        brands?: NavigatorUABrandVersion[];
+        fullVersionList?: NavigatorUABrandVersion[];
+        mobile?: boolean;
+        model?: string;
+        platform?: string;
+        platformVersion?: string;
+        uaFullVersion?: string;
+        wow64?: boolean;
+    }
+
     // Virtual Keyboard API
     // ref: https://www.w3.org/TR/virtual-keyboard/
     interface Navigator {

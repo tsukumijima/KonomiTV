@@ -12,6 +12,7 @@ export interface IBlueskyAuthRequest {
     app_password: string;
 }
 
+
 class Bluesky {
 
     /**

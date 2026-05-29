@@ -7,6 +7,26 @@ import useTwitterStore from '@/stores/TwitterStore';
 /** Twitter アカウントと Cookie 認証で連携するためのリクエストを表すインターフェイス */
 export interface ITwitterCookieAuthRequest {
     cookies_txt: string;
+    browser_info: IBrowserEnvironmentInfoRequest | null;
+}
+
+/** Cookie 採取元ブラウザから JavaScript API 経由で採取できる環境情報 */
+export interface IBrowserEnvironmentInfoRequest {
+    user_agent_data: IBrowserEnvironmentUserAgentData;
+    navigator_platform: string;
+    locale: string;
+    timezone: string;
+}
+
+/** Cookie 採取元ブラウザの UA-CH 高エントロピー値を表すインターフェイス */
+export interface IBrowserEnvironmentUserAgentData {
+    platform: string;
+    platform_version: string;
+    architecture: string;
+    bitness: string;
+    mobile: boolean;
+    model: string;
+    wow64: boolean;
 }
 
 /** ツイートを表すインターフェイス */
@@ -60,6 +80,14 @@ export interface IPostTweetSendResult {
     post_cid: string | null;
 }
 
+/** タイムラインのツイート取得結果を表すインターフェイス */
+export interface ITimelineTweetsResult extends ITwitterAPIResult {
+    tweets: ITweet[];
+    newer_cursor_id: string | null;
+    load_more_cursors: ITimelineLoadMoreCursor[];
+    is_cursor_consumed: boolean;
+}
+
 /** タイムラインの追加取得カーソルを表すインターフェイス */
 export interface ITimelineLoadMoreCursor {
     cursor_type: 'Older' | 'Gap' | 'ShowMore';
@@ -67,14 +95,6 @@ export interface ITimelineLoadMoreCursor {
     entry_id: string | null;
     upper_created_at: string | null;
     lower_created_at: string | null;
-}
-
-/** タイムラインのツイート取得結果を表すインターフェイス */
-export interface ITimelineTweetsResult extends ITwitterAPIResult {
-    tweets: ITweet[];
-    newer_cursor_id: string | null;
-    load_more_cursors: ITimelineLoadMoreCursor[];
-    is_cursor_consumed: boolean;
 }
 
 

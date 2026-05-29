@@ -86,7 +86,8 @@
                             </p>
                             <p class="mt-2">
                                 <strong>ここで入力した Cookie データは、ローカルの KonomiTV サーバーにのみ、暗号化の上で保存されます。</strong><br>
-                                Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。
+                                Cookie データが Twitter API 以外の外部サービスに送信されることは一切ありません。<br>
+                                Cookie を取得した際に使ったブラウザと同じブラウザで操作することを強く推奨します。
                             </p>
                             <p class="mt-1">
                                 <strong>詳しい手順はこちら：<a class="link" href="https://github.com/tsukumijima/KonomiTV#twitter-実況機能について" target="_blank">KonomiTV への Twitter アカウント連携の手順</a></strong>
@@ -345,7 +346,7 @@ import { VForm } from 'vuetify/components';
 import Message from '@/message';
 import AccountLinks from '@/services/AccountLinks';
 import Bluesky, { IBlueskyAuthRequest } from '@/services/Bluesky';
-import Twitter, { ITwitterCookieAuthRequest } from '@/services/Twitter';
+import Twitter, { IBrowserEnvironmentInfoRequest, ITwitterCookieAuthRequest } from '@/services/Twitter';
 import { IAccountLink } from '@/services/Users';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
@@ -550,6 +551,54 @@ export default defineComponent({
             this.twitter_cookie_auth_dialog = true;
         },
 
+        async collectBrowserEnvironmentInfo(): Promise<IBrowserEnvironmentInfoRequest | null> {
+            // Cookie 採取元と同じブラウザで貼り付ける運用を前提に、そのブラウザの OS / ロケール情報を一緒に保存する
+            // 未対応ブラウザでは Cookie 認証を優先し、サーバー側の UA / UA-CH 補正だけを無効にする
+            if (typeof navigator.userAgentData?.getHighEntropyValues !== 'function') {
+                return null;
+            }
+
+            try {
+                // 詳細なバージョン情報やブランド情報はサーバー側 Chrome の現在値を使うため、ここでは OS 環境の値だけを取る
+                const high_entropy_values = await navigator.userAgentData.getHighEntropyValues([
+                    'architecture',
+                    'bitness',
+                    'mobile',
+                    'model',
+                    'platform',
+                    'platformVersion',
+                    'wow64',
+                ]);
+                // ブラウザ実装や拡張の影響で空値が返っても、Cookie 認証自体は止めず補正情報なしで続行する
+                if (high_entropy_values === null || high_entropy_values === undefined) {
+                    console.warn('Failed to collect browser environment info: getHighEntropyValues returned empty result.');
+                    return null;
+                }
+
+                // Accept-Language は API リクエストからサーバー側で採取するため、
+                // JavaScript 側では HTTP ヘッダーに載らない navigator.platform / Intl 系だけを送る
+                const intl_options = Intl.DateTimeFormat().resolvedOptions();
+                return {
+                    user_agent_data: {
+                        platform: high_entropy_values.platform ?? '',
+                        platform_version: high_entropy_values.platformVersion ?? '',
+                        architecture: high_entropy_values.architecture ?? '',
+                        bitness: high_entropy_values.bitness ?? '',
+                        mobile: high_entropy_values.mobile ?? false,
+                        model: high_entropy_values.model ?? '',
+                        wow64: high_entropy_values.wow64 ?? false,
+                    },
+                    navigator_platform: navigator.platform ?? '',
+                    locale: intl_options.locale ?? '',
+                    timezone: intl_options.timeZone ?? '',
+                };
+            } catch (error) {
+                // 環境情報は補助情報なので、採取に失敗しても処理を実行する
+                console.warn('Failed to collect browser environment info:', error);
+                return null;
+            }
+        },
+
         async loginTwitterAccountWithCookie() {
 
             // バリデーションを実行
@@ -563,8 +612,11 @@ export default defineComponent({
                 return;
             }
 
+            // Cookie と採取したブラウザ環境情報をまとめて送信
+            const browser_info = await this.collectBrowserEnvironmentInfo();
             const twitter_auth_request: ITwitterCookieAuthRequest = {
                 cookies_txt: this.twitter_cookie,
+                browser_info: browser_info,
             };
 
             // Twitter 認証 API にリクエスト
