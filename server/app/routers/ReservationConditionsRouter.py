@@ -298,10 +298,14 @@ async def EncodeEDCBSearchKeyInfo(
 
     # 検索対象を絞り込むチャンネル範囲のリスト
     ## service_list は (NID << 32 | TSID << 16 | SID) のリストになっている
-    ## ジャンル範囲や放送日時範囲とは異なり、空リストにしても全チャンネルが検索対象にはならないため、
-    ## もし service_ranges が None だった場合はデフォルトの番組検索条件のチャンネル範囲のリスト (全チャンネルが検索対象) を設定する
+    ## ジャンル範囲や放送日時範囲とは異なり、空リストは検索対象なしとして扱われる
+    ## service_ranges が None の場合だけ、KonomiTV の視聴可能チャンネル全体を検索対象にする
     service_list: list[int] = []
-    for channel in program_search_condition.service_ranges or await GetDefaultServiceRanges(edcb, chset5_services):
+    if program_search_condition.service_ranges is None:
+        service_ranges = await GetDefaultServiceRanges(edcb, chset5_services)
+    else:
+        service_ranges = program_search_condition.service_ranges
+    for channel in service_ranges:
         service_list.append(channel.network_id << 32 | channel.transport_stream_id << 16 | channel.service_id)
 
     # 検索対象を絞り込むジャンル範囲のリスト
