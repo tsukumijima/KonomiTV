@@ -502,12 +502,14 @@ class ProgramSearchCondition(BaseModel):
     duration_range_max: Annotated[int, Field(ge=0)] | None = None
     # 番組の放送種別で絞り込む: すべて / 無料のみ / 有料のみ
     broadcast_type: Literal['All', 'FreeOnly', 'PaidOnly'] = 'All'
-    # 同じ番組名の既存録画との重複チェック: 何もしない / 同じチャンネルのみ対象にする / 全てのチャンネルを対象にする
+    # キーワード自動予約で、同じ番組名の既存録画がある予約を無効化するかどうか
+    ## EDCB の番組検索ではこの値は参照されず、自動予約登録時のみ使われる
+    ## None: 何もしない / SameChannelOnly: 同じチャンネルのみ対象 / AllChannels: 全てのチャンネルを対象
     ## 同じチャンネルのみ対象にする: 同じチャンネルで同名の番組が既に録画されていれば、新しい予約を無効状態で登録する
     ## 全てのチャンネルを対象にする: 任意のチャンネルで同名の番組が既に録画されていれば、新しい予約を無効状態で登録する
     ## 仕様上予約自体を削除してしまうとすぐ再登録されてしまうので、無効状態で登録することで有効になるのを防いでいるらしい
     duplicate_title_check_scope: Literal['None', 'SameChannelOnly', 'AllChannels'] = 'None'
-    # 同じ番組名の既存録画との重複チェックの対象期間 (日単位)
+    # キーワード自動予約で既存録画を探す対象期間 (日単位)
     duplicate_title_check_period_days: Annotated[int, Field(ge=0)] = 6
 
 # 番組検索条件のチャンネル
