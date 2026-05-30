@@ -293,35 +293,6 @@
                     </div>
                 </v-expansion-panel-text>
             </v-expansion-panel>
-            <v-expansion-panel>
-                <v-expansion-panel-title>
-                    <span class="program-search-filters__panel-title-text">
-                        <Icon icon="fluent:copy-select-20-filled" width="16px" height="16px" />
-                        重複チェック
-                    </span>
-                    <span v-if="isDuplicateFilterModified" class="program-search-filters__modified-badge">変更あり</span>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                    <div class="program-search-filters__segmented program-search-filters__segmented--vertical">
-                        <button v-for="duplicateScope in duplicateTitleCheckScopeOptions" :key="duplicateScope.value"
-                            type="button" v-ripple
-                            class="program-search-filters__segmented-button"
-                            :class="{ 'program-search-filters__segmented-button--active': localCondition.duplicate_title_check_scope === duplicateScope.value }"
-                            @click="localCondition.duplicate_title_check_scope = duplicateScope.value">
-                            {{ duplicateScope.label }}
-                        </button>
-                    </div>
-                    <label class="program-search-filters__number-field">
-                        <span>対象期間</span>
-                        <input v-model.number="localCondition.duplicate_title_check_period_days"
-                            type="number"
-                            name="program-search-duplicate-title-check-period-days"
-                            min="0"
-                            inputmode="numeric">
-                        <span>日</span>
-                    </label>
-                </v-expansion-panel-text>
-            </v-expansion-panel>
         </v-expansion-panels>
         <div class="program-search-filters__actions">
             <v-btn class="program-search-filters__submit" color="secondary" variant="flat" block
@@ -371,11 +342,6 @@ type BasicToggleOption = {
 type BroadcastTypeOption = {
     label: string;
     value: IProgramSearchCondition['broadcast_type'];
-};
-
-type DuplicateTitleCheckScopeOption = {
-    label: string;
-    value: IProgramSearchCondition['duplicate_title_check_scope'];
 };
 
 type DateRangeForm = IProgramSearchConditionDate & {
@@ -455,12 +421,6 @@ const broadcastTypeOptions: BroadcastTypeOption[] = [
     { label: '有料のみ', value: 'PaidOnly' },
 ];
 
-const duplicateTitleCheckScopeOptions: DuplicateTitleCheckScopeOption[] = [
-    { label: 'チェックしない', value: 'None' },
-    { label: '同じチャンネル', value: 'SameChannelOnly' },
-    { label: '全チャンネル', value: 'AllChannels' },
-];
-
 const genreOptions = computed<GenreOption[]>(() => {
     return Object.entries(ProgramUtils.CONTENT_TYPE).map(([, contentType]) => {
         const [major, middles] = contentType as [string, Record<number, string>];
@@ -515,12 +475,6 @@ const isDurationFilterModified = computed(() => {
 const isBroadcastTypeFilterModified = computed(() => {
     // 放送種別はすべてが初期状態なので、無料のみ・有料のみだけを変更扱いにする
     return localCondition.value.broadcast_type !== 'All';
-});
-
-const isDuplicateFilterModified = computed(() => {
-    // 重複チェックは対象期間も条件の一部なので、スコープと日数の両方を見る
-    return localCondition.value.duplicate_title_check_scope !== 'None' ||
-        localCondition.value.duplicate_title_check_period_days !== 6;
 });
 
 const keywordText = computed({
@@ -827,8 +781,6 @@ const resetFilters = () => {
         duration_range_min: null,
         duration_range_max: null,
         broadcast_type: 'All',
-        duplicate_title_check_scope: 'None',
-        duplicate_title_check_period_days: 6,
     };
     selectedServiceKeys.value = new Set(allSelectableServiceKeys.value);
     selectedGenreKeys.value = new Set();
@@ -892,11 +844,9 @@ const buildCondition = (): IProgramSearchCondition => {
         ? Math.max(0, Math.floor(condition.duration_range_max))
         : null;
 
-    // 数値欄を空にした瞬間は文字列が入ることがあるため、API に送る直前に整数へ戻す
-    condition.duplicate_title_check_period_days = typeof condition.duplicate_title_check_period_days === 'number' &&
-        Number.isFinite(condition.duplicate_title_check_period_days) === true
-        ? Math.max(0, Math.floor(condition.duplicate_title_check_period_days))
-        : 0;
+    // 重複チェックはキーワード自動予約で予約を無効化するための条件なので、番組検索結果の絞り込みでは参照しない
+    condition.duplicate_title_check_scope = 'None';
+    condition.duplicate_title_check_period_days = 6;
 
     return condition;
 };
