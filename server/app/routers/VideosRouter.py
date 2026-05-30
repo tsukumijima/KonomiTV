@@ -47,10 +47,6 @@ PAGE_SIZE = 30
 async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedProgram:
     """ データベースの行データを RecordedProgram Pydantic モデルに変換する共通処理 """
 
-    # key_frames の存在確認
-    # 高速化のため、SQL で計算された has_key_frames を直接参照する
-    has_key_frames: bool = bool(row['has_key_frames'])
-
     # cm_sections は小さいので、通常通りパースする
     cm_sections: list[schemas.CMSection] | None = None
     if row['cm_sections'] is not None:
@@ -89,7 +85,6 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
         'secondary_audio_codec': row['secondary_audio_codec'],
         'secondary_audio_channel': row['secondary_audio_channel'],
         'secondary_audio_sampling_rate': row['secondary_audio_sampling_rate'],
-        'has_key_frames': has_key_frames,
         'cm_sections': cm_sections,
         'thumbnail_info': thumbnail_info,
         'created_at': row['rv_created_at'],
@@ -386,9 +381,6 @@ async def VideosAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            -- key_frames は巨大なデータなので実際のデータは取得せず
-            -- 空かどうかの判定結果だけを取得する
-            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             rv.thumbnail_info,
             rv.created_at AS rv_created_at,
@@ -615,9 +607,6 @@ async def VideosSearchAPI(
             rv.secondary_audio_codec,
             rv.secondary_audio_channel,
             rv.secondary_audio_sampling_rate,
-            -- key_frames は巨大なデータなので実際のデータは取得せず
-            -- 空かどうかの判定結果だけを取得する
-            CASE WHEN rv.key_frames != '[]' THEN 1 ELSE 0 END AS has_key_frames,
             rv.cm_sections,
             rv.thumbnail_info,
             rv.created_at AS rv_created_at,
@@ -838,7 +827,7 @@ async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のメタデータ（動画情報・番組情報・サムネイル画像・キーフレーム情報・CM 区間情報など）をすべて再解析・再生成する。
+    指定された録画番組のメタデータ（動画情報・番組情報・サムネイル画像・CM 区間情報など）をすべて再解析・再生成する。
     """
 
     try:

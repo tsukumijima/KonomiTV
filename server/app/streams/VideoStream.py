@@ -8,16 +8,22 @@ import math
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar, Literal
 
-from biim.mpeg2ts import ts
 from fastapi import HTTPException, status
+from tortoise import transactions
 
 from app import logging
 from app.constants import QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
+from app.models.RecordedVideo import RecordedVideo
+from app.schemas import SegmentMapEntry
 from app.streams.VideoEncodingTask import VideoEncodingTask
+from app.streams.VideoSegmentPlanner import VideoSegmentPlanner
 from app.utils import SetTimeout
+from app.utils.MP4KeyFrameParser import MP4KeyFrameParser
+from app.utils.TSKeyFrameSeeker import TSKeyFrameSeeker, TSStreamInfo
 
 
 @dataclass
@@ -29,13 +35,17 @@ class VideoStreamSegment:
     # HLS セグメントのシーケンス番号
     ## リストのインデックスと一致する (0 から始まるので注意)
     sequence_index: int
-    # HLS セグメントの切り出しを開始するファイルの位置 (バイト)
-    start_file_position: int
-    # HLS セグメントの開始タイムスタンプ (90kHz)
-    start_dts: int
+    # HLS プレイリスト上の開始時刻 (秒)
+    ## 入力ソース側の DTS とは別物で、仮想プレイリストを等間隔で作るための再生時刻
+    playlist_start_seconds: float
+    # エンコードを開始する入力ファイルの位置 (バイト)
+    ## TS コンテナはオンデマンド探索または segment_map で解決し、MP4 は psisimux に時刻を渡すため None のまま扱う
+    source_file_position: int | None
+    # エンコードを開始する入力ソース側の DTS (90kHz)
+    ## プレイリスト上の開始時刻以前で最も近いキーフレーム DTS が入り、未解決の間は None
+    source_start_dts: int | None
     # HLS セグメント長 (秒単位)
-    ## 無変換の TS では通常 SEGMENT_DURATION_SECONDS と一致するが、キーフレーム単位で切り出すため録画データによってはさらに長くなる
-    ## tsreplace で H.264 / H.265 化した TS で顕著で、例えば GOP 長が4秒の録画データなら、実際のセグメント長は6秒を超えて8秒になる
+    ## プレイリストはフレームレートから算出した固定長で作り、実際の入力開始位置は再生時に別途解決する
     duration_seconds: float
     # HLS セグメントのエンコードの状態
     encode_status: Literal['Pending', 'Encoding', 'Completed']
@@ -71,9 +81,6 @@ class VideoStream:
     # 一度でも読み取られた HLS セグメントの最大保持数
     MAX_READED_SEGMENTS: ClassVar[int] = 10
 
-    # エンコードする HLS セグメントの最低長さ (秒)
-    SEGMENT_DURATION_SECONDS: ClassVar[float] = float(6)  # 6秒
-
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
     __instances: ClassVar[dict[str, VideoStream]] = {}
@@ -95,11 +102,28 @@ class VideoStream:
             instance.recorded_program = recorded_program
             instance.quality = quality
 
-            # 基準となる DTS (最初のキーフレームの DTS)
-            instance._base_dts = 0
+            # HLS セグメントの基準長 (秒)
+            ## 録画ファイルのフレームレートから算出し、プレイリスト生成とオンデマンド探索で共通利用する
+            instance._segment_duration_seconds = VideoSegmentPlanner.computeSegmentDurationSeconds(
+                recorded_program.recorded_video.video_frame_rate,
+            )
 
             # HLS セグメントを格納するリスト
             instance._segments = []
+
+            # segment_map はシーケンス番号で参照するため、視聴セッション内では辞書として保持する
+            ## DB には JSON 配列のまま保存し、検索時だけ辞書化することで保存形式を増やさずに参照コストを下げる
+            instance._segment_map_by_sequence = {
+                entry['sequence_index']: entry
+                for entry in recorded_program.recorded_video.segment_map
+            }
+
+            # 入力ソース位置のオンデマンド解決で使うキャッシュ
+            ## TS コンテナでは PAT/PMT から得た PID 情報と先頭 DTS を、MP4 では moov 由来の同期サンプル DTS 一覧を保持する
+            instance._ts_stream_info = None
+            instance._ts_source_base_dts = None
+            instance._mp4_keyframe_dts_list = None
+            instance._source_position_lock = asyncio.Lock()
 
             # 現在実行中の VideoEncodingTask のインスタンス
             ## 録画再生時は、シークによりエンコーダーの再起動が必要になる度に、新しい VideoEncodingTask を都度作り直す
@@ -155,8 +179,13 @@ class VideoStream:
         self.session_id: str
         self.recorded_program: RecordedProgram
         self.quality: QUALITY_TYPES
-        self._base_dts: int
+        self._segment_duration_seconds: float
         self._segments: list[VideoStreamSegment]
+        self._segment_map_by_sequence: dict[int, SegmentMapEntry]
+        self._ts_stream_info: TSStreamInfo | None
+        self._ts_source_base_dts: int | None
+        self._mp4_keyframe_dts_list: list[int] | None
+        self._source_position_lock: asyncio.Lock
         self._video_encoding_task: VideoEncodingTask
         self._video_encoding_task_lock: asyncio.Lock
         self._video_encoding_task_ref: asyncio.Task[None] | None
@@ -243,8 +272,8 @@ class VideoStream:
             # エンコード済みの最初のセグメントの開始時刻から最後のセグメントの終了時刻までを計算
             first_segment = encoded_segments[0]
             last_segment = encoded_segments[-1]
-            buffer_start = (first_segment.start_dts - self._base_dts) / ts.HZ
-            buffer_end = (last_segment.start_dts - self._base_dts) / ts.HZ + last_segment.duration_seconds
+            buffer_start = first_segment.playlist_start_seconds
+            buffer_end = last_segment.playlist_start_seconds + last_segment.duration_seconds
             return (buffer_start, buffer_end)
         else:
             # エンコード済みのセグメントがない場合は (0, 0) を返す
@@ -266,84 +295,27 @@ class VideoStream:
         # セッションのアクティブ状態を維持する
         self.keepAlive()
 
-        # まだ HLS セグメントリストが空なら、キーフレーム情報から VideoStreamSegment を作成する
+        # まだ HLS セグメントリストが空なら、録画時間とフレームレートから仮想セグメントを作成する
         if len(self._segments) == 0:
-            # キーフレーム情報が存在しない場合は500エラー
-            if not self.recorded_program.recorded_video.has_key_frames:
-                logging.error(f'{self.log_prefix} Keyframe information is not available.')
-                raise HTTPException(
-                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail = 'Keyframe information is not available',
-                )
-
-            # キーフレーム情報を取得
-            key_frames = self.recorded_program.recorded_video.key_frames
-            if len(key_frames) < 2:  # 最低2つのキーフレームが必要
-                logging.error(f'{self.log_prefix} Not enough keyframes.')
-                raise HTTPException(
-                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail = 'Not enough keyframes',
-                )
-
-            # 最初のキーフレームの DTS を基準として保存する
-            self._base_dts = key_frames[0]['dts']
-
-            # キーフレーム間隔の最大値を計算する
-            max_key_frame_interval = 0.0
-            for i in range(1, len(key_frames)):
-                current_frame = key_frames[i - 1]
-                next_frame = key_frames[i]
-                interval = (next_frame['dts'] - current_frame['dts']) / ts.HZ
-                max_key_frame_interval = max(max_key_frame_interval, interval)
-
-            segment_sequence = 0
-            accumulated_duration: float = 0.0
-            # セグメントの開始フレーム（フレーム情報全体を保持）
-            segment_start_frame = key_frames[0]
-
-            # キーフレーム情報を先頭から順に処理し、各間隔を累積していく
-            for i in range(1, len(key_frames)):
-                current_frame = key_frames[i - 1]
-                next_frame = key_frames[i]
-                # 各キーフレーム間の時間差を算出
-                duration = (next_frame['dts'] - current_frame['dts']) / ts.HZ
-                accumulated_duration += duration
-
-                # キーフレーム間隔が SEGMENT_DURATION_SECONDS 以上になったら、新しいセグメントに切り替える
-                if accumulated_duration >= self.SEGMENT_DURATION_SECONDS:
-                    self._segments.append(VideoStreamSegment(
-                        sequence_index = segment_sequence,
-                        start_file_position = segment_start_frame['offset'],
-                        start_dts = segment_start_frame['dts'],
-                        duration_seconds = accumulated_duration,
-                        encode_status = 'Pending',
-                        encoded_segment_ts_future = asyncio.Future(),
-                    ))
-                    segment_sequence += 1
-                    # 次のセグメントの開始フレームとして、現在の next_frame を設定
-                    segment_start_frame = next_frame
-                    accumulated_duration = 0.0
-
-            # ループ後に、残りの時間がある場合は最後のセグメントとして追加
-            if accumulated_duration > 0:
+            segment_count = max(1, math.ceil(self.recorded_program.recorded_video.duration / self._segment_duration_seconds))
+            for segment_sequence in range(segment_count):
+                playlist_start_seconds = segment_sequence * self._segment_duration_seconds
+                remaining_duration = self.recorded_program.recorded_video.duration - playlist_start_seconds
+                duration_seconds = min(self._segment_duration_seconds, max(remaining_duration, 0.001))
                 self._segments.append(VideoStreamSegment(
                     sequence_index = segment_sequence,
-                    start_file_position = segment_start_frame['offset'],
-                    start_dts = segment_start_frame['dts'],
-                    duration_seconds = accumulated_duration,
+                    playlist_start_seconds = playlist_start_seconds,
+                    source_file_position = None,
+                    source_start_dts = None,
+                    duration_seconds = duration_seconds,
                     encode_status = 'Pending',
                     encoded_segment_ts_future = asyncio.Future(),
                 ))
 
-            # HLS セグメント長の最小値・最大値・平均値をロギング
-            # 最後のセグメントの長さは通常 SEGMENT_DURATION_SECONDS と一致しないので統計から除外している
-            if len(self._segments) > 0:
-                min_duration = min(segment.duration_seconds for segment in self._segments[:-1])
-                max_duration = max(segment.duration_seconds for segment in self._segments[:-1])
-                avg_duration = sum(segment.duration_seconds for segment in self._segments[:-1]) / (len(self._segments) - 1)
-                logging.info(
-                    f'{self.log_prefix} Total {len(self._segments)} segments (min: {min_duration:.2f}s, max: {max_duration:.2f}s, avg: {avg_duration:.2f}s)'
-                )
+            logging.info(
+                f'{self.log_prefix} Total {len(self._segments)} virtual segments '
+                f'(segment_duration: {self._segment_duration_seconds:.6f}s).'
+            )
 
         # キャッシュキーが指定されていない場合は UUID の - で区切って一番左側のみを使う
         if cache_key is None:
@@ -368,6 +340,126 @@ class VideoStream:
 
         virtual_playlist += '#EXT-X-ENDLIST\n'
         return virtual_playlist
+
+
+    async def resolveSegmentSourcePosition(self, segment_sequence: int) -> None:
+        """
+        指定セグメントをエンコード開始点として使えるよう、入力ソース側の位置と DTS を解決する
+
+        Args:
+            segment_sequence (int): 解決対象セグメントのシーケンス番号
+        """
+
+        segment = self._segments[segment_sequence]
+
+        # 既に解決済みなら、エンコードタスク側でそのまま利用できる
+        if segment.source_start_dts is not None:
+            return
+
+        async with self._source_position_lock:
+            # 多重リクエストでロック待ちの間に別リクエストが解決している可能性がある
+            segment = self._segments[segment_sequence]
+            if segment.source_start_dts is not None:
+                return
+
+            recorded_video = self.recorded_program.recorded_video
+            file_path = Path(recorded_video.file_path)
+
+            if recorded_video.container_format == 'MPEG-TS':
+                # segment_map は再生開始位置のキャッシュなので、見つかればファイル I/O なしで即座に使う
+                segment_map_entry = self._segment_map_by_sequence.get(segment_sequence)
+                if segment_map_entry is not None:
+                    segment.source_file_position = segment_map_entry['source_file_position']
+                    segment.source_start_dts = segment_map_entry['source_start_dts']
+                    return
+
+                # PAT/PMT と先頭 DTS は同一視聴セッション内で変わらないため、最初の探索時だけ読む
+                if self._ts_stream_info is None:
+                    self._ts_stream_info = await asyncio.to_thread(
+                        TSKeyFrameSeeker.findStreamInfo,
+                        file_path,
+                    )
+                if self._ts_source_base_dts is None:
+                    self._ts_source_base_dts = await asyncio.to_thread(
+                        TSKeyFrameSeeker.findBaseDTS,
+                        file_path,
+                        self._ts_stream_info,
+                    )
+
+                source_position = await asyncio.to_thread(
+                    TSKeyFrameSeeker.seek,
+                    file_path,
+                    self._ts_stream_info,
+                    segment.playlist_start_seconds,
+                    self._ts_source_base_dts,
+                )
+                segment.source_file_position = source_position.source_file_position
+                segment.source_start_dts = source_position.source_start_dts
+
+                # オンデマンド探索の結果は次回以降のシークを軽くするため DB に保存する
+                ## 保存失敗は再生失敗に直結しないため、ログだけ残してエンコード開始は続行する
+                assert source_position.source_file_position is not None
+                segment_map_entry = SegmentMapEntry(
+                    sequence_index = segment_sequence,
+                    source_file_position = source_position.source_file_position,
+                    source_start_dts = source_position.source_start_dts,
+                )
+                await self.__saveSegmentMapEntry(segment_map_entry)
+                return
+
+            # MP4 は moov 内テーブルから同期サンプル DTS を短時間で復元できるため、DB キャッシュを作らない
+            if self._mp4_keyframe_dts_list is None:
+                self._mp4_keyframe_dts_list = await asyncio.to_thread(
+                    MP4KeyFrameParser.readVideoKeyframeDTS,
+                    file_path,
+                )
+            source_start_dts = MP4KeyFrameParser.findKeyframeDTSBefore(
+                self._mp4_keyframe_dts_list,
+                segment.playlist_start_seconds,
+            )
+            segment.source_file_position = None
+            segment.source_start_dts = source_start_dts
+
+
+    async def __saveSegmentMapEntry(self, segment_map_entry: SegmentMapEntry) -> None:
+        """
+        オンデマンド探索で得た segment_map エントリを録画レコードへ保存する
+
+        Args:
+            segment_map_entry (SegmentMapEntry): 保存対象のセグメント開始位置キャッシュ
+        """
+
+        try:
+            # セッション生成時に受け取った ORM インスタンスへ、保存後の最新 JSON を反映する
+            ## 実際のマージは DB から読み直した RecordedVideo に対して行う
+            recorded_video = self.recorded_program.recorded_video
+
+            # 別セッションのオンデマンド探索結果を上書きしないよう、保存直前に DB から最新値を読み直す
+            ## SQLite では行ロックの効き方に制約があるが、少なくとも古いインスタンス変数だけで保存する競合は避けられる
+            async with transactions.in_transaction():
+                latest_recorded_video = await RecordedVideo.select_for_update().get_or_none(id=recorded_video.id)
+                if latest_recorded_video is None:
+                    logging.warning(f'{self.log_prefix} RecordedVideo was not found while saving segment map entry.')
+                    return
+
+                updated_segment_map = [
+                    entry
+                    for entry in latest_recorded_video.segment_map
+                    if entry['sequence_index'] != segment_map_entry['sequence_index']
+                ]
+                updated_segment_map.append(segment_map_entry)
+                updated_segment_map.sort(key=lambda entry: entry['sequence_index'])
+                latest_recorded_video.segment_map = updated_segment_map
+                await latest_recorded_video.save(update_fields=['segment_map'])
+
+            # 保存済みの最新値を現在の視聴セッションにも反映し、次回の同じセグメント要求を DB なしで返す
+            recorded_video.segment_map = updated_segment_map
+            self._segment_map_by_sequence = {
+                entry['sequence_index']: entry
+                for entry in updated_segment_map
+            }
+        except Exception as ex:
+            logging.warning(f'{self.log_prefix} Failed to save segment map entry:', exc_info=ex)
 
 
     async def getSegment(self, segment_sequence: int) -> bytes | None:
@@ -398,8 +490,11 @@ class VideoStream:
             async with self._video_encoding_task_lock:
                 # ロック待ちの間に他のリクエストがすでにエンコードを開始している可能性があるため再確認する
                 if segment.encode_status == 'Pending':
-                    # シーク処理は録画再生の critical path なので、
-                    ## 旧エンコードタスクの完全終了を待たずに即座に detach して新しいタスクを起動する
+                    # このセグメントからエンコーダーを起動するため、入力ソース上の開始位置を先に確定する
+                    await self.resolveSegmentSourcePosition(segment_sequence)
+
+                    # シーク処理は録画再生の待ち時間に直結するため、
+                    ## 旧エンコードタスクの完全終了を待たずに強参照だけ退避して新しいタスクを起動する
                     await self.__cancelVideoEncodingTask(should_wait_for_runner = False)
                     logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
 

@@ -16,7 +16,6 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
-from tortoise.expressions import RawSQL
 
 from app import logging, schemas
 from app.config import Config
@@ -27,7 +26,6 @@ from app.constants import (
     THUMBNAILS_DIR,
 )
 from app.metadata.CMSectionsDetector import CMSectionsDetector
-from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
@@ -227,7 +225,7 @@ async def BatchScanAPI():
 )
 async def BackgroundAnalysisAPI():
     """
-    キーフレーム情報が未解析の録画ファイルに対してキーフレーム情報を解析し、<br>
+    CM 区間情報が未解析の録画ファイルに対して CM 区間情報を解析し、<br>
     サムネイルが未生成の録画ファイルに対してサムネイルを生成する。<br>
     このメンテナンス機能は管理者ユーザーでなくてもアクセスできる。
     """
@@ -238,19 +236,14 @@ async def BackgroundAnalysisAPI():
         global background_analysis_task
         logging.info('Manual background analysis has started.')
 
-        # キーフレーム情報が未生成、またはサムネイルが未生成の録画ファイルを取得
-        ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
-        ## has_key_frames は key_frames を読み込まずに SQL で判定する (key_frames のデフォルト値は '[]')
-        video_rows = await RecordedVideo.filter(status='Recorded').annotate(
-            has_key_frames=RawSQL("CASE WHEN key_frames != '[]' THEN 1 ELSE 0 END"),
-        ).values(
+        # CM 区間情報やサムネイルが未生成の録画ファイルを取得
+        ## 再生開始位置はオンデマンドで解決できるため、重い key_frames は取得しない
+        video_rows = await RecordedVideo.filter(status='Recorded').values(
             'id',
             'recorded_program_id',
             'file_path',
             'file_hash',
             'duration',
-            'container_format',
-            'has_key_frames',
             'cm_sections',
         )
 
@@ -264,12 +257,8 @@ async def BackgroundAnalysisAPI():
                     logging.warning(f'{file_path}: File not found. Skipping...')
                     continue
 
-                # キーフレーム情報解析とサムネイル生成を同時に実行
+                # CM 区間検出とサムネイル生成を同時に実行
                 tasks: list[Coroutine[Any, Any, None]] = []
-
-                # キーフレーム情報が未解析の場合、タスクに追加
-                if not video_row['has_key_frames']:
-                    tasks.append(KeyFrameAnalyzer(file_path, video_row['container_format']).analyzeAndSave())
 
                 # CM 区間情報が未解析の場合、タスクに追加
                 ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している

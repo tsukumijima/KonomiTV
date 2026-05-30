@@ -173,7 +173,7 @@ class VideoEncodingTask:
 
         # 出力
         options.append('-y -f mpegts')  # MPEG-TS 出力ということを明示
-        options.append('pipe:1')  # 標準入力へ出力
+        options.append('pipe:1')  # 標準出力へ出力
 
         # オプションをスペースで区切って配列にする
         result: list[str] = []
@@ -359,7 +359,7 @@ class VideoEncodingTask:
 
         # 出力
         options.append('--output-format mpegts')  # MPEG-TS 出力ということを明示
-        options.append('--output -')  # 標準入力へ出力
+        options.append('--output -')  # 標準出力へ出力
 
         # オプションをスペースで区切って配列にする
         result: list[str] = []
@@ -395,13 +395,11 @@ class VideoEncodingTask:
         current_segment.encode_status = 'Encoding'
         logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Starting the Encoder...')
 
-        # エンコーダーに渡す出力 TS のタイムスタンプオフセットを算出
-        output_ts_offset: float = 0.0
-        for kf in self.video_stream.recorded_program.recorded_video.key_frames:
-            # セグメント開始位置よりも後のキーフレームは採用せず、直前の DTS を記録
-            if kf['offset'] > current_segment.start_file_position:
-                break
-            output_ts_offset = kf['dts'] / ts.HZ  # 秒単位
+        # VideoStream 側で解決済みのソース DTS を、エンコーダー出力のタイムスタンプ基準として使う
+        ## ここが未解決の場合は呼び出し順序のバグなので、後続のパイプラインを起動する前に即座に止める
+        if current_segment.source_start_dts is None:
+            raise RuntimeError(f'Source start DTS is not resolved. [sequence: {current_sequence}]')
+        output_ts_offset = current_segment.source_start_dts / ts.HZ
 
         # MPEG-TS 形式の場合のみ、録画ファイルを開く
         # それ以外の場合は一旦 None とする
@@ -571,11 +569,13 @@ class VideoEncodingTask:
                         os.close(psisimux_write_pipe)
                 else:
                     assert file is not None
+                    if current_segment.source_file_position is None:
+                        raise RuntimeError(f'Source file position is not resolved. [sequence: {current_sequence}]')
 
                     # セグメント開始位置から遡る範囲を計算（最大 5000 パケット、ただしファイル先頭は超えない）
                     max_lookback_bytes = 188 * 5000  # 5000 パケット分
-                    search_start_pos = max(0, current_segment.start_file_position - max_lookback_bytes)
-                    search_end_pos = current_segment.start_file_position
+                    search_start_pos = max(0, current_segment.source_file_position - max_lookback_bytes)
+                    search_end_pos = current_segment.source_file_position
 
                     # 探索範囲のデータを読み込む
                     file.seek(search_start_pos)
@@ -617,7 +617,7 @@ class VideoEncodingTask:
 
                         # 現在のパケットの実際のファイル位置
                         current_file_pos = search_start_pos + offset
-                        distance = abs(current_file_pos - current_segment.start_file_position)
+                        distance = abs(current_file_pos - current_segment.source_file_position)
 
                         # PAT (PID 0x00)
                         if pid == 0x00:
@@ -625,7 +625,7 @@ class VideoEncodingTask:
                             for pat in temp_pat_parser:
                                 if pat.CRC32() == 0:
                                     # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
-                                    if current_file_pos <= current_segment.start_file_position:
+                                    if current_file_pos <= current_segment.source_file_position:
                                         # 開始位置以前の PAT を優先（より近いものに更新）
                                         if closest_pat_packet is None or distance < closest_pat_distance:
                                             closest_pat_packet = packet
@@ -651,7 +651,7 @@ class VideoEncodingTask:
                             for pmt in temp_pmt_parser:
                                 if pmt.CRC32() == 0:
                                     # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
-                                    if current_file_pos <= current_segment.start_file_position:
+                                    if current_file_pos <= current_segment.source_file_position:
                                         # 開始位置以前の PMT を優先（より近いものに更新）
                                         if closest_pmt_packet is None or distance < closest_pmt_distance:
                                             closest_pmt_packet = packet
@@ -680,7 +680,7 @@ class VideoEncodingTask:
                         )
 
                     # 実際のセグメント開始位置にシーク
-                    file.seek(current_segment.start_file_position)
+                    file.seek(current_segment.source_file_position)
 
                 # tsreadex のオプション
                 ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -925,8 +925,11 @@ class VideoEncodingTask:
                 first_video_timestamp_33bit: int | None = None
                 last_video_timestamp_33bit: int | None = None
                 wrap_offset_ticks: int = 0
-                # エンコードタスク開始時点のセグメント開始 DTS を保存しておく
-                first_segment_start_dts: int = current_segment.start_dts
+                # エンコードタスク開始時点の入力ソース DTS とプレイリスト時刻を保存しておく
+                ## 以降の分割境界はプレイリスト上の等間隔時刻で判定しつつ、出力タイムスタンプは実ソース DTS に固定する
+                first_segment_source_start_dts = current_segment.source_start_dts
+                first_segment_playlist_start_seconds = current_segment.playlist_start_seconds
+                assert first_segment_source_start_dts is not None
 
                 while True:
                     # エンコードタスクがキャンセルされた場合、処理を中断する
@@ -1026,7 +1029,10 @@ class VideoEncodingTask:
                         video_parser.push(packet)
                         for video in video_parser:
                             # 現在の PES の 33bit タイムスタンプ (DTS 優先, 90kHz)
-                            current_timestamp_33bit = cast(int, video.dts() or video.pts())
+                            dts_value = video.dts()
+                            current_timestamp_33bit = dts_value if dts_value is not None else video.pts()
+                            if current_timestamp_33bit is None:
+                                continue
 
                             # 最初のフレームでアンカーを確定
                             if first_video_timestamp_33bit is None:
@@ -1041,12 +1047,19 @@ class VideoEncodingTask:
 
                             # 単調増加となるよう展開した現在の DTS (DB 上の単調増加 DTS に揃える)
                             assert first_video_timestamp_33bit is not None
-                            current_timestamp_unwrapped = first_segment_start_dts + (current_timestamp_33bit - first_video_timestamp_33bit + wrap_offset_ticks)
+                            current_timestamp_unwrapped = first_segment_source_start_dts + (current_timestamp_33bit - first_video_timestamp_33bit + wrap_offset_ticks)
 
                             # Future がまだ未完了の場合にのみ実行
                             if current_segment is not None:
                                 # 判定に用いる次セグメント開始時刻
-                                next_segment_start_timestamp = current_segment.start_dts + round(current_segment.duration_seconds * ts.HZ)
+                                ## source_start_dts は目標時刻以前のキーフレームに戻るため、境界判定はプレイリスト上の経過時間から逆算する
+                                next_segment_start_timestamp = first_segment_source_start_dts + round(
+                                    (
+                                        current_segment.playlist_start_seconds +
+                                        current_segment.duration_seconds -
+                                        first_segment_playlist_start_seconds
+                                    ) * ts.HZ
+                                )
                                 # logging.debug(
                                 #     f'{self.video_stream.log_prefix} Current Timestamp: {current_timestamp_unwrapped} / '
                                 #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'

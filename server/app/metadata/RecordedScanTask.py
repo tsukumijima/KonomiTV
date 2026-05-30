@@ -18,12 +18,12 @@ from app import logging, schemas
 from app.config import Config
 from app.constants import JST, THUMBNAILS_DIR
 from app.metadata.CMSectionsDetector import CMSectionsDetector
-from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
+from app.streams.VideoSegmentPlanner import VideoSegmentPlanner
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.ProcessLimiter import ProcessLimiter
 from app.utils.TSInformation import TSInformation
@@ -304,12 +304,15 @@ class RecordedScanTask:
                     # 重複がない場合も保持リストに追加
                     videos_to_keep.append(videos[0])
                 if index % 50 == 0:
-                    # 重複チェックがループを占有し続けないよう適宜制御を返す
+                    # 重複チェックがイベントループを占有し続けないよう適宜制御を返す
                     await asyncio.sleep(0)
         if duplicates_found:
             logging.info(f'Duplicate record cleanup finished. Total {total_deleted_count} duplicate records were deleted.')
         else:
             logging.info('No duplicate records found.')
+
+        # 旧 key_frames が残っている録画は、再生開始位置キャッシュへ変換して DB サイズを抑える
+        await self.__migrateKeyFramesToSegmentMap()
 
         # 現在登録されている全ての RecordedVideo レコードをキャッシュ
         ## 重複削除処理で保持すると判断されたレコードのみを使う
@@ -386,7 +389,7 @@ class RecordedScanTask:
                     await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
                     logging.info(f'{file_path}: Deleted record for non-existent file.')
                 if index % 50 == 0:
-                    # 既存レコードの走査が長時間化しないよう適宜制御を返す
+                    # 既存レコードの走査がイベントループを占有し続けないよう適宜制御を返す
                     await asyncio.sleep(0)
 
         # DB に存在する全ての RecordedVideo レコードのハッシュを取得
@@ -954,6 +957,10 @@ class RecordedScanTask:
             db_recorded_video.secondary_audio_codec = recorded_program.recorded_video.secondary_audio_codec
             db_recorded_video.secondary_audio_channel = recorded_program.recorded_video.secondary_audio_channel
             db_recorded_video.secondary_audio_sampling_rate = recorded_program.recorded_video.secondary_audio_sampling_rate
+            # ファイル本体を再解析した場合、以前の再生開始位置キャッシュは別ファイル由来の可能性がある
+            ## 新規録画と同じ空状態へ戻し、次回再生時に現在のファイルからオンデマンドで解決する
+            db_recorded_video.key_frames = []
+            db_recorded_video.segment_map = []
             # この時点では CM 区間情報は未解析なので、明示的に未解析を表す None を設定する (デフォルトで None だが念のため)
             # 「解析したが CM 区間がなかった/検出に失敗した」場合、CMSectionsDetector 側で [] が設定される
             db_recorded_video.cm_sections = None
@@ -963,7 +970,6 @@ class RecordedScanTask:
     async def __runBackgroundAnalysis(self, recorded_program: schemas.RecordedProgram) -> None:
         """
         録画完了後のバックグラウンド解析タスク
-        - キーフレーム解析
         - サムネイル生成
         - CM区間検出
         など、時間のかかる処理を非同期に同時実行する
@@ -982,8 +988,6 @@ class RecordedScanTask:
                 # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
                 async with DriveIOLimiter.getSemaphore(file_path):
                     await asyncio.gather(
-                        # 録画ファイルのキーフレーム情報を解析し DB に保存
-                        KeyFrameAnalyzer(file_path, recorded_program.recorded_video.container_format).analyzeAndSave(),
                         # 録画ファイルの CM 区間を検出し DB に保存
                         CMSectionsDetector(file_path, recorded_program.recorded_video.duration).detectAndSave(),
                         # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
@@ -996,6 +1000,112 @@ class RecordedScanTask:
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
+
+
+    async def __migrateKeyFramesToSegmentMap(self) -> None:
+        """
+        旧 key_frames を再生開始位置キャッシュへ移行する
+
+        このメソッドは runBatchScan() から呼び出され、以下の処理を行う:
+        - TS コンテナは key_frames から segment_map を生成して保存
+        - MPEG-4 コンテナは moov の同期サンプル表を再生時に読むため key_frames だけ破棄
+        - 変換後の key_frames は空配列へ戻し、巨大な JSON が残り続けないようにする
+        """
+
+        logging.info('Starting keyframe to segment map migration...')
+
+        migrated_count = 0
+        skipped_count = 0
+        last_seen_id = 0
+        next_progress_log_count = 500
+
+        while True:
+            # key_frames は ORM 取得時に list へ復元されるため、Python 側で空配列かどうかを判定する
+            ## DB 側で巨大 JSON の文字列比較を走らせず、ID 順に少量ずつ読み出して移行する
+            video_rows = await RecordedVideo.filter(
+                status = 'Recorded',
+                id__gt = last_seen_id,
+            ).order_by('id').limit(50).values(
+                'id',
+                'file_path',
+                'duration',
+                'container_format',
+                'video_frame_rate',
+                'key_frames',
+                'segment_map',
+            )
+            if len(video_rows) == 0:
+                break
+
+            for video_row in video_rows:
+                last_seen_id = video_row['id']
+                key_frames = video_row['key_frames']
+                if not isinstance(key_frames, list) or len(key_frames) == 0:
+                    continue
+
+                try:
+                    segment_map = video_row['segment_map']
+                    if not isinstance(segment_map, list):
+                        segment_map = []
+
+                    # TS コンテナは既存 key_frames をオンデマンド探索と同じ規則のキャッシュへ変換できる
+                    if video_row['container_format'] == 'MPEG-TS':
+                        if len(segment_map) == 0:
+                            video_frame_rate = video_row['video_frame_rate']
+                            # 旧 DB に壊れたフレームレートが混じっている場合、セグメント長を復元できないため移行対象から外す
+                            if (
+                                isinstance(video_frame_rate, bool) is True or
+                                isinstance(video_frame_rate, int | float) is False
+                            ):
+                                skipped_count += 1
+                                logging.warning(
+                                    f'{video_row["file_path"]}: Invalid video frame rate. '
+                                    f'[video_id: {video_row["id"]}, video_frame_rate: {video_frame_rate}]'
+                                )
+                                continue
+                            # 0 以下のフレームレートは segment_map の時刻計算で除算できないため移行対象から外す
+                            if video_frame_rate <= 0:
+                                skipped_count += 1
+                                logging.warning(
+                                    f'{video_row["file_path"]}: Invalid video frame rate. '
+                                    f'[video_id: {video_row["id"]}, video_frame_rate: {video_frame_rate}]'
+                                )
+                                continue
+                            segment_map = VideoSegmentPlanner.convertKeyFramesToSegmentMap(
+                                key_frames = key_frames,
+                                video_frame_rate = float(video_frame_rate),
+                                duration_seconds = video_row['duration'],
+                            )
+
+                        await RecordedVideo.filter(id=video_row['id']).update(
+                            segment_map = segment_map,
+                            key_frames = [],
+                        )
+                        migrated_count += 1
+                    # MP4 は moov から同期サンプル DTS を短時間で復元できるため、巨大な旧キャッシュだけ破棄する
+                    else:
+                        await RecordedVideo.filter(id=video_row['id']).update(key_frames = [])
+                        migrated_count += 1
+                except Exception as ex:
+                    skipped_count += 1
+                    logging.error(f'{video_row["file_path"]}: Failed to migrate keyframes to segment map:', exc_info=ex)
+
+            # 大量の録画を持つ環境では起動直後に沈黙すると不安になるため、500件ごとに進捗をログへ出す
+            processed_count = migrated_count + skipped_count
+            if processed_count >= next_progress_log_count:
+                logging.info(
+                    f'Keyframe to segment map migration progress. '
+                    f'[processed: {processed_count}, migrated: {migrated_count}, skipped: {skipped_count}]'
+                )
+                next_progress_log_count += 500
+
+            # 移行処理がイベントループを占有し続けないよう適宜制御を返す
+            await asyncio.sleep(0)
+
+        logging.info(
+            f'Keyframe to segment map migration completed. '
+            f'[migrated: {migrated_count}, skipped: {skipped_count}]'
+        )
 
 
     async def __migrateThumbnailInfo(self) -> None:
