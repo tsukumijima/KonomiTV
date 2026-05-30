@@ -282,6 +282,7 @@ const handleProgramDeleted = (id: number) => {
 
         .v-select {
             width: 103px;
+            margin-left: 12px;
         }
         &--mylist {
             .v-select {

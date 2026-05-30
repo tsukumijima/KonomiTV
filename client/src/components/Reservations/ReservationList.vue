@@ -265,6 +265,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
     width: 100%;
     // 番組検索ページの2カラム内では、予約カード自身の省略表示へ幅の判断を任せる
     min-width: 0;
+    max-width: 100%;
     height: 100%;
 
     &--show-sort {
@@ -278,6 +279,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
     &__header {
         display: flex;
         align-items: center;
+        min-width: 0;  // タイトルと操作ボタンの合計幅が狭い画面で親を押し広げないようにする
         @include smartphone-vertical {
             padding: 0px 8px;
         }
@@ -287,6 +289,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         display: flex;
         align-items: center;
         position: relative;
+        min-width: 0;
         font-size: 24px;
         font-weight: 700;
         padding-top: 8px;
@@ -294,6 +297,13 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         @include smartphone-vertical {
             font-size: 22px;
             padding-bottom: 16px;
+        }
+
+        &-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         &-back {
@@ -343,6 +353,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
     &__actions {
         display: flex;
         align-items: center;
+        flex-shrink: 0;
         margin-left: auto;
         :deep(.v-field) {
             padding-right: 4px !important;
@@ -368,6 +379,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
 
     &__filter-button {
         min-width: 103px;
+        margin-left: 12px;
         height: 40px;
         padding: 0px 12px;
         border-radius: 6px;

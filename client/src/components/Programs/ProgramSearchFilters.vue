@@ -1133,6 +1133,7 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
         white-space: nowrap;
 
         svg {
+            flex-shrink: 0;
             color: rgb(var(--v-theme-text-darken-1));
             transition: color 0.15s;
         }
