@@ -70,6 +70,7 @@
                     :key="reservation.id === -1 ? reservation.program.id : reservation.id"
                     :reservation="reservation"
                     :compact-on-tablet-horizontal="compactReservationsOnTabletHorizontal"
+                    :is-program-search-result="isProgramSearchResult"
                     @added="handleReservationAdded"
                     @deleted="handleReservationDeleted"
                     @click="handleReservationClick" />
@@ -125,6 +126,7 @@ const props = withDefaults(defineProps<{
     keepDeletedItems?: boolean;
     filterButtonLabel?: string;
     compactReservationsOnTabletHorizontal?: boolean;
+    isProgramSearchResult?: boolean;
 }>(), {
     page: 1,
     sortOrder: 'desc',
@@ -141,6 +143,7 @@ const props = withDefaults(defineProps<{
     keepDeletedItems: false,
     filterButtonLabel: undefined,
     compactReservationsOnTabletHorizontal: false,
+    isProgramSearchResult: false,
 });
 
 // 現在のページ番号

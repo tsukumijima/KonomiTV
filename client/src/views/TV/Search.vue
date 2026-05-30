@@ -33,6 +33,7 @@
                             :empty-sub-message="'別のキーワードや絞り込み条件で検索をお試しください。'"
                             keep-deleted-items
                             compact-reservations-on-tablet-horizontal
+                            is-program-search-result
                             @filter="isFilterDrawerOpen = true"
                             @added="updateReservedProgramIds"
                             @delete="updateReservedProgramIds"

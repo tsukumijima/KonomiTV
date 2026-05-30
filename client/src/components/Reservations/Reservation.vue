@@ -123,6 +123,7 @@ import Utils, { ProgramUtils, dayjs } from '@/utils';
 const props = defineProps<{
     reservation: IReservation;
     compactOnTabletHorizontal?: boolean;
+    isProgramSearchResult?: boolean;
 }>();
 
 // Emits
@@ -154,7 +155,7 @@ const isProgramSearchActionDisabled = computed(() => {
 
 // 録画予約一覧では無効予約だけ薄くし、番組検索では終了済みの番組だけ状態を弱める
 const isDisplayDisabled = computed(() => {
-    if (shouldShowProgramSearchAddButton.value === true) {
+    if (props.isProgramSearchResult === true) {
         return isPastProgram.value === true;
     }
     return isEnabled.value === false;
@@ -182,6 +183,10 @@ const programSearchActionColor = computed(() => {
 });
 
 const displayStatusLabel = computed(() => {
+    // 番組検索を開いたまま放送終了を跨いだ場合は、録画可否ではなく現在の番組状態を優先する
+    if (props.isProgramSearchResult === true && isPastProgram.value === true) {
+        return '放送終了';
+    }
     return getReservationStatusLabel(props.reservation);
 });
 
@@ -220,10 +225,18 @@ const countdownStatusLabel = computed(() => {
 });
 
 const displayStatusIcon = computed(() => {
+    // 終了済み番組は録画可否のチェックアイコンを出すと、操作可能に見えてしまう
+    if (props.isProgramSearchResult === true && isPastProgram.value === true) {
+        return 'fluent:clock-dismiss-20-filled';
+    }
     return getReservationStatusIcon(props.reservation);
 });
 
 const displayStatusColor = computed(() => {
+    // 終了済み番組は追加ボタンと同じく、録画できない状態として弱い色に落とす
+    if (props.isProgramSearchResult === true && isPastProgram.value === true) {
+        return 'grey';
+    }
     return getReservationStatusColor(props.reservation);
 });
 
