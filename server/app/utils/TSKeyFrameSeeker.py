@@ -149,10 +149,11 @@ class TSKeyFrameSeeker:
                 if ts.pid(packet) != stream_info.video_pid:
                     continue
 
-                # PES の開始位置は次に parser から出てくる PES に対応するため、1 つ前の開始位置を保持する
-                ## biim の PESParser は PES 完成後に yield する実装のため、この対応関係を崩すとファイル位置が 1 PES 分ずれる
                 is_payload_start = (packet[1] & 0x40) != 0
                 current_pes_start = current_file_offset if is_payload_start is True else None
+                # is_payload_start と current_pes_start は、いま読んだパケットが次の PES の開始位置かどうかを記録する
+                ## parser.push(packet) は次の PES 開始を見た時点で前の PES を yield するため、pending_pes_start を for pes in parser 内で進める
+                ## yield がなかった場合も次回の TSKeyFrameSeeker.__hasKeyframe() 判定へ開始位置を渡せるよう、後段の補助更新で進める
                 parser.push(packet)
                 for pes in parser:
                     pes_start = pending_pes_start
@@ -331,7 +332,8 @@ class TSKeyFrameSeeker:
 
         if codec == 'H.265' and isinstance(pes, H265PES):
             for ebsp in pes.ebsps:
-                if len(ebsp) > 0 and ((ebsp[0] >> 1) & 0x3F) in (19, 20, 21):
+                # H.265 は BLA / IDR / CRA の NAL unit type 16〜21 をランダムアクセスフレームとして扱う
+                if len(ebsp) > 0 and ((ebsp[0] >> 1) & 0x3F) in (16, 17, 18, 19, 20, 21):
                     return True
             return False
 
@@ -408,6 +410,9 @@ class TSKeyFrameSeeker:
 
                 is_payload_start = (packet[1] & 0x40) != 0
                 current_pes_start = current_file_offset if is_payload_start is True else None
+                # is_payload_start と current_pes_start は、いま読んだパケットが次の PES の開始位置かどうかを記録する
+                ## parser.push(packet) は次の PES 開始を見た時点で前の PES を yield するため、pending_pes_start を for pes in parser 内で進める
+                ## yield がなかった場合も次回の TSKeyFrameSeeker.__hasKeyframe() 判定へ開始位置を渡せるよう、後段の補助更新で進める
                 parser.push(packet)
                 for pes in parser:
                     pes_start = pending_pes_start
@@ -427,7 +432,9 @@ class TSKeyFrameSeeker:
                         continue
                     if last_keyframe_before is not None:
                         return _KeyframeScanResult(last_keyframe_before[0], last_keyframe_before[1], scanned_bytes, True)
-                    return _KeyframeScanResult(pes_start, source_dts, scanned_bytes, True)
+                    # 最初に見つかったキーフレームが target_dts より後ろなら、この探索窓は開始位置として使わない
+                    ## 後続キーフレームを返すとプレイリスト時刻の冒頭を欠くため、呼び出し側の広い手前探索へ任せる
+                    return None
 
                 if current_pes_start is not None and pending_pes_start != current_pes_start:
                     pending_pes_start = current_pes_start

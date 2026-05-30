@@ -915,7 +915,7 @@ class VideoEncodingTask:
                 encoded_segment = bytearray()
                 # エンコーダーの stdout が常に読める状態でも他の非同期タスクへ定期的に制御を返すためのカウンタ
                 yield_packet_count = 0
-                # セグメント境界を IDR/CRA に合わせるためのフラグ
+                # セグメント境界をランダムアクセスフレームに合わせるためのフラグ
                 is_split_pending = False
 
                 # PTS/DTS の 33bit ラップアラウンドを展開して、DB に保存されている ffprobe の単調増加 DTS に合わせる
@@ -1065,8 +1065,8 @@ class VideoEncodingTask:
                                 #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'
                                 # )
 
-                                # 現在の映像 PES が (H.264: IDR, H.265: IDR/CRA) フレームかを判定
-                                def _has_idr_frame(pes: PES) -> bool:
+                                # 現在の映像 PES が安全に分割できるランダムアクセスフレームかを判定
+                                def _has_random_access_frame(pes: PES) -> bool:
                                     try:
                                         if isinstance(pes, H264PES):
                                             for ebsp in pes.ebsps:
@@ -1076,27 +1076,27 @@ class VideoEncodingTask:
                                         elif isinstance(pes, H265PES):
                                             for ebsp in pes.ebsps:
                                                 nal_unit_type = (ebsp[0] >> 1) & 0x3f
-                                                # biim に合わせて IDR/CRA のみを採用 (BLA は除外)
-                                                if nal_unit_type in (19, 20, 21):
+                                                # H.265 は BLA / IDR / CRA をランダムアクセスフレームとして扱う
+                                                if nal_unit_type in (16, 17, 18, 19, 20, 21):
                                                     return True
                                     except Exception:
                                         pass
                                     return False
-                                has_idr_frame = _has_idr_frame(video)
+                                has_random_access_frame = _has_random_access_frame(video)
 
                                 # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ移行
                                 is_reached_planned_boundary = (current_timestamp_unwrapped >= next_segment_start_timestamp)
                                 is_should_finalize_now = False
                                 if is_split_pending is True:
-                                    # 次に来た (H.264: IDR, H.265: IDR/CRA) フレームで確定する
-                                    if has_idr_frame:
+                                    # 次に来たランダムアクセスフレームで確定する
+                                    if has_random_access_frame:
                                         is_should_finalize_now = True
                                 else:
                                     if is_reached_planned_boundary is True:
-                                        if has_idr_frame:
+                                        if has_random_access_frame:
                                             is_should_finalize_now = True
                                         else:
-                                            # (H.264: IDR, H.265: IDR/CRA) フレームまで現在のセグメントを延長
+                                            # ランダムアクセスフレームまで現在のセグメントを延長
                                             is_split_pending = True
 
                                 # 無事セグメントを安全に分割できる地点に到達したので、現在のセグメントを確定

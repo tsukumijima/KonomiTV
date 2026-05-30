@@ -104,7 +104,9 @@ class VideoSegmentPlanner:
             (Fraction(24000, 1001), 0.05),
             (Fraction(15000, 1001), 0.05),
             (Fraction(60, 1), 0.05),
+            (Fraction(50, 1), 0.05),
             (Fraction(30, 1), 0.05),
+            (Fraction(25, 1), 0.05),
             (Fraction(24, 1), 0.05),
             (Fraction(15, 1), 0.05),
         ]
