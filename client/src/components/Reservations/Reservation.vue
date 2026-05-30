@@ -82,7 +82,10 @@
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
                     <div v-if="!shouldShowProgramSearchAddButton"
                         class="reservation__content-meta-size-comment"
-                        :class="{ 'reservation__content-meta-size-comment--without-comment': !reservation.comment }">
+                        :class="{
+                            'reservation__content-meta-size-comment--without-comment': !reservation.comment,
+                            'reservation__content-meta-size-comment--with-countdown': countdownStatusLabel !== null,
+                        }">
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-meta-comment-icon" />
                             <span class="reservation__content-meta-comment-text">{{ reservation.comment }}</span>
@@ -156,7 +159,7 @@ const isProgramSearchActionDisabled = computed(() => {
 // 録画予約一覧では無効予約だけ薄くし、番組検索では終了済みの番組だけ状態を弱める
 const isDisplayDisabled = computed(() => {
     if (props.isProgramSearchResult === true) {
-        return isPastProgram.value === true;
+        return isPastProgram.value === true || isEnabled.value === false;
     }
     return isEnabled.value === false;
 });
@@ -449,7 +452,7 @@ const handleSwitchClick = (event: Event) => {
             padding: 8px 0px;
         }
         @include tablet-vertical {
-            padding: 6px 0px;
+            padding: 8px 0px;
         }
         @include smartphone-horizontal {
             padding: 6px 0px;
@@ -624,6 +627,10 @@ const handleSwitchClick = (event: Event) => {
             @include tablet-horizontal {
                 margin-bottom: 4px;
             }
+            @include smartphone-vertical {
+                // 右上の状態チップはカード全体ではなく、本文列の右端へそろえる
+                position: relative;
+            }
         }
 
         &-title {
@@ -639,16 +646,24 @@ const handleSwitchClick = (event: Event) => {
             white-space: nowrap;
             text-overflow: ellipsis;
             @include tablet-vertical {
-                font-size: 15px;
+                display: -webkit-box;
+                font-size: 14px;
+                line-height: 1.4;
+                white-space: normal;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
             @include smartphone-horizontal {
                 font-size: 14px;
             }
             @include smartphone-vertical {
+                position: relative;
                 display: -webkit-box;
                 font-size: 13px;
                 line-height: 1.45;
-                margin-right: 8px;
+                width: 100%;
+                margin-right: 0px;
+                padding-right: 96px;
                 white-space: normal;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
@@ -658,7 +673,7 @@ const handleSwitchClick = (event: Event) => {
         &-status {
             display: flex;
             align-items: center;
-            gap: 7px;
+            column-gap: 5px;
             margin-right: -1.5px;  // 錯視対策
             flex-shrink: 0;
             min-width: 0;
@@ -675,11 +690,37 @@ const handleSwitchClick = (event: Event) => {
                     text-overflow: ellipsis;
                 }
 
+                @include tablet-vertical {
+                    height: 22px !important;
+                    font-size: 11px !important;
+                    padding: 0 6px !important;
+                }
+                @include smartphone-horizontal {
+                    height: 22px !important;
+                    font-size: 11px !important;
+                    padding: 0 6px !important;
+                }
                 @include smartphone-vertical {
                     height: 22px !important;
                     font-size: 11px !important;
                     padding: 0 6px !important;
                 }
+            }
+
+            @include smartphone-vertical {
+                position: absolute;
+                top: 0px;
+                right: 1.5px;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+                overflow: visible;
+            }
+        }
+
+        &-status-chip {
+            @include smartphone-vertical {
+                order: 1;
             }
         }
 
@@ -692,6 +733,18 @@ const handleSwitchClick = (event: Event) => {
             }
             @include tablet-horizontal {
                 display: inline-flex;
+            }
+            @include tablet-vertical {
+                display: inline-flex;
+            }
+            @include smartphone-horizontal {
+                display: inline-flex;
+            }
+            @include smartphone-vertical {
+                display: inline-flex;
+                order: 2;
+                flex-shrink: 0;
+                max-width: 92px;
             }
         }
 
@@ -896,6 +949,13 @@ const handleSwitchClick = (event: Event) => {
                         margin-top: -16px;  // 無駄な余白が表示されないように
                     }
                 }
+
+                &--without-comment#{&}--with-countdown {
+                    @include smartphone-vertical {
+                        // 青い時刻チップがある場合だけ、容量表示を持ち上げずチップ列との衝突を避ける
+                        margin-top: 2px;
+                    }
+                }
             }
 
             &-size,
@@ -1068,9 +1128,8 @@ const handleSwitchClick = (event: Event) => {
 
     &--compact-tablet-horizontal {
         @include tablet-horizontal {
-            // 番組検索の右カラムは iPad mini 横画面だと幅が狭く、PC 版の横並び情報が潰れる
-            // 予約一覧そのものではなく番組検索から明示された時だけ、スマホ寄りの縦積みへ切り替える
             .reservation__content-header {
+                position: relative;
                 align-items: flex-start;
             }
 
@@ -1078,14 +1137,22 @@ const handleSwitchClick = (event: Event) => {
                 display: -webkit-box;
                 font-size: 14px;
                 line-height: 1.45;
-                margin-right: 8px;
+                width: 100%;
+                margin-right: 0px;
+                padding-right: 104px;
                 white-space: normal;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
             }
 
             .reservation__content-status {
-                gap: 6px;
+                position: absolute;
+                top: 0px;
+                right: 1.5px;
+                flex-direction: column;
+                align-items: flex-end;
+                row-gap: 4px;
+                overflow: visible;
 
                 :deep(.v-chip) {
                     height: 22px !important;
@@ -1094,8 +1161,16 @@ const handleSwitchClick = (event: Event) => {
                 }
             }
 
+            .reservation__content-status-chip {
+                // 番組検索のタブレット横表示は右カラムが狭いため、スマホ縦画面と同じ縦積みにする
+                order: 1;
+            }
+
             .reservation__content-countdown {
-                display: none;
+                display: inline-flex;
+                order: 2;
+                flex-shrink: 0;
+                max-width: 92px;
             }
 
             .reservation__content-meta {
@@ -1146,9 +1221,13 @@ const handleSwitchClick = (event: Event) => {
             }
 
             .reservation__content-meta-size-comment--without-comment {
-                // 番組検索のタブレット横表示でも、メモなしの容量表示は日時行の右端へ寄せる
                 justify-content: flex-end;
                 margin-top: -22px;
+            }
+
+            .reservation__content-meta-size-comment--without-comment.reservation__content-meta-size-comment--with-countdown {
+                // 青い時刻チップがある予約だけ、容量表示を下段へ戻して右上チップ列との重なりを避ける
+                margin-top: 0px;
             }
 
             .reservation__content-meta-size {

@@ -1127,7 +1127,7 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
         align-items: center;
         flex: 0 1 auto;
         min-width: 0;
-        gap: 7px;
+        gap: 6px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
