@@ -119,7 +119,7 @@ const props = withDefaults(defineProps<{
     showMoreButton: false,
     showBackButton: false,
     showEmptyMessage: true,
-    emptyIcon: 'fluent:warning-20-regular',
+    emptyIcon: 'fluent:search-20-regular',
     emptyMessage: '録画番組が見つかりませんでした。',
     emptySubMessage: 'サーバー設定で録画フォルダのパスを<br class="d-sm-none">正しく設定できているか確認してください。',
     isLoading: false,
@@ -366,6 +366,8 @@ const handleProgramDeleted = (id: number) => {
         justify-content: center;
         align-items: center;
         padding-top: 28px;
+        padding-left: 12px;
+        padding-right: 12px;
         padding-bottom: 40px;
         flex-grow: 1;
         visibility: hidden;

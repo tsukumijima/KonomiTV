@@ -30,6 +30,11 @@ const router = createRouter({
             component: () => import('@/views/TV/Watch.vue'),
         },
         {
+            path: '/tv/search',
+            name: 'TV Search',
+            component: () => import('@/views/TV/Search.vue'),
+        },
+        {
             path: '/videos/',
             name: 'Videos Home',
             component: () => import('@/views/Videos/Home.vue'),

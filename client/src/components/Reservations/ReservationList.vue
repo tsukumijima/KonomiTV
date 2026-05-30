@@ -1,5 +1,8 @@
 <template>
-    <div class="reservation-list" :class="{'reservation-list--show-sort': !hideSort}">
+    <div class="reservation-list" :class="{
+        'reservation-list--show-sort': !hideSort,
+        'reservation-list--empty': displayTotal === 0 && showEmptyMessage,
+    }">
         <div class="reservation-list__header" v-if="!hideHeader">
             <h2 class="reservation-list__title">
                 <div v-if="showBackButton" v-ripple class="reservation-list__title-back" @click="$router.back()">
@@ -14,6 +17,13 @@
                 </div>
             </h2>
             <div class="reservation-list__actions">
+                <v-btn v-if="filterButtonLabel !== undefined"
+                    variant="flat"
+                    class="reservation-list__filter-button"
+                    @click="$emit('filter')">
+                    <Icon icon="fluent:filter-20-filled" width="16px" height="16px" class="mr-1" />
+                    {{ filterButtonLabel }}
+                </v-btn>
                 <v-select v-if="!hideSort"
                     v-model="sortOrder"
                     :items="[
@@ -56,8 +66,13 @@
                 </div>
             </div>
             <div class="reservation-list__grid-content">
-                <Reservation v-for="reservation in displayReservations" :key="reservation.id" :reservation="reservation"
-                    @deleted="handleReservationDeleted" @click="handleReservationClick" />
+                <Reservation v-for="reservation in displayReservations"
+                    :key="reservation.id === -1 ? reservation.program.id : reservation.id"
+                    :reservation="reservation"
+                    :compact-on-tablet-horizontal="compactReservationsOnTabletHorizontal"
+                    @added="handleReservationAdded"
+                    @deleted="handleReservationDeleted"
+                    @click="handleReservationClick" />
             </div>
         </div>
         <div class="reservation-list__pagination" v-if="!hidePagination && displayTotal > 0">
@@ -75,18 +90,20 @@
         <ReservationDetailDrawer
             v-model="drawerOpen"
             :reservation="selectedReservation"
+            :is-past-program="selectedReservation !== null ? isPastReservation(selectedReservation) : false"
+            @added="handleDrawerReservationAdded"
             @deleted="handleReservationDeleted"
             @updated="handleReservationSave" />
     </div>
 </template>
 <script lang="ts" setup>
 
-import { ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import Reservation from '@/components/Reservations/Reservation.vue';
 import ReservationDetailDrawer from '@/components/Reservations/ReservationDetailDrawer.vue';
 import { IReservation } from '@/services/Reservations';
-import Utils from '@/utils';
+import Utils, { dayjs } from '@/utils';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -105,6 +122,9 @@ const props = withDefaults(defineProps<{
     emptyMessage?: string;
     emptySubMessage?: string;
     isLoading?: boolean;
+    keepDeletedItems?: boolean;
+    filterButtonLabel?: string;
+    compactReservationsOnTabletHorizontal?: boolean;
 }>(), {
     page: 1,
     sortOrder: 'desc',
@@ -118,6 +138,9 @@ const props = withDefaults(defineProps<{
     emptyMessage: 'まだ録画予約がありません。',
     emptySubMessage: '番組表から録画予約を追加できます。',
     isLoading: false,
+    keepDeletedItems: false,
+    filterButtonLabel: undefined,
+    compactReservationsOnTabletHorizontal: false,
 });
 
 // 現在のページ番号
@@ -134,6 +157,8 @@ const displayTotal = ref<number>(props.total);
 // ドロワーの状態管理
 const drawerOpen = ref(false);
 const selectedReservation = ref<IReservation | null>(null);
+const currentTime = ref(dayjs());
+let currentTimeUpdateTimer: ReturnType<typeof setInterval> | null = null;
 
 // props の page が変更されたら currentPage を更新
 watch(() => props.page, (newPage) => {
@@ -161,7 +186,29 @@ const emit = defineEmits<{
     (e: 'update:sortOrder', order: 'desc' | 'asc'): void;
     (e: 'more'): void;
     (e: 'delete', reservation_id: number): void;
+    (e: 'added', reservation: IReservation): void;
+    (e: 'filter'): void;
 }>();
+
+// 検索結果では過去番組の予約操作を止め、一覧とドロワーの両方で同じ判定を使う
+const isPastReservation = (reservation: IReservation): boolean => {
+    return dayjs(reservation.program.end_time).isBefore(currentTime.value);
+};
+
+onMounted(() => {
+    // 詳細ドロワーを開いたまま放送終了を跨いだ場合も、予約操作の表示を現在時刻へ追従させる
+    currentTimeUpdateTimer = setInterval(() => {
+        currentTime.value = dayjs();
+    }, 30 * 1000);
+});
+
+onBeforeUnmount(() => {
+    // 一覧ページを離れた後に時刻更新だけが残らないよう止める
+    if (currentTimeUpdateTimer !== null) {
+        clearInterval(currentTimeUpdateTimer);
+        currentTimeUpdateTimer = null;
+    }
+});
 
 // 予約がクリックされた時の処理
 const handleReservationClick = (reservation: IReservation) => {
@@ -171,14 +218,28 @@ const handleReservationClick = (reservation: IReservation) => {
 
 // 予約が削除された時の処理
 const handleReservationDeleted = (id: number) => {
-    // 内部の予約リストから削除された予約を除外
-    displayReservations.value = displayReservations.value.filter(reservation => reservation.id !== id);
-    // 合計数を1減らす
-    displayTotal.value = Math.max(0, displayTotal.value - 1);
+    if (props.keepDeletedItems === false) {
+        // 録画予約一覧では削除した予約をその場で一覧から除外する
+        displayReservations.value = displayReservations.value.filter(reservation => reservation.id !== id);
+        // 合計数を1減らす
+        displayTotal.value = Math.max(0, displayTotal.value - 1);
+    }
     // ドロワーを閉じる
     drawerOpen.value = false;
     // 親コンポーネントに削除イベントを発行
     emit('delete', id);
+};
+
+// 検索結果の丸ボタンから予約が追加されたら、親側で予約済み表示へ切り替えられるよう通知する
+const handleReservationAdded = (reservation: IReservation) => {
+    emit('added', reservation);
+};
+
+// 詳細ドロワーで予約を追加した場合も、一覧側の表示状態を即時に更新できるよう同じ通知へ集約する
+const handleDrawerReservationAdded = () => {
+    if (selectedReservation.value !== null) {
+        emit('added', selectedReservation.value);
+    }
 };
 
 // 予約設定が保存された時の処理
@@ -199,6 +260,8 @@ const handleReservationSave = (updatedReservation: IReservation) => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    // 番組検索ページの2カラム内では、予約カード自身の省略表示へ幅の判断を任せる
+    min-width: 0;
     height: 100%;
 
     &--show-sort {
@@ -300,6 +363,17 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         }
     }
 
+    &__filter-button {
+        min-width: 103px;
+        height: 40px;
+        padding: 0px 12px;
+        border-radius: 6px;
+        color: rgb(var(--v-theme-text));
+        background: rgb(var(--v-theme-background-lighten-1));
+        font-size: 14px;
+        font-weight: 700;
+    }
+
     &__more {
         margin-bottom: 12px;
         padding: 0px 10px;
@@ -315,6 +389,8 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         flex-direction: column;
         position: relative;
         width: 100%;
+        // 親の横幅を押し広げず、各カード内のタイトル省略に任せる
+        min-width: 0;
         background: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: hidden;
@@ -331,6 +407,7 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         }
 
         .reservation-list__grid-content {
+            min-width: 0;
             height: 100%;
             transition: visibility 0.2s ease, opacity 0.2s ease;
         }
@@ -362,6 +439,8 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         justify-content: center;
         align-items: center;
         padding-top: 28px;
+        padding-left: 12px;
+        padding-right: 12px;
         padding-bottom: 40px;
         flex-grow: 1;
         visibility: hidden;

@@ -7,7 +7,7 @@
         <!-- 番組表コントロール用スロット -->
         <slot name="timetable-controls"></slot>
         <div v-if="showSearchInput" class="search-box">
-            <input class="search-input" type="search" enterkeyhint="search" :placeholder="searchPlaceholder"
+            <input class="search-input" type="search" name="header-search" enterkeyhint="search" :placeholder="searchPlaceholder"
                 v-model="searchQuery" @keydown="handleKeyDown">
             <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" @click="doSearch" />
         </div>
@@ -25,15 +25,42 @@ import { pwaInstallHandler } from 'pwa-install-handler';
 import { onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
+const props = defineProps<{
+    searchQuery?: string;
+}>();
+
+const emit = defineEmits<{
+    (e: 'update:searchQuery', searchQuery: string): void;
+    (e: 'search', searchQuery: string): void;
+}>();
+
 const isButtonDisplay = ref(false);
-const searchQuery = ref('');
+const internalSearchQuery = ref('');
 const router = useRouter();
 const route = useRoute();
 
+const searchQuery = computed({
+    get: () => props.searchQuery ?? internalSearchQuery.value,
+    set: (value: string) => {
+        // 検索ページでは親がキーワードを持ち、通常ページではヘッダー内だけで保持する
+        if (props.searchQuery !== undefined) {
+            emit('update:searchQuery', value);
+        } else {
+            internalSearchQuery.value = value;
+        }
+    },
+});
+
 // 検索クエリの初期化関数
 const initializeSearchQuery = () => {
+    // 親から検索キーワードを受けているページでは、URL からの復元を親側に任せる
+    if (props.searchQuery !== undefined) {
+        return;
+    }
     if (route.path.endsWith('/search') && route.query.query) {
-        searchQuery.value = decodeURIComponent(route.query.query as string);
+        internalSearchQuery.value = decodeURIComponent(route.query.query as string);
+    } else {
+        internalSearchQuery.value = '';
     }
 };
 
@@ -66,6 +93,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const doSearch = () => {
+    // 番組検索ページでは空欄キーワードでも絞り込み検索できるため、空文字のままページ側へ渡す
+    if (props.searchQuery !== undefined) {
+        const trimmedSearchQuery = searchQuery.value.trim();
+        emit('update:searchQuery', trimmedSearchQuery);
+        emit('search', trimmedSearchQuery);
+        return;
+    }
+
     if (searchQuery.value.trim()) {
         const searchPath = getSearchPath();
         router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);

@@ -1,14 +1,30 @@
 <template>
-    <div v-ripple class="reservation" :class="{ 'reservation--disabled': !isEnabled }"
+    <div v-ripple class="reservation" :class="{
+        'reservation--disabled': isDisplayDisabled,
+        'reservation--compact-tablet-horizontal': compactOnTabletHorizontal,
+    }"
         @click="handleContentClick">
         <div class="reservation__container">
             <!-- 左側：優先度と有効・無効スイッチ -->
             <div class="reservation__controls">
-                <div class="reservation__priority">
+                <div v-if="shouldShowProgramSearchAddButton" class="reservation__program-search-action" @click="handleAddButtonClick">
+                    <v-btn
+                        class="reservation__program-search-add"
+                        :color="programSearchActionColor"
+                        :disabled="isProgramSearchActionDisabled"
+                        :loading="isAddingReservation"
+                        :title="programSearchActionLabel"
+                        icon
+                        size="x-small"
+                        variant="flat">
+                        <Icon :icon="programSearchActionIcon" width="18px" height="18px" />
+                    </v-btn>
+                </div>
+                <div v-else class="reservation__priority">
                     <div class="reservation__priority-badge">{{ reservation.record_settings.priority }}</div>
                     <div class="reservation__priority-label">優先度</div>
                 </div>
-                <div v-if="!reservation.is_recording_in_progress" class="reservation__toggle" @click="handleSwitchClick">
+                <div v-if="!shouldShowProgramSearchAddButton && !reservation.is_recording_in_progress" class="reservation__toggle" @click="handleSwitchClick">
                     <v-switch
                         v-model="isEnabled"
                         color="primary"
@@ -19,7 +35,7 @@
                     ></v-switch>
                     <div class="reservation__toggle-label">{{ isEnabled ? '有効' : '無効' }}</div>
                 </div>
-                <div v-else class="reservation__recording">
+                <div v-else-if="!shouldShowProgramSearchAddButton" class="reservation__recording">
                     <div class="reservation__recording-icon"></div>
                 </div>
             </div>
@@ -30,27 +46,43 @@
                     <div class="reservation__content-title"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'title')"></div>
                     <div class="reservation__content-status">
-                        <v-chip
-                            :color="getReservationStatusColor(reservation)"
+                        <v-chip v-if="countdownStatusLabel !== null"
+                            class="reservation__content-countdown"
+                            color="info"
                             size="small"
                             variant="tonal"
                         >
-                            <Icon :icon="getReservationStatusIcon(reservation)" width="12px" height="12px" class="mr-1" />
-                            {{ getReservationStatusLabel(reservation) }}
+                            <Icon icon="fluent:clock-20-filled" width="12px" height="12px" class="mr-1" />
+                            {{ countdownStatusLabel }}
+                        </v-chip>
+                        <v-chip
+                            class="reservation__content-status-chip"
+                            :color="displayStatusColor"
+                            size="small"
+                            variant="tonal"
+                        >
+                            <Icon :icon="displayStatusIcon" width="12px" height="12px" class="mr-1" />
+                            {{ displayStatusLabel }}
                         </v-chip>
                     </div>
                 </div>
 
                 <div class="reservation__content-meta">
                     <div class="reservation__content-meta-broadcaster">
-                        <img class="reservation__content-meta-broadcaster-icon" loading="lazy" decoding="async"
-                            :src="`${Utils.api_base_url}/channels/${reservation.channel.id}/logo`"
+                        <img v-if="broadcasterLogoURL !== null"
+                            class="reservation__content-meta-broadcaster-icon"
+                            loading="lazy"
+                            decoding="async"
+                            :src="broadcasterLogoURL"
                             @error="onLogoError">
+                        <div v-else class="reservation__content-meta-broadcaster-icon"></div>
                         <span class="reservation__content-meta-broadcaster-name">Ch: {{ reservation.channel.channel_number }} {{ reservation.channel.name }}</span>
                     </div>
                     <!-- スマホ版のみ：時刻表示 -->
                     <div class="reservation__content-meta-time">{{ ProgramUtils.getProgramTime(reservation.program) }}</div>
-                    <div class="reservation__content-meta-size-comment">
+                    <div v-if="!shouldShowProgramSearchAddButton"
+                        class="reservation__content-meta-size-comment"
+                        :class="{ 'reservation__content-meta-size-comment--without-comment': !reservation.comment }">
                         <div v-if="reservation.comment" class="reservation__content-meta-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-meta-comment-icon" />
                             <span class="reservation__content-meta-comment-text">{{ reservation.comment }}</span>
@@ -70,7 +102,7 @@
                     <div class="reservation__content-description"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'description')"></div>
                     <!-- PC版のみ：容量表示（右側） -->
-                    <div class="reservation__content-description-size-pc">
+                    <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-size-pc">
                         <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
                         約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
                     </div>
@@ -81,36 +113,154 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { ProgramUtils, dayjs } from '@/utils';
 
 // Props
 const props = defineProps<{
     reservation: IReservation;
+    compactOnTabletHorizontal?: boolean;
 }>();
 
 // Emits
 const emit = defineEmits<{
     (e: 'deleted', reservation_id: number): void;
     (e: 'click', reservation: IReservation): void;
+    (e: 'added', reservation: IReservation): void;
 }>();
 
 // 有効・無効の状態を管理
 const isEnabled = ref(props.reservation.record_settings.is_enabled);
 const isUpdating = ref(false);
+const isAddingReservation = ref(false);
+const currentTime = ref(dayjs());
+let currentTimeUpdateTimer: ReturnType<typeof setInterval> | null = null;
+
+// 番組情報の終了時刻から、予約操作を出してよい状態かをカード内で判定する
+const isPastProgram = computed(() => dayjs(props.reservation.program.end_time).isBefore(currentTime.value));
+
+// id: -1 のモック予約データだけを未予約として扱い、実予約は録画予約一覧と同じ表示に戻す
+const shouldShowProgramSearchAddButton = computed(() => {
+    return props.reservation.id === -1;
+});
+
+// 検索結果の予約追加ボタンは、放送済み・送信中の状態で操作を止める
+const isProgramSearchActionDisabled = computed(() => {
+    return isPastProgram.value === true || isAddingReservation.value === true;
+});
+
+// 録画予約一覧では無効予約だけ薄くし、番組検索では終了済みの番組だけ状態を弱める
+const isDisplayDisabled = computed(() => {
+    if (shouldShowProgramSearchAddButton.value === true) {
+        return isPastProgram.value === true;
+    }
+    return isEnabled.value === false;
+});
+
+const programSearchActionLabel = computed(() => {
+    if (isPastProgram.value === true) {
+        return '終了済み';
+    }
+    return '録画追加';
+});
+
+const programSearchActionIcon = computed(() => {
+    if (isPastProgram.value === true) {
+        return 'fluent:clock-dismiss-20-filled';
+    }
+    return 'fluent:add-16-filled';
+});
+
+const programSearchActionColor = computed(() => {
+    if (isAddingReservation.value === true) {
+        return 'primary';
+    }
+    return isProgramSearchActionDisabled.value === true ? 'background-lighten-2' : 'primary';
+});
+
+const displayStatusLabel = computed(() => {
+    return getReservationStatusLabel(props.reservation);
+});
+
+const countdownStatusLabel = computed(() => {
+    if (isPastProgram.value === true) {
+        return null;
+    }
+
+    const now = currentTime.value;
+    const startTime = dayjs(props.reservation.program.start_time);
+    const endTime = dayjs(props.reservation.program.end_time);
+    if (shouldShowProgramSearchAddButton.value === true && now.isSameOrAfter(startTime) && now.isBefore(endTime)) {
+        // 検索結果画面かつ予約が入っていない番組では、「録画中」ツールチップが表示されないため、
+        // 代わりに放送中である旨をツールチップに表示する
+        return '放送中';
+    }
+
+    if (props.reservation.is_recording_in_progress === true || now.isSameOrAfter(startTime)) {
+        return null;
+    }
+
+    const diffMinutes = startTime.diff(now, 'minute');
+    if (diffMinutes > 12 * 60) {
+        return null;
+    }
+
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    if (hours === 0) {
+        return `${minutes}分後`;
+    }
+    if (minutes === 0) {
+        return `${hours}時間後`;
+    }
+    return `${hours}時間${minutes}分後`;
+});
+
+const displayStatusIcon = computed(() => {
+    return getReservationStatusIcon(props.reservation);
+});
+
+const displayStatusColor = computed(() => {
+    return getReservationStatusColor(props.reservation);
+});
+
+const broadcasterLogoURL = computed(() => {
+    // 検索結果のモック予約データでは、KonomiTV に存在しないチャンネルを API に問い合わせない
+    if (props.reservation.channel.channel_number === '---' && props.reservation.channel.name === props.reservation.program.channel_id) {
+        return null;
+    }
+    return `${Utils.api_base_url}/channels/${props.reservation.channel.id}/logo`;
+});
 
 // propsの変更を監視
 watch(() => props.reservation.record_settings.is_enabled, (newValue) => {
     isEnabled.value = newValue;
 });
 
-// ロゴ画像エラー時のフォールバック
+onMounted(() => {
+    // 放送開始・終了を跨いだまま一覧を開いていると、チップと予約追加ボタンの状態が古くなる
+    currentTimeUpdateTimer = setInterval(() => {
+        currentTime.value = dayjs();
+    }, 30 * 1000);
+});
+
+onBeforeUnmount(() => {
+    // 仮想スクロールやページ遷移でカードが破棄された後に時刻更新だけが残らないよう止める
+    if (currentTimeUpdateTimer !== null) {
+        clearInterval(currentTimeUpdateTimer);
+        currentTimeUpdateTimer = null;
+    }
+});
+
+// ロゴ取得に失敗したら API への再リクエストを止め、背景だけのプレースホルダーとして残す
 const onLogoError = (event: Event) => {
     const target = event.target as HTMLImageElement;
-    target.src = `${Utils.api_base_url}/channels/gr001/logo`;
+    const placeholder = document.createElement('div');
+    placeholder.className = target.className;
+    target.replaceWith(placeholder);
 };
 
 // 予約状態のラベルを取得
@@ -203,6 +353,29 @@ const handleToggleEnabled = async () => {
     }
 };
 
+// 番組検索結果での追加ボタンがクリックされた時、詳細ドロワーを開く代わりに予約を追加する
+const handleAddButtonClick = async (event: Event) => {
+    event.stopPropagation();
+
+    if (isProgramSearchActionDisabled.value === true) {
+        return;
+    }
+
+    isAddingReservation.value = true;
+    try {
+        const isSuccess = await Reservations.addReservation(props.reservation.program.id, props.reservation.record_settings);
+        if (isSuccess === true) {
+            Message.success('録画予約を追加しました。');
+            emit('added', props.reservation);
+        }
+    } catch (error) {
+        console.error('Failed to add reservation:', error);
+        Message.error('録画予約の追加に失敗しました。');
+    } finally {
+        isAddingReservation.value = false;
+    }
+};
+
 // スイッチ領域のクリック時の処理（ドロワー開閉を防止）
 const handleSwitchClick = (event: Event) => {
     event.stopPropagation();
@@ -255,6 +428,8 @@ const handleSwitchClick = (event: Event) => {
         display: flex;
         align-items: center;
         width: 100%;
+        // 検索ページの狭い右カラムでは、子要素側の省略表示へ幅を渡す
+        min-width: 0;
         min-height: auto;
         padding: 8px 3px;
         @include tablet-horizontal {
@@ -322,6 +497,24 @@ const handleSwitchClick = (event: Event) => {
         }
     }
 
+    &__program-search-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        @include smartphone-vertical {
+            width: 39px;
+        }
+    }
+
+    &__program-search-add {
+        --v-btn-width: 18px !important;
+        --v-btn-height: 18px !important;
+        @include smartphone-vertical {
+            --v-btn-width: 14px !important;
+            --v-btn-height: 14px !important;
+        }
+    }
 
     .reservation__recording-icon {
         margin: auto;
@@ -410,6 +603,7 @@ const handleSwitchClick = (event: Event) => {
         &-header {
             display: flex;
             align-items: center;
+            min-width: 0;
             margin-bottom: 2px;
             @include desktop {
                 margin-bottom: 4px;
@@ -421,6 +615,7 @@ const handleSwitchClick = (event: Event) => {
 
         &-title {
             flex-grow: 1;
+            min-width: 0;
             font-size: 17px;
             font-weight: 600;
             font-feature-settings: "palt" 1;
@@ -448,15 +643,42 @@ const handleSwitchClick = (event: Event) => {
         }
 
         &-status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
             margin-right: -1.5px;  // 錯視対策
             flex-shrink: 0;
+            min-width: 0;
+            overflow: hidden;
 
             :deep(.v-chip) {
+                min-width: 0;
+                flex-shrink: 0;
+                padding-inline: 9px;
+
+                .v-chip__content {
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                }
+
                 @include smartphone-vertical {
                     height: 22px !important;
                     font-size: 11px !important;
                     padding: 0 6px !important;
                 }
+            }
+        }
+
+        &-countdown {
+            display: none;
+            flex-shrink: 1;
+            max-width: 145px;
+            @include desktop {
+                display: inline-flex;
+            }
+            @include tablet-horizontal {
+                display: inline-flex;
             }
         }
 
@@ -646,7 +868,20 @@ const handleSwitchClick = (event: Event) => {
                 }
                 @include smartphone-vertical {
                     justify-content: space-between;
+                    width: 100%;
                     margin-top: 2px;
+                }
+
+                &--without-comment {
+                    // メモ欄がない予約でもストレージ情報を右端に寄せる
+                    justify-content: flex-end;
+                    @include smartphone-horizontal {
+                        margin-top: -2px;
+                        margin-bottom: -2px;
+                    }
+                    @include smartphone-vertical {
+                        margin-top: -16px;  // 無駄な余白が表示されないように
+                    }
                 }
             }
 
@@ -814,6 +1049,108 @@ const handleSwitchClick = (event: Event) => {
             text-align: center;
             @include smartphone-vertical {
                 font-size: 9px;
+            }
+        }
+    }
+
+    &--compact-tablet-horizontal {
+        @include tablet-horizontal {
+            // 番組検索の右カラムは iPad mini 横画面だと幅が狭く、PC 版の横並び情報が潰れる
+            // 予約一覧そのものではなく番組検索から明示された時だけ、スマホ寄りの縦積みへ切り替える
+            .reservation__content-header {
+                align-items: flex-start;
+            }
+
+            .reservation__content-title {
+                display: -webkit-box;
+                font-size: 14px;
+                line-height: 1.45;
+                margin-right: 8px;
+                white-space: normal;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            .reservation__content-status {
+                gap: 6px;
+
+                :deep(.v-chip) {
+                    height: 22px !important;
+                    padding: 0px 7px !important;
+                    font-size: 11px !important;
+                }
+            }
+
+            .reservation__content-countdown {
+                display: none;
+            }
+
+            .reservation__content-meta {
+                flex-wrap: wrap;
+                gap: 3px 6px;
+                margin-bottom: 0px;
+                font-size: 12px;
+            }
+
+            .reservation__content-meta-broadcaster {
+                width: 100%;
+                min-width: 0;
+                margin-bottom: 1px;
+                font-size: 12px;
+            }
+
+            .reservation__content-meta-broadcaster-icon {
+                width: 24px;
+                height: 14px;
+                margin-right: 4px;
+            }
+
+            .reservation__content-meta-broadcaster-name {
+                margin-left: 4px;
+                font-size: 12px;
+            }
+
+            .reservation__content-meta-time {
+                display: inline-block;
+                width: 100%;
+                height: 16px;
+                margin-left: 0px;
+                padding-left: 0px;
+                border-left: none;
+                font-size: 11.4px;
+                line-height: 15.5px;
+            }
+
+            .reservation__content-meta-time-pc {
+                display: none;
+            }
+
+            .reservation__content-meta-size-comment {
+                justify-content: space-between;
+                width: 100%;
+                margin-top: 2px;
+                margin-left: 0px;
+            }
+
+            .reservation__content-meta-size-comment--without-comment {
+                // 番組検索のタブレット横表示でも、メモなしの容量表示は日時行の右端へ寄せる
+                justify-content: flex-end;
+                margin-top: -22px;
+            }
+
+            .reservation__content-meta-size {
+                display: flex;
+            }
+
+            .reservation__content-meta-comment {
+                margin-right: 0px;
+                padding-left: 0px;
+                border-left: none;
+                font-size: 12px;
+            }
+
+            .reservation__content-description-container {
+                display: none;
             }
         }
     }

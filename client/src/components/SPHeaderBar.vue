@@ -1,5 +1,5 @@
 <template>
-    <header class="header" :class="{ 'search-active': isSearchActive, 'header--hide-on-sp-vertical': hideOnSmartphoneVertical }">
+    <header class="header" :class="{ 'search-active': isSearchActive, 'header--hide-on-sp-vertical': props.hideOnSmartphoneVertical }">
         <template v-if="!isSearchActive">
             <router-link v-ripple class="konomitv-logo" to="/tv/">
                 <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
@@ -16,7 +16,7 @@
                 <div class="search-box__icon">
                     <Icon icon="fluent:search-20-filled" height="20px" />
                 </div>
-                <input ref="searchInput" type="search" enterkeyhint="search" :placeholder="searchPlaceholder"
+                <input ref="searchInput" type="search" name="sp-header-search" enterkeyhint="search" :placeholder="searchPlaceholder"
                     v-model="searchQuery" @keydown="handleKeyDown">
                 <div v-ripple class="search-box__close" @click="deactivateSearch">
                     <Icon icon="fluent:dismiss-20-filled" height="24px" />
@@ -27,14 +27,23 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 // Props の定義
-const { hideOnSmartphoneVertical = false } = defineProps<{
+const props = withDefaults(defineProps<{
     // スマホ縦画面で非表示にするかどうか
     // スマホ縦画面で従来 SPHeaderBar がなかったページ（設定ページ経由のページなど）で使用
     hideOnSmartphoneVertical?: boolean;
+    searchQuery?: string;
+}>(), {
+    hideOnSmartphoneVertical: false,
+    searchQuery: undefined,
+});
+
+const emit = defineEmits<{
+    (e: 'update:searchQuery', searchQuery: string): void;
+    (e: 'search', searchQuery: string): void;
 }>();
 
 const router = useRouter();
@@ -47,7 +56,19 @@ const searchInput = ref<HTMLInputElement | null>(null);
 const isSearchActive = ref(false);
 
 // 検索クエリ
-const searchQuery = ref('');
+const internalSearchQuery = ref('');
+
+const searchQuery = computed({
+    get: () => props.searchQuery ?? internalSearchQuery.value,
+    set: (value: string) => {
+        // 番組検索ページでは親の検索条件と同期し、それ以外ではヘッダー内の一時入力として扱う
+        if (props.searchQuery !== undefined) {
+            emit('update:searchQuery', value);
+        } else {
+            internalSearchQuery.value = value;
+        }
+    },
+});
 
 // 検索ボタンの表示判定
 // 番組表ページでは検索ボタンは表示するが、設定/ログイン/登録/キャプチャページでは非表示
@@ -89,11 +110,22 @@ const activateSearch = () => {
 // 検索窓を閉じる
 const deactivateSearch = () => {
     isSearchActive.value = false;
-    searchQuery.value = '';
+    // 親がキーワードを管理している検索ページでは、閉じる操作だけで検索条件を消さない
+    if (props.searchQuery === undefined) {
+        internalSearchQuery.value = '';
+    }
 };
 
 // 検索を実行
 const executeSearch = () => {
+    // 番組検索ページでは空欄キーワードでも絞り込み検索できるため、空文字のままページ側へ渡す
+    if (props.searchQuery !== undefined) {
+        const trimmedSearchQuery = searchQuery.value.trim();
+        emit('update:searchQuery', trimmedSearchQuery);
+        emit('search', trimmedSearchQuery);
+        return;
+    }
+
     if (searchQuery.value.trim()) {
         const searchPath = getSearchPath();
         router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);
@@ -102,7 +134,7 @@ const executeSearch = () => {
 
 // キーボードイベントの処理
 const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && event.isComposing === false) {
         executeSearch();
     } else if (event.key === 'Escape') {
         deactivateSearch();
@@ -111,12 +143,19 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 // コンポーネントのマウント時に初期化
 onMounted(() => {
-    // 検索ページにいる場合は検索状態を初期化
-    if (route.path.endsWith('/search') && route.query.query) {
-        searchQuery.value = decodeURIComponent(route.query.query as string);
+    // 親がキーワードを管理していない検索ページでは、URL からヘッダー内の入力欄を復元する
+    if (props.searchQuery === undefined && route.path.endsWith('/search') && route.query.query) {
+        internalSearchQuery.value = decodeURIComponent(route.query.query as string);
         isSearchActive.value = true;
     }
 });
+
+watch(() => props.searchQuery, (searchQueryValue) => {
+    // 検索ページでは結果見出しと同じキーワードをすぐ編集できるよう、入力欄を開いたままにする
+    if (searchQueryValue !== undefined) {
+        isSearchActive.value = true;
+    }
+}, { immediate: true });
 
 </script>
 <style lang="scss" scoped>
