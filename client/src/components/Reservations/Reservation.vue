@@ -104,7 +104,18 @@
                 <div class="reservation__content-description-container">
                     <div class="reservation__content-description"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'description')"></div>
-                    <!-- PC版のみ：容量表示（右側） -->
+                    <!-- 狭い画面ではコメントと推定録画容量を概要行の右側にまとめる -->
+                    <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-side">
+                        <div v-if="reservation.comment" class="reservation__content-description-comment">
+                            <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-description-comment-icon" />
+                            <span class="reservation__content-description-comment-text">{{ reservation.comment }}</span>
+                        </div>
+                        <div class="reservation__content-description-size">
+                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
+                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                        </div>
+                    </div>
+                    <!-- PC・タブレット横版：概要行の右側に推定録画容量を表示 -->
                     <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-size-pc">
                         <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
                         約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
@@ -627,6 +638,9 @@ const handleSwitchClick = (event: Event) => {
             @include tablet-horizontal {
                 margin-bottom: 4px;
             }
+            @include tablet-vertical {
+                margin-bottom: 4px;
+            }
             @include smartphone-vertical {
                 // 右上の状態チップはカード全体ではなく、本文列の右端へそろえる
                 position: relative;
@@ -925,36 +939,18 @@ const handleSwitchClick = (event: Event) => {
                     margin-left: 10px;
                 }
                 @include tablet-vertical {
-                    width: 100%;
-                    justify-content: space-between;
+                    display: none;
                 }
                 @include smartphone-horizontal {
-                    width: 100%;
-                    justify-content: space-between;
+                    display: none;
                 }
                 @include smartphone-vertical {
-                    justify-content: space-between;
-                    width: 100%;
-                    margin-top: 2px;
+                    display: none;
                 }
 
                 &--without-comment {
                     // メモ欄がない予約でもストレージ情報を右端に寄せる
                     justify-content: flex-end;
-                    @include smartphone-horizontal {
-                        margin-top: -2px;
-                        margin-bottom: -2px;
-                    }
-                    @include smartphone-vertical {
-                        margin-top: -16px;  // 無駄な余白が表示されないように
-                    }
-                }
-
-                &--without-comment#{&}--with-countdown {
-                    @include smartphone-vertical {
-                        // 青い時刻チップがある場合だけ、容量表示を持ち上げずチップ列との衝突を避ける
-                        margin-top: 2px;
-                    }
                 }
             }
 
@@ -1016,31 +1012,35 @@ const handleSwitchClick = (event: Event) => {
             }
         }
 
-        // 概要+容量のコンテナ
+        // 概要と右側補助情報のコンテナ
         &-description-container {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
+            column-gap: 12px;
             margin-top: 2px;
             min-width: 0;
 
             @include desktop {
                 align-items: center;  // PC版では中央揃え
             }
-            // タブレット縦画面以下は非表示
             @include tablet-vertical {
-                display: none;
+                column-gap: 8px;
+                margin-top: 2px;
             }
             @include smartphone-horizontal {
-                display: none;
+                column-gap: 8px;
+                margin-top: 2px;
             }
             @include smartphone-vertical {
-                display: none;
+                column-gap: 8px;
+                margin-top: 2px;
             }
         }
 
         &-description {
-            flex-grow: 1;
-            margin-right: 12px;
+            flex: 1 1 auto;
+            min-width: 0;
+            margin-right: 0px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
             line-height: 1.55;
@@ -1056,22 +1056,62 @@ const handleSwitchClick = (event: Event) => {
                 font-size: 11px;
             }
             @include smartphone-vertical {
-                margin-right: 0px;
-                margin-bottom: 2px;
                 font-size: 10.5px;
                 line-height: 1.45;
             }
+        }
 
-            // PC版では概要を非表示にして容量を右側に配置するスペースを確保
-            @include desktop {
-                margin-right: 0px;
+        &-description-side {
+            display: none;
+            align-items: center;
+            justify-content: flex-end;
+            column-gap: 10px;
+            flex: 0 0 auto;
+            min-width: max-content;
+            margin-left: auto;
+            color: rgb(var(--v-theme-text-darken-1));
+            white-space: nowrap;
+
+            @include tablet-vertical {
+                display: flex;
+                font-size: 12px;
             }
-            @include tablet-horizontal {
-                margin-right: 0px;
+            @include smartphone-horizontal {
+                display: flex;
+                font-size: 12px;
+            }
+            @include smartphone-vertical {
+                display: flex;
+                column-gap: 6px;
+                font-size: 11px;
             }
         }
 
-        // PC版のみ：概要行の容量表示（右側）
+        &-description-comment {
+            display: flex;
+            align-items: center;
+            flex: 0 0 auto;
+            min-width: max-content;
+
+            &-icon {
+                flex-shrink: 0;
+                margin-right: 4px;
+            }
+
+            &-text {
+                white-space: nowrap;
+            }
+        }
+
+        &-description-size {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            min-width: max-content;
+            white-space: nowrap;
+        }
+
+        // PC・タブレット横版：概要行の容量表示（右側）
         &-description-size-pc {
             display: none;  // デフォルトは非表示
             @include desktop {
@@ -1096,11 +1136,11 @@ const handleSwitchClick = (event: Event) => {
                 white-space: nowrap;
                 justify-content: flex-end;
             }
+        }
 
-            .reservation__content-description-size-icon {
-                flex-shrink: 0;
-                margin-right: 4px;
-            }
+        .reservation__content-description-size-icon {
+            flex-shrink: 0;
+            margin-right: 4px;
         }
     }
 
@@ -1134,15 +1174,14 @@ const handleSwitchClick = (event: Event) => {
             }
 
             .reservation__content-title {
-                display: -webkit-box;
                 font-size: 14px;
                 line-height: 1.45;
                 width: 100%;
                 margin-right: 0px;
-                padding-right: 104px;
-                white-space: normal;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
+                padding-right: 80px;  // 「録画可能」などのチップの表示幅分
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .reservation__content-status {
@@ -1175,7 +1214,7 @@ const handleSwitchClick = (event: Event) => {
 
             .reservation__content-meta {
                 flex-wrap: wrap;
-                gap: 3px 6px;
+                gap: 2px 6px;
                 margin-bottom: 0px;
                 font-size: 12px;
             }
@@ -1214,20 +1253,7 @@ const handleSwitchClick = (event: Event) => {
             }
 
             .reservation__content-meta-size-comment {
-                justify-content: space-between;
-                width: 100%;
-                margin-top: 2px;
-                margin-left: 0px;
-            }
-
-            .reservation__content-meta-size-comment--without-comment {
-                justify-content: flex-end;
-                margin-top: -22px;
-            }
-
-            .reservation__content-meta-size-comment--without-comment.reservation__content-meta-size-comment--with-countdown {
-                // 青い時刻チップがある予約だけ、容量表示を下段へ戻して右上チップ列との重なりを避ける
-                margin-top: 0px;
+                display: none;
             }
 
             .reservation__content-meta-size {
@@ -1242,6 +1268,18 @@ const handleSwitchClick = (event: Event) => {
             }
 
             .reservation__content-description-container {
+                display: flex;
+                column-gap: 8px;
+                margin-top: 2px;
+            }
+
+            .reservation__content-description-side {
+                display: flex;
+                column-gap: 6px;
+                font-size: 11px;
+            }
+
+            .reservation__content-description-size-pc {
                 display: none;
             }
         }
