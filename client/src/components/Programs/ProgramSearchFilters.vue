@@ -185,11 +185,19 @@
                         <div v-for="(dateRange, index) in dateRanges" :key="dateRange.id"
                             class="program-search-filters__date-range">
                             <div class="program-search-filters__date-range-header">
-                                <span>範囲 {{ index + 1 }}</span>
-                                <button type="button" v-ripple class="program-search-filters__icon-button"
-                                    @click="removeDateRange(index)">
-                                    <Icon icon="fluent:delete-16-filled" width="15px" height="15px" />
-                                </button>
+                                <span>条件 {{ index + 1 }}</span>
+                                <div class="program-search-filters__date-range-actions">
+                                    <button type="button" v-ripple class="program-search-filters__icon-button"
+                                        aria-label="条件を複製"
+                                        @click="copyDateRange(index)">
+                                        <Icon icon="fluent:copy-16-regular" width="15px" height="15px" />
+                                    </button>
+                                    <button type="button" v-ripple class="program-search-filters__icon-button"
+                                        aria-label="条件を削除"
+                                        @click="removeDateRange(index)">
+                                        <Icon icon="fluent:delete-16-filled" width="15px" height="15px" />
+                                    </button>
+                                </div>
                             </div>
                             <div class="program-search-filters__date-row">
                                 <span class="program-search-filters__date-label">開始</span>
@@ -239,7 +247,7 @@
                         <button type="button" v-ripple class="program-search-filters__mini-button program-search-filters__mini-button--wide"
                             @click="addDateRange">
                             <Icon icon="fluent:add-16-filled" width="15px" height="15px" />
-                            日時範囲を追加
+                            日時条件を追加
                         </button>
                     </div>
                     <button type="button" v-ripple
@@ -525,7 +533,7 @@ const channelFilterStatusLabel = computed(() => {
         return '未選択';
     }
     if (isChannelFilterModified.value === false) {
-        return '全チャンネル';
+        return 'すべて';
     }
     return `${selectedServiceKeys.value.size}件選択`;
 });
@@ -536,8 +544,8 @@ const dateFilterStatusLabel = computed(() => {
         return localCondition.value.is_exclude_date_ranges === true ? '除外オン' : '指定なし';
     }
     return localCondition.value.is_exclude_date_ranges === true
-        ? `除外 ${dateRanges.value.length}範囲`
-        : `${dateRanges.value.length}範囲`;
+        ? `除外 ${dateRanges.value.length}件`
+        : `${dateRanges.value.length}件指定`;
 });
 
 const durationFilterStatusLabel = computed(() => {
@@ -652,10 +660,10 @@ const createDateRangeForm = (dateRange?: IProgramSearchConditionDate): DateRange
     // 追加直後から有効な範囲にしておくと、未入力の半端な条件を API に送る分岐が不要になる
     const nextDateRange = dateRange ?? {
         start_day_of_week: 0,
-        start_hour: 0,
+        start_hour: 22,
         start_minute: 0,
-        end_day_of_week: 6,
-        end_hour: 23,
+        end_day_of_week: 1,
+        end_hour: 3,
         end_minute: 59,
     };
     return {
@@ -884,6 +892,24 @@ const removeDateRange = (index: number) => {
     dateRanges.value = dateRanges.value.filter((_, dateRangeIndex) => dateRangeIndex !== index);
 };
 
+const copyDateRange = (index: number) => {
+    const sourceDateRange = dateRanges.value[index];
+    if (sourceDateRange === undefined) {
+        return;
+    }
+
+    // フォーム ID だけ新規発行し、曜日・時刻の値はそのまま複製する
+    const { id: _sourceId, ...dateRangeValues } = sourceDateRange;
+    const copiedDateRange = createDateRangeForm(dateRangeValues);
+
+    // 元の条件の直後へ挿入し、複製元を見ながら微調整しやすくする
+    dateRanges.value = [
+        ...dateRanges.value.slice(0, index + 1),
+        copiedDateRange,
+        ...dateRanges.value.slice(index + 1),
+    ];
+};
+
 const buildCondition = (): IProgramSearchCondition => {
     const condition = structuredClone(toRaw(localCondition.value));
     condition.is_enabled = true;
@@ -961,7 +987,7 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
     gap: 16px;
     color: rgb(var(--v-theme-text));
     @include tablet-horizontal {
-        width: 270px;
+        width: 275px;
     }
     @include tablet-vertical {
         width: 100%;
@@ -1111,6 +1137,9 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
         :deep(.v-expansion-panel-title__icon) {
             // Vuetify の矢印も自動余白を持つため、状態チップ側で右寄せを完結させる
             margin-inline-start: 12px;
+            @include tablet-horizontal {
+                margin-inline-start: 4px;
+            }
         }
         :deep(.v-expansion-panel-text__wrapper) {
             padding: 12px 14px;
@@ -1391,7 +1420,8 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
         display: flex;
         flex-direction: column;
         gap: 8px;
-        padding: 10px;
+        padding: 8px;
+        padding-top: 6px;
         border: 1px solid rgba(var(--v-theme-text), 0.12);
         border-radius: 7px;
         background: rgb(var(--v-theme-background-lighten-2));
@@ -1404,6 +1434,12 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
         color: rgb(var(--v-theme-text));
         font-size: 13px;
         font-weight: 700;
+    }
+
+    &__date-range-actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
     }
 
     &__icon-button {
@@ -1427,7 +1463,7 @@ const handleSearchKeyDown = (event: KeyboardEvent) => {
 
     &__date-row {
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr) 62px 62px;
+        grid-template-columns: 28px minmax(0, 1fr) 62px 62px;
         align-items: center;
         gap: 6px;
     }
