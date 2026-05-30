@@ -1,9 +1,8 @@
 <template>
     <router-link v-ripple class="recorded-program"
-        :to="program.recorded_video.status === 'Recorded' && program.recorded_video.has_key_frames ? `/videos/watch/${program.id}` : { path: '' }"
+        :to="program.recorded_video.status === 'Recorded' ? `/videos/watch/${program.id}` : { path: '' }"
         :class="{
             'recorded-program--recording': program.recorded_video.status === 'Recording',
-            'recorded-program--analyzing': !program.recorded_video.has_key_frames && program.recorded_video.status !== 'AnalysisFailed',
             'recorded-program--failed': program.recorded_video.status === 'AnalysisFailed',
         }">
         <div class="recorded-program__container">
@@ -18,10 +17,6 @@
                 <div v-else-if="program.recorded_video.status === 'AnalysisFailed'" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--failed">
                     <Icon icon="fluent:error-circle-12-regular" width="15px" height="15px" />
                     メタデータ解析失敗
-                </div>
-                <div v-else-if="!program.recorded_video.has_key_frames" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--analyzing">
-                    <Icon icon="fluent:clock-12-regular" width="15px" height="15px" />
-                    メタデータ解析中
                 </div>
                 <div v-else-if="program.is_partially_recorded" class="recorded-program__thumbnail-status recorded-program__thumbnail-status--partial">
                     ⚠️ 一部のみ録画
@@ -376,14 +371,6 @@ const deleteVideo = async () => {
             line-height: 1;
             background: rgba(var(--v-theme-background-lighten-1), 0.9);
             color: rgba(255, 255, 255, 0.85);
-
-            &--analyzing {
-                gap: 3px;
-                svg {
-                    color: rgb(var(--v-theme-primary));
-                    animation: progress-rotate 1.5s infinite;
-                }
-            }
 
             &--failed {
                 gap: 3px;
@@ -769,7 +756,7 @@ const deleteVideo = async () => {
         }
     }
 
-    &--recording, &--analyzing, &--failed {
+    &--recording, &--failed {
         pointer-events: none;
         &:hover {
             background: rgb(var(--v-theme-background-lighten-1));
@@ -810,11 +797,6 @@ const deleteVideo = async () => {
     0% { opacity: 0; }
     50% { opacity: 1; }
     100% { opacity: 0; }
-}
-
-@keyframes progress-rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
 }
 
 .delete-confirmation {
