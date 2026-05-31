@@ -101,11 +101,17 @@
                     </div>
                 </div>
 
-                <div class="reservation__content-description-container">
+                <div class="reservation__content-description-container"
+                    :class="{
+                        'reservation__content-description-container--with-comment': !shouldShowProgramSearchAddButton && reservation.comment,
+                    }">
                     <div class="reservation__content-description"
                         v-html="ProgramUtils.decorateProgramInfo(reservation.program, 'description')"></div>
                     <!-- 狭い画面ではコメントと推定録画容量を概要行の右側にまとめる -->
-                    <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-side">
+                    <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-side"
+                        :class="{
+                            'reservation__content-description-side--with-comment': reservation.comment,
+                        }">
                         <div v-if="reservation.comment" class="reservation__content-description-comment">
                             <Icon icon="fluent:note-20-filled" width="14px" height="14px" class="reservation__content-description-comment-icon" />
                             <span class="reservation__content-description-comment-text">{{ reservation.comment }}</span>
@@ -434,13 +440,10 @@ const handleSwitchClick = (event: Event) => {
         padding: 0px 9px;
     }
 
-    &:hover {
-        background: rgb(var(--v-theme-background-lighten-2));
-    }
-    // タッチデバイスで hover を無効にする
-    @media (hover: none) {
+    // タッチデバイスでは hover 効果を設定しない
+    @media (hover: hover) {
         &:hover {
-            background: rgb(var(--v-theme-background-lighten-1));
+            background: rgb(var(--v-theme-background-lighten-2));
         }
     }
 
@@ -727,7 +730,7 @@ const handleSwitchClick = (event: Event) => {
                 right: 1.5px;
                 flex-direction: column;
                 align-items: flex-end;
-                gap: 2px;
+                row-gap: 4px;
                 overflow: visible;
             }
         }
@@ -1014,7 +1017,8 @@ const handleSwitchClick = (event: Event) => {
 
         // 概要と右側補助情報のコンテナ
         &-description-container {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) max-content;
             align-items: center;
             column-gap: 12px;
             margin-top: 2px;
@@ -1035,10 +1039,56 @@ const handleSwitchClick = (event: Event) => {
                 column-gap: 8px;
                 margin-top: 2px;
             }
+
+            &--with-comment {
+                @include tablet-vertical {
+                    // 概要・コメント・容量を親の列で分け、概要だけが残り幅を受け持つ
+                    grid-template-columns: minmax(0, 1fr) fit-content(28em) max-content;
+                }
+                @include smartphone-horizontal {
+                    // 横幅に余裕があるスマホ横では、コメントを最大幅まで表示してから省略する
+                    grid-template-columns: minmax(0, 1fr) fit-content(28em) max-content;
+                }
+
+                @include smartphone-vertical {
+                    // スマホ縦では概要を隠し、コメントと容量だけを同じ行に残す
+                    grid-template-columns: minmax(0, 1fr) max-content;
+                    column-gap: 6px;
+                }
+
+                .reservation__content-description {
+                    @include smartphone-vertical {
+                        // スマホ縦では概要とコメントを同時に出すと両方読めなくなるため、
+                        // コメントがある予約だけ概要行をコメント表示へ譲る
+                        display: none;
+                    }
+                }
+
+                .reservation__content-description-comment {
+                    @include smartphone-vertical {
+                        // 概要を非表示にした行では、コメントが容量の左側の残り幅を使う
+                        grid-column: 1;
+                    }
+                }
+
+                .reservation__content-description-size {
+                    @include tablet-vertical {
+                        // 容量は右端に固定し、コメントや概要の省略に巻き込まない
+                        grid-column: 3;
+                    }
+                    @include smartphone-horizontal {
+                        // 容量は右端に固定し、コメントや概要の省略に巻き込まない
+                        grid-column: 3;
+                    }
+                    @include smartphone-vertical {
+                        grid-column: 2;
+                    }
+                }
+            }
         }
 
         &-description {
-            flex: 1 1 auto;
+            grid-column: 1;
             min-width: 0;
             margin-right: 0px;
             color: rgb(var(--v-theme-text-darken-1));
@@ -1063,26 +1113,24 @@ const handleSwitchClick = (event: Event) => {
 
         &-description-side {
             display: none;
-            align-items: center;
-            justify-content: flex-end;
-            column-gap: 10px;
-            flex: 0 0 auto;
-            min-width: max-content;
+            min-width: 0;
             margin-left: auto;
             color: rgb(var(--v-theme-text-darken-1));
             white-space: nowrap;
 
             @include tablet-vertical {
-                display: flex;
+                // 子要素を親の列に直接載せ、右側の入れ物自体が幅を持たないようにする
+                display: contents;
                 font-size: 12px;
             }
             @include smartphone-horizontal {
-                display: flex;
+                // 子要素を親の列に直接載せ、右側の入れ物自体が幅を持たないようにする
+                display: contents;
                 font-size: 12px;
             }
             @include smartphone-vertical {
-                display: flex;
-                column-gap: 6px;
+                // コメントありのスマホ縦でも、コメントと容量を親の2列に直接配置する
+                display: contents;
                 font-size: 11px;
             }
         }
@@ -1090,8 +1138,24 @@ const handleSwitchClick = (event: Event) => {
         &-description-comment {
             display: flex;
             align-items: center;
-            flex: 0 0 auto;
-            min-width: max-content;
+            justify-content: end;
+            grid-column: 2;
+            // 短いコメントは全文を読ませ、長いコメントだけをこの要素内で省略する
+            min-width: 0;
+            max-width: 28em;
+            overflow: hidden;
+            @include tablet-horizontal {
+                max-width: 23em;
+            }
+            @include tablet-vertical {
+                max-width: 23em;
+            }
+            @include smartphone-horizontal {
+                max-width: 24em;
+            }
+            @include smartphone-vertical {
+                max-width: unset;
+            }
 
             &-icon {
                 flex-shrink: 0;
@@ -1099,13 +1163,22 @@ const handleSwitchClick = (event: Event) => {
             }
 
             &-text {
+                // 省略対象は本文だけに限定し、ノートアイコンは常に残す
+                flex-grow: 1;
+                flex-shrink: 1;
+                flex-basis: auto;
+                min-width: 0;
+                overflow: hidden;
                 white-space: nowrap;
+                text-overflow: ellipsis;
             }
         }
 
         &-description-size {
             display: flex;
             align-items: center;
+            grid-column: 2;
+            justify-self: end;
             flex-shrink: 0;
             min-width: max-content;
             white-space: nowrap;
@@ -1117,6 +1190,8 @@ const handleSwitchClick = (event: Event) => {
             @include desktop {
                 display: flex;
                 align-items: center;
+                grid-column: 2;
+                justify-self: end;
                 flex-shrink: 0;
                 margin-left: auto;
                 padding-left: 12px;  // 左側との余白
@@ -1128,6 +1203,8 @@ const handleSwitchClick = (event: Event) => {
             @include tablet-horizontal {
                 display: flex;
                 align-items: center;
+                grid-column: 2;
+                justify-self: end;
                 flex-shrink: 0;
                 margin-left: auto;
                 padding-left: 12px;  // 左側との余白
@@ -1268,15 +1345,27 @@ const handleSwitchClick = (event: Event) => {
             }
 
             .reservation__content-description-container {
-                display: flex;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) max-content;
                 column-gap: 8px;
                 margin-top: 2px;
             }
 
+            .reservation__content-description-container--with-comment {
+                // タブレット横のコンパクト表示でも、概要・コメント・容量を同じ3列で扱う
+                grid-template-columns: minmax(0, 1fr) fit-content(28em) max-content;
+            }
+
             .reservation__content-description-side {
-                display: flex;
-                column-gap: 6px;
+                display: contents;
                 font-size: 11px;
+            }
+
+            .reservation__content-description-side--with-comment {
+                .reservation__content-description-size {
+                    // 容量を3列目へ置き、コメントが長い場合は2列目の中だけで省略する
+                    grid-column: 3;
+                }
             }
 
             .reservation__content-description-size-pc {

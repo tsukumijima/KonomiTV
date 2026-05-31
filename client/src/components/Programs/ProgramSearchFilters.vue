@@ -30,7 +30,7 @@
             </v-text-field>
             <v-text-field
                 v-model="excludeKeywordText"
-                label="NOT キーワード"
+                label="除外キーワード"
                 name="program-search-exclude-keyword"
                 color="primary"
                 bg-color="background-lighten-1"
@@ -582,7 +582,7 @@ const keywordText = computed({
 const excludeKeywordText = computed({
     get: () => localCondition.value.exclude_keyword ?? '',
     set: (value: string | null) => {
-        // NOT キーワードも文字列スキーマなので、空欄は null ではなく空文字として扱う
+        // 除外キーワードの空欄は null ではなく空文字として扱う
         localCondition.value.exclude_keyword = value ?? '';
     },
 });
