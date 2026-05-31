@@ -11,10 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Literal
 
+from biim.mpeg2ts import ts
 from fastapi import HTTPException, status
 from tortoise import transactions
 
 from app import logging
+from app.config import Config
 from app.constants import QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
@@ -80,6 +82,9 @@ class VideoStream:
 
     # 一度でも読み取られた HLS セグメントの最大保持数
     MAX_READED_SEGMENTS: ClassVar[int] = 10
+
+    # QSVEncC でエンコードを開始する際、入力 DTS が 33bit ラップアラウンド直前だと時刻補正でフレーム間隔がズレる問題を回避するための余裕
+    DTS_WRAP_AVOIDANCE_SECONDS: ClassVar[int] = 60
 
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
@@ -492,20 +497,46 @@ class VideoStream:
                 if segment.encode_status == 'Pending':
                     # このセグメントからエンコーダーを起動するため、入力ソース上の開始位置を先に確定する
                     await self.resolveSegmentSourcePosition(segment_sequence)
+                    encoding_start_sequence = segment_sequence
+
+                    # QSVEncC では MPEG-TS の入力 DTS が 33bit ラップ直前にある状態で起動すると、
+                    ## `check_pts()` が後続フレームの時刻を逆行扱いして小刻みな PTS 補正を入れてしまい、結果盛大に音ズレする既知の問題がある
+                    ## 同一ファイルでも FFmpeg / NVEncC では正常な間隔でエンコードできているため、QSVEncC のみ少し手前から連続エンコードする
+                    if (
+                        Config().general.encoder == 'QSVEncC' and
+                        self.recorded_program.recorded_video.container_format == 'MPEG-TS'
+                    ):
+                        wrap_avoidance_ticks = self.DTS_WRAP_AVOIDANCE_SECONDS * ts.HZ
+                        while encoding_start_sequence > 0:
+                            encoding_start_segment = self._segments[encoding_start_sequence]
+                            if encoding_start_segment.source_start_dts is None:
+                                await self.resolveSegmentSourcePosition(encoding_start_sequence)
+                                encoding_start_segment = self._segments[encoding_start_sequence]
+                            assert encoding_start_segment.source_start_dts is not None
+                            distance_to_wrap = ts.PCR_CYCLE - (encoding_start_segment.source_start_dts % ts.PCR_CYCLE)
+                            if distance_to_wrap > wrap_avoidance_ticks:
+                                break
+                            encoding_start_sequence -= 1
+
+                        if encoding_start_sequence != segment_sequence:
+                            logging.info(
+                                f'{self.log_prefix}[Segment {segment_sequence}] '
+                                f'QSVEncC start adjusted to Segment {encoding_start_sequence} to avoid DTS wrap.',
+                            )
 
                     # シーク処理は録画再生の待ち時間に直結するため、
                     ## 旧エンコードタスクの完全終了を待たずに強参照だけ退避して新しいタスクを起動する
                     await self.__cancelVideoEncodingTask(should_wait_for_runner = False)
-                    logging.info(f'{self.log_prefix}[Segment {segment_sequence}] Previous Encoding Task Canceled.')
+                    logging.info(f'{self.log_prefix}[Segment {encoding_start_sequence}] Previous Encoding Task Canceled.')
 
                     # 新しいエンコードタスクのインスタンスを初期化
                     ## エンコードタスクは基本使い回せないので、再度新しく初期化する
                     self._video_encoding_task = VideoEncodingTask(self)
 
                     # 新しいエンコードタスクを開始
-                    self._video_encoding_task_ref = asyncio.create_task(self._video_encoding_task.run(segment_sequence))
+                    self._video_encoding_task_ref = asyncio.create_task(self._video_encoding_task.run(encoding_start_sequence))
                     self.__registerVideoEncodingTaskRef(self._video_encoding_task_ref)
-                    logging.info(f'{self.log_prefix}[Segment {segment_sequence}] New Encoding Task Started.')
+                    logging.info(f'{self.log_prefix}[Segment {encoding_start_sequence}] New Encoding Task Started.')
 
         # セグメントデータの Future が完了したらそのデータを返す
         encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
