@@ -53,7 +53,7 @@
                             <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
                                 @click.stop
                                 @mouseup="showCommentListDropdown($event, item)"
-                                @touchend="showCommentListDropdown($event, item)">
+                                @touchend.stop.prevent="showCommentListDropdown($event, item)">
                                 <!-- Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 20 20">
                                     <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
@@ -66,15 +66,23 @@
             </template>
             <template v-else>
                 <VirtuaList ref="virtua_scroller" class="comment-list" :data="comment_list" #default="{ item }">
-                    <div class="comment comment--seekable" :class="{'comment--my-post': item.my_post}"
-                        @click="seekToComment(item)">
+                    <div class="comment comment--seekable" :class="{
+                            'comment--my-post': item.my_post,
+                            'comment--touch-active': active_touch_comment_id === item.id,
+                        }"
+                        @click="seekToComment(item)"
+                        @touchstart="handleSeekableCommentTouchStart($event, item)"
+                        @touchmove="handleSeekableCommentTouchMove($event)"
+                        @touchend="handleSeekableCommentTouchEnd($event, item)"
+                        @touchcancel="handleSeekableCommentTouchCancel()">
                         <span class="comment__text">{{item.text}}</span>
                         <span class="comment__time">{{item.time}}</span>
                         <!-- なぜか @click だとスマホで発火しないので @touchend にしている -->
                         <div class="comment__icon" v-ripple="!Utils.isTouchDevice()"
                             @click.stop
+                            @touchstart.stop
                             @mouseup="showCommentListDropdown($event, item)"
-                            @touchend="showCommentListDropdown($event, item)">
+                            @touchend.stop.prevent="showCommentListDropdown($event, item)">
                             <!-- Icon コンポーネントを使うと個数が多いときに高負荷になるため、意図的に SVG を直書きしている -->
                             <svg class="iconify iconify--fluent" width="20px" height="20px" viewBox="0 0 20 20">
                                 <path fill="currentColor" d="M10 6.5A1.75 1.75 0 1 1 10 3a1.75 1.75 0 0 1 0 3.5ZM10 17a1.75 1.75 0 1 1 0-3.5a1.75 1.75 0 0 1 0 3.5Zm-1.75-7a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 0 0-3.5 0Z"></path>
@@ -176,6 +184,16 @@ export default defineComponent({
             // 録画再生時の現在の再生位置（秒）とスクロール対象のコメントのインデックス
             current_playback_position: 0,
             target_comment_index: 0,
+
+            // 録画コメントのタップ判定で使うタッチ開始位置
+            comment_touch_start_x: 0,
+            comment_touch_start_y: 0,
+
+            // 録画コメント上のタッチがスクロール操作に変わったかどうか
+            is_comment_touch_moved: false,
+
+            // 録画コメント上で押下中のコメント ID
+            active_touch_comment_id: null as number | null,
 
             // VirtuaList の参照
             virtua_scroller: null as {
@@ -583,6 +601,68 @@ export default defineComponent({
         },
 
         /**
+         * 録画コメントのタップ開始位置を記録する
+         * @param event タッチ開始イベント
+         * @param comment タップされたコメント
+         */
+        handleSeekableCommentTouchStart(event: TouchEvent, comment: ICommentData): void {
+            const touch = event.changedTouches.item(0);
+            if (touch === null) return;
+
+            // タップとスクロールを指の移動量で判定するため、開始位置だけを保存
+            this.comment_touch_start_x = touch.clientX;
+            this.comment_touch_start_y = touch.clientY;
+            this.is_comment_touch_moved = false;
+
+            // スマホにはホバーがないため、押下中だけ PC のホバーと同じ色で反応を返す
+            this.active_touch_comment_id = comment.id;
+        },
+
+        /**
+         * 録画コメント上のタッチ移動をスクロール操作として記録する
+         * @param event タッチ移動イベント
+         */
+        handleSeekableCommentTouchMove(event: TouchEvent): void {
+            const touch = event.changedTouches.item(0);
+            if (touch === null) return;
+
+            // 指先の微小なブレはタップとして扱い、リストを読むためのスクロールだけを除外
+            const touch_move_threshold = 8;
+            const touch_move_x = Math.abs(touch.clientX - this.comment_touch_start_x);
+            const touch_move_y = Math.abs(touch.clientY - this.comment_touch_start_y);
+            if (touch_move_x > touch_move_threshold || touch_move_y > touch_move_threshold) {
+                this.is_comment_touch_moved = true;
+                this.active_touch_comment_id = null;
+            }
+        },
+
+        /**
+         * 録画コメントのタップで当該再生位置へシークする
+         * @param event タッチ終了イベント
+         * @param comment タップされたコメント
+         */
+        handleSeekableCommentTouchEnd(event: TouchEvent, comment: ICommentData): void {
+            this.active_touch_comment_id = null;
+
+            // スマホでは touchend 後に合成 click が続くことがあるため、スクロール操作でも必ず抑止
+            event.preventDefault();
+
+            // スクロール後の指離しはタップ扱いにせず、意図しないシークを避ける
+            if (this.is_comment_touch_moved === true) {
+                return;
+            }
+
+            this.seekToComment(comment);
+        },
+
+        /**
+         * 録画コメント上のタッチ中断時に押下中の表示を解除する
+         */
+        handleSeekableCommentTouchCancel(): void {
+            this.active_touch_comment_id = null;
+        },
+
+        /**
          * 自動スクロールボタンがクリックされたときの処理
          */
         handleAutoScrollButtonClick(): void {
@@ -765,9 +845,14 @@ export default defineComponent({
                 &--seekable {
                     cursor: pointer;
                     transition: color 0.15s ease;
-                    &:hover {
-                        color: rgb(var(--v-theme-primary));
+                    @media (hover: hover) {
+                        &:hover {
+                            color: rgb(var(--v-theme-primary));
+                        }
                     }
+                }
+                &--touch-active {
+                    color: rgb(var(--v-theme-primary));
                 }
                 &--my-post {
                     color: rgb(var(--v-theme-secondary-lighten-2));
