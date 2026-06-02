@@ -57,51 +57,96 @@ class BlueskyAPI:
     # Bluesky 側の一時的な遅延を吸収するため、読み書きタイムアウトと 502 応答だけを短く再試行する
     API_RETRY_ATTEMPTS: Final[int] = 3
     API_RETRY_BASE_DELAY_SECONDS: Final[float] = 0.8
-    # atproto SDK は更新トークンを更新する可能性があるため、同一 Bluesky アカウントの操作は直列化する
-    ## 複数クライアントが同時に古い session_string を保存し直すと、後続リクエストが再認証を要求される可能性がある
-    ACCOUNT_LOCKS: ClassVar[dict[int, asyncio.Lock]] = {}
+    # Bluesky アカウント ID ごとのシングルトンインスタンスを管理する辞書
+    ## 同じセッション情報を複数の SDK クライアントへ復元すると、更新トークンの更新処理がクライアントごとに独立してしまう
+    ## SDK クライアントを共有し、SDK 内部の更新ロックと HTTP 接続プールをアカウント単位で使い回す
+    __instances: ClassVar[dict[int, BlueskyAPI]] = {}
+
+
+    def __new__(cls, bluesky_account: BlueskyAccount) -> BlueskyAPI:
+        """
+        Bluesky アカウント ID ごとのシングルトンインスタンスを取得する
+
+        Args:
+            bluesky_account (BlueskyAccount): API 操作に利用する Bluesky アカウント
+
+        Returns:
+            BlueskyAPI: 対象アカウントの共有 API クライアント
+        """
+
+        # インスタンス生成中に await しないため、同一イベントループ上では辞書操作だけで重複生成を避けられる
+        instance = cls.__instances.get(bluesky_account.id)
+        if instance is None:
+            instance = super().__new__(cls)
+
+            # セッション更新時に session_string を保存し直すため、ORM インスタンス自体を保持する
+            instance.bluesky_account = bluesky_account
+            # SDK クライアントをアカウント単位で使い回し、HTTP 接続プールと SDK 内部の更新ロックを共有する
+            instance.client = AsyncClient(request=AsyncRequest(timeout=cls.REQUEST_TIMEOUT))
+            # セッション更新通知の登録状態
+            ## `_login()` はセッションの初回復元時だけ呼ばれるが、再試行時にも同じコールバックを重複登録しないよう保持する
+            instance.is_session_change_handler_registered = False
+            # 保存済みのセッション情報を SDK クライアントへ復元済みかどうか
+            instance.is_session_restored = False
+            # 同じアカウントへの初回リクエストが重なった場合も、セッション復元は 1 回だけ実行する
+            instance._session_initialization_lock = asyncio.Lock()
+
+            cls.__instances[bluesky_account.id] = instance
+        else:
+            # DB から取得した新しい ORM インスタンスへ差し替え、セッション更新時の保存先を最新状態にする
+            instance.bluesky_account = bluesky_account
+
+        return instance
 
     def __init__(self, bluesky_account: BlueskyAccount) -> None:
         """
-        Bluesky API クライアントを初期化する
+        Bluesky API クライアントのインスタンス変数に型ヒントを付与する
 
         Args:
             bluesky_account (BlueskyAccount): API 操作に利用する Bluesky アカウント
         """
 
-        # API 操作に利用する Bluesky アカウント
-        # セッション更新時に session_string を保存し直すため、ORM インスタンス自体を保持する
-        self.bluesky_account = bluesky_account
-        # ログ出力時にどのアカウントの処理か追いやすくするための接頭辞
-        self.log_prefix = f'[BlueskyAPI][{self.bluesky_account.handle}]'
-        # atproto SDK の非同期クライアント
-        # 現状の認証 UI は Bluesky 公式 PDS 向けなので、接続先は SDK の標準設定に任せる
-        # SDK の既定 5 秒タイムアウトでは画像アップロードや混雑時の応答待ちが失敗しやすいため、HTTPX 側の待機時間を広げる
-        self.client = AsyncClient(request=AsyncRequest(timeout=self.REQUEST_TIMEOUT))
-        # セッション更新通知の登録状態
-        # `_login()` は各 API 操作の前に呼ばれるため、同じコールバックを重複登録しないようインスタンス単位で保持する
-        self.is_session_change_handler_registered = False
+        # シングルトンの実体は __new__() で初期化する
+        ## __init__() は取得のたびに呼ばれるため、ここで値を再代入すると共有中の SDK クライアントが失われる
+        self.bluesky_account: BlueskyAccount
+        self.client: AsyncClient
+        self.is_session_change_handler_registered: bool
+        self.is_session_restored: bool
+        self._session_initialization_lock: asyncio.Lock
+
+
+    @property
+    def log_prefix(self) -> str:
+        """
+        ログ出力時にアカウントを識別する接頭辞を返す
+
+        Returns:
+            str: ログ出力用の接頭辞
+        """
+
+        return f'[BlueskyAPI][{self.bluesky_account.handle}]'
 
 
     @classmethod
-    def _getAccountLock(cls, bluesky_account_id: int) -> asyncio.Lock:
+    async def removeInstance(cls, bluesky_account_id: int) -> None:
         """
-        Bluesky アカウント単位の非同期ロックを取得する
+        指定された Bluesky アカウント ID の共有 API クライアントを破棄する
 
         Args:
-            bluesky_account_id (int): Bluesky アカウントの DB 上の ID
-
-        Returns:
-            asyncio.Lock: 対象アカウントの API 操作用ロック
+            bluesky_account_id (int): 破棄する Bluesky アカウントの ID
         """
 
-        # ロック生成中に await しないため、同一イベントループ上ではこの辞書操作だけで重複生成を避けられる
-        account_lock = cls.ACCOUNT_LOCKS.get(bluesky_account_id)
-        if account_lock is None:
-            account_lock = asyncio.Lock()
-            cls.ACCOUNT_LOCKS[bluesky_account_id] = account_lock
-        return account_lock
+        # 辞書から先に取り除き、再連携直後のリクエストでは新しいセッション情報からクライアントを作り直す
+        ## HTTP クライアントの終了中に新しいリクエストが来ても、破棄対象のクライアントを再利用させない
+        instance = cls.__instances.pop(bluesky_account_id, None)
+        if instance is None:
+            return
 
+        try:
+            await instance.client.request.close()
+        except Exception as ex:
+            # クライアントの破棄に失敗しても、再連携や連携解除は継続する
+            logging.error(f'[BlueskyAPI] Failed to close client. [account_id: {bluesky_account_id}]', exc_info=ex)
 
     @staticmethod
     async def authenticate(handle: str, app_password: str) -> BlueskyAccount:
@@ -119,8 +164,12 @@ class BlueskyAPI:
         normalized_handle = BlueskyAPI.normalizeBlueskyHandle(handle)
         client = AsyncClient(request=AsyncRequest(timeout=BlueskyAPI.REQUEST_TIMEOUT))
         # App Password は保存せず、ログイン成功後に SDK の session_string だけを暗号化して保持する
-        profile = await client.login(normalized_handle, app_password)
-        session_string = client.export_session_string()
+        try:
+            profile = await client.login(normalized_handle, app_password)
+            session_string = client.export_session_string()
+        finally:
+            # 認証画面用のクライアントは共有しないため、利用後に HTTP 接続プールを閉じる
+            await client.request.close()
 
         # profile.handle は DID 解決後の正規 handle なので、ユーザー入力ではなく API 応答値を DB に保存する
         account = BlueskyAccount(
@@ -211,18 +260,19 @@ class BlueskyAPI:
             # refresh 後の session_string は古い refresh token を置き換えるため、DB に保存し直す必要がある
             if event not in (SessionEvent.CREATE, SessionEvent.REFRESH):
                 return
-            session_string = self.client.export_session_string()
+            # SDK から通知された時点のセッション情報を保存し、共有クライアントの後続処理による状態変化を持ち込まない
+            session_string = session.export()
             self.bluesky_account.session_string = self.bluesky_account.encryptSessionString(session_string)
             await self.bluesky_account.save()
             logging.info(f'{self.log_prefix} Bluesky session string updated.')
 
-        # atproto SDK のセッション更新通知は追加登録型なので、API 操作のたびに登録すると保存処理が重複する
-        ## セッション復元自体は毎回必要だが、通知ハンドラーは同じクライアントに 1 回だけ紐づければよい
+        # atproto SDK のセッション更新通知は追加登録型なので、再試行時に登録すると保存処理が重複する
+        ## 通知ハンドラーは共有 SDK クライアントに 1 回だけ紐づける
         if self.is_session_change_handler_registered is False:
             self.client.on_session_change(on_session_change)
             self.is_session_change_handler_registered = True
 
-        # 保存済みの session_string を復元し、SDK 側にアクセストークン更新を任せる
+        # 保存済みの session_string を共有 SDK クライアントへ復元し、以降のアクセストークン更新を SDK 側に任せる
         await self._invokeWithRetry(
             'restore_session',
             lambda: self.client.login(session_string=self.bluesky_account.decryptSessionString()),
@@ -237,22 +287,35 @@ class BlueskyAPI:
             schemas.TwitterAPIResult | None: 復元失敗時の API 結果 (成功時は None)
         """
 
-        try:
-            await self._login()
-        except (HTTPException, UnauthorizedError) as ex:
-            # 復号不能な session_string と PDS 側の認証拒否は、どちらもユーザーの再連携で解消する状態
-            ## 通信障害や SDK 側の不具合まで再連携扱いにすると、実際には不要なアカウント再設定を促してしまう
-            logging.error(f'{self.log_prefix} Failed to restore Bluesky session due to authorization error:', exc_info=ex)
-            return schemas.TwitterAPIResult(
-                is_success=False,
-                detail='Bluesky のセッションが期限切れです。設定画面から再連携してください。',
-            )
-        except Exception as ex:
-            logging.error(f'{self.log_prefix} Failed to restore Bluesky session:', exc_info=ex)
-            return schemas.TwitterAPIResult(
-                is_success=False,
-                detail='Bluesky との通信エラーまたは内部エラーが発生しました。後でもう一度お試しください。',
-            )
+        # 共有 SDK クライアントへセッションを復元済みなら、各 API 操作をそのまま並行実行する
+        ## アクセストークン更新の競合は SDK 内部の更新ロックで処理される
+        if self.is_session_restored is True:
+            return None
+
+        # 同じアカウントへの初回リクエストが重なった場合も、セッション復元とプロフィール取得は 1 回だけ実行する
+        async with self._session_initialization_lock:
+            # ロック待機中に別のリクエストが復元を完了していた場合は、その共有クライアントを利用する
+            if self.is_session_restored is True:
+                return None
+
+            try:
+                await self._login()
+            except (HTTPException, UnauthorizedError) as ex:
+                # 復号不能な session_string と PDS 側の認証拒否は、どちらもユーザーの再連携で解消する状態
+                ## 通信障害や SDK 側の不具合まで再連携扱いにすると、実際には不要なアカウント再設定を促してしまう
+                logging.error(f'{self.log_prefix} Failed to restore Bluesky session due to authorization error:', exc_info=ex)
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail='Bluesky のセッションが期限切れです。設定画面から再連携してください。',
+                )
+            except Exception as ex:
+                logging.error(f'{self.log_prefix} Failed to restore Bluesky session:', exc_info=ex)
+                return schemas.TwitterAPIResult(
+                    is_success=False,
+                    detail='Bluesky との通信エラーまたは内部エラーが発生しました。後でもう一度お試しください。',
+                )
+
+            self.is_session_restored = True
         return None
 
 
@@ -479,61 +542,59 @@ class BlueskyAPI:
                 detail='Bluesky では画像は 4 枚まで添付できます。',
             )
 
-        # session_string の復元から実 API 呼び出しまでを直列化し、更新トークンの保存競合を避ける
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # 画像 embed と facets 付き本文を組み立ててから投稿し、Bluesky 上で URL / ハッシュタグがリンク化されるようにする
-                embed: models.AppBskyEmbedImages.Main | None = None
-                if len(images) > 0:
-                    # 画像ごとの読み込み・必要時の再エンコード・blob アップロードは互いに独立しているため、
-                    # 投稿前に同時に進めて 4 枚添付時の待ち時間が単純加算されないようにする
-                    embed_images = await asyncio.gather(*[
-                        self._prepareAndUploadImage(image)
-                        for image in images
-                    ])
-                    embed = models.AppBskyEmbedImages.Main(images=embed_images)
+        try:
+            # 画像 embed と facets 付き本文を組み立ててから投稿し、Bluesky 上で URL / ハッシュタグがリンク化されるようにする
+            embed: models.AppBskyEmbedImages.Main | None = None
+            if len(images) > 0:
+                # 画像ごとの読み込み・必要時の再エンコード・blob アップロードは互いに独立しているため、
+                # 投稿前に同時に進めて 4 枚添付時の待ち時間が単純加算されないようにする
+                embed_images = await asyncio.gather(*[
+                    self._prepareAndUploadImage(image)
+                    for image in images
+                ])
+                embed = models.AppBskyEmbedImages.Main(images=embed_images)
 
-                reply_ref: models.AppBskyFeedPost.ReplyRef | None = None
-                if reply_to is not None:
-                    # Bluesky のリプライはツリー全体のルートと直前の親ポストの両方を要求する
-                    # フロント側の状態は送信成功レスポンスの uri / cid だけで更新し、削除済み親への失敗時は状態を触らない
-                    reply_ref = models.AppBskyFeedPost.ReplyRef(
-                        root=models.ComAtprotoRepoStrongRef.Main(
-                            uri=reply_to['root_uri'],
-                            cid=reply_to['root_cid'],
-                        ),
-                        parent=models.ComAtprotoRepoStrongRef.Main(
-                            uri=reply_to['parent_uri'],
-                            cid=reply_to['parent_cid'],
-                        ),
-                    )
-
-                post_response = await self.client.send_post(
-                    text=self._buildTextBuilder(text),
-                    embed=embed,
-                    langs=['ja'],
-                    reply_to=reply_ref,
-                )
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to create post:', exc_info=ex)
-                return schemas.TwitterAPIResult(
-                    is_success=False,
-                    detail='Bluesky へのポストに失敗しました。',
+            reply_ref: models.AppBskyFeedPost.ReplyRef | None = None
+            if reply_to is not None:
+                # Bluesky のリプライはツリー全体のルートと直前の親ポストの両方を要求する
+                # フロント側の状態は送信成功レスポンスの uri / cid だけで更新し、削除済み親への失敗時は状態を触らない
+                reply_ref = models.AppBskyFeedPost.ReplyRef(
+                    root=models.ComAtprotoRepoStrongRef.Main(
+                        uri=reply_to['root_uri'],
+                        cid=reply_to['root_cid'],
+                    ),
+                    parent=models.ComAtprotoRepoStrongRef.Main(
+                        uri=reply_to['parent_uri'],
+                        cid=reply_to['parent_cid'],
+                    ),
                 )
 
-            # 投稿完了通知から直接開けるよう、AT URI の record key を bsky.app の URL へ変換する
-            post_url = f'https://bsky.app/profile/{self.bluesky_account.handle}/post/{self._extractRecordKey(post_response.uri)}'
-            return schemas.PostTweetResult(
-                is_success=True,
-                detail='Bluesky にポストしました。',
-                tweet_url=post_url,
-                post_uri=post_response.uri,
-                post_cid=post_response.cid,
+            post_response = await self.client.send_post(
+                text=self._buildTextBuilder(text),
+                embed=embed,
+                langs=['ja'],
+                reply_to=reply_ref,
             )
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to create post:', exc_info=ex)
+            return schemas.TwitterAPIResult(
+                is_success=False,
+                detail='Bluesky へのポストに失敗しました。',
+            )
+
+        # 投稿完了通知から直接開けるよう、AT URI の record key を bsky.app の URL へ変換する
+        post_url = f'https://bsky.app/profile/{self.bluesky_account.handle}/post/{self._extractRecordKey(post_response.uri)}'
+        return schemas.PostTweetResult(
+            is_success=True,
+            detail='Bluesky にポストしました。',
+            tweet_url=post_url,
+            post_uri=post_response.uri,
+            post_cid=post_response.cid,
+        )
 
 
     async def createRepost(self, post_id: str) -> schemas.TwitterAPIResult:
@@ -547,20 +608,19 @@ class BlueskyAPI:
             schemas.TwitterAPIResult: リポスト結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # リポスト作成には StrongRef (URI + CID) が必要なので、AT URI から現在の CID を取得してから SDK に渡す
-                post = await self._fetchPostByURI(post_id)
-                if post is None:
-                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
-                await self.client.repost(post.uri, post.cid)
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to repost:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポストに失敗しました。')
+        try:
+            # リポスト作成には StrongRef (URI + CID) が必要なので、AT URI から現在の CID を取得してから SDK に渡す
+            post = await self._fetchPostByURI(post_id)
+            if post is None:
+                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
+            await self.client.repost(post.uri, post.cid)
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to repost:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポストに失敗しました。')
 
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky の投稿をリポストしました。')
 
@@ -576,20 +636,19 @@ class BlueskyAPI:
             schemas.TwitterAPIResult: リポスト取消結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # delete_repost にはリポスト自体の URI が必要なので、対象投稿を取得して viewer.repost を引き直す
-                post = await self._fetchPostByURI(post_id)
-                if post is None or post.viewer is None or post.viewer.repost is None:
-                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト情報を取得できませんでした。')
-                await self.client.delete_repost(post.viewer.repost)
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to delete repost:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト取り消しに失敗しました。')
+        try:
+            # delete_repost にはリポスト自体の URI が必要なので、対象投稿を取得して viewer.repost を引き直す
+            post = await self._fetchPostByURI(post_id)
+            if post is None or post.viewer is None or post.viewer.repost is None:
+                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト情報を取得できませんでした。')
+            await self.client.delete_repost(post.viewer.repost)
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to delete repost:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のリポスト取り消しに失敗しました。')
 
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky のリポストを取り消しました。')
 
@@ -605,20 +664,19 @@ class BlueskyAPI:
             schemas.TwitterAPIResult: いいね結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # いいね作成も StrongRef が必要なので、AT URI から現在の CID を取得してから SDK に渡す
-                post = await self._fetchPostByURI(post_id)
-                if post is None:
-                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
-                await self.client.like(post.uri, post.cid)
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to like post:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいねに失敗しました。')
+        try:
+            # いいね作成も StrongRef が必要なので、AT URI から現在の CID を取得してから SDK に渡す
+            post = await self._fetchPostByURI(post_id)
+            if post is None:
+                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky 投稿情報を取得できませんでした。')
+            await self.client.like(post.uri, post.cid)
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to like post:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいねに失敗しました。')
 
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky の投稿をいいねしました。')
 
@@ -634,20 +692,19 @@ class BlueskyAPI:
             schemas.TwitterAPIResult: いいね取消結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # delete_like にはいいねレコードの URI が必要なので、対象投稿の viewer.like を取得してから削除する
-                post = await self._fetchPostByURI(post_id)
-                if post is None or post.viewer is None or post.viewer.like is None:
-                    return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね情報を取得できませんでした。')
-                await self.client.delete_like(post.viewer.like)
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to delete like:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね取り消しに失敗しました。')
+        try:
+            # delete_like にはいいねレコードの URI が必要なので、対象投稿の viewer.like を取得してから削除する
+            post = await self._fetchPostByURI(post_id)
+            if post is None or post.viewer is None or post.viewer.like is None:
+                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね情報を取得できませんでした。')
+            await self.client.delete_like(post.viewer.like)
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to delete like:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のいいね取り消しに失敗しました。')
 
         return schemas.TwitterAPIResult(is_success=True, detail='Bluesky のいいねを取り消しました。')
 
@@ -663,20 +720,19 @@ class BlueskyAPI:
             schemas.TimelineTweetsResult | schemas.TwitterAPIResult: タイムライン取得結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # Bluesky のホームタイムラインはカーソル 1 本でページングするため、Twitter の Top / Bottom 区別は持ち込まない
-                response = await self._invokeWithRetry(
-                    'get_timeline',
-                    lambda: self.client.get_timeline(limit=30, cursor=cursor_id),
-                )
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to fetch home timeline:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のタイムライン取得に失敗しました。')
+        try:
+            # Bluesky のホームタイムラインはカーソル 1 本でページングするため、Twitter の Top / Bottom 区別は持ち込まない
+            response = await self._invokeWithRetry(
+                'get_timeline',
+                lambda: self.client.get_timeline(limit=30, cursor=cursor_id),
+            )
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to fetch home timeline:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky のタイムライン取得に失敗しました。')
 
         # KonomiTV クライアントは Twitter と同じ TimelineTweetsResult を期待するため、PostView を Tweet に正規化する
         tweets = [self._formatPostView(feed_view.post, feed_view.reason) for feed_view in response.feed]
@@ -711,27 +767,26 @@ class BlueskyAPI:
             schemas.TimelineTweetsResult | schemas.TwitterAPIResult: 検索結果
         """
 
-        async with self._getAccountLock(self.bluesky_account.id):
-            session_error = await self._restoreSession()
-            if session_error is not None:
-                return session_error
+        session_error = await self._restoreSession()
+        if session_error is not None:
+            return session_error
 
-            try:
-                # 検索結果もホームタイムラインと同じ Tweet 配列へ変換できるよう、最新順で一定件数だけ取得する
-                response = await self._invokeWithRetry(
-                    'search_posts',
-                    lambda: self.client.app.bsky.feed.search_posts(
-                        models.AppBskyFeedSearchPosts.Params(
-                            q=query,
-                            cursor=cursor_id,
-                            limit=30,
-                            sort='latest',
-                        ),
+        try:
+            # 検索結果もホームタイムラインと同じ Tweet 配列へ変換できるよう、最新順で一定件数だけ取得する
+            response = await self._invokeWithRetry(
+                'search_posts',
+                lambda: self.client.app.bsky.feed.search_posts(
+                    models.AppBskyFeedSearchPosts.Params(
+                        q=query,
+                        cursor=cursor_id,
+                        limit=30,
+                        sort='latest',
                     ),
-                )
-            except Exception as ex:
-                logging.error(f'{self.log_prefix} Failed to search posts:', exc_info=ex)
-                return schemas.TwitterAPIResult(is_success=False, detail='Bluesky の検索に失敗しました。')
+                ),
+            )
+        except Exception as ex:
+            logging.error(f'{self.log_prefix} Failed to search posts:', exc_info=ex)
+            return schemas.TwitterAPIResult(is_success=False, detail='Bluesky の検索に失敗しました。')
 
         # search_posts は reason を持たない PostView 配列なので、リポスト表示用の変換は通さない
         tweets = [self._formatPostView(post) for post in response.posts]

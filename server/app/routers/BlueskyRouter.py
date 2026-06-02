@@ -83,6 +83,8 @@ async def BlueskyAuthAPI(
         existing_account.icon_url = bluesky_account.icon_url
         existing_account.session_string = bluesky_account.session_string
         await existing_account.save()
+        # 再連携前のセッション情報を保持している共有クライアントを破棄し、次回 API 呼び出し時に作り直す
+        await BlueskyAPI.removeInstance(existing_account.id)
         logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account. [id: {existing_account.id}, handle: {existing_account.handle}]')
         return
 
@@ -106,6 +108,8 @@ async def BlueskyAuthAPI(
         existing_account.icon_url = bluesky_account.icon_url
         existing_account.session_string = bluesky_account.session_string
         await existing_account.save()
+        # 同時連携で先に作成されたアカウントにも、今回取得したセッション情報を次回 API 呼び出しから反映する
+        await BlueskyAPI.removeInstance(existing_account.id)
         logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Updated existing Bluesky account after conflict. [id: {existing_account.id}, handle: {existing_account.handle}]')
         return
     logging.info(f'[BlueskyRouter][BlueskyAuthAPI] Created new Bluesky account. [id: {bluesky_account.id}, handle: {bluesky_account.handle}]')
@@ -124,6 +128,8 @@ async def BlueskyAccountDeleteAPI(
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
+    # 連携解除後に認証済みクライアントが残らないよう、DB レコードを削除する前に HTTP 接続を閉じる
+    await BlueskyAPI.removeInstance(bluesky_account.id)
     # BlueskyAccount に紐づく AccountLink は外部キーの cascade で削除される
     await bluesky_account.delete()
 
