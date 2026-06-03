@@ -397,6 +397,7 @@ class VideoStream:
                     self._ts_stream_info,
                     segment.playlist_start_seconds,
                     self._ts_source_base_dts,
+                    round(self._segment_duration_seconds * ts.HZ),
                 )
                 segment.source_file_position = source_position.source_file_position
                 segment.source_start_dts = source_position.source_start_dts

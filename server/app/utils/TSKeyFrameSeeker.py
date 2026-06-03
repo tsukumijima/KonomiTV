@@ -74,12 +74,19 @@ class TSKeyFrameSeeker:
 
 
     @staticmethod
-    def findStreamInfo(path: Path) -> TSStreamInfo:
+    def findStreamInfo(
+        path: Path,
+        *,
+        start_offset: int = 0,
+        max_scan_bytes: int | None = None,
+    ) -> TSStreamInfo:
         """
         PAT/PMT から映像 PID と PCR PID を取得する
 
         Args:
             path (Path): TS コンテナの録画ファイルパス
+            start_offset (int): PAT / PMT の探索を開始する概算ファイル位置
+            max_scan_bytes (int | None): 最大スキャンバイト数 (None の場合は従来の上限を使用)
 
         Returns:
             TSStreamInfo: オンデマンド探索に必要なストリーム情報
@@ -89,9 +96,12 @@ class TSKeyFrameSeeker:
         pat_parser = SectionParser(PATSection)
         pmt_parser = SectionParser(PMTSection)
         pmt_pid: int | None = None
+        aligned_start_offset = max(0, (start_offset // packet_size) * packet_size)
+        max_packet_count = 300000 if max_scan_bytes is None else max(1, max_scan_bytes // packet_size)
 
         with path.open('rb') as file:
-            for _ in range(300000):
+            file.seek(aligned_start_offset)
+            for _ in range(max_packet_count):
                 packet = TSKeyFrameSeeker.__normalizePacket(file.read(packet_size), packet_size)
                 if packet is None:
                     break
@@ -180,6 +190,7 @@ class TSKeyFrameSeeker:
         stream_info: TSStreamInfo,
         playlist_start_seconds: float,
         source_base_dts: int,
+        max_keyframe_age_ticks: int,
     ) -> TSKeyFramePosition:
         """
         TS コンテナで、プレイリスト時刻以前の最も近いキーフレームを探索する
@@ -189,6 +200,7 @@ class TSKeyFrameSeeker:
             stream_info (TSStreamInfo): 対象映像 PID などのストリーム情報
             playlist_start_seconds (float): 録画内の相対再生時刻
             source_base_dts (int): 録画先頭キーフレームの DTS (90kHz)
+            max_keyframe_age_ticks (int): 採用できるキーフレームの最大古さ (90kHz)
 
         Returns:
             TSKeyFramePosition: エンコード開始に使うファイル位置と DTS
@@ -196,13 +208,40 @@ class TSKeyFrameSeeker:
 
         file_size = path.stat().st_size
         target_dts = source_base_dts + round(playlist_start_seconds * ts.HZ)
-        keyframe = TSKeyFrameSeeker.__resolveKeyframeByPCR(
+        pcr_offset = TSKeyFrameSeeker.__findOffsetByPCRBinarySearch(
             path,
             stream_info,
-            playlist_start_seconds = playlist_start_seconds,
-            target_dts = target_dts,
-            file_size = file_size,
+            playlist_start_seconds,
+            file_size,
         )
+
+        keyframe = TSKeyFrameSeeker.__resolveKeyframeNearOffset(
+            path,
+            stream_info,
+            target_dts = target_dts,
+            pcr_offset = pcr_offset,
+            max_keyframe_age_ticks = max_keyframe_age_ticks,
+        )
+
+        # 通常はファイル先頭の PAT / PMT で取得した映像 PID のまま探索できる
+        ## 録画マージンでマルチ編成が切り替わる TS では PID が変わるため、失敗時だけ局所 PMT を読み直す
+        if keyframe is None:
+            try:
+                local_stream_info = TSKeyFrameSeeker.findStreamInfo(
+                    path,
+                    start_offset = pcr_offset,
+                    max_scan_bytes = TSKeyFrameSeeker.PCR_SEARCH_WINDOW_BYTES * 2,
+                )
+                keyframe = TSKeyFrameSeeker.__resolveKeyframeNearOffset(
+                    path,
+                    local_stream_info,
+                    target_dts = target_dts,
+                    pcr_offset = pcr_offset,
+                    max_keyframe_age_ticks = max_keyframe_age_ticks,
+                )
+            except RuntimeError:
+                pass
+
         if keyframe is None:
             raise RuntimeError(f'Keyframe was not found near requested time: {path}')
 
@@ -500,34 +539,28 @@ class TSKeyFrameSeeker:
 
 
     @staticmethod
-    def __resolveKeyframeByPCR(
+    def __resolveKeyframeNearOffset(
         path: Path,
         stream_info: TSStreamInfo,
         *,
-        playlist_start_seconds: float,
         target_dts: int,
-        file_size: int,
+        pcr_offset: int,
+        max_keyframe_age_ticks: int,
     ) -> _KeyframeScanResult | None:
         """
-        PCR 二分探索と短い PES 前方スキャンで目標時刻直前のキーフレームを解決する
+        PCR で絞り込んだ位置から短い PES 前方スキャンを行い、目標時刻直前のキーフレームを解決する
 
         Args:
             path (Path): TS コンテナの録画ファイルパス
             stream_info (TSStreamInfo): 対象映像 PID などのストリーム情報
-            playlist_start_seconds (float): 録画内相対時刻
             target_dts (int): 探したいプレイリスト時刻に対応するソース側 DTS
-            file_size (int): ファイルサイズ
+            pcr_offset (int): PCR 二分探索で絞り込んだ概算ファイル位置
+            max_keyframe_age_ticks (int): 採用できるキーフレームの最大古さ (90kHz)
 
         Returns:
             _KeyframeScanResult | None: 解決したキーフレーム情報
         """
 
-        pcr_offset = TSKeyFrameSeeker.__findOffsetByPCRBinarySearch(
-            path,
-            stream_info,
-            playlist_start_seconds,
-            file_size,
-        )
         scan_attempts = [
             (TSKeyFrameSeeker.KEYFRAME_BACKTRACK_BYTES, TSKeyFrameSeeker.MAX_KEYFRAME_SCAN_BYTES),
             (TSKeyFrameSeeker.KEYFRAME_BACKTRACK_BYTES * 4, TSKeyFrameSeeker.MAX_KEYFRAME_SCAN_BYTES * 2),
@@ -557,6 +590,12 @@ class TSKeyFrameSeeker:
                 )
 
         if last_result is not None:
+            # 目標時刻を越えるキーフレームまで読めなかった場合でも、直前キーフレームが十分近ければ開始位置として使う
+            ## 1 セグメント以上古い値を返すと要求セグメントより前から再生が始まり、その結果を segment_map に保存してしまう
+            ## そのようなキャッシュは次回以降のシークでも同じズレを再現するため、呼び出し側の再探索失敗として扱う
+            keyframe_age_ticks = target_dts - last_result.dts
+            if keyframe_age_ticks < 0 or keyframe_age_ticks >= max_keyframe_age_ticks:
+                return None
             return _KeyframeScanResult(
                 offset = last_result.offset,
                 dts = last_result.dts,

@@ -61,6 +61,7 @@ class VideoSegmentPlanner:
             return []
 
         segment_duration_seconds = VideoSegmentPlanner.computeSegmentDurationSeconds(video_frame_rate)
+        segment_duration_ticks = round(segment_duration_seconds * ts.HZ)
         segment_count = max(1, math.ceil(duration_seconds / segment_duration_seconds))
         source_base_dts = usable_key_frames[0]['dts']
         dts_list = [key_frame['dts'] for key_frame in usable_key_frames]
@@ -75,6 +76,17 @@ class VideoSegmentPlanner:
             if key_frame_index < 0:
                 key_frame_index = 0
             key_frame = usable_key_frames[key_frame_index]
+
+            # 負の値は要求時刻より後ろのキーフレームなので、セグメント冒頭の映像を欠く
+            keyframe_age_ticks = target_dts - key_frame['dts']
+            if keyframe_age_ticks < 0:
+                continue
+
+            # 旧 key_frames が途中で途切れている録画では、最後のキーフレームが残り全セグメントへ割り当たる
+            ## 後続キーフレームが存在する場合は長い GOP 内に目標時刻があるだけなので、キャッシュとして採用する
+            if keyframe_age_ticks >= segment_duration_ticks and key_frame_index == len(usable_key_frames) - 1:
+                continue
+
             segment_map.append(SegmentMapEntry(
                 sequence_index = sequence_index,
                 source_file_position = key_frame['offset'],
