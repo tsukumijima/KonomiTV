@@ -951,6 +951,7 @@ class RecordedScanTask:
             db_recorded_video.video_frame_rate = recorded_program.recorded_video.video_frame_rate
             db_recorded_video.video_resolution_width = recorded_program.recorded_video.video_resolution_width
             db_recorded_video.video_resolution_height = recorded_program.recorded_video.video_resolution_height
+            db_recorded_video.has_video_stream_changes = recorded_program.recorded_video.has_video_stream_changes
             db_recorded_video.primary_audio_codec = recorded_program.recorded_video.primary_audio_codec
             db_recorded_video.primary_audio_channel = recorded_program.recorded_video.primary_audio_channel
             db_recorded_video.primary_audio_sampling_rate = recorded_program.recorded_video.primary_audio_sampling_rate

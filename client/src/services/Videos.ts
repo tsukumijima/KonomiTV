@@ -28,6 +28,7 @@ export interface IRecordedVideo {
     video_frame_rate: number;
     video_resolution_width: number;
     video_resolution_height: number;
+    has_video_stream_changes: boolean;
     primary_audio_codec: 'AAC-LC';
     primary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch';
     primary_audio_sampling_rate: number;
@@ -86,6 +87,7 @@ export const IRecordedVideoDefault: IRecordedVideo = {
     video_frame_rate: 29.97,
     video_resolution_width: 1440,
     video_resolution_height: 1080,
+    has_video_stream_changes: false,
     primary_audio_codec: 'AAC-LC',
     primary_audio_channel: 'Stereo',
     primary_audio_sampling_rate: 48000,

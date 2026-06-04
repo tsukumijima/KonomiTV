@@ -159,6 +159,7 @@ class RecordedVideo(PydanticModel):
     video_frame_rate: float
     video_resolution_width: int
     video_resolution_height: int
+    has_video_stream_changes: bool = False
     primary_audio_codec: Literal['AAC-LC']
     primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch']
     primary_audio_sampling_rate: int
