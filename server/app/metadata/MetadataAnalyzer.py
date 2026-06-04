@@ -17,6 +17,7 @@ from app.constants import JST, LIBRARY_PATH
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.utils import ClosestMultiple
 from app.utils.TSInformation import TSInformation
+from app.utils.TSKeyFrameSeeker import TSKeyFrameSeeker, TSStreamInfo
 
 
 class FFprobeFormat(BaseModel):
@@ -264,6 +265,7 @@ class MetadataAnalyzer:
         video_frame_rate: float | None = None
         video_resolution_width: int | None = None
         video_resolution_height: int | None = None
+        has_video_stream_changes: bool = False
         primary_audio_codec: Literal['AAC-LC'] | None = None
         primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         primary_audio_sampling_rate: int | None = None
@@ -477,6 +479,8 @@ class MetadataAnalyzer:
                     logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
                     return None
 
+            has_video_stream_changes = self.__detectTSVideoStreamChanges(end_ts_offset)
+
         # ファイルハッシュを計算
         try:
             file_hash = self.__calculateFileHash(end_ts_offset)
@@ -504,6 +508,7 @@ class MetadataAnalyzer:
             video_frame_rate = video_frame_rate,
             video_resolution_width = video_resolution_width,
             video_resolution_height = video_resolution_height,
+            has_video_stream_changes = has_video_stream_changes,
             primary_audio_codec = primary_audio_codec,
             primary_audio_channel = primary_audio_channel,
             primary_audio_sampling_rate = primary_audio_sampling_rate,
@@ -805,6 +810,77 @@ class MetadataAnalyzer:
         except Exception as ex:
             logging.error('Error in fallback duration calculation:', exc_info=ex)
             return None
+
+
+    def __detectTSVideoStreamChanges(self, end_ts_offset: int | None) -> bool:
+        """
+        録画 TS 内で映像ストリーム構成が変化しているかを軽量に検出する
+
+        Args:
+            end_ts_offset (int | None): 有効な TS データの終了位置 (ゼロ埋め領域を除外する場合に指定)
+
+        Returns:
+            bool: 映像 PID または映像コーデックが途中で変化している場合は True
+        """
+
+        file_size = self.recorded_file_path.stat().st_size
+        effective_size = min(end_ts_offset, file_size) if end_ts_offset is not None else file_size
+        if effective_size < ts.PACKET_SIZE * 100:
+            return False
+
+        tail_scan_bytes = 8 * 1024 * 1024
+        stream_infos: list[tuple[float, TSStreamInfo]] = []
+        for sample_ratio in (0.0, 0.25, 0.98):
+            # 先頭・本編付近・末尾付近だけを見ることで、録画マージン由来の PID 切替を低コストで拾う
+            ## 正常録画では PMT が同一のため、追加 I/O は数 MB の局所読み取りだけで終わる
+            ## 末尾側は割合指定だと小さめの録画で探索範囲が短くなるため、最後の数 MB を固定で読む
+            if sample_ratio == 0.98:
+                sample_offset = max(effective_size - tail_scan_bytes, 0)
+            else:
+                sample_offset = ClosestMultiple(int(effective_size * sample_ratio), ts.PACKET_SIZE)
+            if sample_offset > effective_size - ts.PACKET_SIZE:
+                sample_offset = max(effective_size - ts.PACKET_SIZE, 0)
+
+            try:
+                stream_info = TSKeyFrameSeeker.findStreamInfo(
+                    self.recorded_file_path,
+                    start_offset = sample_offset,
+                    max_scan_bytes = tail_scan_bytes,
+                )
+            except Exception as ex:
+                # PMT がサンプル範囲で拾えない TS でもメタデータ解析自体は継続する
+                ## 検出不能な位置は判定材料から外し、取れた位置だけで保守的に判断する
+                logging.warning(
+                    f'{self.recorded_file_path}: Failed to inspect TS video stream info. '
+                    f'[sample_ratio: {sample_ratio}, sample_offset: {sample_offset}]',
+                    exc_info=ex,
+                )
+                continue
+
+            stream_infos.append((sample_ratio, stream_info))
+
+        if len(stream_infos) < 2:
+            return False
+
+        base_stream_info = stream_infos[0][1]
+        for sample_ratio, stream_info in stream_infos[1:]:
+            # 映像 PID や映像ストリーム構成が途中で変わる録画（マルチ編成開始/終了での解像度変更時など）に関して、
+            # HWEncC 系エンコーダーは --avhw だと録画マージン区間 -> 本編での解像度切り替えに対応できずクラッシュし、
+            # --avsw の場合はエラーこそ出ないがデコードがめちゃくちゃになる問題がある
+            ## 録画ファイル自体の代表解像度は 25% 位置の FFprobe サンプルから取得済みなので、ここではエンコーダー選択用のフラグのみ決める
+            ## この関数の戻り値が RecordedVideo.has_video_stream_changes に反映され、True の場合は再生時エンコーダーが FFmpeg に固定される
+            if (
+                stream_info.video_pid != base_stream_info.video_pid or
+                stream_info.codec != base_stream_info.codec
+            ):
+                logging.info(
+                    f'{self.recorded_file_path}: Video stream changes were detected. '
+                    f'[base_video_pid: {base_stream_info.video_pid:#x}, base_codec: {base_stream_info.codec}, '
+                    f'sample_ratio: {sample_ratio}, video_pid: {stream_info.video_pid:#x}, codec: {stream_info.codec}]'
+                )
+                return True
+
+        return False
 
 
     def __analyzeFFprobe(self) -> tuple[FFprobeResult, FFprobeSampleResult, int | None] | None:
