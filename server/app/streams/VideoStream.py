@@ -86,6 +86,10 @@ class VideoStream:
     # QSVEncC でエンコードを開始する際、入力 DTS が 33bit ラップアラウンド直前だと時刻補正でフレーム間隔がズレる問題を回避するための余裕
     DTS_WRAP_AVOIDANCE_SECONDS: ClassVar[int] = 60
 
+    # DTS ラップ回避で遡る最大セグメント数
+    ## 通常は 10 セグメント前後で抜けるが、万が一 segment_map が壊れている場合に無制限にソース位置解決が走る事態を防ぐ
+    DTS_WRAP_AVOIDANCE_MAX_BACKTRACK_SEGMENTS: ClassVar[int] = 40
+
     # 録画視聴セッションのインスタンスが入る、セッション ID をキーとした辞書
     # この辞書に録画視聴セッションに関する全てのデータが格納されている
     __instances: ClassVar[dict[str, VideoStream]] = {}
@@ -503,12 +507,23 @@ class VideoStream:
                     # QSVEncC では MPEG-TS の入力 DTS が 33bit ラップ直前にある状態で起動すると、
                     ## `check_pts()` が後続フレームの時刻を逆行扱いして小刻みな PTS 補正を入れてしまい、結果盛大に音ズレする既知の問題がある
                     ## 同一ファイルでも FFmpeg / NVEncC では正常な間隔でエンコードできているため、QSVEncC のみ少し手前から連続エンコードする
+                    ## 映像ストリーム構成が途中で変わる録画は VideoEncodingTask 側で FFmpeg に固定されるため、この QSVEncC 専用の回避策は適用不要
                     if (
                         Config().general.encoder == 'QSVEncC' and
-                        self.recorded_program.recorded_video.container_format == 'MPEG-TS'
+                        self.recorded_program.recorded_video.container_format == 'MPEG-TS' and
+                        self.recorded_program.recorded_video.has_video_stream_changes is False
                     ):
                         wrap_avoidance_ticks = self.DTS_WRAP_AVOIDANCE_SECONDS * ts.HZ
+                        backtrack_iterations = 0
                         while encoding_start_sequence > 0:
+                            backtrack_iterations += 1
+                            if backtrack_iterations > self.DTS_WRAP_AVOIDANCE_MAX_BACKTRACK_SEGMENTS:
+                                logging.warning(
+                                    f'{self.log_prefix}[Segment {segment_sequence}] '
+                                    f'QSVEncC DTS wrap avoidance reached the backtrack limit. '
+                                    f'[encoding_start_sequence: {encoding_start_sequence}]'
+                                )
+                                break
                             encoding_start_segment = self._segments[encoding_start_sequence]
                             if encoding_start_segment.source_start_dts is None:
                                 await self.resolveSegmentSourcePosition(encoding_start_sequence)

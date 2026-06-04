@@ -384,6 +384,22 @@ class VideoEncodingTask:
         CONFIG = Config()
         ENCODER_TYPE = CONFIG.general.encoder
 
+        # 映像 PID や映像ストリーム構成が途中で変わる録画（マルチ編成開始/終了での解像度変更時など）に関して、HWEncC 系エンコーダーは
+        # --avhw だと録画マージン区間 -> 本編での解像度切り替えに対応できずクラッシュし、--avsw の場合はエラーこそ出ないがデコードがめちゃくちゃになる問題がある
+        # このため苦肉の策として、メタデータ解析時に映像構成がイレギュラーな TS だと事前に検出した上で、それらの録画ファイルの再生時エンコーダーを FFmpeg に固定する
+        ## FFmpeg (ソフトウェアデコード/エンコード) + tsreadex (映像 PID 固定化) の構成であれば、解像度変化のある TS も問題なくエンコードできるっぽい
+        recorded_video = self.video_stream.recorded_program.recorded_video
+        if (
+            recorded_video.container_format == 'MPEG-TS' and
+            recorded_video.has_video_stream_changes is True and
+            ENCODER_TYPE != 'FFmpeg'
+        ):
+            logging.warning(
+                f'{self.video_stream.log_prefix} FFmpeg will be used because video stream changes were detected. '
+                f'[configured_encoder: {ENCODER_TYPE}]'
+            )
+            ENCODER_TYPE = 'FFmpeg'
+
         # 新しいエンコードタスクを起動させた時点で既にエンコード済みのセグメントは使えなくなるので、すべてリセットする
         for segment in self.video_stream.segments:
             if segment.encode_status != 'Pending':
