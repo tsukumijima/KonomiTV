@@ -24,6 +24,7 @@ from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.streams.VideoSegmentPlanner import VideoSegmentPlanner
+from app.utils import ShutdownProcessPoolExecutor
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.ProcessLimiter import ProcessLimiter
 from app.utils.TSInformation import TSInformation
@@ -627,26 +628,34 @@ class RecordedScanTask:
 
                 # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
                 ## メタデータ解析処理は実装上同期 I/O で実装されており、また CPU-bound な処理のため、別プロセスで実行している
-                ## with 文で括ることで、with 文を抜けたときに ProcessPoolExecutor がクリーンアップされるようにする
-                ## さもなければサーバーの終了後もプロセスが残り続けてゾンビプロセス化し、メモリリークを引き起こしてしまう
+                ## コンテキストマネージャーはキャンセル時にも子プロセス終了を同期的に待つため、イベントループ上では使わない
+                ## 正常完了時は明示的に待ってクリーンアップし、リクエスト切断時だけ待機なしで解放処理へ進める
                 loop = asyncio.get_running_loop()
                 analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
+                executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+                should_wait_executor = True
                 try:
-                    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                        recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
-                    if recorded_program is None:
-                        logging.error(f'{file_path}: Failed to analyze metadata.')
-                        # メタデータ解析に失敗したがこの時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
-                        ## 本来メタデータ解析に失敗した録画ファイルは DB には登録されないが、「録画中は問題なく解析できていたが、録画完了後に解析できなくなった」
-                        ## といったシチュエーションも稀に考えられなくもないため、そうした場合の保険として実装した
-                        if existing_recorded_video_summary is not None:
-                            await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
-                            existing_recorded_video_summary.status = 'AnalysisFailed'
-                        self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
-                        return
+                    recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
+                except asyncio.CancelledError:
+                    should_wait_executor = False
+                    await ShutdownProcessPoolExecutor(executor, is_cancelled=True)
+                    raise
                 except Exception as ex:
                     logging.error(f'{file_path}: Error analyzing metadata:', exc_info=ex)
                     # メタデータ解析中に例外が発生した場合も、この時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
+                    if existing_recorded_video_summary is not None:
+                        await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
+                        existing_recorded_video_summary.status = 'AnalysisFailed'
+                    self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
+                    return
+                finally:
+                    if should_wait_executor is True:
+                        await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
+                if recorded_program is None:
+                    logging.error(f'{file_path}: Failed to analyze metadata.')
+                    # メタデータ解析に失敗したがこの時点ですでに DB にエントリが存在している場合は、UI から判別できるようステータスを更新する
+                    ## 本来メタデータ解析に失敗した録画ファイルは DB には登録されないが、「録画中は問題なく解析できていたが、録画完了後に解析できなくなった」
+                    ## といったシチュエーションも稀に考えられなくもないため、そうした場合の保険として実装した
                     if existing_recorded_video_summary is not None:
                         await RecordedVideo.filter(id=existing_recorded_video_summary.id).update(status='AnalysisFailed')
                         existing_recorded_video_summary.status = 'AnalysisFailed'

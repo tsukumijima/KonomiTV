@@ -1,5 +1,6 @@
 
 import asyncio
+import concurrent.futures
 import platform
 import sys
 from collections.abc import Callable
@@ -159,6 +160,66 @@ def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
     background_tasks.add(task)
     task.add_done_callback(lambda _: background_tasks.discard(task))
     return cancel
+
+
+async def ShutdownProcessPoolExecutor(
+    executor: concurrent.futures.ProcessPoolExecutor,
+    *,
+    is_cancelled: bool,
+) -> None:
+    """
+    ProcessPoolExecutor をイベントループを塞がずに終了する
+
+    Args:
+        executor (concurrent.futures.ProcessPoolExecutor): 終了する Executor
+        is_cancelled (bool): 呼び出し元タスクのキャンセルに伴う終了かどうか
+    """
+
+    # 通常完了時は子プロセスの完了後に呼ばれるため、多くの場合は短時間で回収できる
+    ## それでも shutdown(wait=True) は同期関数なので、終了待機が発生してもイベントループへ載せない
+    if is_cancelled is False:
+        await asyncio.to_thread(executor.shutdown, wait=True)
+        return
+
+    def TerminateAndShutdownExecutor() -> None:
+        """
+        キャンセル時に Executor のワーカープロセスへ終了要求を出す
+        """
+
+        # Python 3.14 の terminate_workers() / kill_workers() と同じ考え方で、
+        ## ProcessPoolExecutor が内部で保持しているワーカープロセスへ直接終了要求を出す
+        ## Python 3.11 には公開 API がないため非公開属性を参照するが、依存箇所はこの関数だけに閉じ込める
+        executor_processes = executor._processes  # pyright: ignore[reportPrivateUsage]
+        worker_processes = list(executor_processes.values()) if executor_processes is not None else []
+
+        # terminate() / kill() / join() はいずれも同期 API なので、この内部関数全体を asyncio.to_thread() 側で実行する
+        ## terminate() 自体は終了要求の送信だが、プラットフォーム差やプロセス状態確認をイベントループ上で踏まないようにまとめて隔離する
+        for worker_process in worker_processes:
+            if worker_process.is_alive() is True:
+                worker_process.terminate()
+
+        # 実行待ちの Future を取り消し、Executor 側の管理スレッドへ終了を通知する
+        ## wait=False により、この時点ではワーカープロセスの終了完了を待たない
+        executor.shutdown(wait=False, cancel_futures=True)
+
+        # terminate() で素直に終わるプロセスは短時間だけ待って回収する
+        ## ここはワーカースレッド側で実行されるため、壊れた TS の処理が固着してもイベントループは止まらない
+        for worker_process in worker_processes:
+            worker_process.join(timeout=1.0)
+
+        # terminate() で残ったプロセスは kill() で強制終了する
+        ## PyAV / OpenCV / FFmpeg 周辺のネイティブ処理が応答しないケースでは SIGTERM 相当だけでは終わらないことがある
+        for worker_process in worker_processes:
+            if worker_process.is_alive() is True:
+                worker_process.kill()
+
+        # kill() 後も短時間だけ回収を試みる
+        ## ここで完全回収できなくても、イベントループへ同期待機を持ち込まないことを優先する
+        for worker_process in worker_processes:
+            worker_process.join(timeout=1.0)
+
+    # キャンセル時の強制終了処理はプロセス状態確認や join() を含むため、必ず別スレッドで実行する
+    await asyncio.to_thread(TerminateAndShutdownExecutor)
 
 
 def Interlaced(n: int):

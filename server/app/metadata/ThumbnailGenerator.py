@@ -22,6 +22,7 @@ from app import logging, schemas
 from app.config import Config, LoadConfig
 from app.constants import DATABASE_CONFIG, LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
 from app.models.RecordedVideo import RecordedVideo
+from app.utils import ShutdownProcessPoolExecutor
 
 
 class ThumbnailGenerator:
@@ -45,6 +46,8 @@ class ThumbnailGenerator:
     WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
     FFMPEG_TIMEOUT: ClassVar[int] = 300  # FFmpeg サブプロセスのタイムアウト時間 (秒)
+    FRAME_EXTRACTION_MAX_DEMUX_PACKETS: ClassVar[int] = 20000  # 1候補位置でフレーム探索する最大パケット数
+    FRAME_EXTRACTION_MAX_CONSECUTIVE_FAILURES: ClassVar[int] = 10  # 連続失敗時に残り候補を黒画像で埋める閾値
 
     # サムネイル情報のバージョン
     THUMBNAIL_INFO_VERSION: ClassVar[int] = 1
@@ -345,14 +348,25 @@ class ThumbnailGenerator:
 
             # 2. フレーム抽出 + タイル画像生成・保存 + 代表サムネイル保存をサブプロセス内で完結させる
             ## 親プロセスへのフレーム配列転送を避け、メモリ使用量とコピーコストを抑制する
+            ## リクエスト切断時に ProcessPoolExecutor.__exit__() が同期的に子プロセス終了を待つとイベントループが止まるため、
+            ## コンテキストマネージャーは使わず、キャンセル時だけ待機なしで終了処理に入る
             loop = asyncio.get_running_loop()
-            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+            should_wait_executor = True
+            try:
                 success = await loop.run_in_executor(
                     executor,
                     self._generateAndSaveThumbnails,
                     candidate_offsets,
                     self.tile_rows,
                 )
+            except asyncio.CancelledError:
+                should_wait_executor = False
+                await ShutdownProcessPoolExecutor(executor, is_cancelled=True)
+                raise
+            finally:
+                if should_wait_executor is True:
+                    await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
 
             if not success:
                 logging.error(f'{self.file_path}: Failed to generate thumbnails in subprocess.')
@@ -583,6 +597,7 @@ class ThumbnailGenerator:
             # 結果を格納するリスト
             scoring_width, scoring_height = self.SCORING_SCALE
             bgr_frames: list[NDArray[np.uint8]] = []
+            consecutive_failed_frames = 0
 
             # MPEG-TS の場合は format を明示的に指定
             format_name = 'mpegts' if self.container_format == 'MPEG-TS' else None
@@ -624,8 +639,12 @@ class ThumbnailGenerator:
                         video_stream.codec_context.flush_buffers()
 
                         # シーク後、最初のフレームを取得
+                        ## 映像 PID が途中で変わる TS では、最初に掴んだ video_stream が後半でフレームを返さず、
+                        ## ファイル末尾まで走査してしまうことがあるため、候補1つあたりの探索量を制限する
                         frame: av.VideoFrame | None = None
-                        for packet in container.demux(video_stream):
+                        for packet_index, packet in enumerate(container.demux(video_stream)):
+                            if packet_index >= self.FRAME_EXTRACTION_MAX_DEMUX_PACKETS:
+                                break
                             for decoded_frame in packet.decode():
                                 frame = cast(av.VideoFrame, decoded_frame)
                                 break
@@ -637,6 +656,21 @@ class ThumbnailGenerator:
                             logging.warning(f'{self.file_path}: Failed to extract frame at {offset_sec:.2f}s. Using black image.')
                             black_frame = np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
                             bgr_frames.append(black_frame)
+                            consecutive_failed_frames += 1
+                            if consecutive_failed_frames >= self.FRAME_EXTRACTION_MAX_CONSECUTIVE_FAILURES:
+                                # 連続失敗後も全候補でシークを続けると、異常 TS で数十分単位の処理になる
+                                ## 既に取得済みの前半フレームは代表サムネ候補として使えるため、残りは黒画像で埋めて処理を終える
+                                remaining_frame_count = len(candidate_offsets) - len(bgr_frames)
+                                if remaining_frame_count > 0:
+                                    bgr_frames.extend(
+                                        np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
+                                        for _ in range(remaining_frame_count)
+                                    )
+                                logging.warning(
+                                    f'{self.file_path}: Stopped frame extraction after consecutive failures. '
+                                    f'[failed_count: {consecutive_failed_frames}, filled_black_frames: {remaining_frame_count}]'
+                                )
+                                break
                             continue
 
                         # フレームを numpy 配列に変換
@@ -649,6 +683,7 @@ class ThumbnailGenerator:
                         # RGB から OpenCV 向けの BGR に変換して bgr_frames に追加する
                         img_bgr = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
                         bgr_frames.append(img_bgr)
+                        consecutive_failed_frames = 0
 
                         # 進捗ログ（50フレームごと）
                         if (i + 1) % 50 == 0:
@@ -662,6 +697,21 @@ class ThumbnailGenerator:
                         )
                         black_frame = np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
                         bgr_frames.append(black_frame)
+                        consecutive_failed_frames += 1
+
+                        if consecutive_failed_frames >= self.FRAME_EXTRACTION_MAX_CONSECUTIVE_FAILURES:
+                            # 例外が連続する場合も同じく異常 TS とみなし、残り候補の逐次シークを打ち切る
+                            remaining_frame_count = len(candidate_offsets) - len(bgr_frames)
+                            if remaining_frame_count > 0:
+                                bgr_frames.extend(
+                                    np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
+                                    for _ in range(remaining_frame_count)
+                                )
+                            logging.warning(
+                                f'{self.file_path}: Stopped frame extraction after consecutive errors. '
+                                f'[failed_count: {consecutive_failed_frames}, filled_black_frames: {remaining_frame_count}]'
+                            )
+                            break
 
                         # 一時的なデマルチプレクサの不調を想定し、念のためコンテナを再オープンして継続
                         try:
@@ -1080,18 +1130,27 @@ class ThumbnailGenerator:
         # ProcessPoolExecutor を使用して別プロセスで画像変換を実行
         ## 画像処理は CPU-bound な処理のため、別プロセスで実行している
         ## anyio.Path は同期関数では実行できないため、pathlib.Path に変換して渡す
+        ## キャンセル時に同期的な終了待機へ入るとイベントループ全体が止まるため、Executor は明示的に閉じる
         loop = asyncio.get_running_loop()
+        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+        should_wait_executor = True
         try:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                success = await loop.run_in_executor(
-                    executor,
-                    self._convertLegacyTileImage,
-                    pathlib.Path(str(output_tile_path)),
-                    pathlib.Path(str(temp_tile_path)),
-                )
+            success = await loop.run_in_executor(
+                executor,
+                self._convertLegacyTileImage,
+                pathlib.Path(str(output_tile_path)),
+                pathlib.Path(str(temp_tile_path)),
+            )
+        except asyncio.CancelledError:
+            should_wait_executor = False
+            await ShutdownProcessPoolExecutor(executor, is_cancelled=True)
+            raise
         except Exception as ex:
             logging.error(f'{self.file_path}: Error converting legacy tile:', exc_info=ex)
             return False
+        finally:
+            if should_wait_executor is True:
+                await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
 
         # 変換失敗時はエラーログを出力して終了
         if not success:

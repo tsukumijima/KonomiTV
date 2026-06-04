@@ -200,6 +200,9 @@ class MetadataAnalyzer:
     # FFprobe が VPS/SPS/PPS を確実に読み込めるよう解析対象の尺とサイズを拡張する
     FFPROBE_ANALYZE_DURATION_US: ClassVar[str] = str(30 * 1_000_000)
     FFPROBE_PROBESIZE: ClassVar[str] = '80M'
+    # TS の映像ストリーム変化検出で、各サンプル位置から読み込む最大バイト数
+    ## 末尾サンプルでも同じ値を使い、割合指定だけでは短くなりやすい小さめの録画でも PMT を拾える範囲を確保する
+    MAX_STREAM_SCAN_BYTES: ClassVar[int] = 8 * 1024 * 1024
 
     def __init__(self, recorded_file_path: Path) -> None:
         """
@@ -828,24 +831,35 @@ class MetadataAnalyzer:
         if effective_size < ts.PACKET_SIZE * 100:
             return False
 
-        tail_scan_bytes = 8 * 1024 * 1024
         stream_infos: list[tuple[float, TSStreamInfo]] = []
+        selected_sample_offsets: set[int] = set()
         for sample_ratio in (0.0, 0.25, 0.98):
             # 先頭・本編付近・末尾付近だけを見ることで、録画マージン由来の PID 切替を低コストで拾う
             ## 正常録画では PMT が同一のため、追加 I/O は数 MB の局所読み取りだけで終わる
             ## 末尾側は割合指定だと小さめの録画で探索範囲が短くなるため、最後の数 MB を固定で読む
             if sample_ratio == 0.98:
-                sample_offset = max(effective_size - tail_scan_bytes, 0)
+                sample_offset = ClosestMultiple(
+                    max(effective_size - self.MAX_STREAM_SCAN_BYTES, 0),
+                    ts.PACKET_SIZE,
+                )
             else:
                 sample_offset = ClosestMultiple(int(effective_size * sample_ratio), ts.PACKET_SIZE)
             if sample_offset > effective_size - ts.PACKET_SIZE:
-                sample_offset = max(effective_size - ts.PACKET_SIZE, 0)
+                sample_offset = ClosestMultiple(max(effective_size - ts.PACKET_SIZE, 0), ts.PACKET_SIZE)
+            if sample_offset > effective_size - ts.PACKET_SIZE:
+                sample_offset = max(sample_offset - ts.PACKET_SIZE, 0)
+
+            # 小さな録画では先頭サンプルだけでファイル全体を読めるため、末尾サンプルが同じ offset になることがある
+            ## 同じ位置を重複して読むと検出力は増えず、判定材料の件数だけが水増しされるのでスキップする
+            if sample_offset in selected_sample_offsets:
+                continue
+            selected_sample_offsets.add(sample_offset)
 
             try:
                 stream_info = TSKeyFrameSeeker.findStreamInfo(
                     self.recorded_file_path,
                     start_offset = sample_offset,
-                    max_scan_bytes = tail_scan_bytes,
+                    max_scan_bytes = self.MAX_STREAM_SCAN_BYTES,
                 )
             except Exception as ex:
                 # PMT がサンプル範囲で拾えない TS でもメタデータ解析自体は継続する
