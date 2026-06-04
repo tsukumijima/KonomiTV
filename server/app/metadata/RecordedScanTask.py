@@ -1015,6 +1015,7 @@ class RecordedScanTask:
         logging.info('Starting keyframe to segment map migration...')
 
         migrated_count = 0
+        repaired_count = 0
         skipped_count = 0
         last_seen_id = 0
         next_progress_log_count = 500
@@ -1039,18 +1040,38 @@ class RecordedScanTask:
 
             for video_row in video_rows:
                 last_seen_id = video_row['id']
-                key_frames = video_row['key_frames']
-                if not isinstance(key_frames, list) or len(key_frames) == 0:
-                    continue
 
                 try:
                     segment_map = video_row['segment_map']
                     if not isinstance(segment_map, list):
                         segment_map = []
 
+                    is_broken_segment_map = False
+                    # 旧変換ロジックで同じ入力位置が連続保存された MPEG-TS は、再生時に同じ映像を繰り返す
+                    ## key_frames が既に空でも検出できるよう、移行対象判定より先に segment_map を確認する
+                    if (
+                        video_row['container_format'] == 'MPEG-TS' and
+                        len(segment_map) > 0 and
+                        VideoSegmentPlanner.isSegmentMapProbablyBroken(cast(list[schemas.SegmentMapEntry], segment_map)) is True
+                    ):
+                        is_broken_segment_map = True
+
+                    key_frames = video_row['key_frames']
+                    if not isinstance(key_frames, list) or len(key_frames) == 0:
+                        # 壊れた既存キャッシュだけを空に戻し、通常の未キャッシュ状態としてオンデマンド探索へ戻す
+                        ## key_frames が空の録画は旧データから再変換できないため、誤った値を温存しない
+                        if is_broken_segment_map is True:
+                            await RecordedVideo.filter(id=video_row['id']).update(segment_map = [])
+                            repaired_count += 1
+                            logging.warning(
+                                f'{video_row["file_path"]}: Broken segment map was cleared. '
+                                f'[video_id: {video_row["id"]}]'
+                            )
+                        continue
+
                     # TS コンテナは既存 key_frames をオンデマンド探索と同じ規則のキャッシュへ変換できる
                     if video_row['container_format'] == 'MPEG-TS':
-                        if len(segment_map) == 0:
+                        if len(segment_map) == 0 or is_broken_segment_map is True:
                             video_frame_rate = video_row['video_frame_rate']
                             # 旧 DB に壊れたフレームレートが混じっている場合、セグメント長を復元できないため移行対象から外す
                             if (
@@ -1091,11 +1112,12 @@ class RecordedScanTask:
                     logging.error(f'{video_row["file_path"]}: Failed to migrate keyframes to segment map:', exc_info=ex)
 
             # 大量の録画を持つ環境では起動直後に沈黙すると不安になるため、500件ごとに進捗をログへ出す
-            processed_count = migrated_count + skipped_count
+            processed_count = migrated_count + repaired_count + skipped_count
             if processed_count >= next_progress_log_count:
                 logging.info(
                     f'Keyframe to segment map migration progress. '
-                    f'[processed: {processed_count}, migrated: {migrated_count}, skipped: {skipped_count}]'
+                    f'[processed: {processed_count}, migrated: {migrated_count}, repaired: {repaired_count}, '
+                    f'skipped: {skipped_count}]'
                 )
                 next_progress_log_count += 500
 
@@ -1104,7 +1126,7 @@ class RecordedScanTask:
 
         logging.info(
             f'Keyframe to segment map migration completed. '
-            f'[migrated: {migrated_count}, skipped: {skipped_count}]'
+            f'[migrated: {migrated_count}, repaired: {repaired_count}, skipped: {skipped_count}]'
         )
 
 

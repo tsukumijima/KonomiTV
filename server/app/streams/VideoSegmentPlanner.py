@@ -87,13 +87,54 @@ class VideoSegmentPlanner:
             if keyframe_age_ticks >= segment_duration_ticks and key_frame_index == len(usable_key_frames) - 1:
                 continue
 
-            segment_map.append(SegmentMapEntry(
+            segment_map_entry = SegmentMapEntry(
                 sequence_index = sequence_index,
                 source_file_position = key_frame['offset'],
                 source_start_dts = key_frame['dts'],
-            ))
+            )
+
+            # 同じ入力位置を複数セグメントへ保存すると、シーク時に同一範囲を何度もエンコードしてしまうため、
+            # 長い GOP や PID 切替直前の不自然な key_frames は、該当シーケンスだけオンデマンド探索へ任せる
+            if (
+                any(
+                    saved_segment_map_entry['source_file_position'] == segment_map_entry['source_file_position'] and
+                    saved_segment_map_entry['source_start_dts'] == segment_map_entry['source_start_dts']
+                    for saved_segment_map_entry in segment_map
+                ) is True
+            ):
+                continue
+
+            segment_map.append(segment_map_entry)
 
         return segment_map
+
+
+    @staticmethod
+    def isSegmentMapProbablyBroken(segment_map: list[SegmentMapEntry]) -> bool:
+        """
+        連続セグメントが同じ入力開始位置を指している segment_map かどうかを判定する
+
+        Args:
+            segment_map (list[SegmentMapEntry]): DB に保存されているセグメント開始位置キャッシュ
+
+        Returns:
+            bool: 連続セグメントの重複が見つかった場合は True
+        """
+
+        previous_entry: SegmentMapEntry | None = None
+        for segment_map_entry in sorted(segment_map, key=lambda entry: entry['sequence_index']):
+            # 同じ開始位置が隣接セグメントに並ぶと、HLS 上は別セグメントでも同じ入力範囲から再エンコードされる
+            ## 旧変換ロジック由来の壊れたキャッシュだけを検出し、離れたシーク履歴の偶然一致は触らない
+            if (
+                previous_entry is not None and
+                previous_entry['sequence_index'] == segment_map_entry['sequence_index'] - 1 and
+                previous_entry['source_file_position'] == segment_map_entry['source_file_position'] and
+                previous_entry['source_start_dts'] == segment_map_entry['source_start_dts']
+            ):
+                return True
+            previous_entry = segment_map_entry
+
+        return False
 
 
     @staticmethod
