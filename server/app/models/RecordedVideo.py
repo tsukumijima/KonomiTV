@@ -42,6 +42,7 @@ class RecordedVideo(TortoiseModel):
     video_frame_rate = fields.FloatField()
     video_resolution_width = fields.IntField()
     video_resolution_height = fields.IntField()
+    has_video_stream_changes = fields.BooleanField(default=False)
     primary_audio_codec = cast(TortoiseField[Literal['AAC-LC']], fields.CharField(255))
     primary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch']], fields.CharField(255))
     primary_audio_sampling_rate = fields.IntField()
