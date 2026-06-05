@@ -10,9 +10,12 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.types import Receive
 
 from app import logging, schemas
-from app.constants import QUALITY, QUALITY_TYPES
 from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream, LiveStreamStatus
+from app.streams.StreamEncodingOptions import (
+    SplitQualityAndEncodingOptions,
+    StreamQualityWithOptions,
+)
 
 
 # ルーター
@@ -36,18 +39,20 @@ async def ValidateChannelID(display_channel_id: Annotated[str, Path(description=
     return display_channel_id
 
 
-async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> QUALITY_TYPES:
+async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> StreamQualityWithOptions:
     """ 映像の品質のバリデーション """
 
     # 指定された品質が存在するか確認
-    if quality not in QUALITY:
+    ## 品質の指定に -10bit や -24fps が付いていれば分解する
+    stream_quality = SplitQualityAndEncodingOptions(quality)
+    if stream_quality is None:
         logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found. [quality: {quality}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified quality was not found',
         )
 
-    return quality
+    return stream_quality
 
 
 @router.get(
@@ -88,16 +93,16 @@ async def LiveStreamsAPI():
 )
 async def LiveStreamAPI(
     display_channel_id: Annotated[str, Depends(ValidateChannelID)],
-    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
 ):
     """
     ライブストリームの状態を取得する。<br>
     ライブストリーム イベント API にて配信されるイベントと同一のデータだが、一回限りの取得である点が異なる。
     """
 
-    # ライブストリームを取得
+    # 品質とオプション指定に対応する LiveStream を取得する
     # ステータスを取得したいだけなので、接続はしない
-    live_stream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, stream_quality.quality, stream_quality.encoding_options)
 
     # 取得してきた値をそのまま返す
     return live_stream.getStatus()
@@ -116,7 +121,7 @@ async def LiveStreamAPI(
 )
 async def LiveStreamEventAPI(
     display_channel_id: Annotated[str, Depends(ValidateChannelID)],
-    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
 ):
     """
     ライブストリームのイベントを Server-Sent Events で随時配信する。
@@ -132,9 +137,9 @@ async def LiveStreamEventAPI(
     ステータスが Offline になった、あるいは既にそうなっている時は、status_update イベントが配信された後に接続を終了する。
     """
 
-    # ライブストリームを取得
+    # 品質とオプション指定に対応する LiveStream を取得する
     # ステータスを取得したいだけなので、接続はしない
-    live_stream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, stream_quality.quality, stream_quality.encoding_options)
 
     # ステータスの変更を監視し、変更があればステータスをイベントストリームとして出力する
     async def generator():
@@ -211,7 +216,7 @@ async def LiveStreamEventAPI(
 async def LivePSIArchivedDataAPI(
     request: Request,
     display_channel_id: Annotated[str, Depends(ValidateChannelID)],
-    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
 ):
     """
     ライブ PSI/SI アーカイブデータストリームを配信する。
@@ -219,9 +224,9 @@ async def LivePSIArchivedDataAPI(
     何らかの理由でライブストリームが終了しない限り、継続的にレスポンスが出力される（ストリーミング）。
     """
 
-    # ライブストリームを取得
+    # 品質とオプション指定に対応する LiveStream を取得する
     # PSI/SI アーカイブデータを取得したいだけなので、接続はしない
-    live_stream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, stream_quality.quality, stream_quality.encoding_options)
 
     # LivePSIDataArchiver がまだ初期化されていない場合は、起動するまで最大10秒待つ
     ## LivePSIDataArchiver は LiveEncodingTask が起動次第自動的に初期化されるので、ここでは待つだけ
@@ -232,7 +237,7 @@ async def LivePSIArchivedDataAPI(
 
     # 10秒待っても起動しなかった場合はエラー
     if live_stream.psi_data_archiver is None:
-        logging.error('[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running.')
+        logging.error(f'{live_stream.log_prefix} PSI/SI Data Archiver is not running.')
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = 'PSI/SI Data Archiver is not running',
@@ -277,7 +282,7 @@ async def LivePSIArchivedDataAPI(
 async def LiveMPEGTSStreamAPI(
     request: Request,
     display_channel_id: Annotated[str, Depends(ValidateChannelID)],
-    quality: Annotated[QUALITY_TYPES, Depends(ValidateQuality)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
 ):
     """
     ライブ MPEG-TS ストリームを配信する。
@@ -289,9 +294,9 @@ async def LiveMPEGTSStreamAPI(
     何らかの理由でライブストリームが終了しない限り、継続的にレスポンスが出力される（ストリーミング）。
     """
 
-    # ライブストリームに接続し、ライブストリームクライアントを取得する
+    # 品質とオプション指定に対応する LiveStream に接続し、ライブストリームクライアントを取得する
     ## 接続時に Offline だった場合は自動的にエンコードタスクが起動される
-    live_stream = LiveStream(display_channel_id, quality)
+    live_stream = LiveStream(display_channel_id, stream_quality.quality, stream_quality.encoding_options)
     live_stream_client = await live_stream.connect('mpegts')
 
     # ライブストリームを出力するジェネレーター
@@ -304,7 +309,7 @@ async def LiveMPEGTSStreamAPI(
             if await request.is_disconnected():
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
+                logging.debug(f'{live_stream.log_prefix} Request is disconnected.')
                 live_stream.disconnect(live_stream_client)
                 break
 
@@ -321,7 +326,7 @@ async def LiveMPEGTSStreamAPI(
                 else:
 
                     # ライブストリームへの接続を切断し、ループを終了する
-                    logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Encode task is finished.')
+                    logging.debug(f'{live_stream.log_prefix} Encode task is finished.')
                     live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                     break
 
@@ -329,7 +334,7 @@ async def LiveMPEGTSStreamAPI(
             else:
 
                 # ライブストリームへの接続を切断し、ループを終了する
-                logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] LiveStream is currently Offline.')
+                logging.debug(f'{live_stream.log_prefix} LiveStream is currently Offline.')
                 live_stream.disconnect(live_stream_client)  # 必要ないとは思うけど念のため
                 break
 
@@ -351,7 +356,7 @@ async def LiveMPEGTSStreamAPI(
                 if message['type'] == 'http.disconnect':
                     # HTTP リクエストの切断を検知したら即座にライブストリームへの接続を切断する
                     ## こうすることで client_count が即座に減少し、チューナー再利用の判定が高速化される
-                    logging.debug('[LiveStreamsRouter][LiveMPEGTSStreamAPI] Request is disconnected.')
+                    logging.debug(f'{live_stream.log_prefix} Request is disconnected.')
                     live_stream.disconnect(live_stream_client)
                     break
         except asyncio.CancelledError:

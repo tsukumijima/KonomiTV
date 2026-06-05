@@ -15,6 +15,7 @@ from app.constants import QUALITY_TYPES
 from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
+from app.streams.StreamEncodingOptions import StreamEncodingOptions
 from app.utils.edcb.EDCBTuner import EDCBTuner
 
 
@@ -108,11 +109,18 @@ class LiveStream:
 
 
     # 必ずライブストリーム ID ごとに1つのインスタンスになるように (Singleton)
-    def __new__(cls, display_channel_id: str, quality: QUALITY_TYPES) -> LiveStream:
+    def __new__(
+        cls,
+        display_channel_id: str,
+        quality: QUALITY_TYPES,
+        encoding_options: StreamEncodingOptions | None = None,
+    ) -> LiveStream:
 
         # まだ同じライブストリーム ID のインスタンスがないときだけ、インスタンスを生成する
-        # (チャンネルID)-(映像の品質) で一意な ID になる
-        live_stream_id = f'{display_channel_id}-{quality}'
+        # (チャンネル ID)-(映像の品質)-(追加エンコードオプション) で一意な ID になる
+        if encoding_options is None:
+            encoding_options = StreamEncodingOptions()
+        live_stream_id = f'{display_channel_id}-{quality}{encoding_options.buildSuffix()}'
         if live_stream_id not in cls.__instances:
 
             # 新しいライブストリームのインスタンスを生成する
@@ -124,6 +132,7 @@ class LiveStream:
             # チャンネル ID と映像の品質を設定
             instance.display_channel_id = display_channel_id
             instance.quality = quality
+            instance.encoding_options = encoding_options
 
             # ライブストリームクライアントが入るリスト
             ## クライアントの接続が切断された場合、このリストからも削除される
@@ -177,13 +186,19 @@ class LiveStream:
         return cls.__instances[live_stream_id]
 
 
-    def __init__(self, display_channel_id: str, quality: QUALITY_TYPES) -> None:
+    def __init__(
+        self,
+        display_channel_id: str,
+        quality: QUALITY_TYPES,
+        encoding_options: StreamEncodingOptions | None = None,
+    ) -> None:
         """
         ライブストリームのインスタンスを取得する
 
         Args:
             display_channel_id (str): チャンネルID
             quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            encoding_options (StreamEncodingOptions | None): ベース画質に追加するエンコードオプション
         """
 
         # インスタンス変数の型ヒントを定義
@@ -191,6 +206,7 @@ class LiveStream:
         self.live_stream_id: str
         self.display_channel_id: str
         self.quality: QUALITY_TYPES
+        self.encoding_options: StreamEncodingOptions
         self._clients: list[LiveStreamClient]
         self._status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']
         self._detail: str
@@ -202,6 +218,15 @@ class LiveStream:
         self.psi_data_archiver: LivePSIDataArchiver | None
         self.tuner: EDCBTuner | None
         self._tuner_lock: asyncio.Lock
+
+
+    @property
+    def log_prefix(self) -> str:
+        """
+        ログのプレフィックス
+        """
+
+        return f'[Live: {self.live_stream_id}]'
 
 
     def __registerLiveEncodingTaskRef(self, live_encoding_task_ref: asyncio.Task[None]) -> None:
@@ -423,7 +448,7 @@ class LiveStream:
                             )
                             if not done:
                                 live_stream.__detachLiveEncodingTaskRef(old_live_encoding_task)
-                                logging.warning(f'[Live: {live_stream.live_stream_id}] Encoding task cleanup did not complete within 10 seconds.')
+                                logging.warning(f'{live_stream.log_prefix} Encoding task cleanup did not complete within 10 seconds.')
 
                             if live_stream._live_encoding_task_ref == old_live_encoding_task:
                                 live_stream._live_encoding_task_ref = None
@@ -476,7 +501,7 @@ class LiveStream:
         async with self._tuner_lock:
             client = LiveStreamClient(self, client_type)
             self._clients.append(client)
-            logging.info(f'[Live: {self.live_stream_id}] Client Connected. Client ID: {client.client_id}')
+            logging.info(f'{self.log_prefix} Client Connected. Client ID: {client.client_id}')
 
         # ***** アイドリングからの復帰 *****
 
@@ -502,7 +527,7 @@ class LiveStream:
         ## すでにタイムアウトなどで削除されていたら何もしない
         try:
             self._clients.remove(client)
-            logging.info(f'[Live: {self.live_stream_id}] Client Disconnected. Client ID: {client.client_id}')
+            logging.info(f'{self.log_prefix} Client Disconnected. Client ID: {client.client_id}')
         except ValueError:
             pass
         del client
@@ -579,11 +604,11 @@ class LiveStream:
 
         # ステータス変更のログを出力
         if quiet is False:
-            logging.info(f'[Live: {self.live_stream_id}] [Status: {status}] {detail}')
+            logging.info(f'{self.log_prefix} [Status: {status}] {detail}')
 
         # ストリーム起動完了時 (Standby → ONAir) 時のみ、ストリームの起動にかかった時間も出力
         if self._status == 'Standby' and status == 'ONAir':
-            logging.info(f'[Live: {self.live_stream_id}] Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
+            logging.info(f'{self.log_prefix} Startup complete. ({round(time.time() - self._started_at, 2)} sec)')
 
         # ログ出力を待ってからステータスと詳細をライブストリームにセット
         self._status = status
@@ -639,7 +664,7 @@ class LiveStream:
             ## 主にネットワークが切断されたなどの理由で発生する
             if now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
-                logging.info(f'[Live: {self.live_stream_id}] Client Disconnected (Timeout). Client ID: {client.client_id}')
+                logging.info(f'{self.log_prefix} Client Disconnected (Timeout). Client ID: {client.client_id}')
                 del client
                 continue
 

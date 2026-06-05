@@ -195,8 +195,14 @@ class LiveEncodingTask:
                 options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             else:
-                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
-                options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
+                # 24fps モードでは、テレシネ由来の重複フレームを取り除いて 24/30p 混合 VFR で出力する
+                ## dejudder を併用すると、24fps 区間の PTS が 41.7ms 間隔に均されて本来の 24fps に近い時刻列になる
+                if self.live_stream.encoding_options.is_24fps_mode_enabled is True:
+                    options.append(f'-vf pullup,dejudder,scale={video_width}:{video_height}')
+                    options.append(f'-fps_mode vfr -g {int(gop_length_second * 30)}')
+                else:
+                    options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                    options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
@@ -375,12 +381,12 @@ class LiveEncodingTask:
         ## バンディング軽減のためのオプション (速度低下を鑑みて当面 NVEncC でのみ有効にする)
         if encoder_type == 'NVEncC':
             options.append('--vpp-deband')
-        ## H.265/HEVC では HW エンコーダーが対応している場合は 10bit でエンコードし、さらにバンディング耐性を高める
-        ## (VCEEncC は 10bit 対応の機種かを判定できず、rkmppenc は 10bit エンコード自体に非対応のため設定しない)
-        ## TODO: 思ったより 10bit HEVC デコードに対応してない Android タブレットが多そうなので個別調整できるようになるまで無効化
-        ## ref: https://github.com/tsukumijima/KonomiTV/pull/164#issuecomment-3368738859
-        # if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
-        #     options.append('--output-depth 10 --fallback-bitdepth')
+        # 通信節約モードでは、HEVC 10bit のデコードに対応したクライアント向けに HEVC 10bit でエンコードし、さらにバンディング耐性を高める
+        ## (VCEEncC は HEVC 10bit 対応の機種かを判定できず、rkmppenc は HEVC 10bit エンコード自体に非対応のため設定しない)
+        ## --fallback-bitdepth により、GPU 側が HEVC 10bit 非対応の場合でも 8bit へフォールバックされる
+        ## 末尾の -10bit は、HEVC 10bit でのエンコードを試すストリームであることだけを表す
+        if QUALITY[quality].is_hevc is True and self.live_stream.encoding_options.is_hevc_10bit_enabled is True:
+            options.append('--output-depth 10 --fallback-bitdepth')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -412,12 +418,17 @@ class LiveEncodingTask:
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
             ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
             else:
-                if encoder_type == 'QSVEncC':
-                    options.append('--vpp-deinterlace normal')
-                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    options.append('--vpp-afs preset=default')
-                elif encoder_type == 'rkmppenc':
-                    options.append('--vpp-deinterlace normal_i5')
+                # 24fps モードでは HWEncC 系の AFS で 24fps 区間を検出し、24/30p 混合 VFR で出力する
+                ## 1080p-60fps では上の bob 分岐を優先するため、この分岐には入らない
+                if self.live_stream.encoding_options.is_24fps_mode_enabled is True:
+                    options.append('--vpp-afs preset=default,drop=on,smooth=on')
+                else:
+                    if encoder_type == 'QSVEncC':
+                        options.append('--vpp-deinterlace normal')
+                    elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                        options.append('--vpp-afs preset=default')
+                    elif encoder_type == 'rkmppenc':
+                        options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
@@ -488,28 +499,34 @@ class LiveEncodingTask:
                         mirakurun_or_mirakc = 'mirakc'
                     tuners = response.json()
                 except httpx.NetworkError:
-                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
+                    logging.error(f'{self.live_stream.log_prefix} Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
                     return False
                 except httpx.TimeoutException:
-                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
+                    logging.error(f'{self.live_stream.log_prefix} Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
                     return False
 
                 # 指定されたチャンネルタイプが受信可能なチューナーが1つでも利用可能であれば True を返す
                 for tuner in tuners:
                     if tuner['isAvailable'] is True and tuner['isFree'] is True and channel_type in tuner['types']:
-                        logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}.')
-                        logging.info(f'Tuner: {tuner["name"]} / Type: {channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
+                        logging.info(f'{self.live_stream.log_prefix} Acquired a tuner from {mirakurun_or_mirakc}.')
+                        logging.info(
+                            f'{self.live_stream.log_prefix} Tuner: {tuner["name"]} / '
+                            f'Type: {channel_type} / Acquired in {round(time.time() - start_time, 2)} seconds'
+                        )
                         return True
                     if tuner['isAvailable'] is True and tuner['isFree'] is True and fallback_channel_type in tuner['types']:
-                        logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}. ({channel_type} -> {fallback_channel_type})')
-                        logging.info(f'Tuner: {tuner["name"]} / Type: {fallback_channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
+                        logging.info(f'{self.live_stream.log_prefix} Acquired a tuner from {mirakurun_or_mirakc}. ({channel_type} -> {fallback_channel_type})')
+                        logging.info(
+                            f'{self.live_stream.log_prefix} Tuner: {tuner["name"]} / '
+                            f'Type: {fallback_channel_type} / Acquired in {round(time.time() - start_time, 2)} seconds'
+                        )
                         return True
 
                 await asyncio.sleep(0.1)
 
         # 空きチューナーは確保できなかったが、同じチャンネルが受信中であれば共聴することは可能なので warning に留める
-        logging.warning(f'Failed to acquire a tuner from {mirakurun_or_mirakc}.')
-        logging.warning('If the same channel is being received, it can be shared with the same tuner.')
+        logging.warning(f'{self.live_stream.log_prefix} Failed to acquire a tuner from {mirakurun_or_mirakc}.')
+        logging.warning(f'{self.live_stream.log_prefix} If the same channel is being received, it can be shared with the same tuner.')
         return False
 
 
@@ -538,9 +555,9 @@ class LiveEncodingTask:
         # 現在の番組情報を取得する
         program_present = (await channel.getCurrentAndNextProgram())[0]
         if program_present is not None:
-            logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_present.title}')
+            logging.info(f'{self.live_stream.log_prefix} Title: {program_present.title}')
         else:
-            logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: 番組情報がありません')
+            logging.info(f'{self.live_stream.log_prefix} Title: 番組情報がありません')
 
         # PSI/SI データアーカイバーを初期化
         ## psisiarc は API リクエストがある度に都度起動される
@@ -641,7 +658,7 @@ class LiveEncodingTask:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
                 encoder_options = self.buildFFmpegOptions(self.live_stream.quality, channel.type, is_fullhd_channel)
-            logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
+            logging.info(f'{self.live_stream.log_prefix} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
             try:
@@ -668,7 +685,7 @@ class LiveEncodingTask:
 
             # オプションを取得
             encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, channel.type, is_fullhd_channel)
-            logging.info(f'[Live: {self.live_stream.live_stream_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
+            logging.info(f'{self.live_stream.log_prefix} {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
             try:
@@ -773,7 +790,7 @@ class LiveEncodingTask:
                     self.live_stream.tuner = EDCBTuner.getOrCreate(self.live_stream.live_stream_id)
 
                 # チューナーを起動する
-                logging.debug(f'[Live: {self.live_stream.live_stream_id}] EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
+                logging.debug(f'{self.live_stream.log_prefix} EDCB NetworkTV ID: {self.live_stream.tuner.getEDCBNetworkTVID()}')
                 self.live_stream.setStatus('Standby', 'チューナーを起動しています…')
                 is_tuner_opened = await self.live_stream.tuner.setChannel(
                     channel.network_id,
@@ -1106,7 +1123,7 @@ class LiveEncodingTask:
                         # ストリーム関連のログを表示
                         ## エンコーダーのログ出力が有効なら、ストリーム関連に限らずすべてのログを出力する
                         if 'Stream #0:' in line or CONFIG.general.debug_encoder is True:
-                            logging.debug(f'[Live: {self.live_stream.live_stream_id}] [{ENCODER_TYPE}] ' + line)
+                            logging.debug(f'{self.live_stream.log_prefix} [{ENCODER_TYPE}] ' + line)
 
                         # エンコーダーのログ出力が有効なら、エンコーダーのログファイルに書き込む
                         if CONFIG.general.debug_encoder is True and encoder_log is not None:
@@ -1239,7 +1256,7 @@ class LiveEncodingTask:
                             # 現在の番組のタイトルをログに出力
                             ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
                             ## その場合はここでエンコードタスクを再起動させる必要があるかも
-                            logging.info(f'[Live: {self.live_stream.live_stream_id}] Title: {program_following.title}')
+                            logging.info(f'{self.live_stream.log_prefix} Title: {program_following.title}')
 
                         program_present = program_following
                         del program_following
@@ -1395,7 +1412,7 @@ class LiveEncodingTask:
             # チャンネル切り替え時に LiveStream.connect() からこのタスクがキャンセルされる場合がある
             ## CancelledError はチューナー起動フェーズまたは Controller 内の await で発生しうる
             ## CancelledError をキャッチしないとエンコーダープロセスの終了処理に到達せず、プロセスがリークしてしまう
-            logging.debug(f'[Live: {self.live_stream.live_stream_id}] Encoding task was cancelled by channel switch.')
+            logging.debug(f'{self.live_stream.log_prefix} Encoding task was cancelled by channel switch.')
 
         # ***** エンコードタスクの終了処理 *****
 

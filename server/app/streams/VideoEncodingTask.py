@@ -155,8 +155,14 @@ class VideoEncodingTask:
                 options.append(f'-r 60000/1001 -g {int(self.GOP_LENGTH_SECOND * 60)}')
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             else:
-                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
-                options.append(f'-r 30000/1001 -g {int(self.GOP_LENGTH_SECOND * 30)}')
+                # 24fps モードでは、テレシネ由来の重複フレームを取り除いて 24/30p 混合 VFR で出力する
+                ## dejudder を併用すると、24fps 区間の PTS が 41.7ms 間隔に均されて本来の 24fps に近い時刻列になる
+                if self.video_stream.encoding_options.is_24fps_mode_enabled is True:
+                    options.append(f'-vf pullup,dejudder,scale={video_width}:{video_height}')
+                    options.append(f'-fps_mode vfr -g {int(self.GOP_LENGTH_SECOND * 30)}')
+                else:
+                    options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                    options.append(f'-r 30000/1001 -g {int(self.GOP_LENGTH_SECOND * 30)}')
         ## プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':
@@ -297,12 +303,12 @@ class VideoEncodingTask:
         ## バンディング軽減のためのオプション (速度低下を鑑みて当面 NVEncC でのみ有効にする)
         if encoder_type == 'NVEncC':
             options.append('--vpp-deband')
-        ## H.265/HEVC では HW エンコーダーが対応している場合は 10bit でエンコードし、さらにバンディング耐性を高める
-        ## (VCEEncC は 10bit 対応の機種かを判定できず、rkmppenc は 10bit エンコード自体に非対応のため設定しない)
-        ## TODO: 思ったより 10bit HEVC デコードに対応してない Android タブレットが多そうなので個別調整できるようになるまで無効化
-        ## ref: https://github.com/tsukumijima/KonomiTV/pull/164#issuecomment-3368738859
-        # if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
-        #     options.append('--output-depth 10 --fallback-bitdepth')
+        # 通信節約モードでは、HEVC 10bit のデコードに対応したクライアント向けに HEVC 10bit でエンコードし、さらにバンディング耐性を高める
+        ## (VCEEncC は HEVC 10bit 対応の機種かを判定できず、rkmppenc は HEVC 10bit エンコード自体に非対応のため設定しない)
+        ## --fallback-bitdepth により、GPU 側が HEVC 10bit 非対応の場合でも 8bit へフォールバックされる
+        ## 末尾の -10bit は、HEVC 10bit でのエンコードを試すストリームであることだけを表す
+        if QUALITY[quality].is_hevc is True and self.video_stream.encoding_options.is_hevc_10bit_enabled is True:
+            options.append('--output-depth 10 --fallback-bitdepth')
 
         ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
@@ -325,12 +331,17 @@ class VideoEncodingTask:
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
             ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う (ただし、timestamp を変えないよう coeff_shift=0 を指定する)
             else:
-                if encoder_type == 'QSVEncC':
-                    options.append('--vpp-deinterlace normal')
-                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                    options.append('--vpp-afs preset=default,coeff_shift=0')
-                elif encoder_type == 'rkmppenc':
-                    options.append('--vpp-deinterlace normal_i5')
+                # 24fps モードでは HWEncC 系の AFS で 24fps 区間を検出し、24/30p 混合 VFR で出力する
+                ## 通常 30fps 向けの coeff_shift=0 はタイムスタンプを維持するための既存設定なので、フレーム間引きが目的の 24fps モードには付けない
+                if self.video_stream.encoding_options.is_24fps_mode_enabled is True:
+                    options.append('--vpp-afs preset=default,drop=on,smooth=on')
+                else:
+                    if encoder_type == 'QSVEncC':
+                        options.append('--vpp-deinterlace normal')
+                    elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                        options.append('--vpp-afs preset=default,coeff_shift=0')
+                    elif encoder_type == 'rkmppenc':
+                        options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
         ## プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする

@@ -21,6 +21,7 @@ from app.constants import QUALITY_TYPES
 from app.models.RecordedProgram import RecordedProgram
 from app.models.RecordedVideo import RecordedVideo
 from app.schemas import SegmentMapEntry
+from app.streams.StreamEncodingOptions import StreamEncodingOptions
 from app.streams.VideoEncodingTask import VideoEncodingTask
 from app.streams.VideoSegmentPlanner import VideoSegmentPlanner
 from app.utils import SetTimeout
@@ -96,10 +97,32 @@ class VideoStream:
 
 
     # 必ずセッション ID ごとに1つのインスタンスになるように (Singleton)
-    def __new__(cls, session_id: str, recorded_program: RecordedProgram, quality: QUALITY_TYPES) -> VideoStream:
+    def __new__(
+        cls,
+        session_id: str,
+        recorded_program: RecordedProgram,
+        quality: QUALITY_TYPES,
+        encoding_options: StreamEncodingOptions | None = None,
+        is_new_session_allowed: bool = False,
+    ) -> VideoStream:
 
         # まだ同じセッション ID のインスタンスがないときだけ、インスタンスを生成する
         if session_id not in cls.__instances:
+
+            # 録画視聴セッションは、プレイリスト API での初回作成時だけ新規作成を許可する
+            ## セグメント取得や Keep-Alive が未知の session_id を指定した場合に、初期化情報の欠けたセッションを作らない
+            if is_new_session_allowed is False or encoding_options is None:
+                # まだ VideoStream インスタンスが存在しないため、ここだけは要求された品質からログの接頭辞を組み立てる
+                ## 追加オプションが渡されている場合は、セッション不在のエラーログにも同じ品質文字列を出す
+                requested_encoding_options = encoding_options or StreamEncodingOptions()
+                logging.error(
+                    f'[Video: {recorded_program.id}/{session_id}/{quality}{requested_encoding_options.buildSuffix()}] '
+                    f'Session does not exist.'
+                )
+                raise HTTPException(
+                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail = 'Session does not exist',
+                )
 
             # 新しい録画視聴セッションのインスタンスを生成する
             instance = super().__new__(cls)
@@ -110,6 +133,7 @@ class VideoStream:
             # 録画番組の情報と映像の品質を設定
             instance.recorded_program = recorded_program
             instance.quality = quality
+            instance.encoding_options = encoding_options
 
             # HLS セグメントの基準長 (秒)
             ## 録画ファイルのフレームレートから算出し、プレイリスト生成とオンデマンド探索で共通利用する
@@ -163,17 +187,43 @@ class VideoStream:
 
             # 録画番組 ID と画質が一致するか確認
             if instance.recorded_program.id != recorded_program.id or instance.quality != quality:
-                logging.error(f'{instance.log_prefix} Session exists but program_id or quality mismatch. [program_id: {recorded_program.id}, quality: {quality}]')
+                # 既存セッション側と要求側の品質を両方出し、session_id 再利用ミスをログから判別しやすくする
+                requested_encoding_options = encoding_options or StreamEncodingOptions()
+                logging.error(
+                    f'{instance.log_prefix} Session exists but program_id or quality mismatch. '
+                    f'[program_id: {recorded_program.id}, '
+                    f'quality: {quality}{requested_encoding_options.buildSuffix()}]'
+                )
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail = 'Session exists but program_id or quality mismatch',
+                )
+
+            # プレイリスト再取得時に同じ session_id で別の追加オプションが指定された場合は異常として扱う
+            ## session_id は録画視聴セッションを識別する値なので、初回作成時と異なるオプションを後から混ぜるとエンコード状態が曖昧になる
+            if encoding_options is not None and instance.encoding_options != encoding_options:
+                logging.error(
+                    f'{instance.log_prefix} Session exists but encoding options mismatch. '
+                    f'[is_hevc_10bit_enabled: {encoding_options.is_hevc_10bit_enabled}, '
+                    f'is_24fps_mode_enabled: {encoding_options.is_24fps_mode_enabled}]'
+                )
+                raise HTTPException(
+                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail = 'Session exists but encoding options mismatch',
                 )
 
         # 登録されているインスタンスを返す
         return cls.__instances[session_id]
 
 
-    def __init__(self, session_id: str, recorded_program: RecordedProgram, quality: QUALITY_TYPES) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        recorded_program: RecordedProgram,
+        quality: QUALITY_TYPES,
+        encoding_options: StreamEncodingOptions | None = None,
+        is_new_session_allowed: bool = False,
+    ) -> None:
         """
         録画視聴セッションのインスタンスを取得する
 
@@ -181,6 +231,8 @@ class VideoStream:
             session_id (str): セッション ID
             recorded_program (RecordedProgram): 録画番組の情報
             quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            encoding_options (StreamEncodingOptions | None): ベース画質に追加するエンコードオプション
+            is_new_session_allowed (bool): セッションが存在しない場合に新規作成を許可するかどうか
         """
 
         # インスタンス変数の型ヒントを定義
@@ -188,6 +240,7 @@ class VideoStream:
         self.session_id: str
         self.recorded_program: RecordedProgram
         self.quality: QUALITY_TYPES
+        self.encoding_options: StreamEncodingOptions
         self._segment_duration_seconds: float
         self._segments: list[VideoStreamSegment]
         self._segment_map_by_sequence: dict[int, SegmentMapEntry]
@@ -207,7 +260,7 @@ class VideoStream:
         """
         ログのプレフィックス
         """
-        return f'[Video: {self.recorded_program.id}/{self.session_id}/{self.quality}]'
+        return f'[Video: {self.recorded_program.id}/{self.session_id}/{self.quality}{self.encoding_options.buildSuffix()}]'
 
 
     @property
