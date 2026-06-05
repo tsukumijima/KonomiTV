@@ -85,6 +85,24 @@
                     v-model="settingsStore.settings.tv_low_latency_mode_cellular">
                 </v-switch>
             </div>
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                <label class="settings__item-heading" :for="`tv_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                    テレビを 24fps モードで視聴する
+                </label>
+                <label class="settings__item-label" :for="`tv_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                    映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
+                    画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
+                </label>
+                <div class="settings__item-label mt-1">
+                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
+                </div>
+                <v-switch class="settings__item-switch" color="primary" id="tv_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
+                    v-model="settingsStore.settings.tv_24fps_mode">
+                </v-switch>
+                <v-switch class="settings__item-switch" color="primary" id="tv_24fps_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
+                    v-model="settingsStore.settings.tv_24fps_mode_cellular">
+                </v-switch>
+            </div>
             <div class="settings__content-heading mt-6">
                 <Icon icon="fluent:movies-and-tv-20-filled" width="22px" />
                 <span class="ml-2">ビデオのオンデマンドストリーミング</span>
@@ -132,6 +150,24 @@
                 </v-switch>
                 <v-switch class="settings__item-switch" color="primary" id="video_data_saver_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
                     v-model="settingsStore.settings.video_data_saver_mode_cellular" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch settings__item--sync-disabled">
+                <label class="settings__item-heading" :for="`video_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                    ビデオを 24fps モードで再生する
+                </label>
+                <label class="settings__item-label" :for="`video_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
+                    映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
+                    画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
+                </label>
+                <div class="settings__item-label mt-1">
+                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
+                </div>
+                <v-switch class="settings__item-switch" color="primary" id="video_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
+                    v-model="settingsStore.settings.video_24fps_mode">
+                </v-switch>
+                <v-switch class="settings__item-switch" color="primary" id="video_24fps_mode_cellular" hide-details v-if="network_circuit === 'モバイル回線時'"
+                    v-model="settingsStore.settings.video_24fps_mode_cellular">
                 </v-switch>
             </div>
         </div>

@@ -90,10 +90,14 @@ export interface ILocalClientSettings extends IClientSettings {
     tv_data_saver_mode_cellular: boolean;
     tv_low_latency_mode: boolean;
     tv_low_latency_mode_cellular: boolean;
+    tv_24fps_mode: boolean;
+    tv_24fps_mode_cellular: boolean;
     video_streaming_quality: VideoStreamingQuality;
     video_streaming_quality_cellular: VideoStreamingQuality;
     video_data_saver_mode: boolean;
     video_data_saver_mode_cellular: boolean;
+    video_24fps_mode: boolean;
+    video_24fps_mode_cellular: boolean;
     caption_font: string;
     always_border_caption_text: boolean;
     specify_caption_opacity: boolean;
@@ -248,6 +252,10 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_low_latency_mode: true,
     // テレビを低遅延で視聴する (モバイル回線時)  (Default: 低遅延で視聴しない) (同期無効)
     tv_low_latency_mode_cellular: false,
+    // テレビを 24fps モードで視聴する (Wi-Fi 回線時)  (Default: オフ) (同期無効)
+    tv_24fps_mode: false,
+    // テレビを 24fps モードで視聴する (モバイル回線時)  (Default: オフ) (同期無効)
+    tv_24fps_mode_cellular: false,
 
     // ビデオのデフォルトのストリーミング画質 (Wi-Fi 回線時) (Default: 1080p) (同期無効)
     video_streaming_quality: '1080p',
@@ -257,6 +265,10 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     video_data_saver_mode: false,
     // ビデオを通信節約モードで視聴する (モバイル回線時)  (Default: オン) (同期無効)
     video_data_saver_mode_cellular: true,
+    // ビデオを 24fps モードで再生する (Wi-Fi 回線時)  (Default: オフ) (同期無効)
+    video_24fps_mode: false,
+    // ビデオを 24fps モードで再生する (モバイル回線時)  (Default: オフ) (同期無効)
+    video_24fps_mode_cellular: false,
 
     // ***** 設定 → 字幕 *****
 
@@ -389,10 +401,14 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // tv_data_saver_mode_cellular: 同期無効
     // tv_low_latency_mode: 同期無効
     // tv_low_latency_mode_cellular: 同期無効
+    // tv_24fps_mode: 同期無効
+    // tv_24fps_mode_cellular: 同期無効
     // video_streaming_quality: 同期無効
     // video_streaming_quality_cellular: 同期無効
     // video_data_saver_mode: 同期無効
     // video_data_saver_mode_cellular: 同期無効
+    // video_24fps_mode: 同期無効
+    // video_24fps_mode_cellular: 同期無効
     'caption_font',
     'always_border_caption_text',
     'specify_caption_opacity',

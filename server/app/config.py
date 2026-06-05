@@ -91,10 +91,14 @@ class ClientSettings(BaseModel):
     # tv_data_saver_mode_cellular: 同期無効
     # tv_low_latency_mode: 同期無効
     # tv_low_latency_mode_cellular: 同期無効
+    # tv_24fps_mode: 同期無効
+    # tv_24fps_mode_cellular: 同期無効
     # video_streaming_quality: 同期無効
     # video_streaming_quality_cellular: 同期無効
     # video_data_saver_mode: 同期無効
     # video_data_saver_mode_cellular: 同期無効
+    # video_24fps_mode: 同期無効
+    # video_24fps_mode_cellular: 同期無効
     caption_font: str = 'Windows TV MaruGothic'
     always_border_caption_text: bool = True
     specify_caption_opacity: bool = False
