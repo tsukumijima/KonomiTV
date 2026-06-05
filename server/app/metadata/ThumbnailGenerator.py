@@ -8,7 +8,7 @@ import pathlib
 import random
 import subprocess
 import time
-from typing import ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 
 import anyio
 import av
@@ -46,6 +46,7 @@ class ThumbnailGenerator:
     WEBP_COMPRESSION: ClassVar[int] = 6  # WebP 圧縮レベル (0-6)
     WEBP_MAX_SIZE: ClassVar[int] = 16383  # WebP の最大サイズ制限 (px)
     FFMPEG_TIMEOUT: ClassVar[int] = 300  # FFmpeg サブプロセスのタイムアウト時間 (秒)
+    TSREADEX_FRAME_EXTRACTION_TIMEOUT: ClassVar[int] = 600  # tsreadex 経由のフレーム抽出タイムアウト時間 (秒)
     FRAME_EXTRACTION_MAX_DEMUX_PACKETS: ClassVar[int] = 20000  # 1候補位置でフレーム探索する最大パケット数
     FRAME_EXTRACTION_MAX_CONSECUTIVE_FAILURES: ClassVar[int] = 10  # 連続失敗時に残り候補を黒画像で埋める閾値
 
@@ -150,6 +151,8 @@ class ThumbnailGenerator:
         duration_sec: float,
         candidate_time_ranges: list[tuple[float, float]],
         face_detection_mode: Literal['Human', 'Anime'] | None = None,
+        has_video_stream_changes: bool = False,
+        service_id: int | None = None,
     ) -> None:
         """
         プレイヤーのシークバー用タイル画像と、候補区間内で最も良い1枚の代表サムネイルを生成するクラスを初期化する
@@ -161,6 +164,8 @@ class ThumbnailGenerator:
             duration_sec (float): 動画の再生時間(秒)
             candidate_time_ranges (list[tuple[float, float]]): 代表サムネ候補とする区間 [(start, end), ...]
             face_detection_mode (Literal['Human', 'Anime'] | None): 顔検出モード (デフォルト: None)
+            has_video_stream_changes (bool): TS 内で映像 PID や映像ストリーム構成が変化しているかどうか
+            service_id (int | None): 録画対象サービス ID (tsreadex のサービス選択に使用)
         """
 
         self.file_path = file_path
@@ -168,6 +173,8 @@ class ThumbnailGenerator:
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
+        self.has_video_stream_changes = has_video_stream_changes
+        self.service_id = service_id
 
         # 動画の長さに応じて適切なタイル化間隔を計算
         self.base_tile_interval_sec = self.__calculateBaseTileInterval(duration_sec)
@@ -294,6 +301,8 @@ class ThumbnailGenerator:
             duration_sec = duration_sec,
             candidate_time_ranges = candidate_time_ranges,
             face_detection_mode = face_detection_mode,
+            has_video_stream_changes = recorded_program.recorded_video.has_video_stream_changes,
+            service_id = recorded_program.channel.service_id if recorded_program.channel is not None else None,
         )
 
 
@@ -320,6 +329,8 @@ class ThumbnailGenerator:
             duration_sec = duration_sec,
             candidate_time_ranges = [],  # マイグレーション処理では使用しないため空リスト
             face_detection_mode = None,  # マイグレーション処理では使用しないため None
+            has_video_stream_changes = False,  # マイグレーション処理では使用しないため False
+            service_id = None,  # マイグレーション処理では使用しないため None
         )
 
 
@@ -538,8 +549,13 @@ class ThumbnailGenerator:
         except AssertionError:
             LoadConfig(bypass_validation=True)
 
-        # 1. PyAV でフレーム抽出を実行し、候補区間内のフレームをスコアリングして最良フレームを特定する
-        result = self.__extractAndScoreFrames(candidate_offsets)
+        # 1. フレーム抽出を実行し、候補区間内のフレームをスコアリングして最良フレームを特定する
+        ## 映像 PID や映像ストリーム構成が途中で変わる TS は PyAV のストリーム固定シークと相性が悪いため、
+        ## 該当録画だけ tsreadex で映像 PID を固定化した TS を順次デコードする
+        if self.has_video_stream_changes is True and self.container_format == 'MPEG-TS':
+            result = self.__extractAndScoreFramesWithTSReadEx(candidate_offsets)
+        else:
+            result = self.__extractAndScoreFrames(candidate_offsets)
         if result is None:
             logging.error(f'{self.file_path}: Failed to extract and score frames.')
             return False
@@ -736,71 +752,254 @@ class ThumbnailGenerator:
 
             logging.info(f'{self.file_path}: All {len(bgr_frames)} frames extraction completed. ({time.time() - start_time_frame_extraction:.2f} sec)')
 
-            # ========== スコアリング処理 ==========
-
-            start_time_scoring = time.time()
-
-            # 顔検出器のロード (必要な場合のみ)
-            face_cascade = None
-            auxiliary_face_cascade = None
-            if self.face_detection_mode == 'Human':
-                face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
-            elif self.face_detection_mode == 'Anime':
-                face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
-                # アニメ顔検出時は精度向上のため、実写顔検出器を併用
-                auxiliary_face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
-
-            # 候補区間内のフレームを収集してスコアリング
-            # (index, score, found_face) のリスト
-            scored_frames: list[tuple[int, float, bool]] = []
-            total_frames = len(bgr_frames)
-            cols = self.tile_cols
-            for idx in range(total_frames):
-                # このフレームの動画内時間(秒)
-                time_offset = idx * self.tile_interval_sec
-                # 候補区間に含まれているかどうか
-                if not self.__inCandidateIntervals(time_offset):
-                    continue
-
-                # タイル上の座標（ログ出力用）
-                row = idx // cols + 1
-                col = idx % cols + 1
-
-                # スコアを計算
-                frame_bgr = bgr_frames[idx]
-                score, found_face = self.__computeImageScore(frame_bgr, face_cascade, auxiliary_face_cascade, row, col)
-                scored_frames.append((idx, score, found_face))
-
-            # 最良フレームのインデックスを特定
-            best_frame_index: int | None = None
-            if scored_frames:
-                # 顔ありフレームだけ抜き出す
-                face_frames = [(idx, sc, True) for (idx, sc, f) in scored_frames if f]
-
-                if self.face_detection_mode is not None and face_frames:
-                    # 顔ありのみから最大スコアを選ぶ
-                    best_idx, _, _ = max(face_frames, key=lambda x: x[1])
-                    best_row = best_idx // cols + 1
-                    best_col = best_idx % cols + 1
-                    logging.debug(f'Best frame selected. (face found / row:{best_row}, col:{best_col})')
-                    best_frame_index = best_idx
-                else:
-                    # 顔検出無し or 一つも顔が見つからなかった場合
-                    best_idx, _, _ = max(scored_frames, key=lambda x: x[1])
-                    best_row = best_idx // cols + 1
-                    best_col = best_idx % cols + 1
-                    logging.debug(f'Best frame selected. (face not found / row:{best_row}, col:{best_col})')
-                    best_frame_index = best_idx
-            else:
-                # 候補区間内のフレームが1枚もない場合
-                logging.warning(f'{self.file_path}: No frames found in candidate intervals.')
-
-            logging.info(f'{self.file_path}: Frame scoring completed. ({time.time() - start_time_scoring:.2f} sec)')
-            return (bgr_frames, best_frame_index)
+            # フレーム抽出方法に関わらず、共通の代表サムネイル選定処理を適用する
+            return (bgr_frames, self.__scoreFrames(bgr_frames))
 
         except Exception as ex:
             logging.error(f'{self.file_path}: Error in PyAV frame extraction and scoring:', exc_info=ex)
             return None
+
+
+    def __extractAndScoreFramesWithTSReadEx(
+        self,
+        candidate_offsets: list[float],
+    ) -> tuple[list[NDArray[np.uint8]], int | None] | None:
+        """
+        tsreadex 経由の TS を PyAV で順次デコードし、候補区間内のフレームをスコアリングして最良フレームを特定する
+
+        Args:
+            candidate_offsets (list[float]): 抽出するフレームのタイムスタンプ (秒) のリスト
+
+        Returns:
+            tuple[list[NDArray[np.uint8]], int | None] | None:
+                - 全フレームの BGR 配列リスト (SCORING_SCALE)
+                - 最良フレームのインデックス (候補区間内にフレームがない場合は None)
+                - エラー時は None
+        """
+
+        tsreadex_process: subprocess.Popen[bytes] | None = None
+        container: Any | None = None
+        try:
+            start_time_frame_extraction = time.time()
+            scoring_width, scoring_height = self.SCORING_SCALE
+            expected_frame_count = len(candidate_offsets)
+
+            # 再生時同様の設定で TS ストリームに tsreadex を適用し、途中で映像 PID が変わる TS を1本の映像ストリームとして扱う
+            ## PyAV に -scan_all_pmts 相当のオプションを指定したが、PyAV/FFmpeg 側が Bus error で落ちてしまったため、
+            ## FFmpeg 単独で解決するのは諦め、tsreadex を間に挟むようにしている
+            service_id = self.service_id if self.service_id is not None else -1
+            tsreadex_options = [
+                LIBRARY_PATH['tsreadex'],
+                # EIT などサムネイル生成に不要な PSI/SI パケットを除外する
+                '-x', '18/38/39',
+                # 対象サービスだけを出力し、映像 PID の変化を tsreadex 側で吸収する
+                '-n', f'{service_id}',
+                # 主音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                ## 音声がモノラルであればステレオにする
+                ## デュアルモノを2つのモノラル音声に分離し、右チャンネルを副音声として扱う
+                '-a', '13',
+                # 副音声ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、無音の AAC ストリームが出力される
+                ## 音声がモノラルであればステレオにする
+                '-b', '7',
+                # 字幕ストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                ## 実際の字幕データが現れない場合に5秒ごとに非表示の適当なデータを挿入する
+                '-c', '5',
+                # 文字スーパーストリームが常に存在する状態にする
+                ## ストリームが存在しない場合、PMT の項目が補われて出力される
+                '-u', '1',
+                # 字幕と文字スーパーを aribb24.js が解釈できる ID3 timed-metadata に変換する
+                ## +4: FFmpeg のバグを打ち消すため、変換後のストリームに規格外の5バイトのデータを追加する
+                ## +8: FFmpeg のエラーを防ぐため、変換後のストリームの PTS が単調増加となるように調整する
+                '-d', '9',
+                str(self.file_path),
+            ]
+
+            tsreadex_process = subprocess.Popen(
+                tsreadex_options,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.DEVNULL,
+            )
+            if tsreadex_process.stdout is None:
+                logging.error(f'{self.file_path}: Failed to open tsreadex stdout pipe.')
+                return None
+
+            # パイプ入力は seek できないため、tsreadex の出力を先頭から順次デコードする
+            ## 通常経路の backward seek に近づけるため、候補時刻を超えた時点で直前の I フレームを採用する
+            container_for_read = cast(Any, av.open(tsreadex_process.stdout, format='mpegts'))
+            container = container_for_read
+            if len(container_for_read.streams.video) == 0:
+                logging.error(f'{self.file_path}: No video stream found in tsreadex output.')
+                return None
+            video_stream = container_for_read.streams.video[0]
+
+            # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
+            video_stream.codec_context.skip_frame = 'NONINTRA'
+
+            first_frame_time: float | None = None
+            previous_frame_bgr: NDArray[np.uint8] | None = None
+            previous_frame_relative_time: float | None = None
+            bgr_frames: list[NDArray[np.uint8]] = []
+            next_candidate_index = 0
+            for decoded_frame in container_for_read.decode(video_stream):
+                if time.time() - start_time_frame_extraction > self.TSREADEX_FRAME_EXTRACTION_TIMEOUT:
+                    logging.error(
+                        f'{self.file_path}: tsreadex frame extraction timed out after '
+                        f'{self.TSREADEX_FRAME_EXTRACTION_TIMEOUT} seconds.'
+                    )
+                    return None
+                if decoded_frame.time is None:
+                    continue
+                if first_frame_time is None:
+                    first_frame_time = float(decoded_frame.time)
+                relative_time = float(decoded_frame.time) - first_frame_time
+
+                # 既存のスコアリング入力と同じ解像度に縮小し、次の候補時刻をまたいだ時に直前フレームとして使う
+                img_rgb = decoded_frame.to_ndarray(format='rgb24')
+                img_resized = cv2.resize(img_rgb, (scoring_width, scoring_height), interpolation=cv2.INTER_AREA)
+                bgr_frame = cast(NDArray[np.uint8], cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR))
+
+                # 候補時刻を超えた場合、通常経路の backward seek と同じく直前の I フレームを採用する
+                ## 先頭だけは直前フレームが存在しないため、最初に取得できた I フレームを使う
+                while next_candidate_index < expected_frame_count and relative_time + 0.001 >= candidate_offsets[next_candidate_index]:
+                    if previous_frame_bgr is not None:
+                        bgr_frames.append(previous_frame_bgr.copy())
+                    else:
+                        bgr_frames.append(bgr_frame.copy())
+                    next_candidate_index += 1
+
+                previous_frame_bgr = bgr_frame
+                previous_frame_relative_time = relative_time
+
+                # 必要な候補枚数を取得したら、tsreadex 側の入力パイプを閉じて処理を終える
+                if next_candidate_index >= expected_frame_count:
+                    break
+
+            # 最後の I フレーム以降に残った候補は、通常経路の backward seek と同じく末尾側の直前フレームで埋める
+            ## デコード済みフレームが1枚もない場合は、後続の不足補完で黒画像にする
+            while (
+                next_candidate_index < expected_frame_count and
+                previous_frame_bgr is not None and
+                previous_frame_relative_time is not None
+            ):
+                bgr_frames.append(previous_frame_bgr.copy())
+                next_candidate_index += 1
+
+            # 末尾までに候補数へ届かない場合でもタイル枚数を維持し、保存処理の前提を崩さない
+            missing_frame_count = expected_frame_count - len(bgr_frames)
+            if missing_frame_count > 0:
+                logging.warning(
+                    f'{self.file_path}: tsreadex frame extraction produced fewer frames than expected. '
+                    f'[expected: {expected_frame_count}, actual: {len(bgr_frames)}]'
+                )
+                bgr_frames.extend(
+                    np.zeros((scoring_height, scoring_width, 3), dtype=np.uint8)
+                    for _ in range(missing_frame_count)
+                )
+
+            logging.info(
+                f'{self.file_path}: tsreadex extracted {len(bgr_frames)} frames. '
+                f'({time.time() - start_time_frame_extraction:.2f} sec)'
+            )
+
+            # フレーム抽出方法に関わらず、共通の代表サムネイル選定処理を適用する
+            return (bgr_frames, self.__scoreFrames(bgr_frames))
+
+        except Exception as ex:
+            logging.error(f'{self.file_path}: Error in tsreadex frame extraction and scoring:', exc_info=ex)
+            return None
+        finally:
+            if container is not None:
+                try:
+                    container.close()
+                except Exception as ex:
+                    logging.warning(f'{self.file_path}: Failed to close PyAV container.', exc_info=ex)
+            if tsreadex_process is not None:
+                if tsreadex_process.returncode is None:
+                    tsreadex_process.kill()
+                if tsreadex_process.stdout is not None:
+                    try:
+                        tsreadex_process.stdout.close()
+                    except Exception as ex:
+                        logging.warning(f'{self.file_path}: Failed to close tsreadex stdout pipe.', exc_info=ex)
+                try:
+                    tsreadex_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    logging.warning(f'{self.file_path}: tsreadex process did not stop within timeout.')
+
+
+    def __scoreFrames(self, bgr_frames: list[NDArray[np.uint8]]) -> int | None:
+        """
+        候補区間内のフレームをスコアリングし、代表サムネイルに使うフレームのインデックスを返す
+
+        Args:
+            bgr_frames (list[NDArray[np.uint8]]): BGR フレームのリスト (SCORING_SCALE)
+
+        Returns:
+            int | None: 最良フレームのインデックス (候補区間内にフレームがない場合は None)
+        """
+
+        start_time_scoring = time.time()
+
+        # 顔検出器のロード (必要な場合のみ)
+        face_cascade = None
+        auxiliary_face_cascade = None
+        if self.face_detection_mode == 'Human':
+            face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+        elif self.face_detection_mode == 'Anime':
+            face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
+            # アニメ顔検出時は精度向上のため、実写顔検出器を併用
+            auxiliary_face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+
+        # 候補区間内のフレームを収集してスコアリング
+        # (index, score, found_face) のリスト
+        scored_frames: list[tuple[int, float, bool]] = []
+        total_frames = len(bgr_frames)
+        cols = self.tile_cols
+        for idx in range(total_frames):
+            # このフレームの動画内時間(秒)
+            time_offset = idx * self.tile_interval_sec
+            # 候補区間に含まれているかどうか
+            if not self.__inCandidateIntervals(time_offset):
+                continue
+
+            # タイル上の座標（ログ出力用）
+            row = idx // cols + 1
+            col = idx % cols + 1
+
+            # スコアを計算
+            frame_bgr = bgr_frames[idx]
+            score, found_face = self.__computeImageScore(frame_bgr, face_cascade, auxiliary_face_cascade, row, col)
+            scored_frames.append((idx, score, found_face))
+
+        # 最良フレームのインデックスを特定
+        best_frame_index: int | None = None
+        if scored_frames:
+            # 顔ありフレームだけ抜き出す
+            face_frames = [(idx, sc, True) for (idx, sc, f) in scored_frames if f]
+
+            if self.face_detection_mode is not None and face_frames:
+                # 顔ありのみから最大スコアを選ぶ
+                best_idx, _, _ = max(face_frames, key=lambda x: x[1])
+                best_row = best_idx // cols + 1
+                best_col = best_idx % cols + 1
+                logging.debug(f'Best frame selected. (face found / row:{best_row}, col:{best_col})')
+                best_frame_index = best_idx
+            else:
+                # 顔検出無し or 一つも顔が見つからなかった場合
+                best_idx, _, _ = max(scored_frames, key=lambda x: x[1])
+                best_row = best_idx // cols + 1
+                best_col = best_idx % cols + 1
+                logging.debug(f'Best frame selected. (face not found / row:{best_row}, col:{best_col})')
+                best_frame_index = best_idx
+        else:
+            # 候補区間内のフレームが1枚もない場合
+            logging.warning(f'{self.file_path}: No frames found in candidate intervals.')
+
+        logging.info(f'{self.file_path}: Frame scoring completed. ({time.time() - start_time_scoring:.2f} sec)')
+        return best_frame_index
 
 
     def __saveRepresentativeThumbnail(self, img_bgr: NDArray[np.uint8]) -> bool:
