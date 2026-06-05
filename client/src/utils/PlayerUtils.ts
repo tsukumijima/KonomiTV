@@ -3,9 +3,9 @@ import DPlayer from 'dplayer';
 
 
 /**
- * ライブストリーミング API で設定できる動画の画質
+ * ライブ/録画番組ストリーミング API でベース画質として設定できる動画の画質
  */
-type LiveAPIVideoQuality = (
+type APIBaseVideoQuality = (
     '1080p-60fps' |
     '1080p-60fps-hevc' |
     '1080p' |
@@ -25,25 +25,23 @@ type LiveAPIVideoQuality = (
 );
 
 /**
+ * ライブストリーミング API で設定できる動画の画質
+ */
+type LiveAPIVideoQuality = (
+    APIBaseVideoQuality |
+    `${APIBaseVideoQuality}-10bit` |
+    `${APIBaseVideoQuality}-24fps` |
+    `${APIBaseVideoQuality}-10bit-24fps`
+);
+
+/**
  * 録画番組ストリーミング API で設定できる動画の画質
  */
 type VideoAPIVideoQuality = (
-    '1080p-60fps' |
-    '1080p-60fps-hevc' |
-    '1080p' |
-    '1080p-hevc' |
-    '810p' |
-    '810p-hevc' |
-    '720p' |
-    '720p-hevc' |
-    '540p' |
-    '540p-hevc' |
-    '480p' |
-    '480p-hevc' |
-    '360p' |
-    '360p-hevc' |
-    '240p' |
-    '240p-hevc'
+    APIBaseVideoQuality |
+    `${APIBaseVideoQuality}-10bit` |
+    `${APIBaseVideoQuality}-24fps` |
+    `${APIBaseVideoQuality}-10bit-24fps`
 );
 
 
@@ -140,5 +138,53 @@ export class PlayerUtils {
     static isHEVCVideoSupported(): boolean {
         // hvc1.1.6.L123.B0 の部分は呪文 (HEVC であることと、そのプロファイルを示す値らしい)
         return document.createElement('video').canPlayType('video/mp4; codecs="hvc1.1.6.L123.B0"') === 'probably';
+    }
+
+
+    /**
+     * 現在のブラウザで H.265 / HEVC Main10 映像がスムーズに再生できるかどうかを取得する
+     * @returns スムーズに再生できるなら true、できないなら false
+     */
+    static async isHEVC10bitVideoSupported(): Promise<boolean> {
+        const video_content_type = 'video/mp4; codecs="hvc1.2.1.L123.B0"';
+        const audio_content_type = 'audio/mp4; codecs="mp4a.40.2"';
+
+        // HEVC 10bit は透過的に有効化するため、MediaCapabilities で滑らかに再生できると判断できる環境だけを対象にする
+        // ここで対象外になっても通常の HEVC 8bit で再生できるため、互換性を優先する
+        if (navigator.mediaCapabilities === undefined) {
+            return false;
+        }
+
+        // mpegts.js は映像と音声の SourceBuffer を別々に作る
+        // 合成した MIME 文字列では実際に再生できる環境まで弾くことがあるため、実際の投入単位で確認する
+        if (typeof MediaSource === 'undefined' ||
+            MediaSource.isTypeSupported(video_content_type) === false ||
+            MediaSource.isTypeSupported(audio_content_type) === false) {
+            return false;
+        }
+
+        try {
+            const decoding_info = await navigator.mediaCapabilities.decodingInfo({
+                type: 'media-source',
+                audio: {
+                    contentType: audio_content_type,
+                    channels: '2',
+                    bitrate: 192000,
+                    samplerate: 48000,
+                },
+                video: {
+                    contentType: video_content_type,
+                    width: 1920,
+                    height: 1080,
+                    bitrate: 5200000,
+                    framerate: 60,
+                },
+            });
+            return decoding_info.supported === true && decoding_info.smooth === true;
+        } catch (error) {
+            // MediaCapabilities API の実装差で例外が出ても、通常の HEVC 8bit 再生へ戻せば視聴は継続できる
+            console.warn('[PlayerUtils] Failed to check HEVC 10bit playback support.', error);
+            return false;
+        }
     }
 }
