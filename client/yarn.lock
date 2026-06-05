@@ -2422,9 +2422,9 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.6.1.tgz#773f0e69527a8315c7285d5ee73c4459d20a8020"
   integrity sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==
 
-"dplayer@github:tsukumijima/DPlayer#v1.32.7":
-  version "1.32.7"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/041cfabc5dbbe9564d83c60eba9e2b5cb8db2ffc"
+"dplayer@github:tsukumijima/DPlayer#v1.32.8":
+  version "1.32.8"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/32712e60a9eb1ae03963c224344b28f017b67f09"
   dependencies:
     aribb24.js "~1.11.5"
     axios "^1.7.2"
@@ -3921,9 +3921,9 @@ mitt@^3.0.1:
   resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.1.tgz#ea36cf0cc30403601ae074c8f77b7092cdab36d1"
   integrity sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==
 
-mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#726d91becfa178a68bbea154175213ab6b3dfdba":
+mpegts.js@^1.7.3, "mpegts.js@github:tsukumijima/mpegts.js#cc58169d2b61f0d27588fd31593b8739abe7b0ab":
   version "1.8.0"
-  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/726d91becfa178a68bbea154175213ab6b3dfdba"
+  resolved "https://codeload.github.com/tsukumijima/mpegts.js/tar.gz/cc58169d2b61f0d27588fd31593b8739abe7b0ab"
   dependencies:
     es6-promise "^4.2.5"
 
@@ -5331,9 +5331,9 @@ vuetify@~3.7.1:
   resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-3.7.19.tgz#386ab39900400e9aa811fa0569e10db650f54b84"
   integrity sha512-RrUpdBOGWGcT2oNLqXBiqYRudKTFqxTfr8lISl51Cuo80cfgRmbyDnlQQRWxE4QSNxcqXk6ZzBoJRUEXpW9C/w==
 
-"web-bml@github:tsukumijima/web-bml#9101efb87052b6f63c6b58c7206df0893c81f9da":
+"web-bml@github:tsukumijima/web-bml#811305f1d091fbbcf0a5ed9480721857a613ccaf":
   version "1.0.0"
-  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/9101efb87052b6f63c6b58c7206df0893c81f9da"
+  resolved "https://codeload.github.com/tsukumijima/web-bml/tar.gz/811305f1d091fbbcf0a5ed9480721857a613ccaf"
   dependencies:
     "@tsukumijima/aribts" "github:tsukumijima/node-aribts#v1.5.2"
     arib-subtitle-timedmetadater "^4.0.10"
