@@ -127,6 +127,12 @@ declare global {
         reload(forceReload?: boolean): void;
     }
 
+    // ManagedMediaSource API
+    // ref: https://github.com/w3c/media-source/issues/320
+    interface Window {
+        ManagedMediaSource?: typeof MediaSource;
+    }
+
     // View Transitions API
     // ref: https://developer.mozilla.org/ja/docs/Web/API/View_Transitions_API
     interface Document {
