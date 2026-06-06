@@ -242,7 +242,7 @@ class VideoEncodingTask:
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:0')
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K')
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
-        if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
+        if (encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc') and not self.video_stream.encoding_options.is_24fps_mode_enabled:
             options.append('--disable-opencl')
         ## NVEncC では NVML によるモニタリングと DX11, Vulkan を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
