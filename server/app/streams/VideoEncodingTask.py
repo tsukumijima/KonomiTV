@@ -310,6 +310,10 @@ class VideoEncodingTask:
         if QUALITY[quality].is_hevc is True and self.video_stream.encoding_options.is_hevc_10bit_enabled is True:
             options.append('--output-depth 10 --fallback-bitdepth')
 
+        ## --vpp-afs が実際に有効になった場合のみ、後段の出力解像度補正に反映する
+        ## プログレッシブ映像では --vpp-afs を使わないため、設定値だけで解像度を変えない
+        is_vpp_afs_filter_enabled = False
+
         ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
             # インターレース映像として読み込む
@@ -331,15 +335,17 @@ class VideoEncodingTask:
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
             ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う (ただし、timestamp を変えないよう coeff_shift=0 を指定する)
             else:
-                # 24fps モードでは HWEncC 系の AFS で 24fps 区間を検出し、24/30p 混合 VFR で出力する
+                # 24fps モードでは HWEncC 系の --vpp-afs で 24fps 区間を検出し、24/30p 混合 VFR で出力する
                 ## 通常 30fps 向けの coeff_shift=0 はタイムスタンプを維持するための既存設定なので、フレーム間引きが目的の 24fps モードには付けない
                 if self.video_stream.encoding_options.is_24fps_mode_enabled is True:
                     options.append('--vpp-afs preset=default,drop=on,smooth=on')
+                    is_vpp_afs_filter_enabled = True
                 else:
                     if encoder_type == 'QSVEncC':
                         options.append('--vpp-deinterlace normal')
                     elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
                         options.append('--vpp-afs preset=default,coeff_shift=0')
+                        is_vpp_afs_filter_enabled = True
                     elif encoder_type == 'rkmppenc':
                         options.append('--vpp-deinterlace normal_i5')
                 options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
@@ -357,6 +363,11 @@ class VideoEncodingTask:
             (self.video_stream.recorded_program.recorded_video.video_resolution_width == 1920 and \
              self.video_stream.recorded_program.recorded_video.video_resolution_height == 1080):
             video_width = 1920
+        ## QSVEncC・VCEEncC・rkmppenc の OpenCL 系 --vpp-afs 実装は YUV420 出力高さに4の倍数を要求する
+        ## そのため 810p は視聴上ほぼ同じ 812p に丸め、エンコーダー起動時のエラーを避ける
+        if is_vpp_afs_filter_enabled is True and video_height == 810 and \
+            (encoder_type == 'QSVEncC' or encoder_type == 'VCEEncC' or encoder_type == 'rkmppenc'):
+            video_height = 812
         options.append(f'--output-res {video_width}x{video_height}')
 
         # 音声
