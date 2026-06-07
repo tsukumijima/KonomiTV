@@ -418,7 +418,7 @@ class LiveEncodingTask:
             ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
             ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
             else:
-                # 24fps モードでは HWEncC 系の AFS で 24fps 区間を検出し、24/30p 混合 VFR で出力する
+                # 24fps モードでは --vpp-afs で 24fps 区間を検出し、24/30p 混合 VFR で出力する
                 ## 1080p-60fps では上の bob 分岐を優先するため、この分岐には入らない
                 if self.live_stream.encoding_options.is_24fps_mode_enabled is True:
                     options.append('--vpp-afs preset=default,drop=on,smooth=on')
