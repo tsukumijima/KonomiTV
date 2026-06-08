@@ -382,7 +382,7 @@ export default defineComponent({
             bluesky_reply_thread_mode: [
                 {title: 'ハッシュタグごとにリプライツリーを切り替える', value: 'PerHashtag'},
                 {title: '1日ごとにリプライツリーを切り替える', value: 'PerDay'},
-                {title: 'リプライツリー実況を行わない（推奨）', value: 'Disabled'},
+                {title: 'リプライツリー実況を行わない', value: 'Disabled'},
             ],
 
             // デフォルトで表示されるパネルのタブの選択肢
