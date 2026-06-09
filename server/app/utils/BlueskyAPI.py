@@ -21,6 +21,8 @@ from atproto_client.exceptions import (
     NetworkError,
     UnauthorizedError,
 )
+from atproto_client.namespaces import async_ns
+from atproto_client.request import Response
 from fastapi import HTTPException, UploadFile
 from httpx import Timeout
 from PIL import Image
@@ -32,6 +34,141 @@ from app.models.BlueskyAccount import BlueskyAccount
 
 
 _RetriableResultT = TypeVar('_RetriableResultT')
+_ATPROTO_SUPPORTED_VIEW_EMBED_TYPES: Final[set[str]] = {
+    'app.bsky.embed.images#view',
+    'app.bsky.embed.video#view',
+    'app.bsky.embed.external#view',
+    'app.bsky.embed.record#view',
+    'app.bsky.embed.recordWithMedia#view',
+}
+_ATPROTO_SUPPORTED_FEED_REASON_TYPES: Final[set[str]] = {
+    'app.bsky.feed.defs#reasonRepost',
+    'app.bsky.feed.defs#reasonPin',
+}
+
+
+def _NormalizeUnsupportedEmbedForSDK(embed: dict[str, Any]) -> None:
+    """
+    SDK 未対応の Bluesky embed を既存モデルで読める形へ正規化する
+
+    Args:
+        embed (dict[str, Any]): raw レスポンス上の embed オブジェクト
+    """
+
+    embed_type = embed.get('$type')
+
+    # recordWithMedia の media 側に gallery が入る場合も、同じ画像 embed として読ませる
+    if embed_type == 'app.bsky.embed.recordWithMedia#view':
+        media = embed.get('media')
+        if isinstance(media, dict) is True:
+            _NormalizeUnsupportedEmbedForSDK(cast(dict[str, Any], media))
+        return
+
+    # Python SDK が gallery に対応するまで、画像一覧として表示できる thumbnail / fullsize だけを使う
+    if embed_type == 'app.bsky.embed.gallery#view':
+        items = embed.get('items')
+        if isinstance(items, list) is False:
+            embed.clear()
+            embed.update({'$type': 'app.bsky.embed.images#view', 'images': []})
+            return
+
+        images: list[dict[str, Any]] = []
+        for item_value in cast(list[Any], items):
+            if isinstance(item_value, dict) is False:
+                continue
+            item = cast(dict[str, Any], item_value)
+            thumbnail = item.get('thumbnail')
+            fullsize = item.get('fullsize') or thumbnail
+
+            # images#viewImage は thumb / fullsize が必須なので、URL がない項目は表示対象から外す
+            if isinstance(thumbnail, str) is False or isinstance(fullsize, str) is False:
+                continue
+
+            image: dict[str, Any] = {
+                '$type': 'app.bsky.embed.images#viewImage',
+                'alt': item.get('alt') if isinstance(item.get('alt'), str) is True else '',
+                'fullsize': fullsize,
+                'thumb': thumbnail,
+            }
+            aspect_ratio = item.get('aspectRatio')
+            if isinstance(aspect_ratio, dict) is True:
+                image['aspectRatio'] = aspect_ratio
+            images.append(image)
+
+        embed.clear()
+        embed.update({'$type': 'app.bsky.embed.images#view', 'images': images[:BlueskyAPI.MAX_IMAGE_COUNT]})
+        return
+
+    # SDK が知らない embed は投稿本文まで巻き込んで落ちるため、メディアなし投稿として扱う
+    if isinstance(embed_type, str) is True and embed_type not in _ATPROTO_SUPPORTED_VIEW_EMBED_TYPES:
+        embed.clear()
+        embed.update({'$type': 'app.bsky.embed.images#view', 'images': []})
+
+
+def _NormalizeUnsupportedEmbedsForSDK(value: Any) -> None:
+    """
+    API レスポンス内の SDK 未対応 embed / reason を再帰的に正規化する
+
+    Args:
+        value (Any): API レスポンス内の任意の値
+    """
+
+    # Bluesky 側の未知フィールドはそのまま残し、SDK の Union 判定で落ちる既知フィールドだけを読み替える
+    if isinstance(value, dict) is True:
+        value_dict = cast(dict[str, Any], value)
+        embed = value_dict.get('embed')
+        if isinstance(embed, dict) is True:
+            _NormalizeUnsupportedEmbedForSDK(cast(dict[str, Any], embed))
+
+        # quoted post の ViewRecord.embeds は embed オブジェクト自体の配列なので、配列直下の要素も先に読み替える
+        embeds = value_dict.get('embeds')
+        if isinstance(embeds, list) is True:
+            for embed_value in cast(list[Any], embeds):
+                if isinstance(embed_value, dict) is True:
+                    _NormalizeUnsupportedEmbedForSDK(cast(dict[str, Any], embed_value))
+
+        # 未知の reason は表示理由が分からないだけなので、投稿自体を残すために理由なしとして扱う
+        reason = value_dict.get('reason')
+        if isinstance(reason, dict) is True:
+            reason_type = cast(dict[str, Any], reason).get('$type')
+            if isinstance(reason_type, str) is True and reason_type not in _ATPROTO_SUPPORTED_FEED_REASON_TYPES:
+                value_dict.pop('reason')
+
+        for child_value in value_dict.values():
+            _NormalizeUnsupportedEmbedsForSDK(child_value)
+        return
+
+    if isinstance(value, list) is True:
+        for child_value in cast(list[Any], value):
+            _NormalizeUnsupportedEmbedsForSDK(child_value)
+
+
+def _PatchAtprotoGalleryEmbedResponseModel() -> None:
+    """
+    atproto SDK のレスポンスモデル化直前に未対応 embed を正規化する
+    """
+
+    original_get_response_model = async_ns.get_response_model
+    if getattr(original_get_response_model, '_konomitv_gallery_embed_patch', False) is True:
+        return
+
+    def GetResponseModelWithGalleryEmbedPatch(response: Response, model: type[Any]) -> Any:
+        """
+        未対応 embed を SDK 既知の画像 embed へ寄せてからレスポンスモデルへ変換する
+
+        Args:
+            response (Response): atproto SDK の raw レスポンス
+            model (type[Any]): 変換先の SDK レスポンスモデル
+
+        Returns:
+            Any: SDK が返すレスポンスモデル
+        """
+
+        _NormalizeUnsupportedEmbedsForSDK(response.content)
+        return original_get_response_model(response, model)
+
+    setattr(GetResponseModelWithGalleryEmbedPatch, '_konomitv_gallery_embed_patch', True)
+    async_ns.get_response_model = GetResponseModelWithGalleryEmbedPatch
 
 
 class BlueskyReplyReference(TypedDict):
@@ -985,3 +1122,7 @@ class BlueskyAPI:
             expanded_text_bytes[byte_start:byte_end] = link_uri.encode('utf-8')
 
         return expanded_text_bytes.decode('utf-8')
+
+
+# atproto SDK が gallery embed に対応するまで、レスポンスモデル化直前の読み替えだけを追加する
+_PatchAtprotoGalleryEmbedResponseModel()
