@@ -51,7 +51,7 @@ class MP4KeyFrameParser:
 
 
     @staticmethod
-    def readVideoKeyframeDTS(path: Path) -> list[int]:
+    def readVideoKeyFrameDTS(path: Path) -> list[int]:
         """
         MP4 の moov 内テーブルだけを読んで、映像同期サンプルの DTS を 90kHz 単位で返す
 
@@ -124,7 +124,7 @@ class MP4KeyFrameParser:
 
 
     @staticmethod
-    def findKeyframeDTSBefore(keyframe_dts_list: list[int], playlist_start_seconds: float) -> int:
+    def findKeyFrameDTSBefore(keyframe_dts_list: list[int], playlist_start_seconds: float) -> int:
         """
         MP4 の同期サンプル DTS 一覧から、プレイリスト時刻以前の最も近い開始 DTS を選ぶ
 
