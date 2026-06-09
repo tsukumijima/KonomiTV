@@ -7,6 +7,7 @@ import asyncio
 import errno
 import math
 import os
+import queue
 import threading
 import time
 from collections import deque
@@ -24,6 +25,8 @@ from biim.mpeg2ts.pmt import PMTSection
 from app import logging
 from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY, QUALITY_TYPES
+from app.schemas import KeyFrame
+from app.utils.TSKeyFrameSeeker import TSKeyFrameCollector
 
 
 if TYPE_CHECKING:
@@ -432,7 +435,78 @@ class VideoEncodingTask:
         # それ以外の場合は一旦 None とする
         file = None
         if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-TS':
+            # 再生しながらのキーフレーム収集は補助的な高速化なので、初期化に失敗しても再生本体は続ける
+            ## 既存の segment_map から開始位置を解決済みの録画では、PAT/PMT や先頭 DTS の再探索が失敗してもエンコード自体は可能
+            try:
+                await self.video_stream.ensureTSKeyFrameContext()
+            except Exception as ex:
+                logging.warning(f'{self.video_stream.log_prefix} Failed to initialize input keyframe collector context:', exc_info=ex)
             file = open(self.video_stream.recorded_program.recorded_video.file_path, 'rb')
+
+        # 入力 TS を tsreadex に渡すついでに見つけたキーフレームを保持する
+        ## ワーカースレッドでは DB を触らず、イベントループ側が節目ごとに segment_map へ変換して保存する
+        ## ワーカースレッド → イベントループの受け渡しには SimpleQueue を使い、イベントループ上でブロッキングロックを避ける
+        collected_input_key_frames_queue: queue.SimpleQueue[KeyFrame] = queue.SimpleQueue()
+        # イベントループ側だけが参照する蓄積リスト (FlushCollectedSegmentMap() のたびにキューから追加される)
+        all_collected_key_frames: list[KeyFrame] = []
+        # 前回フラッシュ時点でのキーフレーム総数を記憶し、増えていなければ再評価をスキップする
+        last_segment_map_flush_keyframe_count = 0
+
+        async def FlushCollectedSegmentMap(*, is_force: bool = False) -> None:
+            """
+            入力 TS から収集済みのキーフレームを segment_map としてまとめて保存する
+
+            Args:
+                is_force (bool): バッチ件数に満たない場合でも保存候補を作るかどうか
+            """
+
+            nonlocal last_segment_map_flush_keyframe_count
+
+            # キューからワーカースレッドが追加した新着キーフレームを全てローカルリストへ移す
+            ## get_nowait() はブロックしないため、イベントループを止めずに済む
+            while not collected_input_key_frames_queue.empty():
+                try:
+                    all_collected_key_frames.append(collected_input_key_frames_queue.get_nowait())
+                except queue.Empty:
+                    break
+
+            key_frame_count = len(all_collected_key_frames)
+            # 前回フラッシュ後にキーフレームが増えていなければ何もしない
+            ## キャンセル時の終了処理でも、既にワーカースレッドが読み終えた範囲は再利用価値がある
+            ## 一方で再生中は小さな単位で DB 書き込みしないよう、実際の segment_map 候補が一定件数まで溜まってから保存する
+            if is_force is False and key_frame_count == last_segment_map_flush_keyframe_count:
+                return
+
+            # リトライ時は同じ開始位置から入力 TS を読み直すため、収集済みキーフレームが非単調に並ぶことがある
+            ## segment_map 変換は二分探索を使うので、保存候補を作る直前に DTS とファイル位置で安定した順序へ戻す
+            key_frames_snapshot = sorted(
+                all_collected_key_frames,
+                key = lambda key_frame: (key_frame['dts'], key_frame['offset']),
+            )
+            # 同じ DTS / ファイル位置のキーフレームは、リトライで同じ入力範囲を読み直した重複として1件に畳む
+            ## ここで重複を残すと最後の未確定キーフレーム除外の判定がずれ、保存できる候補が不自然に減る
+            unique_key_frames: list[KeyFrame] = []
+            seen_key_frames: set[tuple[int, int]] = set()
+            for key_frame in key_frames_snapshot:
+                key_frame_key = (key_frame['dts'], key_frame['offset'])
+                if key_frame_key in seen_key_frames:
+                    continue
+                seen_key_frames.add(key_frame_key)
+                unique_key_frames.append(key_frame)
+
+            # 収集したキーフレームから「どのセグメントの開始位置に対応するか」を算出する
+            segment_map_entries = self.video_stream.createSegmentMapEntriesFromKeyFrames(unique_key_frames)
+            if len(segment_map_entries) == 0:
+                last_segment_map_flush_keyframe_count = key_frame_count
+                return
+            # バッチ閾値に満たない場合は DB 書き込みを見送り、次回フラッシュで再評価する
+            ## is_force=True (タスク終了時) は閾値を無視して残り全件を保存する
+            if is_force is False and len(segment_map_entries) < self.video_stream.SEGMENT_MAP_SAVE_BATCH_SIZE:
+                last_segment_map_flush_keyframe_count = key_frame_count
+                return
+
+            await self.video_stream.saveSegmentMapEntries(segment_map_entries)
+            last_segment_map_flush_keyframe_count = key_frame_count
 
         # 切り出した HLS セグメント用 MPEG-TS パケットを一時的に保持するバッファ
         encoded_segment = bytearray()
@@ -449,7 +523,6 @@ class VideoEncodingTask:
         encoder_stderr_observer_tasks: set[asyncio.Task[None]] = set()
 
         async def ObserveEncoderStderr(
-            encoder_process: asyncio.subprocess.Process,
             encoder_stderr: asyncio.StreamReader,
             encoder_stderr_lines: deque[str],
         ) -> None:
@@ -457,7 +530,6 @@ class VideoEncodingTask:
             エンコーダーの stderr を読み続け、直近ログを保持する
 
             Args:
-                encoder_process (asyncio.subprocess.Process): stderr 監視対象のエンコーダープロセス
                 encoder_stderr (asyncio.StreamReader): エンコーダープロセスの標準エラー出力
                 encoder_stderr_lines (deque[str]): この試行で保持する stderr ログ
             """
@@ -475,10 +547,8 @@ class VideoEncodingTask:
 
                 # 空データは stderr の EOF を示すため、監視タスクを正常終了する
                 if len(buffer) == 0:
-                    # stderr だけが先に閉じた場合でも、監視タスク側でプロセス終了状態まで見届ける
-                    ## エンコードタスク本体はこの監視タスクを待機しないため、ここで待っても停止経路のブロック要因にはならない
-                    if encoder_process.returncode is None:
-                        await encoder_process.wait()
+                    # プロセス終了待ちは run() 本体側に集約する
+                    ## stderr 監視側でも wait() すると、同じ Process.wait() coroutine を複数回 await して例外になることがある
                     break
 
                 # デコードして改行を除去した行を保持する
@@ -759,9 +829,21 @@ class VideoEncodingTask:
                         tsreadex_stdin_read, tsreadex_stdin_write = os.pipe()
                         tsreadex_stdin_write_generation_token = self.__registerTSReadExInputPipe(tsreadex_stdin_write)
                         pat_pmt_data: bytes = initial_pat_pmt_data
+                        # FeedTSStream() はワーカースレッドで動くため、クロージャ経由で参照する値をここでキャプチャしておく
+                        feed_start_source_dts = current_segment.source_start_dts
+                        feed_ts_stream_info = self.video_stream.ts_stream_info
 
                         def FeedTSStream() -> None:
                             """PAT/PMT を先頭に付加したデータを tsreadex のパイプに流し込む (同期関数)"""
+
+                            input_keyframe_collector: TSKeyFrameCollector | None = None
+                            if feed_ts_stream_info is not None and feed_start_source_dts is not None:
+                                # 入力側のキーフレーム位置は元 TS のファイル位置を持つ FeedTSStream() でしか正確に取れない
+                                ## エンコーダー出力側の IDR は再エンコード後のフレームなので、segment_map の入力開始位置としては使えない
+                                input_keyframe_collector = TSKeyFrameCollector(
+                                    feed_ts_stream_info,
+                                    feed_start_source_dts,
+                                )
 
                             def WriteAllToPipe(pipe_fd: int, data: bytes) -> bool:
                                 """パイプに対して全バイトを書き込む"""
@@ -787,7 +869,8 @@ class VideoEncodingTask:
                                 ## initial_pat_pmt_data が作られているのは MPEG-TS のときだから
                                 ## psisimux からの入力を想定する必要はない
                                 assert file is not None
-                                chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
+                                packet_size = feed_ts_stream_info.packet_size if feed_ts_stream_info is not None else ts.PACKET_SIZE
+                                chunk_size = packet_size * 10000  # 10000 パケットずつ読み込む
                                 while True:
                                     # tsreadex プロセス終了時は速やかにループを抜ける
                                     if (
@@ -799,9 +882,20 @@ class VideoEncodingTask:
                                         ) is False
                                     ):
                                         break
+                                    # チャンク読み込み前のファイル位置を記録しておく (キーフレーム位置の算出に使う)
+                                    chunk_file_offset = file.tell()
                                     chunk = file.read(chunk_size)
                                     if not chunk:
                                         break
+                                    # tsreadex に渡すチャンクを TSKeyFrameCollector にも通し、入力 TS 上のキーフレーム位置を収集する
+                                    ## 見つかったキーフレームはイベントループ側の FlushCollectedSegmentMap() で segment_map に変換される
+                                    if input_keyframe_collector is not None:
+                                        keyframe_positions = input_keyframe_collector.push(chunk, chunk_file_offset)
+                                        for keyframe_position in keyframe_positions:
+                                            collected_input_key_frames_queue.put(KeyFrame(
+                                                offset = keyframe_position.source_file_position,
+                                                dts = keyframe_position.source_start_dts,
+                                            ))
                                     if WriteAllToPipe(tsreadex_stdin_write, chunk) is False:
                                         break
                             except BrokenPipeError:
@@ -923,7 +1017,6 @@ class VideoEncodingTask:
                 current_encoder_stderr_lines = deque(maxlen=1000)
                 current_encoder_stderr_lines.append(f'Retry {self._retry_count + 1}/{self.MAX_RETRY_COUNT} started.')
                 encoder_stderr_observer_task = asyncio.create_task(ObserveEncoderStderr(
-                    self._encoder_process,
                     encoder_stderr,
                     current_encoder_stderr_lines,
                 ))
@@ -1138,6 +1231,8 @@ class VideoEncodingTask:
 
                                     # 最終セグメントの場合はループを抜ける
                                     if current_sequence >= len(self.video_stream.segments):
+                                        # 最終セグメント完了時は残りのキーフレーム情報をまとめて保存する
+                                        await FlushCollectedSegmentMap()
                                         logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
                                         break
 
@@ -1148,6 +1243,9 @@ class VideoEncodingTask:
                                     current_segment.encode_status = 'Encoding'
                                     encoded_segment = bytearray()
                                     is_split_pending = False
+                                    # セグメント切り替えのタイミングで、蓄積されたキーフレーム情報の保存を試みる
+                                    ## バッチ閾値に達していなければ何もせずに返る
+                                    await FlushCollectedSegmentMap()
 
                                     # 新しいセグメントの先頭に PAT と PMT を追加
                                     if latest_pat is not None:
@@ -1399,6 +1497,10 @@ class VideoEncodingTask:
             ## FeedTSStream() 側で ValueError を捕捉して正常終了として扱うようにしてある
             if file is not None:
                 file.close()
+
+            # キャンセルで終わった旧タスクでも、既に読み終えた入力 TS 範囲のキーフレームは次回シークに使える
+            ## フィードタスク終了後なら collected_input_key_frames は増えないため、ここで残りをまとめて保存する
+            await FlushCollectedSegmentMap(is_force = True)
 
             # 参照のクリア (GC を遅らせないため明示的に None を代入)
             self._encoder_process = None
