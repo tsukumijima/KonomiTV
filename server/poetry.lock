@@ -301,13 +301,13 @@ test = ["pytest", "uvloop"]
 
 [[package]]
 name = "atproto"
-version = "0.0.65"
+version = "0.0.68"
 description = "The AT Protocol SDK"
 optional = false
 python-versions = "<3.15,>=3.9"
 files = [
-    {file = "atproto-0.0.65-py3-none-any.whl", hash = "sha256:ea53dea57454c9e56318b5d25ceb35854d60ba238b38b0e5ca79aa1a2df85846"},
-    {file = "atproto-0.0.65.tar.gz", hash = "sha256:027c6ed98746a9e6f1bb24bc18db84b80b386037709ff3af9ef927dce3dd4938"},
+    {file = "atproto-0.0.68-py3-none-any.whl", hash = "sha256:ddd41964d7ccd2e84e278923f89c2182bc29892ec04d1b71e4211a8ab5081024"},
+    {file = "atproto-0.0.68.tar.gz", hash = "sha256:6ac124520ef9c40f20cc584cb1efa6f68a3a7a05f6275bfedf2438f31072eed8"},
 ]
 
 [package.dependencies]
@@ -4032,4 +4032,4 @@ websockets = ">=14.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "1e5c7d37f67a20fc41e0da1a117f5ee774ad831c53bd2a4cf9d3a1bbd1162312"
+content-hash = "29eec76b812b8f63586d1ad79331d0bdc3063d340ac97270ec16c00d2620e674"
