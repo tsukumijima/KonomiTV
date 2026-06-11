@@ -1,5 +1,6 @@
 
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
@@ -26,6 +27,56 @@ router = APIRouter(
     tags = ['Programs'],
     prefix = '/api/programs',
 )
+
+
+def GetTimeTableChannelSortKey(channel_row: dict[str, Any]) -> tuple[int, int, int, int, str]:
+    """
+    番組表で利用するチャンネル並び替えキーを取得する
+
+    Args:
+        channel_row (dict[str, Any]): channels テーブルから取得したチャンネル行
+
+    Returns:
+        tuple[int, int, int, int, str]: 並び替え用キー
+    """
+
+    channel_number = str(channel_row['channel_number'])
+    matched_channel_number = re.fullmatch(r'(\d+)(?:-(\d+))?', channel_number)
+
+    # 想定外のチャンネル番号は末尾に回し、DB に残っている文字列表現で順序を安定させる
+    if matched_channel_number is None:
+        return (
+            999999,
+            999999,
+            999999,
+            int(channel_row['service_id']),
+            channel_number,
+        )
+
+    base_channel_number = int(matched_channel_number.group(1))
+    branch_number = int(matched_channel_number.group(2) or '0')
+
+    # 地上波では同一局にチャンネルが複数ある場合、枝番を優先して並び替える
+    ## 単純な文字列ソートだと 031-1, 031-2, 032-1 の順になり、同じ局のサブチャンネルが離れてしまう
+    if channel_row['type'] == 'GR':
+        remocon_id = base_channel_number // 10
+        service_number = base_channel_number % 10
+        return (
+            remocon_id,
+            branch_number,
+            service_number,
+            int(channel_row['service_id']),
+            channel_number,
+        )
+
+    # 地デジ以外は従来通り3桁番号を主キーにしつつ、念のため枝番つき番号も自然な順序にする
+    return (
+        base_channel_number,
+        branch_number,
+        0,
+        int(channel_row['service_id']),
+        channel_number,
+    )
 
 
 def DecodeEDCBEventInfo(event_info: EventInfo) -> schemas.Program:
@@ -388,6 +439,11 @@ async def TimeTableAPI(
         channel_row['is_subchannel'] = bool(channel_row['is_subchannel'])
         channel_row['is_radiochannel'] = bool(channel_row['is_radiochannel'])
         channel_row['is_watchable'] = bool(channel_row['is_watchable'])
+
+    # ピン留め指定がない通常番組表では、枝番つき地デジ局のサブチャンネルが同じ局の近くに並ぶ順序に直す
+    ## pinned_channel_ids 指定時はユーザーが設定した順番そのものが表示順なので、番組表側の自動ソートは挟まない
+    if target_channel_ids is None:
+        channels_result.sort(key=GetTimeTableChannelSortKey)
 
     # 各 TS (network_id, transport_stream_id) ごとに、サブチャンネルの8時間ルール判定を行う
     # まず TS ごとにグループ化
