@@ -126,6 +126,10 @@ const usePlayerStore = defineStore('player', {
         // DPlayer の設定パネルが開いているか
         is_player_setting_panel_open: false,
 
+        // 視聴画面内で手動選択された画質プロファイル
+        // null の間は回線種別から選び、チャンネル切り替えなどでプレイヤーを作り直すときは手動選択を引き継ぐ
+        selected_quality_profile_type: null as 'Wi-Fi' | 'Cellular' | null,
+
         // プレイヤーのローディング状態
         // 既定でローディングとする
         is_loading: true,
@@ -229,6 +233,7 @@ const usePlayerStore = defineStore('player', {
             this.is_remocon_display = false;
             this.is_zapping = false;
             this.is_player_setting_panel_open = false;
+            this.selected_quality_profile_type = null;
             this.is_loading = true;
             this.is_video_buffering = true;
             this.is_video_paused = false;

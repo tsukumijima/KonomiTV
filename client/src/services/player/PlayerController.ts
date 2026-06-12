@@ -97,6 +97,10 @@ class PlayerController {
     // 破棄済みかどうか
     private destroyed = false;
 
+    // ライブ再生開始時の一時ミュートを、保存済みミュートと区別するフラグ
+    // 一時ミュートで発火した volumechange を、ユーザー操作として保存しないために使う
+    private is_live_startup_temporary_muted = false;
+
 
     /**
      * コンストラクタ
@@ -107,14 +111,20 @@ class PlayerController {
         // 再生モードをセット
         this.playback_mode = playback_mode;
 
-        // デフォルトでは、現在のネットワーク回線が Cellular (モバイル回線) のとき、モバイル回線向けの画質プロファイルを適用する
-        // Wi-Fi 回線またはネットワーク回線種別を取得できなかった場合は、Wi-Fi 回線向けの画質プロファイルを適用する
-        // この画質プロファイルはユーザーによって手動で変更されうる
-        const network_circuit_type = PlayerUtils.getNetworkCircuitType();
-        if (network_circuit_type === 'Cellular') {
-            this.quality_profile_type = 'Cellular';
+        const player_store = usePlayerStore();
+        if (player_store.selected_quality_profile_type !== null) {
+            // 視聴画面内で手動変更済みなら、プレイヤー再作成後もその選択を使う
+            // 視聴画面を離れると PlayerStore.reset() で null に戻り、次回は回線種別から選び直す
+            this.quality_profile_type = player_store.selected_quality_profile_type;
         } else {
-            this.quality_profile_type = 'Wi-Fi';
+            // 手動変更がない場合は、現在の回線種別から画質プロファイルを選ぶ
+            // Wi-Fi 回線の場合や回線種別を取得できなかった場合は、Wi-Fi 向けの画質プロファイルを使う
+            const network_circuit_type = PlayerUtils.getNetworkCircuitType();
+            if (network_circuit_type === 'Cellular') {
+                this.quality_profile_type = 'Cellular';
+            } else {
+                this.quality_profile_type = 'Wi-Fi';
+            }
         }
 
         // 01 ~ 14 まですべての RomSound を読み込む
@@ -209,6 +219,7 @@ class PlayerController {
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
+        this.is_live_startup_temporary_muted = false;
 
         // PlayerStore にプレイヤーを初期化したことを通知する
         // 実際にはこの時点ではプレイヤーの初期化は完了していないが、PlayerController.init() を実行したことが通知されることが重要
@@ -734,11 +745,28 @@ class PlayerController {
         // DPlayer は音量コントロールがないスマホ向けの UI になっている
         // 通常の UI で DPlayer の音量を 1.0 以外に設定した後スマホ向け UI になった場合、DPlayer の音量を変更できず OS の音量を上げるしかなくなる
         // そこで、スマホ向けの UI が表示されている場合のみ常に音量を 1.0 に設定する
-        if (this.player.container.classList.contains('dplayer-mobile') === true) {
+        const is_dplayer_mobile = this.player.container.classList.contains('dplayer-mobile');
+        if (is_dplayer_mobile === true) {
             // player.volume() を用いることで、単に音量を変更するだけでなく LocalStorage に音量を保存する処理も実行される
             // 第3引数を true に設定すると、通知を表示せずに音量を変更できる
             this.player.volume(1.0, undefined, true);
         }
+
+        // PC 向け UI では、前回のミュート状態を戻す
+        // DPlayer は音量だけを保存するため、ミュート状態だけ KonomiTV 側で補う
+        // スマホ向け UI には音量ボタンがなく、ミュートで開始すると画面内で解除できない
+        const is_saved_muted = is_dplayer_mobile === false && localStorage.getItem('dplayer-is-muted') === 'true';
+        if (is_saved_muted === true) {
+            this.player.muted(true);
+        }
+
+        // DPlayer 側で音量やミュート状態が変わったとき、次回起動時に使うミュート状態を保存する
+        // スマホ向け UI ではミュートを解除する音量ボタンが表示されないため、PC 向け UI の状態だけを保存する
+        this.player.on('volumechange', () => {
+            if (this.player === null || this.player.container.classList.contains('dplayer-mobile') === true) return;
+            if (this.is_live_startup_temporary_muted === true) return;
+            localStorage.setItem('dplayer-is-muted', this.player.video.muted ? 'true' : 'false');
+        });
 
         // DPlayer 側のコントロール UI 非表示タイマーを無効化（上書き）
         // 無効化しておかないと、PlayerController.setControlDisplayTimer() の処理と競合してしまう
@@ -1197,7 +1225,14 @@ class PlayerController {
                 // 必ず最初はローディング状態とする
                 player_store.is_loading = true;
 
-                // 一旦音量をミュートする
+                // DPlayer のスマホ向け UI ではミュート解除用の音量ボタンがないため、PC 向け UI の保存値だけ参照する
+                const should_keep_muted_after_live_startup =
+                    this.player.container.classList.contains('dplayer-mobile') === false &&
+                    localStorage.getItem('dplayer-is-muted') === 'true';
+
+                // 再生準備中の音声を出さないため、一時的にミュートする
+                // 保存済みミュートと区別し、volumechange 側で保存値を上書きしないようにする
+                this.is_live_startup_temporary_muted = this.player.video.muted === false;
                 this.player.video.muted = true;
 
                 // この時点で HTMLVideoElement.paused が true のとき、再生できるようになるまで 0.05 秒間を開けて 5 回試す
@@ -1271,22 +1306,28 @@ class PlayerController {
                         player_store.is_background_display = false;
                     }
 
-                    // 再生開始時に音量を徐々に上げる (いきなり再生されるよりも体験が良い)
-                    // ミュートを解除した上で即座に音量を 0 に設定し、そこから徐々に上げていく
-                    this.player.video.muted = false;
-                    this.player.video.volume = 0;
-                    // 0.5 秒間かけて 0 から current_volume まで音量を上げる
-                    const current_volume = this.player.user.get('volume');  // 0.0 ~ 1.0 の範囲
-                    const volume_step = current_volume / 10;
-                    for (let i = 0; i < 10; i++) {  // 10 回に分けて音量を上げる
-                        await Utils.sleep(0.5 / 10);
-                        // 音量が current_volume を超えないようにする
-                        // 浮動小数点絡みの問題 (丸め誤差) が出るため小数第3位で切り捨てる
-                        this.player.video.volume = Math.min(Utils.mathFloor(this.player.video.volume + volume_step, 3), current_volume);
+                    // ユーザーがミュートを保存している場合は、再生開始時のフェードインでミュートを解除しない
+                    if (should_keep_muted_after_live_startup === true) {
+                        this.is_live_startup_temporary_muted = false;
+                    } else {
+                        this.is_live_startup_temporary_muted = false;
+                        this.player.video.muted = false;
+                        // ミュート中でない場合だけフェードインする (いきなり再生されるよりも体験が良い)
+                        // 開始音量を 0 に下げてから、保存されている音量まで徐々に上げる
+                        this.player.video.volume = 0;
+                        // 0.5 秒間かけて 0 から current_volume まで音量を上げる
+                        const current_volume = this.player.user.get('volume');  // 0.0 ~ 1.0 の範囲
+                        const volume_step = current_volume / 10;
+                        for (let i = 0; i < 10; i++) {  // 10 回に分けて音量を上げる
+                            await Utils.sleep(0.5 / 10);
+                            // 音量が current_volume を超えないようにする
+                            // 浮動小数点絡みの問題 (丸め誤差) が出るため小数第3位で切り捨てる
+                            this.player.video.volume = Math.min(Utils.mathFloor(this.player.video.volume + volume_step, 3), current_volume);
+                        }
+                        // 最後に current_volume に設定し直す
+                        // 上記ロジックでは丸め誤差の関係で完全に current_volume とは一致しないことがあるため
+                        this.player.video.volume = current_volume;
                     }
-                    // 最後に current_volume に設定し直す
-                    // 上記ロジックでは丸め誤差の関係で完全に current_volume とは一致しないことがあるため
-                    this.player.video.volume = current_volume;
                 };
                 this.player.video.oncanplay = on_canplay;
                 this.player.video.oncanplaythrough = on_canplay;
@@ -1640,6 +1681,7 @@ class PlayerController {
             // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
             if (toggle_mobile_profile_input.checked) {
                 this.quality_profile_type = 'Cellular';
+                player_store.selected_quality_profile_type = this.quality_profile_type;
                 player_store.event_emitter.emit('PlayerRestartRequired', {
                     message: 'モバイル回線向けの画質プロファイルに切り替えました。',
                     // 他の通知と被らないように、メッセージを遅らせて表示する
@@ -1651,6 +1693,7 @@ class PlayerController {
             // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
             } else {
                 this.quality_profile_type = 'Wi-Fi';
+                player_store.selected_quality_profile_type = this.quality_profile_type;
                 player_store.event_emitter.emit('PlayerRestartRequired', {
                     message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
                     // 他の通知と被らないように、メッセージを遅らせて表示する
@@ -1934,6 +1977,14 @@ class PlayerController {
             if (this.player.template.controller.classList.contains('dplayer-controller-comment')) {
                 this.player_control_ui_hide_timer_id =
                     window.setTimeout(player_control_ui_hide_timer, timeout_seconds * 1000);  // 3秒後に再実行
+                return;
+            }
+
+            // 設定パネルが開いている間は、操作中にコントロール UI を閉じない
+            // 画質や音声などの設定パネルはマウス移動やタッチ操作が止まっても、ユーザーが閉じるまで表示を続ける
+            if (player_store.is_player_setting_panel_open === true) {
+                this.player_control_ui_hide_timer_id =
+                    window.setTimeout(player_control_ui_hide_timer, timeout_seconds * 1000);
                 return;
             }
 
