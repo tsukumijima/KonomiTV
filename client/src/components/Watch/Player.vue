@@ -476,6 +476,12 @@ _::-webkit-full-page-media, _:future, :root .dplayer-icon:hover .dplayer-icon-co
     opacity: 0.8 !important;
 }
 
+// Safari では上の hover 補正が DPlayer の字幕オフ表示より強く効き、オフ状態でも字幕アイコンが明るく見えてしまう
+// DPlayer は字幕オフ時にボタンの aria-label も切り替えるため、style 属性の文字列表現には依存しない
+_::-webkit-full-page-media, _:future, :root .dplayer-subtitle-icon[aria-label='字幕を表示する']:hover .dplayer-icon-content {
+    opacity: 0.4 !important;
+}
+
 </style>
 <style lang="scss" scoped>
 
