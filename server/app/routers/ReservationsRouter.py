@@ -1,6 +1,5 @@
 
 import asyncio
-import configparser
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
@@ -155,10 +154,9 @@ async def DecodeEDCBReserveData(
                 ## EDCBUtil 側の BOM 判定 + UTF-8 優先 + 既定エンコーディングフォールバックに統一する
                 ini_text = EDCBUtil.convertBytesToString(bitrate_ini_data)
 
-                # ConfigParser で解析
-                ## interpolation=None を指定して補間を無効化する (値に % が含まれている場合の安全策)
-                config = configparser.ConfigParser(interpolation=None)
-                config.read_string(ini_text)
+                # EDCB 由来の ini を重複キーを許容して解析
+                ## Bitrate.ini のキーは後段で大文字に変換してから参照するため、ここでは大文字小文字を保持しない
+                config = EDCBUtil.parseEDCBIni(ini_text)
 
                 # BITRATE セクションからビットレート情報を取得してキャッシュに保存
                 _bitrate_ini_cache = {}

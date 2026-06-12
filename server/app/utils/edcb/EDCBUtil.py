@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import datetime
 import sys
 import time
@@ -106,6 +107,39 @@ class EDCBUtil:
                 return str(buffer, 'utf_8', 'strict')
             except UnicodeDecodeError:
                 return str(buffer, default_encoding, 'replace')
+
+    @staticmethod
+    def parseEDCBIni(ini_text: str, is_preserve_case: bool = False) -> configparser.ConfigParser:
+        """
+        EDCB から取得した ini テキストを解析する
+
+        Args:
+            ini_text (str): 解析対象の ini テキスト
+            is_preserve_case (bool): キー名の大文字小文字を保持するかどうか
+
+        Returns:
+            configparser.ConfigParser: 解析済みの ini 設定
+        """
+
+        # パーサーを初期化
+        config = configparser.ConfigParser(
+            # interpolation=None を指定して補間を無効化する
+            ## BatFilePath に %SystemDrive% 等の Windows 環境変数が含まれている場合、
+            ## デフォルトの BasicInterpolation だと InterpolationSyntaxError が発生するため
+            interpolation = None,
+            # 一部環境では EpgTimerSrv.ini の同一セクション内に同じキーが重複しているため、strict=False で最後の値を採用する
+            ## EDCB 本体は同名キーが混じっていても起動できるようなので、KonomiTV 側でもエラーにならないようにする
+            strict = False,
+        )
+
+        # 録画設定プリセットはキー名が PascalCase であることを前提に値を読むため、必要な呼び出し元だけ大文字小文字を保持する
+        if is_preserve_case is True:
+            config.optionxform = str  # type: ignore[method-assign]
+
+        # ini テキストをパース
+        config.read_string(ini_text)
+
+        return config
 
     @staticmethod
     def parseChSet5(chset5_txt: str) -> list[ChSet5Item]:

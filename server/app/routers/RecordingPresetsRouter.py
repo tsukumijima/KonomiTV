@@ -300,14 +300,9 @@ async def RecordingPresetsAPI(
     # バイナリデータを文字列に変換 (BOM 判定付き)
     ini_text = EDCBUtil.convertBytesToString(ini_data)
 
-    # configparser でパース
-    ## Python の configparser はキー名をデフォルトで小文字に変換するため、optionxform を str に設定して PascalCase を保持する
-    ## interpolation=None を指定して補間を無効化する
-    ## (BatFilePath に %SystemDrive% 等の Windows 環境変数が含まれている場合、デフォルトの BasicInterpolation だと
-    ##  InterpolationSyntaxError が発生するため)
-    config = configparser.ConfigParser(interpolation=None)
-    config.optionxform = str  # type: ignore
-    config.read_string(ini_text)
+    # EDCB 由来の ini を重複キーを許容して解析
+    ## EpgTimerSrv.ini のキー名は PascalCase なので、録画設定プリセットの読み取りでは大文字小文字を保持する
+    config = EDCBUtil.parseEDCBIni(ini_text, is_preserve_case=True)
 
     # グローバルデフォルト値のパース
     try:
