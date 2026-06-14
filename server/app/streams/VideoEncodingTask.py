@@ -628,6 +628,27 @@ class VideoEncodingTask:
                 initial_pat_pmt_data: bytes | None = None
                 if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-4':
                     assert file is None
+                    # MP4 では psisimux で単一サービスの MPEG-TS を合成して tsreadex -> エンコーダーへの入力とする
+                    ## この時、チャンネル情報があれば `-b <NID>/<TSID>/<SID>` の指定に実値を使う
+                    mpeg4_channel = self.video_stream.recorded_program.channel
+                    if mpeg4_channel is not None:
+                        # TSID が DB にない場合だけ、psisimux の数値パースを通せる範囲内の未使用値として 65535 を入れる
+                        ## Mirakurun 経由で登録された既存 Channel には transport_stream_id が存在しない場合があり、
+                        ## そのまま引数が `-b 32722/None/2064` のように生成されると、psisimux の起動に失敗する
+                        ## なお、tsreadex のサービス選択は PAT の program_number を見るため、TSID が仮値でも SID 指定はそのまま使える
+                        mpeg4_transport_stream_id = mpeg4_channel.transport_stream_id \
+                            if mpeg4_channel.transport_stream_id is not None else 65535
+                        psisimux_broadcast_id = (
+                            f'{mpeg4_channel.network_id}/'
+                            f'{mpeg4_transport_stream_id}/'
+                            f'{mpeg4_channel.service_id}'
+                        )
+                        tsreadex_service_id = f'{mpeg4_channel.service_id}'
+                    else:
+                        # チャンネルが紐づかない場合は、合成 TS の先頭サービスを選べば映像・音声の抽出には支障がない
+                        ## NID / TSID / SID を後段の再エンコードで参照することはないので、PID が取れる状態を優先する
+                        psisimux_broadcast_id = '1/2/3'
+                        tsreadex_service_id = '-1'
 
                     # psisimux のオプション
                     ## MPEG-4 コンテナに字幕や PSI/SI を結合して MPEG-TS にするツール
@@ -636,10 +657,7 @@ class VideoEncodingTask:
                         # 出力ファイルのミリ秒単位の初期シーク量
                         '-m', str(int(output_ts_offset * 1000)),
                         # NetworkID/TransportStreamID/ServiceID
-                        '-b', '1/2/3' if self.video_stream.recorded_program.channel is None else \
-                            f'{self.video_stream.recorded_program.channel.network_id}/' \
-                            f'{self.video_stream.recorded_program.channel.transport_stream_id}/' \
-                            f'{self.video_stream.recorded_program.channel.service_id}',
+                        '-b', psisimux_broadcast_id,
                         # 文字コードが UTF-8 の字幕を ARIB 規格の8単位符号に変換する
                         '-8',
                         # 字幕ファイルの拡張子
@@ -665,6 +683,8 @@ class VideoEncodingTask:
                         # psisimux の書き込み用パイプは子プロセスに渡したので、親プロセス側ではクローズする
                         os.close(psisimux_write_pipe)
                 else:
+                    tsreadex_service_id = f'{self.video_stream.recorded_program.channel.service_id}' \
+                        if self.video_stream.recorded_program.channel is not None else '-1'
                     assert file is not None
                     if current_segment.source_file_position is None:
                         raise RuntimeError(f'Source file position is not resolved. [sequence: {current_sequence}]')
@@ -789,8 +809,7 @@ class VideoEncodingTask:
                     # 特定サービスのみを選択して出力するフィルタを有効にする
                     ## 有効にすると、特定のストリームのみ PID を固定して出力される
                     ## 視聴対象の録画番組が放送されたチャンネルのサービス ID があれば指定する
-                    '-n', f'{self.video_stream.recorded_program.channel.service_id}' \
-                        if self.video_stream.recorded_program.channel is not None else '-1',
+                    '-n', tsreadex_service_id,
                     # 主音声ストリームが常に存在する状態にする
                     ## ストリームが存在しない場合、無音の AAC ストリームが出力される
                     ## 音声がモノラルであればステレオにする
