@@ -902,6 +902,15 @@ class RecordedScanTask:
                         db_channel = Channel()
                         self.__populateChannelModelFromSchema(db_channel, recorded_program.channel)
                         await db_channel.save()
+                elif (
+                    db_channel.transport_stream_id is None and
+                    recorded_program.channel.transport_stream_id is not None
+                ):
+                    # 既存チャンネルに TSID がない場合だけ、録画メタデータから得た値で補完する
+                    ## Mirakurun のチャンネル情報には TSID が含まれないが、NID/SID/TSID の組は放送運用上ほぼ不変なので、
+                    ## 既知の TSID を失わず保持しておくことで MP4 再生時の psisimux 引数にも利用できる
+                    db_channel.transport_stream_id = recorded_program.channel.transport_stream_id
+                    await db_channel.save(update_fields=['transport_stream_id'])
 
             # RecordedProgram の保存または更新
             if existing_db_recorded_video is not None:

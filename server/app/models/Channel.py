@@ -224,6 +224,8 @@ class Channel(TortoiseModel):
                 channel.id = channel_id
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
+                # Mirakurun のチャンネル情報には TSID が含まれないため、既存レコードの transport_stream_id は触らない
+                ## NID/SID/TSID の組は放送運用上ほぼ不変なので、情報源がない更新で既知の TSID を None に戻さない
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else 0
                 channel.type = channel_type
                 channel.name = TSInformation.formatString(service['name'])
