@@ -1,5 +1,6 @@
 
 import asyncio
+import math
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, cast
@@ -1032,27 +1033,6 @@ async def AddReservationAPI(
     録画予約を追加する。
     """
 
-    # 指定された番組 ID の番組があるかを確認
-    program = await Program.filter(id=reserve_add_request.program_id).get_or_none()
-    if program is None:
-        logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found. [program_id: {reserve_add_request.program_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified program was not found',
-        )
-
-    # 指定された番組 ID に関連付けられたチャンネルがあるかを確認
-    channel = await Channel.filter(id=program.channel_id).get_or_none()
-    if channel is None:
-        logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program.channel_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Specified channel was not found',
-        )
-
-    # EDCB バックエンド利用時は必ずチャンネル情報に transport_stream_id が含まれる
-    assert channel.transport_stream_id is not None, 'transport_stream_id is missing.'
-
     def HasSameReservation(
         reserve_data_list: list[ReserveDataRequired],
         network_id: int,
@@ -1082,48 +1062,154 @@ async def AddReservationAPI(
                 return True
         return False
 
-    # すでに同じ番組 ID の録画予約が存在するかを確認
-    reserve_data_list = await GetReserveDataList(edcb)
-    if HasSameReservation(
-        reserve_data_list,
-        channel.network_id,
-        channel.transport_stream_id,
-        channel.service_id,
-        program.event_id,
-    ) is True:
-        logging.error(f'[ReservationsRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
-        raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'The same program_id is already reserved',
-        )
+    # 指定された番組 ID の番組が DB にある場合は、従来通り EDCB の EPG 情報で補正する
+    program = await Program.filter(id=reserve_add_request.program_id).get_or_none()
+    if program is not None:
+        # 指定された番組 ID に関連付けられたチャンネルがあるかを確認
+        channel = await Channel.filter(id=program.channel_id).get_or_none()
+        if channel is None:
+            logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program.channel_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified channel was not found',
+            )
 
-    # EDCB から録画予約対象の番組に一致する ServiceEventInfo を取得
-    ## KonomiTV のデータベースに保存されているチャンネル名・番組名は表示上に半角に加工されているため、EDCB に設定するには不適切
-    ## 内部仕様がわからないけど予約に設定されている番組名と EPG 上の番組名が異なると予期せぬ問題が発生しそうな気もする
-    ## それ以外にも KonomiTV 側に保存されている情報が古くなっている可能性もあるため、毎回 EDCB から最新の情報を取得する
-    service_event_info, event_info = await GetServiceEventInfo(channel, program, edcb)
+        # EDCB に予約を投入するには TSID が必須
+        # 通常 EDCB バックエンドであればチャンネル情報に必ず TSID が設定されているはずなので通常発生し得ないエラー
+        if channel.transport_stream_id is None:
+            logging.error(f'[ReservationsRouter][AddReserveAPI] Specified channel does not have transport_stream_id. [channel_id: {channel.id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified channel does not have transport_stream_id',
+            )
 
-    # ReserveData オブジェクトに設定するチャンネル情報・番組情報を取得
-    ## 放送時間未定運用などでごく稀に取得できないことも考えられるため、その場合は KonomiTV 側が持っている情報にフォールバックする
-    ## 当然 TSInformation.formatString() はかけずにそのままの情報を使う
-    ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
-    title: str = program.title
-    start_time: datetime = NormalizeToJSTDatetime(program.start_time)
-    duration_second: int = max(int(program.duration), 1)
-    station_name: str = service_event_info['service_info']['service_name']
-    event_id: int = program.event_id
-    if 'short_info' in event_info and 'event_name' in event_info['short_info']:
-        title = event_info['short_info']['event_name']
-    if 'start_time' in event_info:
-        start_time = NormalizeToJSTDatetime(event_info['start_time'])
-    if 'duration_sec' in event_info:
-        duration_second = max(event_info['duration_sec'], 1)
-    if 'eid' in event_info:
-        event_id = event_info['eid']
+        # すでに同じ番組 ID の録画予約が存在するかを確認
+        reserve_data_list = await GetReserveDataList(edcb)
+        if HasSameReservation(
+            reserve_data_list,
+            channel.network_id,
+            channel.transport_stream_id,
+            channel.service_id,
+            program.event_id,
+        ) is True:
+            logging.error(f'[ReservationsRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'The same program_id is already reserved',
+            )
+
+        # EDCB から録画予約対象の番組に一致する ServiceEventInfo を取得
+        ## KonomiTV のデータベースに保存されているチャンネル名・番組名は表示上に半角に加工されているため、EDCB に設定するには不適切
+        ## 内部仕様がわからないけど予約に設定されている番組名と EPG 上の番組名が異なると予期せぬ問題が発生しそうな気もする
+        ## それ以外にも KonomiTV 側に保存されている情報が古くなっている可能性もあるため、毎回 EDCB から最新の情報を取得する
+        service_event_info, event_info = await GetServiceEventInfo(channel, program, edcb)
+
+        # ReserveData オブジェクトに設定するチャンネル情報・番組情報を取得
+        ## 放送時間未定運用などでごく稀に取得できないことも考えられるため、その場合は KonomiTV 側が持っている情報にフォールバックする
+        ## 当然 TSInformation.formatString() はかけずにそのままの情報を使う
+        ## ref: https://github.com/EMWUI/EDCB_Material_WebUI/blob/master/HttpPublic/api/SetReserve#L4-L39
+        title: str = program.title
+        start_time: datetime = NormalizeToJSTDatetime(program.start_time)
+        duration_second: int = max(int(program.duration), 1)
+        station_name: str = service_event_info['service_info']['service_name']
+        event_id: int = program.event_id
+        requested_event_id: int = program.event_id
+        if 'short_info' in event_info and 'event_name' in event_info['short_info']:
+            title = event_info['short_info']['event_name']
+        if 'start_time' in event_info:
+            start_time = NormalizeToJSTDatetime(event_info['start_time'])
+        if 'duration_sec' in event_info:
+            duration_second = max(event_info['duration_sec'], 1)
+        if 'eid' in event_info:
+            event_id = event_info['eid']
+    else:
+        # DB に未反映の EIT[p/f] 由来番組は、クライアントから渡された最小情報で ReserveData を作る
+        ## EpgTimerSrv は EPG データベースに番組情報が登録されていなくても録画予約を投入できる仕様らしい（実際どの程度動くのか不明）
+        program_payload = reserve_add_request.program
+        if program_payload is None:
+            logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found. [program_id: {reserve_add_request.program_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified program was not found',
+            )
+
+        # TSID は IProgram には含まれないため、必ず DB の Channel から取得する
+        channel = await Channel.filter(id=program_payload.channel_id).get_or_none()
+        if channel is None:
+            logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program_payload.channel_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified channel was not found',
+            )
+
+        # EDCB に予約を投入するには TSID が必須
+        # 通常 EDCB バックエンドであればチャンネル情報に必ず TSID が設定されているはずなので通常発生し得ないエラー
+        if channel.transport_stream_id is None:
+            logging.error(f'[ReservationsRouter][AddReserveAPI] Specified channel does not have transport_stream_id. [channel_id: {channel.id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified channel does not have transport_stream_id',
+            )
+
+        # クライアントから送られたペイロードと DB 上の Channel が食い違う場合は、別チャンネルの番組を誤予約するため拒否する
+        if (program_payload.id != reserve_add_request.program_id or
+            program_payload.channel_id != channel.id or
+            program_payload.network_id != channel.network_id or
+            program_payload.service_id != channel.service_id):
+            logging.error(
+                f'[ReservationsRouter][AddReserveAPI] Program payload does not match channel. [program_id: {reserve_add_request.program_id} / payload_channel_id: {program_payload.channel_id} / channel_id: {channel.id} / payload_network_id: {program_payload.network_id} / channel_network_id: {channel.network_id} / payload_service_id: {program_payload.service_id} / channel_service_id: {channel.service_id}]',
+            )
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Program payload does not match channel',
+            )
+
+        # duration が未定の EIT[p/f] は EDCB に投入する録画時間を決められないため、サーバー側でも拒否する
+        if math.isfinite(program_payload.duration) is False or program_payload.duration <= 0:
+            logging.error(
+                f'[ReservationsRouter][AddReserveAPI] Specified program duration is unknown. [program_id: {reserve_add_request.program_id} / duration: {program_payload.duration}]',
+            )
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified program duration is unknown',
+            )
+
+        title = program_payload.title
+        start_time = NormalizeToJSTDatetime(program_payload.start_time)
+        duration_second = int(program_payload.duration)
+        station_name = channel.name
+        event_id = program_payload.event_id
+        requested_event_id = program_payload.event_id  # この後の処理での比較用
+        reserve_end_time = start_time + timedelta(seconds=duration_second)
+
+        # 放送終了後の ReserveData は EpgTimerSrv 側で拒否されるため、送る前に明示的に止める
+        if datetime.now(JST) >= reserve_end_time:
+            logging.error(
+                f'[ReservationsRouter][AddReserveAPI] Specified program has already ended. [program_id: {reserve_add_request.program_id} / event_id: {event_id} / start_time: {start_time.isoformat()} / duration_second: {duration_second}]',
+            )
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Specified program has already ended',
+            )
+
+        # すでに同じ ONID/TSID/SID/EID の録画予約が存在するかを確認
+        reserve_data_list = await GetReserveDataList(edcb)
+        if HasSameReservation(
+            reserve_data_list,
+            channel.network_id,
+            channel.transport_stream_id,
+            channel.service_id,
+            event_id,
+        ) is True:
+            logging.error(f'[ReservationsRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'The same program_id is already reserved',
+            )
 
     # 実際に予約するイベント ID がリクエストされたイベント ID と異なる場合は重複チェックをやり直す
     ## EPG 更新の遅延でフロントエンドが持つ EID が古い場合で、現在放送中のイベントへフェイルオーバーした時に二重予約を防ぐ
-    if event_id != program.event_id:
+    if event_id != requested_event_id:
         if HasSameReservation(
             reserve_data_list,
             channel.network_id,
@@ -1132,7 +1218,7 @@ async def AddReservationAPI(
             event_id,
         ) is True:
             logging.error(
-                f'[ReservationsRouter][AddReserveAPI] The fallback event is already reserved. [program_id: {reserve_add_request.program_id} / requested_event_id: {program.event_id} / resolved_event_id: {event_id}]',
+                f'[ReservationsRouter][AddReserveAPI] The fallback event is already reserved. [program_id: {reserve_add_request.program_id} / requested_event_id: {requested_event_id} / resolved_event_id: {event_id}]',
             )
             raise HTTPException(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1212,7 +1298,7 @@ async def AddReservationAPI(
             )
 
         logging.error(
-            f'[ReservationsRouter][AddReserveAPI] Failed to add a recording reservation. [program_id: {reserve_add_request.program_id} / requested_event_id: {program.event_id} / resolved_event_id: {event_id} / start_time: {start_time.isoformat()} / duration_second: {duration_second}]',
+            f'[ReservationsRouter][AddReserveAPI] Failed to add a recording reservation. [program_id: {reserve_add_request.program_id} / requested_event_id: {requested_event_id} / resolved_event_id: {event_id} / start_time: {start_time.isoformat()} / duration_second: {duration_second}]',
         )
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,

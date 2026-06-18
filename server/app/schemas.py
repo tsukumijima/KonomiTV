@@ -318,6 +318,29 @@ class ReservationAddRequest(BaseModel):
     program_id: str
     # 録画設定
     record_settings: RecordSettings
+    # DB に番組が存在しない場合に使う補助番組情報
+    program: ReservationAddProgram | None = None
+
+# 録画予約追加時に補助入力として渡す番組情報
+## DB に未反映で EIT[p/f] にのみ番組情報が存在する番組を予約できるようにするため、
+## EDCB への予約投入に必要な最小項目だけを定義している
+class ReservationAddProgram(BaseModel):
+    # 録画予約を追加する番組の ID (NID32736-SID1024-EID65535 の形式)
+    id: str
+    # 録画予約を追加する番組のチャンネル ID
+    channel_id: str
+    # ネットワーク ID (ONID)
+    network_id: int
+    # サービス ID (SID)
+    service_id: int
+    # イベント ID (EID)
+    event_id: int
+    # 番組名
+    title: str
+    # 番組開始時刻
+    start_time: datetime
+    # 番組の長さ (秒)
+    duration: float
 
 # 録画予約を変更する
 class ReservationUpdateRequest(BaseModel):
