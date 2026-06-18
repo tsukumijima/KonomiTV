@@ -58,11 +58,26 @@ export interface IReservations {
 }
 
 /**
+ * 録画予約追加時に補助入力として渡す番組情報
+ */
+export interface IReservationAddProgram {
+    id: string;
+    channel_id: string;
+    network_id: number;
+    service_id: number;
+    event_id: number;
+    title: string;
+    start_time: string;
+    duration: number;
+}
+
+/**
  * 録画予約追加リクエスト
  */
 export interface IReservationAddRequest {
     program_id: string;
     record_settings: IRecordSettings;
+    program?: IReservationAddProgram | null;
 }
 
 /**
@@ -164,12 +179,18 @@ class Reservations {
      * 録画予約を追加する
      * @param program_id 録画予約を追加する番組の ID
      * @param record_settings 録画設定
+     * @param program DB に番組が存在しない場合に使う補助番組情報
      * @returns 成功した場合は true、失敗した場合は false
      */
-    static async addReservation(program_id: string, record_settings: IRecordSettings): Promise<boolean> {
+    static async addReservation(
+        program_id: string,
+        record_settings: IRecordSettings,
+        program: IReservationAddProgram | null = null,
+    ): Promise<boolean> {
         const request_data: IReservationAddRequest = {
             program_id,
             record_settings,
+            program,
         };
 
         const response = await APIClient.post('/recording/reservations', request_data);
@@ -184,6 +205,18 @@ class Reservations {
                     break;
                 case 'Specified channel was not found':
                     APIClient.showGenericError(response, '指定されたチャンネルが見つかりませんでした。');
+                    break;
+                case 'Specified program duration is unknown':
+                    APIClient.showGenericError(response, 'この番組は放送時間が未定のため、録画予約できません。');
+                    break;
+                case 'Program payload does not match channel':
+                    APIClient.showGenericError(response, '番組情報とチャンネル情報が一致しないため、録画予約できません。');
+                    break;
+                case 'Specified channel does not have transport_stream_id':
+                    APIClient.showGenericError(response, 'チャンネル情報に TSID がないため、録画予約できません。');
+                    break;
+                case 'Specified program has already ended':
+                    APIClient.showGenericError(response, 'すでに終了した番組のため、録画予約できません。');
                     break;
                 case 'The same program_id is already reserved':
                     APIClient.showGenericError(response, 'この番組は既に録画予約されています。');

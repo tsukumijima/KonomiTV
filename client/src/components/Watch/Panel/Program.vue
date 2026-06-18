@@ -306,10 +306,19 @@ export default defineComponent({
             if (programPresent === null) {
                 return;
             }
+            // EIT[p/f] の duration が未定の場合は、EDCB に投入する録画時間を決められないため予約しない
+            if (Number.isFinite(programPresent.duration) !== true || programPresent.duration <= 0) {
+                Message.warning('この番組は放送時間が未定のため、録画予約できません。');
+                return;
+            }
             this.is_starting_recording = true;
             try {
                 const defaultSettings = await Reservations.fetchDefaultRecordSettings();
-                const result = await Reservations.addReservation(programPresent.id, defaultSettings);
+                const result = await Reservations.addReservation(
+                    programPresent.id,
+                    defaultSettings,
+                    programPresent,
+                );
                 // 予約状態を再チェックして UI を更新
                 // 予約追加に失敗した場合も、外部で既に予約済みの可能性があるため状態を再取得する
                 await this.checkReservationStatus();
