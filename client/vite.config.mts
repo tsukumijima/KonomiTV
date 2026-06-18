@@ -42,7 +42,7 @@ export default defineConfig({
             scss: {
                 // 共通の mixin を読み込む
                 // ref: https://qiita.com/nanohanabuttobasu/items/f73ed978cc10d8bcaa59
-                additionalData: '@import "./src/styles/mixin.scss";',
+                additionalData: '@import "@/styles/mixin.scss";',
             },
         },
     },
