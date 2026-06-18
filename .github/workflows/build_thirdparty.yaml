@@ -17,7 +17,7 @@ on:
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
   ## ref: https://github.com/indygreg/python-build-standalone/releases
-  PYTHON_TAG: '20260414'
+  PYTHON_TAG: '20260610'
   PYTHON_MAJOR_VERSION: '3.11'
   PYTHON_VERSION: '3.11.15'
   # Poetry のバージョン
@@ -26,9 +26,9 @@ env:
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
   ## Linux 版の最新 HWEncC バイナリは libav* を静的リンクするようになり、FFmpeg 共有ライブラリの別途同梱は不要になった
   ## ref: https://github.com/BtbN/FFmpeg-Builds/releases
-  FFMPEG_TAG: 'autobuild-2026-04-30-13-44'
+  FFMPEG_TAG: 'autobuild-2026-05-31-13-22'
   FFMPEG_MAJOR_VERSION: '7.1'
-  FFMPEG_VERSION: '7.1.3-46-g957b06a788'
+  FFMPEG_VERSION: '7.1.4-7-gadcf20da26'
   # QSVEncC・NVEncC・VCEEncC・rkmppenc のバージョン
   ## ref: https://github.com/rigaya/QSVEnc/releases
   ## ref: https://github.com/rigaya/NVEnc/releases
