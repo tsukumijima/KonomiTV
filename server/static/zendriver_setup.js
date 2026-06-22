@@ -239,16 +239,18 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
     // ||twitter.com / ||x.com / ||platform.twitter.com 系ルールを網羅する
     // 加えて、jot → graphql/user_flow に移行された新エンドポイントもブロックする
     const analyticsBlockPatterns = [
-        '/graphql/user_flow.json',   // 新: scribe イベント (rweb_home_jot_migrate_enabled=true 時)
-        '/graphql/error_log.json',   // 新: エラーログ (同上)
-        '/jot',                      // 旧: /1.1/jot, /i/jot, /i/api/1.1/jot, jot.html 等を網羅
-        '/log.json',                 // 広告インプレッション追跡 (promoted_content/log.json 等)
-        '/oct.js',                   // 旧: Twitter のトラッキングスクリプト
-        '/scribe/',                  // 旧: scribe エンドポイント
-        '/csp_report',               // CSP 違反レポート
-        '/1.1/attribution',          // アトリビューション追跡
-        '/9/measurement/',           // 広告計測
-        '/impressions.js',           // platform.twitter.com の広告インプレッション追跡
+        '/graphql/viewe_context.json',  // 新: scribe イベント (rweb_home_jot_context_enabled=true 時)
+        '/graphql/app_context.json',      // 新: エラーログ (同上)
+        '/graphql/user_flow.json',      // 新: scribe イベント (rweb_home_jot_migrate_enabled=true 時)
+        '/graphql/error_log.json',      // 新: エラーログ (同上)
+        '/jot',                         // 旧: /1.1/jot, /i/jot, /i/api/1.1/jot, jot.html 等を網羅
+        '/log.json',                    // 広告インプレッション追跡 (promoted_content/log.json 等)
+        '/oct.js',                      // 旧: Twitter のトラッキングスクリプト
+        '/scribe/',                     // 旧: scribe エンドポイント
+        '/csp_report',                  // CSP 違反レポート
+        '/1.1/attribution',             // アトリビューション追跡
+        '/9/measurement/',              // 広告計測
+        '/impressions.js',              // platform.twitter.com の広告インプレッション追跡
     ];
 
     // URL がブロック対象のアナリティクスエンドポイントかどうかを判定する
