@@ -28,6 +28,8 @@ router = APIRouter(
     prefix = '/api/programs',
 )
 
+TimeTableSubchannelGroupKey = tuple[Literal['TS', 'BSService'], int, int]
+
 
 def GetTimeTableChannelSortKey(channel_row: dict[str, Any]) -> tuple[int, int, int, int, str]:
     """
@@ -77,6 +79,36 @@ def GetTimeTableChannelSortKey(channel_row: dict[str, Any]) -> tuple[int, int, i
         int(channel_row['service_id']),
         channel_number,
     )
+
+
+def GetTimeTableSubchannelGroupKey(channel_row: dict[str, Any]) -> TimeTableSubchannelGroupKey | None:
+    """
+    番組表でサブチャンネルを同じ列へ入れるためのグループキーを取得する
+
+    Args:
+        channel_row (dict[str, Any]): channels テーブルから取得したチャンネル行
+
+    Returns:
+        TimeTableSubchannelGroupKey | None: サブチャンネル結合用キー (判定できない場合は None)
+    """
+
+    # TSID がある場合は放送波の単位をそのまま使う
+    ## サブチャンネルは同一 TS 内の別サービスなので、EDCB や録画メタデータで TSID が取れている環境では
+    ## NID+TSID がもっとも情報量の多い結合条件になる
+    if channel_row['transport_stream_id'] is not None:
+        return ('TS', int(channel_row['network_id']), int(channel_row['transport_stream_id']))
+
+    # TSID がない BS は、既知のマルチ編成だけサービス ID から親サービスへ寄せる
+    ## Mirakurun の /api/services は TSID を返さないため、(NID, None) を同じ TS と見なすと
+    ## BS 全体のうち TSID が欠けている局が同じ列グループに入ってしまう
+    if channel_row['type'] == 'BS':
+        parent_service_id = TSInformation.calculateSubchannelParentServiceID('BS', int(channel_row['service_id']))
+        if parent_service_id is not None:
+            return ('BSService', int(channel_row['network_id']), parent_service_id)
+        return ('BSService', int(channel_row['network_id']), int(channel_row['service_id']))
+
+    # TSID もサービス ID からの親子判定もないチャンネルは、誤結合を避けるため単独扱いにする
+    return None
 
 
 def DecodeEDCBEventInfo(event_info: EventInfo) -> schemas.Program:
@@ -445,51 +477,59 @@ async def TimeTableAPI(
     if target_channel_ids is None:
         channels_result.sort(key=GetTimeTableChannelSortKey)
 
-    # 各 TS (network_id, transport_stream_id) ごとに、サブチャンネルの8時間ルール判定を行う
-    # まず TS ごとにグループ化
-    ts_channels: dict[tuple[int, int | None], list[dict[str, Any]]] = {}
+    # サブチャンネル結合用キーごとにチャンネルをグループ化
+    ## TSID がないチャンネルは同じ TS と断定できないため、GetTimeTableSubchannelGroupKey() で
+    ## Mirakurun の BS だけ既知の SID 親子関係へ寄せ、それ以外は単独扱いにする
+    grouped_channels: dict[TimeTableSubchannelGroupKey, list[dict[str, Any]]] = {}
     for channel_row in channels_result:
-        ts_key = (channel_row['network_id'], channel_row['transport_stream_id'])
-        if ts_key not in ts_channels:
-            ts_channels[ts_key] = []
-        ts_channels[ts_key].append(channel_row)
+        group_key = GetTimeTableSubchannelGroupKey(channel_row)
+        if group_key is None:
+            continue
+        if group_key not in grouped_channels:
+            grouped_channels[group_key] = []
+        grouped_channels[group_key].append(channel_row)
 
     # サブチャンネル放送時間の集計を1つのクエリで取得
-    # 全チャンネルの network_id と transport_stream_id の組み合わせに対して一括取得
-    # これにより TS ごとに個別クエリを実行する N+1 問題を回避
+    # チャンネル ID ごとに一括取得し、Python 側でサブチャンネル結合用キーへ積み直す
+    ## SQL 側で transport_stream_id ごとに GROUP BY すると、NULL TSID 同士が同じグループに入り、
+    ## Mirakurun バックエンドで BS の別トランスポンダを同一 TS と誤判定してしまう
     subchannel_durations_query = """
         SELECT
+            c.id,
+            c.type,
             c.network_id,
-            c.transport_stream_id,
             p.service_id,
+            c.transport_stream_id,
             DATE(p.start_time, '-4 hours') AS broadcast_date,
             SUM(p.duration) AS total_duration
         FROM programs p
         INNER JOIN channels c ON p.channel_id = c.id
         WHERE c.is_subchannel = 1
-        GROUP BY c.network_id, c.transport_stream_id, p.service_id, broadcast_date
+        GROUP BY c.id, c.type, c.network_id, p.service_id, c.transport_stream_id, broadcast_date
     """
     subchannel_durations_result = await connection.execute_query_dict(subchannel_durations_query)
 
-    # サブチャンネル放送時間を TS キー -> サービス ID -> 日付 -> 放送時間 の形式に整理
-    subchannel_durations_by_ts: dict[tuple[int, int | None], dict[int, dict[str, float]]] = {}
+    # サブチャンネル放送時間を結合用キー -> サービス ID -> 日付 -> 放送時間 の形式に整理
+    subchannel_durations_by_group: dict[TimeTableSubchannelGroupKey, dict[int, dict[str, float]]] = {}
     for row in subchannel_durations_result:
-        ts_key = (row['network_id'], row['transport_stream_id'])
+        group_key = GetTimeTableSubchannelGroupKey(row)
+        if group_key is None:
+            continue
         service_id = row['service_id']
         broadcast_date = row['broadcast_date']
         total_duration = row['total_duration'] or 0
 
-        if ts_key not in subchannel_durations_by_ts:
-            subchannel_durations_by_ts[ts_key] = {}
-        if service_id not in subchannel_durations_by_ts[ts_key]:
-            subchannel_durations_by_ts[ts_key][service_id] = {}
-        subchannel_durations_by_ts[ts_key][service_id][broadcast_date] = total_duration
+        if group_key not in subchannel_durations_by_group:
+            subchannel_durations_by_group[group_key] = {}
+        if service_id not in subchannel_durations_by_group[group_key]:
+            subchannel_durations_by_group[group_key][service_id] = {}
+        subchannel_durations_by_group[group_key][service_id][broadcast_date] = total_duration
 
     # 8時間ルールに基づいて独立サブチャンネルを判定
     # 閾値: 8時間 = 28800秒
     INDEPENDENT_SUBCHANNEL_THRESHOLD = 8 * 3600
-    independent_subchannels_by_ts: dict[tuple[int, int | None], set[int]] = {}
-    for ts_key, durations_by_service in subchannel_durations_by_ts.items():
+    independent_subchannels_by_group: dict[TimeTableSubchannelGroupKey, set[int]] = {}
+    for group_key, durations_by_service in subchannel_durations_by_group.items():
         independent_subchannels: set[int] = set()
         for service_id, daily_durations in durations_by_service.items():
             # いずれかの日で閾値以上の放送時間があれば独立チャンネルとして判定
@@ -497,7 +537,7 @@ async def TimeTableAPI(
                 if duration >= INDEPENDENT_SUBCHANNEL_THRESHOLD:
                     independent_subchannels.add(service_id)
                     break
-        independent_subchannels_by_ts[ts_key] = independent_subchannels
+        independent_subchannels_by_group[group_key] = independent_subchannels
 
     # 番組情報を取得するためのチャンネル ID リストを構築
     channel_ids_for_query = [c['id'] for c in channels_result]
@@ -658,8 +698,8 @@ async def TimeTableAPI(
     result_channels: list[dict[str, Any]] = []
 
     for channel_row in channels_result:
-        ts_key = (channel_row['network_id'], channel_row['transport_stream_id'])
-        independent_subchannels = independent_subchannels_by_ts.get(ts_key, set())
+        group_key = GetTimeTableSubchannelGroupKey(channel_row)
+        independent_subchannels = independent_subchannels_by_group.get(group_key, set()) if group_key is not None else set()
 
         # このチャンネルがサブチャンネルかつ独立サブチャンネルでない場合はスキップ
         # (メインチャンネルの subchannels に含める)
@@ -671,10 +711,10 @@ async def TimeTableAPI(
 
         # サブチャンネルのリストを収集 (8時間未満のサブチャンネルのみ)
         subchannels: list[dict[str, Any]] | None = None
-        if not channel_row['is_subchannel']:
-            # メインチャンネルの場合、同一 TS 内のサブチャンネル番組を収集
-            ts_channel_list = ts_channels.get(ts_key, [])
-            for sub_channel_row in ts_channel_list:
+        if not channel_row['is_subchannel'] and group_key is not None:
+            # メインチャンネルの場合、同じ結合用キーに属するサブチャンネル番組を収集
+            grouped_channel_list = grouped_channels.get(group_key, [])
+            for sub_channel_row in grouped_channel_list:
                 # サブチャンネルかつ独立サブチャンネルでない場合のみ
                 if sub_channel_row['is_subchannel'] and sub_channel_row['service_id'] not in independent_subchannels:
                     # サブチャンネルの SID がメインチャンネルの SID より小さい場合はスキップ

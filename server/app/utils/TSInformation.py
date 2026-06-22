@@ -659,6 +659,50 @@ class TSInformation:
 
 
     @staticmethod
+    def calculateSubchannelParentServiceID(type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> int | None:
+        """
+        サブチャンネルの親サービス ID を算出する
+
+        Args:
+            type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネル種別
+            service_id (int): サービス ID
+
+        Returns:
+            int | None: 親サービス ID (親子関係を決め打ちできない場合は None)
+        """
+
+        # 現状は BS のみ TSID なしでも親子関係を決め打ちできる
+        ## Mirakurun の /api/services は TSID を返さないため、BS のサブチャンネル表示では
+        ## サービス ID から親サービスを補える範囲だけを同じマルチ編成として扱う
+        if type != 'BS':
+            return None
+
+        # NHK BS
+        if service_id == 102:
+            return 101
+        if service_id == 104:
+            return 103
+
+        # 民放系 BS のマルチ編成
+        if 142 <= service_id <= 149:
+            return 141
+        if 152 <= service_id <= 159:
+            return 151
+        if 162 <= service_id <= 169:
+            return 161
+        if 172 <= service_id <= 179:
+            return 171
+        if 182 <= service_id <= 189:
+            return 181
+
+        # 放送大学テレビ
+        if service_id in [232, 233]:
+            return 231
+
+        return None
+
+
+    @staticmethod
     def calculateIsSubchannel(type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> bool:
         """ チャンネルがサブチャンネルかどうかを算出する """
 
