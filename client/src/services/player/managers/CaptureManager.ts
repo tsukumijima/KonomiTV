@@ -478,7 +478,19 @@ class CaptureManager implements PlayerManager {
             for (const capture of [result.capture_normal, result.capture_caption]) {
                 if (capture !== null) {
                     try {
-                        await copyBlobToClipboard(await convertBlobToPng(capture));
+                        const png_capture = await convertBlobToPng(capture);
+                        // Document Picture-in-Picture ウインドウにフォーカスがある場合、メインウインドウの
+                        // navigator.clipboard を使うと NotAllowedError が発生するため、PiP ウインドウ側の
+                        // Clipboard API を使う
+                        const document_pip_window = ('documentPictureInPicture' in window) ?
+                            documentPictureInPicture.window : null;
+                        if (document_pip_window !== null && document_pip_window.document.hasFocus()) {
+                            await document_pip_window.navigator.clipboard.write([
+                                new ClipboardItem({[png_capture.type]: png_capture}),
+                            ]);
+                        } else {
+                            await copyBlobToClipboard(png_capture);
+                        }
                     } catch (error) {
                         this.player.notice('クリップボードへのキャプチャのコピーに失敗しました。', undefined, undefined, '#FF6F6A');
                         console.error(error);
