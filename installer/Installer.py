@@ -41,6 +41,30 @@ from Utils import (
 )
 
 
+# NVIDIA GPU のうち、製品名だけで NVENC が搭載されていないと判定できる機種名
+## NVIDIA のサポート表にない古い機種もあるため、実機の報告と製品仕様を確認できた機種だけを列挙する
+## GT 705 は NVENC 対応リビジョンの日本国内での発売を確認できないため除外対象に含める
+## GT 630・GT 710・GT 720 は NVENC 対応の GK208 版が日本国内で発売されているため除外対象に含めない
+## GT 730 は NVENC 非搭載の Fermi 版と対応する Kepler 版が同じ製品名で日本国内に流通しているため除外対象に含めない
+NVIDIA_GPU_NAMES_WITHOUT_NVENC: tuple[str, ...] = (
+    'GeForce GT 610',
+    'GeForce GT 620',
+    'GeForce GT 625',
+    'GeForce GT 705',
+    'GeForce GT 1010',
+    'GeForce GT 1030',
+    'GeForce MX110',
+    'GeForce MX130',
+    'GeForce MX150',
+    'GeForce MX230',
+    'GeForce MX250',
+    'GeForce MX330',
+    'GeForce MX350',
+    'GeForce MX450',
+    'GeForce MX570 A',
+)
+
+
 def Installer(version: str) -> None:
     """
     KonomiTV のインストーラーの実装
@@ -354,8 +378,16 @@ def Installer(version: str) -> None:
             vceencc_available = f'✅利用できます (AMD GPU: {gpu_name})'
             default_encoder = 'VCEEncC'
         elif 'NVIDIA' in gpu_name or 'Geforce' in gpu_name:
-            nvencc_available = f'✅利用できます (NVIDIA GPU: {gpu_name})'
-            default_encoder = 'NVEncC'
+            # NVIDIA GPU でも NVENC 自体を搭載していない機種は NVEncC の候補から除外
+            ## 機種名の表記揺れを吸収しつつ、未知の新製品を誤って除外しないよう既知の非対応機種との部分一致で判定する
+            normalized_gpu_name = gpu_name.casefold()
+            has_nvenc = all(
+                unsupported_gpu_name.casefold() not in normalized_gpu_name
+                for unsupported_gpu_name in NVIDIA_GPU_NAMES_WITHOUT_NVENC
+            )
+            if has_nvenc is True:
+                nvencc_available = f'✅利用できます (NVIDIA GPU: {gpu_name})'
+                default_encoder = 'NVEncC'
         elif 'Intel' in gpu_name:
             qsvencc_available = f'✅利用できます (Intel GPU: {gpu_name})'
             default_encoder = 'QSVEncC'
