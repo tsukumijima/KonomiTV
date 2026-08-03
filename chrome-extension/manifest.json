@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "KonomiTV X Embed PoC",
+  "version": "0.0.1",
+  "description": "Embeds the official x.com Web App into KonomiTV pages for local feasibility testing.",
+  "permissions": [
+    "cookies",
+    "declarativeNetRequest",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://*.local.konomi.tv/*",
+    "https://*.x.com/*",
+    "https://*.twitter.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.local.konomi.tv/*"
+      ],
+      "js": [
+        "konomitv-panel.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.x.com/*",
+        "https://*.twitter.com/*"
+      ],
+      "js": [
+        "x-frame.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}
