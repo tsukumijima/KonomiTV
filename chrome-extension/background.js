@@ -1,20 +1,20 @@
-const X_EMBED_RULE_ID = 1;
-const X_COOKIE_RULE_ID_START = 100;
-const X_COOKIE_RULE_ID_END = 999;
-const X_REQUEST_TARGETS = [
+const TWITTER_EMBED_RULE_ID = 1;
+const TWITTER_COOKIE_RULE_ID_START = 100;
+const TWITTER_COOKIE_RULE_ID_END = 999;
+const TWITTER_REQUEST_TARGETS = [
   {hostname: 'x.com'},
   {hostname: 'api.x.com'},
 ];
-let xCookieRulesUpdatePromise = Promise.resolve();
+let twitterCookieRulesUpdatePromise = Promise.resolve();
 
 const updateDnrRules = async () => {
   // KonomiTV から x.com を iframe 表示する検証に必要なレスポンスヘッダーだけを外す
   // initiatorDomains はサブドメインにも一致するため、192-168-1-xx.local.konomi.tv 系も対象になる
   await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [X_EMBED_RULE_ID],
+    removeRuleIds: [TWITTER_EMBED_RULE_ID],
     addRules: [
       {
-        id: X_EMBED_RULE_ID,
+        id: TWITTER_EMBED_RULE_ID,
         priority: 1,
         action: {
           type: 'modifyHeaders',
@@ -60,19 +60,19 @@ const isCookieDomainMatch = (hostname, cookie) => {
   return hostname === cookieDomain || hostname.endsWith(`.${cookieDomain}`);
 };
 
-const updateXCookieRules = async () => {
-  // KonomiTV タブの有無で規則の寿命を管理し、X の Service Worker が発行する tabId=-1 の要求も補完する
+const updateTwitterCookieRules = async () => {
+  // KonomiTV タブの有無で規則の寿命を管理し、Twitter の Service Worker が発行する tabId=-1 の要求も補完する
   const konomiTVTabs = await chrome.tabs.query({url: 'https://*.local.konomi.tv/*'});
 
   // Service Worker の再起動後も残るセッション規則を API から復元し、同じ ID の再追加を避ける
   const existingSessionRules = await chrome.declarativeNetRequest.getSessionRules();
-  const existingXCookieRuleIDs = existingSessionRules
+  const existingTwitterCookieRuleIDs = existingSessionRules
     .map((sessionRule) => sessionRule.id)
-    .filter((ruleID) => ruleID >= X_COOKIE_RULE_ID_START && ruleID <= X_COOKIE_RULE_ID_END);
+    .filter((ruleID) => ruleID >= TWITTER_COOKIE_RULE_ID_START && ruleID <= TWITTER_COOKIE_RULE_ID_END);
 
   // 対象タブがない間は認証情報をセッション規則へ保持する必要がない
   if (konomiTVTabs.length === 0) {
-    await chrome.declarativeNetRequest.updateSessionRules({removeRuleIds: existingXCookieRuleIDs});
+    await chrome.declarativeNetRequest.updateSessionRules({removeRuleIds: existingTwitterCookieRuleIDs});
     return;
   }
 
@@ -95,7 +95,7 @@ const updateXCookieRules = async () => {
   const allCookies = [...unpartitionedCookies, ...uniquePartitionedCookies];
 
   const cookieRules = [];
-  for (const requestTarget of X_REQUEST_TARGETS) {
+  for (const requestTarget of TWITTER_REQUEST_TARGETS) {
     // ホスト限定と Domain Cookie を分け、対象ホストへ送信できる Cookie だけを残す
     const hostnameCookies = allCookies.filter((cookie) => isCookieDomainMatch(requestTarget.hostname, cookie));
     const csrfCookie = hostnameCookies.find((cookie) => cookie.name === 'ct0');
@@ -111,7 +111,7 @@ const updateXCookieRules = async () => {
       const requestCookies = hostnameCookies
         .filter((cookie) => isCookiePathMatch(representativeRequestPath, cookie.path))
         .sort((firstCookie, secondCookie) => secondCookie.path.length - firstCookie.path.length);
-      const ruleID = X_COOKIE_RULE_ID_START + cookieRules.length;
+      const ruleID = TWITTER_COOKIE_RULE_ID_START + cookieRules.length;
       const escapedCookiePath = escapeRegex(cookiePath);
       const pathSuffix = cookiePath.endsWith('/') ? '' : '(?:/|$)';
       cookieRules.push({
@@ -142,23 +142,23 @@ const updateXCookieRules = async () => {
 
   // Cookie 値はブラウザ終了時に破棄されるセッション規則だけへ保持する
   await chrome.declarativeNetRequest.updateSessionRules({
-    removeRuleIds: existingXCookieRuleIDs,
+    removeRuleIds: existingTwitterCookieRuleIDs,
     addRules: cookieRules,
   });
 };
 
-const scheduleXCookieRulesUpdate = () => {
+const scheduleTwitterCookieRulesUpdate = () => {
   // Cookie 更新が連続しても DNR 更新を直列化し、同じ規則 ID の追加処理を競合させない
-  xCookieRulesUpdatePromise = xCookieRulesUpdatePromise.then(updateXCookieRules, updateXCookieRules);
-  return xCookieRulesUpdatePromise;
+  twitterCookieRulesUpdatePromise = twitterCookieRulesUpdatePromise.then(updateTwitterCookieRules, updateTwitterCookieRules);
+  return twitterCookieRulesUpdatePromise;
 };
 
 chrome.runtime.onInstalled.addListener(() => {
   updateDnrRules().catch((error) => {
     console.error('Failed to install DNR rules:', error);
   });
-  scheduleXCookieRulesUpdate().catch((error) => {
-    console.error('Failed to install X cookie rules:', error);
+  scheduleTwitterCookieRulesUpdate().catch((error) => {
+    console.error('Failed to install Twitter cookie rules:', error);
   });
 });
 
@@ -166,33 +166,33 @@ chrome.runtime.onStartup.addListener(() => {
   updateDnrRules().catch((error) => {
     console.error('Failed to restore DNR rules:', error);
   });
-  scheduleXCookieRulesUpdate().catch((error) => {
-    console.error('Failed to restore X cookie rules:', error);
+  scheduleTwitterCookieRulesUpdate().catch((error) => {
+    console.error('Failed to restore Twitter cookie rules:', error);
   });
 });
 
 chrome.webNavigation.onCommitted.addListener((details) => {
   // 最上位ページの遷移後に対象タブを取り直し、KonomiTV から離れたタブへ規則を残さない
   if (details.frameId === 0) {
-    scheduleXCookieRulesUpdate().catch((error) => {
-      console.error('Failed to update X cookie rules after navigation:', error);
+    scheduleTwitterCookieRulesUpdate().catch((error) => {
+      console.error('Failed to update Twitter cookie rules after navigation:', error);
     });
   }
 });
 
 chrome.tabs.onRemoved.addListener(() => {
   // KonomiTV のタブを閉じた場合は残った対象タブだけで規則を作り直す
-  scheduleXCookieRulesUpdate().catch((error) => {
-    console.error('Failed to update X cookie rules after closing a tab:', error);
+  scheduleTwitterCookieRulesUpdate().catch((error) => {
+    console.error('Failed to update Twitter cookie rules after closing a tab:', error);
   });
 });
 
 chrome.cookies.onChanged.addListener((changeInfo) => {
-  // X の Cookie が変化した直後から、次の要求で使うヘッダー全体を最新状態へ更新する
+  // Twitter の Cookie が変化した直後から、次の要求で使うヘッダー全体を最新状態へ更新する
   const cookieDomain = changeInfo.cookie.domain;
   if (cookieDomain === 'x.com' || cookieDomain.endsWith('.x.com')) {
-    scheduleXCookieRulesUpdate().catch((error) => {
-      console.error('Failed to update X cookie rules after a cookie change:', error);
+    scheduleTwitterCookieRulesUpdate().catch((error) => {
+      console.error('Failed to update Twitter cookie rules after a cookie change:', error);
     });
   }
 });

@@ -1,5 +1,5 @@
 (() => {
-  const STYLE_ID = 'konomitv-x-frame-poc-style';
+  const STYLE_ID = 'konomitv-twitter-frame-poc-style';
 
   // 通常の x.com タブへ iframe 用 CSS を適用しないよう、KonomiTV 配下のフレームだけに限定する
   const hasKonomiTVAncestor = [...location.ancestorOrigins].some((ancestorOrigin) => {

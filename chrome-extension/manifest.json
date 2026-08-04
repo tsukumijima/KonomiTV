@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "KonomiTV X Embed PoC",
+  "name": "KonomiTV Twitter Embed PoC",
   "version": "0.0.1",
   "description": "Embeds the official x.com Web App into KonomiTV pages for local feasibility testing.",
   "permissions": [

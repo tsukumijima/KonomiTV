@@ -1,5 +1,5 @@
 (() => {
-  const PANEL_ID = 'konomitv-x-embed-poc';
+  const PANEL_ID = 'konomitv-twitter-embed-poc';
 
   // 拡張の再読み込みや KonomiTV の画面遷移後に二重表示されないよう、既存パネルがあれば再作成しない
   if (document.getElementById(PANEL_ID) !== null) {
@@ -26,7 +26,7 @@
   const iframe = document.createElement('iframe');
   iframe.src = 'https://x.com/home';
   iframe.allow = 'fullscreen; clipboard-write';
-  // ローカルの KonomiTV オリジンを X の onboarding/referrer へ送らず、直接アクセスと同じ状態にする
+  // ローカルの KonomiTV オリジンを Twitter の onboarding/referrer へ送らず、直接アクセスと同じ状態にする
   iframe.referrerPolicy = 'no-referrer';
   iframe.style.cssText = [
     'display: block',
