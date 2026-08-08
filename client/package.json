@@ -30,7 +30,7 @@
         "hls.js": "^1.6.9",
         "mitt": "^3.0.1",
         "mpegts.js": "github:tsukumijima/mpegts.js#c69a71c809b6e0a53f7101455333f8b3d98460d0",
-        "nanoid": "^5.0.9",
+        "nanoid": "^5.1.16",
         "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
         "pinia": "^2.2.2",
