@@ -47,7 +47,6 @@ export default class OfflineVideoStorage {
                 validVideos.push(video);
             } else {
                 await this.deleteIncompleteVideo(video);
-                console.warn(`[OfflineVideoStorage] Removed incomplete offline video data. [video_id: ${video.video_id}]`);
             }
         }
 
@@ -304,9 +303,18 @@ export default class OfflineVideoStorage {
     private static isVideoCacheComplete(video: IOfflineVideo, cachedRequestURLs: string[]): boolean {
         const generationPrefix = `${self.location.origin}/__offline__/videos/${video.video_id}/${video.generation_id}/`;
         const hasPlaylist = cachedRequestURLs.includes(`${generationPrefix}playlist.m3u8`);
-        const hasThumbnail = cachedRequestURLs.includes(`${generationPrefix}assets/thumbnail.webp`);
         const segmentCount = cachedRequestURLs.filter(url => url.startsWith(`${generationPrefix}segments/`)).length;
-        return hasPlaylist === true && hasThumbnail === true && segmentCount === video.segment_count;
+        const isComplete = hasPlaylist === true && segmentCount === video.segment_count;
+
+        // 再生に必要なプレイリストまたは映像セグメントが欠けた世代だけを削除対象として報告する
+        // サムネイルなどの付随データは取得失敗を許容しているため、動画本体の完成判定には含めない
+        if (isComplete === false) {
+            console.warn(
+                `[OfflineVideoStorage] Removed incomplete offline video data. [video_id: ${video.video_id}, ` +
+                `has_playlist: ${hasPlaylist}, expected_segment_count: ${video.segment_count}, actual_segment_count: ${segmentCount}]`,
+            );
+        }
+        return isComplete;
     }
 
     private static async deleteIncompleteVideo(video: IOfflineVideo): Promise<void> {

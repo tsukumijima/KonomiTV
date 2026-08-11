@@ -406,6 +406,7 @@ export default class OfflineVideos {
                     }
                     await this.finalizeResponse(job.job_id, response);
                 } catch (error) {
+                    console.error('[OfflineVideos] Foreground offline download failed:', error);
                     const latestJob = await OfflineVideoStorage.getJob(job.job_id);
                     if (latestJob !== null && ['Waiting', 'Downloading', 'Finalizing'].includes(latestJob.state)) {
                     // 利用者による中止とページ終了による fetch 中断の双方で、未完の断片を残さない
