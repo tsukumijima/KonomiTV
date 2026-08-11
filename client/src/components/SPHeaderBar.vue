@@ -7,6 +7,7 @@
             <v-spacer></v-spacer>
             <!-- 番組表コントロール用スロット -->
             <slot name="timetable-controls"></slot>
+            <!-- スマホ縦画面では Navigation が非表示のため、ヘッダー側にバッジを残す -->
             <OfflineDownloadBadge class="mr-4" />
             <div v-if="showSearchButton" v-ripple class="search-button" @click="activateSearch">
                 <Icon icon="fluent:search-20-filled" height="24px" />

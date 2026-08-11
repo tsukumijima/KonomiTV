@@ -75,7 +75,7 @@ export default defineComponent({
             const video_id = Number(video_id_text);
 
             // オフライン保存ページから開いた場合は保存時点の番組情報を使い、通常再生の通信失敗時だけ保存版へ切り替える
-            let offline_video = this.$route.query.offline === '1' ? await OfflineVideos.getVideo(video_id) : null;
+            let offline_video = this.$route.query.source === 'offline' ? await OfflineVideos.getVideo(video_id) : null;
             let recorded_program = offline_video?.program ?? await Videos.fetchVideo(video_id);
             if (recorded_program === null && offline_video === null) {
                 offline_video = await OfflineVideos.getVideo(video_id);

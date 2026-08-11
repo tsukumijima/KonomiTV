@@ -118,6 +118,14 @@
                     <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
                 </svg>
             </div>
+            <div v-if="forOffline && offlineVideo !== null" v-ripple class="recorded-program__mylist"
+                v-ftooltip="'オフライン保存を削除する'"
+                @click.prevent.stop="deleteOfflineVideo"
+                @mousedown.prevent.stop="">
+                <svg width="22px" height="22px" viewBox="0 0 16 16">
+                    <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
+                </svg>
+            </div>
             <div v-if="!forOffline || offlineVideo !== null" class="recorded-program__menu">
                 <v-menu location="bottom end" :close-on-content-click="true">
                     <template v-slot:activator="{ props }">
@@ -131,24 +139,6 @@
                         </div>
                     </template>
                     <v-list density="compact" bg-color="background-lighten-1" class="recorded-program__menu-list">
-                        <template v-if="forOffline">
-                            <v-list-item @click="show_video_info = true">
-                                <template v-slot:prepend>
-                                    <svg width="20px" height="20px" viewBox="0 0 16 16">
-                                        <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
-                                    </svg>
-                                </template>
-                                <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
-                            </v-list-item>
-                            <v-divider></v-divider>
-                            <v-list-item @click="deleteOfflineVideo" class="recorded-program__menu-list-item--danger">
-                                <template v-slot:prepend>
-                                    <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
-                                </template>
-                                <v-list-item-title class="ml-3">オフライン保存を削除</v-list-item-title>
-                            </v-list-item>
-                        </template>
-                        <template v-else>
                         <v-list-item @click="showOfflineDownload = true" :disabled="program.recorded_video.status === 'Recording'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:cloud-arrow-down-20-regular" width="20px" height="20px" />
@@ -188,7 +178,6 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルを削除</v-list-item-title>
                         </v-list-item>
-                        </template>
                     </v-list>
                 </v-menu>
             </div>
@@ -217,7 +206,8 @@
                     </div>
                 </div>
                 <v-alert color="info" variant="tonal">
-                    端末に保存したオフライン再生用データだけを削除します。サーバー上の録画ファイルは削除されません。
+                    端末に保存したオフライン再生用データだけを削除します。<br>
+                    サーバー上の録画ファイルは削除されません。
                 </v-alert>
             </v-card-text>
             <v-card-actions class="pt-4 px-6 pb-6">
@@ -413,7 +403,7 @@ const rootBindings = computed(() => {
     if (rootTag.value !== 'router-link') return {};
     return {
         to: props.program.recorded_video.status === 'Recorded'
-            ? (props.forOffline ? `/videos/watch/${props.program.id}?offline=1` : `/videos/watch/${props.program.id}`)
+            ? (props.forOffline ? `/videos/watch/${props.program.id}?source=offline` : `/videos/watch/${props.program.id}`)
             : { path: '' },
     };
 });
@@ -1162,6 +1152,35 @@ const deleteVideo = async () => {
 
             :deep(.v-list-item) {
                 min-height: 36px !important;
+            }
+        }
+    }
+
+    &--offline {
+        .recorded-program__content-header {
+            @include smartphone-vertical {
+                // 右上の画質/容量チップはカード全体ではなく、本文列の右端へそろえる
+                position: relative;
+            }
+        }
+
+        .recorded-program__content-title {
+            flex-grow: 1;
+            margin-right: 12px;
+
+            @include smartphone-vertical {
+                margin-right: 0px;
+                padding-right: 72px;  // 容量チップの表示幅分（解像度チップは非表示）
+            }
+        }
+
+        .recorded-program__content-chips {
+            margin-right: -1.5px;  // 錯視対策
+
+            @include smartphone-vertical {
+                position: absolute;
+                top: 0px;
+                right: 1.5px;
             }
         }
     }

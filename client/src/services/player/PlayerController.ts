@@ -418,8 +418,7 @@ class PlayerController {
                 } else {
                     // オフライン保存では保存済みの1画質だけを hls.js へ渡し、通常の配信セッションを一切作らない
                     if (player_store.is_offline_playback === true && player_store.offline_video !== null) {
-                        const offlineQualityName = player_store.offline_video.quality === '1080p-60fps' ?
-                            '1080p (60fps)' : player_store.offline_video.quality;
+                        const offlineQualityName = `オフライン保存 (${OfflineVideos.formatQualityLabel(player_store.offline_video.quality)})`;
                         const tileInfo = player_store.recorded_program.recorded_video.thumbnail_info?.tile ?? null;
                         return {
                             quality: [{
@@ -1742,52 +1741,57 @@ class PlayerController {
             player_store.is_player_setting_panel_open = true;
         };
 
-        // モバイル回線プロファイルに切り替えるボタンを動的に追加する
-        this.player.template.audio.insertAdjacentHTML('afterend', `
-            <div class="dplayer-setting-item dplayer-setting-mobile-profile">
-                <span class="dplayer-label">モバイル回線向け画質</span>
-                <div class="dplayer-toggle">
-                    <input class="dplayer-mobile-profile-setting-input" type="checkbox" name="dplayer-toggle-mobile-profile">
-                    <label for="dplayer-toggle-mobile-profile" style="--theme-color:#E64F97"></label>
+        const is_offline_playback = this.playback_mode === 'Video' && player_store.is_offline_playback === true;
+
+        // オフライン再生では通信節約モードや画質プロファイル切り替えは無関係なので、該当スイッチを設定パネルへ追加しない
+        if (is_offline_playback === false) {
+            // モバイル回線プロファイルに切り替えるボタンを動的に追加する
+            this.player.template.audio.insertAdjacentHTML('afterend', `
+                <div class="dplayer-setting-item dplayer-setting-mobile-profile">
+                    <span class="dplayer-label">モバイル回線向け画質</span>
+                    <div class="dplayer-toggle">
+                        <input class="dplayer-mobile-profile-setting-input" type="checkbox" name="dplayer-toggle-mobile-profile">
+                        <label for="dplayer-toggle-mobile-profile" style="--theme-color:#E64F97"></label>
+                    </div>
                 </div>
-            </div>
-        `);
+            `);
 
-        // デフォルトのチェック状態を画質プロファイルタイプに合わせる
-        const toggle_mobile_profile_input = this.player.container.querySelector<HTMLInputElement>('.dplayer-mobile-profile-setting-input')!;
-        toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
+            // デフォルトのチェック状態を画質プロファイルタイプに合わせる
+            const toggle_mobile_profile_input = this.player.container.querySelector<HTMLInputElement>('.dplayer-mobile-profile-setting-input')!;
+            toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
 
-        // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
-        const toggle_mobile_profile_button = this.player.container.querySelector('.dplayer-setting-mobile-profile')!;
-        toggle_mobile_profile_button.addEventListener('click', () => {
-            // チェックボックスの状態を切り替える
-            toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
-            // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
-            if (toggle_mobile_profile_input.checked) {
-                this.quality_profile_type = 'Cellular';
-                player_store.selected_quality_profile_type = this.quality_profile_type;
-                player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'モバイル回線向けの画質プロファイルに切り替えました。',
-                    // 他の通知と被らないように、メッセージを遅らせて表示する
-                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
-                    is_error_message: false,
-                    // モバイル回線プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
-                    should_resume_quality: false,
-                });
-            // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
-            } else {
-                this.quality_profile_type = 'Wi-Fi';
-                player_store.selected_quality_profile_type = this.quality_profile_type;
-                player_store.event_emitter.emit('PlayerRestartRequired', {
-                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
-                    // 他の通知と被らないように、メッセージを遅らせて表示する
-                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
-                    is_error_message: false,
-                    // Wi-Fi プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
-                    should_resume_quality: false,
-                });
-            }
-        });
+            // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
+            const toggle_mobile_profile_button = this.player.container.querySelector('.dplayer-setting-mobile-profile')!;
+            toggle_mobile_profile_button.addEventListener('click', () => {
+                // チェックボックスの状態を切り替える
+                toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
+                // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
+                if (toggle_mobile_profile_input.checked) {
+                    this.quality_profile_type = 'Cellular';
+                    player_store.selected_quality_profile_type = this.quality_profile_type;
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: 'モバイル回線向けの画質プロファイルに切り替えました。',
+                        // 他の通知と被らないように、メッセージを遅らせて表示する
+                        message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                        is_error_message: false,
+                        // モバイル回線プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                        should_resume_quality: false,
+                    });
+                // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
+                } else {
+                    this.quality_profile_type = 'Wi-Fi';
+                    player_store.selected_quality_profile_type = this.quality_profile_type;
+                    player_store.event_emitter.emit('PlayerRestartRequired', {
+                        message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
+                        // 他の通知と被らないように、メッセージを遅らせて表示する
+                        message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                        is_error_message: false,
+                        // Wi-Fi プロファイル切り替え時、切り替え後の画質プロファイルのデフォルト画質を優先する
+                        should_resume_quality: false,
+                    });
+                }
+            });
+        }
 
         // 設定パネルにL字画面のクロップ設定を表示するボタンを動的に追加する
         this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `

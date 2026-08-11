@@ -32,6 +32,14 @@
             <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/offline-videos')}"
+            v-ftooltip.right="'オフライン保存'" to="/offline-videos/">
+            <span class="watch-navigation__link-icon-wrapper">
+                <Icon class="watch-navigation__link-icon" icon="fluent:cloud-arrow-down-16-regular" width="26px" />
+                <OfflineDownloadBadge variant="overlay" />
+            </span>
+        </router-link>
+        <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/mylist')}"
             v-ftooltip.right="'マイリスト'" to="/mylist/">
             <Icon class="watch-navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
@@ -54,10 +62,14 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import OfflineDownloadBadge from '@/components/OfflineDownloadBadge.vue';
 import usePlayerStore from '@/stores/PlayerStore';
 
 export default defineComponent({
     name: 'Watch-Navigation',
+    components: {
+        OfflineDownloadBadge,
+    },
     computed: {
         ...mapStores(usePlayerStore),
     }
@@ -139,6 +151,13 @@ export default defineComponent({
 
         &:hover {
             background: #433532A0;
+        }
+
+        .watch-navigation__link-icon-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @include smartphone-horizontal {
