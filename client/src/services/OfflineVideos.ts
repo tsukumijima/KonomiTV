@@ -71,37 +71,41 @@ export default class OfflineVideos {
         '240p',
     ] as const;
 
-    /** server/app/constants.py QUALITY と同じエンコード設定 (表示用の平均ビットレート) */
-    private static readonly STREAM_QUALITY_BITRATES: Record<string, {video_bitrate_kbps: number; audio_bitrate_kbps: number}> = {
-        '1080p-60fps': {video_bitrate_kbps: 9500, audio_bitrate_kbps: 256},
-        '1080p-60fps-hevc': {video_bitrate_kbps: 3500, audio_bitrate_kbps: 192},
-        '1080p': {video_bitrate_kbps: 9500, audio_bitrate_kbps: 256},
-        '1080p-hevc': {video_bitrate_kbps: 3000, audio_bitrate_kbps: 192},
-        '810p': {video_bitrate_kbps: 5500, audio_bitrate_kbps: 192},
-        '810p-hevc': {video_bitrate_kbps: 2500, audio_bitrate_kbps: 192},
-        '720p': {video_bitrate_kbps: 4500, audio_bitrate_kbps: 192},
-        '720p-hevc': {video_bitrate_kbps: 2000, audio_bitrate_kbps: 192},
-        '540p': {video_bitrate_kbps: 3000, audio_bitrate_kbps: 192},
-        '540p-hevc': {video_bitrate_kbps: 1400, audio_bitrate_kbps: 192},
-        '480p': {video_bitrate_kbps: 2000, audio_bitrate_kbps: 192},
-        '480p-hevc': {video_bitrate_kbps: 1050, audio_bitrate_kbps: 192},
-        '360p': {video_bitrate_kbps: 1100, audio_bitrate_kbps: 128},
-        '360p-hevc': {video_bitrate_kbps: 750, audio_bitrate_kbps: 128},
-        '240p': {video_bitrate_kbps: 550, audio_bitrate_kbps: 128},
-        '240p-hevc': {video_bitrate_kbps: 450, audio_bitrate_kbps: 128},
+    /** server/app/constants.py QUALITY と同じエンコード設定 (表示用の平均ビットレートと上限ビットレート) */
+    private static readonly STREAM_QUALITY_BITRATES: Record<string, {video_bitrate_kbps: number; video_bitrate_max_kbps: number; audio_bitrate_kbps: number}> = {
+        '1080p-60fps': {video_bitrate_kbps: 9500, video_bitrate_max_kbps: 13000, audio_bitrate_kbps: 256},
+        '1080p-60fps-hevc': {video_bitrate_kbps: 3500, video_bitrate_max_kbps: 5200, audio_bitrate_kbps: 192},
+        '1080p': {video_bitrate_kbps: 9500, video_bitrate_max_kbps: 13000, audio_bitrate_kbps: 256},
+        '1080p-hevc': {video_bitrate_kbps: 3000, video_bitrate_max_kbps: 4500, audio_bitrate_kbps: 192},
+        '810p': {video_bitrate_kbps: 5500, video_bitrate_max_kbps: 7600, audio_bitrate_kbps: 192},
+        '810p-hevc': {video_bitrate_kbps: 2500, video_bitrate_max_kbps: 3700, audio_bitrate_kbps: 192},
+        '720p': {video_bitrate_kbps: 4500, video_bitrate_max_kbps: 6200, audio_bitrate_kbps: 192},
+        '720p-hevc': {video_bitrate_kbps: 2000, video_bitrate_max_kbps: 3000, audio_bitrate_kbps: 192},
+        '540p': {video_bitrate_kbps: 3000, video_bitrate_max_kbps: 4100, audio_bitrate_kbps: 192},
+        '540p-hevc': {video_bitrate_kbps: 1400, video_bitrate_max_kbps: 2100, audio_bitrate_kbps: 192},
+        '480p': {video_bitrate_kbps: 2000, video_bitrate_max_kbps: 2800, audio_bitrate_kbps: 192},
+        '480p-hevc': {video_bitrate_kbps: 1050, video_bitrate_max_kbps: 1750, audio_bitrate_kbps: 192},
+        '360p': {video_bitrate_kbps: 1100, video_bitrate_max_kbps: 1800, audio_bitrate_kbps: 128},
+        '360p-hevc': {video_bitrate_kbps: 750, video_bitrate_max_kbps: 1250, audio_bitrate_kbps: 128},
+        '240p': {video_bitrate_kbps: 550, video_bitrate_max_kbps: 650, audio_bitrate_kbps: 128},
+        '240p-hevc': {video_bitrate_kbps: 450, video_bitrate_max_kbps: 650, audio_bitrate_kbps: 128},
     };
 
-    /** 保存ジョブの容量見積もり用 (進捗バー・空き容量判定。既存ロジックと同値) */
-    private static readonly JOB_SIZE_BITRATE_BPS: Record<string, number> = {
-        '1080p-60fps': 13_256_000,
-        '1080p': 5_392_000,
-        '810p': 7_792_000,
-        '720p': 6_392_000,
-        '540p': 4_292_000,
-        '480p': 3_892_000,
-        '360p': 2_992_000,
-        '240p': 1_928_000,
-    };
+    /** 空き容量判定向けの上限ビットレート余裕係数 */
+    private static readonly REQUIRED_STORAGE_SIZE_MARGIN = 1.1;
+
+    /**
+     * VBR / QVBR エンコード (-vb, --vbr, --qvbr) では constants.py の video_bitrate は目標値であり、
+     * 実際の映像平均は番組内容次第で目標より低く収まる
+     * 720p-hevc・30分で 470MB 見積もり→370MB 実測のような乖離を抑える係数
+     */
+    private static readonly VBR_EFFECTIVE_VIDEO_BITRATE_RATIO = {
+        hevc: 0.75,
+        avc: 0.85,
+    } as const;
+
+    /** 進捗バー見積もり向けの余裕係数 (実効平均を基準にするため、表示見積もりより小さく保つ) */
+    private static readonly JOB_PROGRESS_SIZE_MARGIN = 1.05;
 
     private static readonly STREAM_MAGIC = new TextEncoder().encode('KTVODLP\n');
     private static foregroundAbortControllers = new Map<string, AbortController>();
@@ -226,9 +230,13 @@ export default class OfflineVideos {
                 throw new Error('この録画番組はすでにオフライン保存中です。');
             }
 
-            // ビットレートの上限側へ余裕を加え、容量不足を保存途中で発見する可能性を下げる
+            // 進捗バーは目標ビットレート基準、空き容量判定は上限ビットレート基準で見積もる
             const estimatedSizeBytes = OfflineVideos.estimateJobSizeBytes(programSnapshot.recorded_video.duration, quality);
             if (estimatedSizeBytes === null) {
+                throw new Error(`オフライン保存に対応していない画質です。(${quality})`);
+            }
+            const requiredStorageBytes = OfflineVideos.estimateRequiredStorageBytes(programSnapshot.recorded_video.duration, quality);
+            if (requiredStorageBytes === null) {
                 throw new Error(`オフライン保存に対応していない画質です。(${quality})`);
             }
 
@@ -236,7 +244,7 @@ export default class OfflineVideos {
             const isBackgroundFetchSupported = await this.isBackgroundFetchSupported();
             const storageEstimate = await navigator.storage?.estimate() ?? {};
             const availableBytes = (storageEstimate.quota ?? 0) - (storageEstimate.usage ?? 0);
-            const requiredBytes = estimatedSizeBytes * (isBackgroundFetchSupported === true ? 2 : 1);
+            const requiredBytes = requiredStorageBytes * (isBackgroundFetchSupported === true ? 2 : 1);
             if (storageEstimate.quota !== undefined && availableBytes < requiredBytes) {
                 throw new Error(`オフライン保存に必要な空き容量が不足しています。必要: ${Utils.formatBytes(requiredBytes)} / 空き: ${Utils.formatBytes(Math.max(0, availableBytes))}`);
             }
@@ -673,32 +681,45 @@ export default class OfflineVideos {
     }
 
     /**
-     * 保存ジョブの進捗計算向けに、上限ビットレートから保存容量を見積もる。
+     * 保存ジョブの進捗計算向けに、VBR の実効平均ビットレートから保存容量を見積もる。
      * @param durationSeconds 番組尺 (秒)
      * @param apiQuality API 画質
      * @returns 見積もりバイト数。未対応画質なら null
      */
     static estimateJobSizeBytes(durationSeconds: number, apiQuality: string): number | null {
 
-        const baseQuality = apiQuality.replace('-hevc', '').replace('-10bit', '').replace('-24fps', '');
-        const baseBitrate = OfflineVideos.JOB_SIZE_BITRATE_BPS[baseQuality];
-        if (baseBitrate === undefined) return null;
+        const effectiveBitrates = OfflineVideos.getEffectiveStreamBitrates(apiQuality);
+        if (effectiveBitrates.total_bitrate_kbps === 0) return null;
 
-        // HEVC は平均ビットレートが低いが、ジョブ進捗は上限側へ余裕を持たせる
-        const estimatedBitrate = apiQuality.includes('-hevc') === true ? baseBitrate * 0.55 : baseBitrate;
-        return Math.ceil((estimatedBitrate * durationSeconds / 8) * 1.1);
+        const effectiveBitrateBps = effectiveBitrates.total_bitrate_kbps * 1000;
+        return Math.ceil((effectiveBitrateBps * durationSeconds / 8) * OfflineVideos.JOB_PROGRESS_SIZE_MARGIN);
     }
 
     /**
-     * 表示向けに、server/app/constants.py と同じ平均ビットレートから保存容量を見積もる。
+     * 空き容量判定向けに、server/app/constants.py の video_bitrate_max + audio_bitrate から保存容量を見積もる。
+     * @param durationSeconds 番組尺 (秒)
+     * @param apiQuality API 画質
+     * @returns 見積もりバイト数。未対応画質なら null
+     */
+    static estimateRequiredStorageBytes(durationSeconds: number, apiQuality: string): number | null {
+
+        const bitrates = OfflineVideos.getStreamQualityBitrates(apiQuality);
+        if (bitrates.video_bitrate_max_kbps === 0) return null;
+
+        const maxBitrateBps = (bitrates.video_bitrate_max_kbps + bitrates.audio_bitrate_kbps) * 1000;
+        return Math.ceil((maxBitrateBps * durationSeconds / 8) * OfflineVideos.REQUIRED_STORAGE_SIZE_MARGIN);
+    }
+
+    /**
+     * 表示向けに、VBR の実効平均ビットレートから保存容量を見積もる。
      * @param durationSeconds 番組尺 (秒)
      * @param apiQuality API 画質
      * @returns 見積もりバイト数
      */
     static estimateDisplaySizeBytes(durationSeconds: number, apiQuality: string): number {
 
-        const bitrates = OfflineVideos.getStreamQualityBitrates(apiQuality);
-        return Math.ceil((bitrates.video_bitrate_kbps + bitrates.audio_bitrate_kbps) * 1000 * durationSeconds / 8);
+        const effectiveBitrates = OfflineVideos.getEffectiveStreamBitrates(apiQuality);
+        return Math.ceil(effectiveBitrates.total_bitrate_kbps * 1000 * durationSeconds / 8);
     }
 
     /**
@@ -746,8 +767,8 @@ export default class OfflineVideos {
      */
     static formatAverageBitrateLabel(apiQuality: string): string {
 
-        const bitrates = OfflineVideos.getStreamQualityBitrates(apiQuality);
-        const averageMbps = (bitrates.video_bitrate_kbps + bitrates.audio_bitrate_kbps) / 1000;
+        const effectiveBitrates = OfflineVideos.getEffectiveStreamBitrates(apiQuality);
+        const averageMbps = effectiveBitrates.total_bitrate_kbps / 1000;
         return `${averageMbps.toFixed(1)}Mbps`;
     }
 
@@ -790,7 +811,11 @@ export default class OfflineVideos {
      * @param apiQuality API 画質
      * @returns 映像・音声ビットレート (kbps)
      */
-    private static getStreamQualityBitrates(apiQuality: string): {video_bitrate_kbps: number; audio_bitrate_kbps: number} {
+    private static getStreamQualityBitrates(apiQuality: string): {
+        video_bitrate_kbps: number;
+        video_bitrate_max_kbps: number;
+        audio_bitrate_kbps: number;
+    } {
 
         // 10bit / 24fps は平均ビットレートへ影響しないため、ルックアップキーから除外する
         const lookupQuality = apiQuality.replace(/-10bit/g, '').replace(/-24fps/g, '');
@@ -798,7 +823,37 @@ export default class OfflineVideos {
         if (bitrates !== undefined) return bitrates;
 
         const baseQuality = lookupQuality.replace(/-hevc/g, '');
-        return OfflineVideos.STREAM_QUALITY_BITRATES[baseQuality] ?? {video_bitrate_kbps: 0, audio_bitrate_kbps: 0};
+        return OfflineVideos.STREAM_QUALITY_BITRATES[baseQuality] ?? {
+            video_bitrate_kbps: 0,
+            video_bitrate_max_kbps: 0,
+            audio_bitrate_kbps: 0,
+        };
+    }
+
+    /**
+     * VBR エンコードの実効平均ビットレートを返す。
+     * VideoEncodingTask が -vb / --vbr / --qvbr で指定する video_bitrate は目標値のため、映像側だけ係数を掛けて実測に近づける。
+     * @param apiQuality API 画質
+     * @returns 実効映像・音声・合算ビットレート (kbps)
+     */
+    private static getEffectiveStreamBitrates(apiQuality: string): {
+        video_bitrate_kbps: number;
+        audio_bitrate_kbps: number;
+        total_bitrate_kbps: number;
+    } {
+
+        const bitrates = OfflineVideos.getStreamQualityBitrates(apiQuality);
+        const isHEVC = apiQuality.includes('-hevc') === true;
+        const effectiveVideoRatio = isHEVC === true
+            ? OfflineVideos.VBR_EFFECTIVE_VIDEO_BITRATE_RATIO.hevc
+            : OfflineVideos.VBR_EFFECTIVE_VIDEO_BITRATE_RATIO.avc;
+        const effectiveVideoBitrateKbps = bitrates.video_bitrate_kbps * effectiveVideoRatio;
+        const totalBitrateKbps = effectiveVideoBitrateKbps + bitrates.audio_bitrate_kbps;
+        return {
+            video_bitrate_kbps: effectiveVideoBitrateKbps,
+            audio_bitrate_kbps: bitrates.audio_bitrate_kbps,
+            total_bitrate_kbps: totalBitrateKbps,
+        };
     }
 
     /**
