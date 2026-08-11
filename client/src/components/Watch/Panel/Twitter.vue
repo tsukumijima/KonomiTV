@@ -335,7 +335,7 @@ export default defineComponent({
 
         // ツイートボタンが無効かどうか
         is_tweet_button_disabled(): boolean {
-            return this.twitterStore.selected_account === null || this.tweet_letter_remain_count < 0 ||
+            return this.is_tweet_sending === true || this.twitterStore.selected_account === null || this.tweet_letter_remain_count < 0 ||
                 ((this.tweet_text.trim() === '' || this.tweet_letter_remain_count === 140) && this.playerStore.twitter_selected_capture_blobs.length === 0);
         },
 
@@ -961,12 +961,13 @@ export default defineComponent({
                 });
             }
 
-            await this.notifyTweetPostResults(send_results);
-
-            // 送信中フラグを下ろす
+            // API リクエストを開始した時点で次の投稿を受け付け、各サービスの応答待ちを入力操作へ影響させない
             this.is_tweet_sending = false;
 
-            // パネルを閉じる
+            // 投稿結果の通知は入力フォームと独立して継続し、Twitter と Bluesky の応答が揃うまで次の投稿を待たせない
+            void this.notifyTweetPostResults(send_results);
+
+            // API リクエストの開始後にパネルを閉じ、Bluesky 対応前と同じ操作タイミングを保つ
             if (this.settingsStore.settings.fold_panel_after_sending_tweet === true) {
                 this.playerStore.is_panel_display = false;
                 (this.$refs.tweet_text as HTMLTextAreaElement).blur();  // フォーカスを外す

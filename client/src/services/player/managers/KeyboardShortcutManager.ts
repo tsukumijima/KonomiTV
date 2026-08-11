@@ -426,7 +426,7 @@ class KeyboardShortcutManager implements PlayerManager {
 
         // ドキュメント全体のキーボードショートカットイベント
         // this.document に対してイベントを登録することで、メインウインドウ配下以外の Document にも対応できる
-        let last_key_pressed_at = 0;  // 最終押下時刻
+        const last_key_pressed_at = new Map<string, number>();
         this.document.addEventListener('keydown', (event: KeyboardEvent) => {
 
             // 日本語 IME による入力中は無視
@@ -435,18 +435,11 @@ class KeyboardShortcutManager implements PlayerManager {
                 return;
             }
 
-            // キーリピート (押しっぱなし) 状態かを検知
-            let is_repeat = false;
-            if (event.repeat) {
-                is_repeat = true;
-            }
-            // キーリピート状態は event.repeat を見る事でだいたい検知できるが、最初の何回かは検知できないこともある
-            // そこで、0.05 秒以内に連続して発火したキーイベントをキーリピートとみなす
+            // event.repeat で最初の何回かを検知できないブラウザに備え、同じキーが 0.05 秒以内に再発火した場合もキーリピートとみなす
+            // キーごとに時刻を持ち、Ctrl の直後に Enter を押すような異なるキーの素早い組み合わせは間引かない
             const now = Utils.time();
-            if (now - last_key_pressed_at < 0.05) {
-                is_repeat = true;
-            }
-            last_key_pressed_at = now;  // 最終押下時刻を更新
+            const is_repeat = event.repeat || now - (last_key_pressed_at.get(event.code) ?? 0) < 0.05;
+            last_key_pressed_at.set(event.code, now);
 
             // Ctrl or Cmd (Mac) キーが押されているかどうか
             // Mac では Ctrl キーではなく Cmd キーで判定される
