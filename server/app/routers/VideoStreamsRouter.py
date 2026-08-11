@@ -271,7 +271,7 @@ async def VideoOfflineStreamAPI(
 ) -> StreamingResponse:
     """
     録画番組を指定画質で先頭から順にエンコードし、オフライン保存用の単一ストリームとして返す。<br>
-    応答は `KTVODL1` のヘッダーから始まる独自バイナリ形式で、長さ付き JSON メタデータ、長さ付き MPEG-TS セグメント、終端レコードの順に格納される。
+    応答は `KTVODLP` のヘッダーから始まる独自バイナリ形式で、長さ付き JSON メタデータ、長さ付き MPEG-TS セグメント、終端レコードの順に格納される。
     """
 
     # 追いかけ再生中のファイルは終端とハッシュが変化するため、録画完了後だけ保存を許可する
@@ -299,7 +299,6 @@ async def VideoOfflineStreamAPI(
 
         # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する
         metadata = OfflineVideoStreamMetadata(
-            protocol_version = 1,
             video_id = recorded_program.id,
             file_hash = recorded_program.recorded_video.file_hash,
             quality = quality,
@@ -337,7 +336,7 @@ async def VideoOfflineStreamAPI(
         keep_alive_task = asyncio.create_task(KeepVideoStreamAlive())
         try:
             # 固定マジック値とメタデータ長により、任意のネットワーク分割位置から同じ規則で復元できる
-            yield b'KTVODL1\n'
+            yield b'KTVODLP\n'
             yield struct.pack('>I', len(metadata))
             yield metadata
 

@@ -243,8 +243,6 @@ class RecordedPrograms(BaseModel):
     recorded_programs: list[RecordedProgram]
 
 class OfflineVideoStreamMetadata(BaseModel):
-    # バイナリ形式を将来変更した際に、クライアントが互換性を判定するためのバージョン
-    protocol_version: int
     # 保存対象の録画番組 ID
     video_id: int
     # DB 再構築後に同じ ID の別録画と取り違えないための録画ファイルハッシュ
