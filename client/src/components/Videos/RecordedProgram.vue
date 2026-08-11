@@ -193,9 +193,9 @@
                 </v-menu>
             </div>
         </div>
-        <div v-if="offlineDownloadProgress !== null" class="recorded-program__offline-progress">
+        <div v-if="displayedOfflineDownloadProgress !== null" class="recorded-program__offline-progress">
             <div class="recorded-program__offline-progress-bar"
-                :style="`width: ${offlineDownloadProgress}%`">
+                :style="`width: ${displayedOfflineDownloadProgress}%`">
             </div>
         </div>
     </component>
@@ -485,6 +485,23 @@ const offlineDownloadProgress = computed(() => {
     if (props.offlineDownloadJob.estimated_size_bytes <= 0) return 0;
     return Math.min(99, (props.offlineDownloadJob.downloaded_bytes / props.offlineDownloadJob.estimated_size_bytes) * 100);
 });
+
+// 進捗更新のたびに 0% へ戻ってから伸び直す見え方を避けるため、表示値は単調増加だけを反映する
+const displayedOfflineDownloadProgress = ref<number | null>(null);
+watch(
+    () => [props.offlineDownloadJob?.job_id, offlineDownloadProgress.value] as const,
+    ([jobID, progress]) => {
+        if (progress === null || jobID === undefined) {
+            displayedOfflineDownloadProgress.value = null;
+            return;
+        }
+        const currentProgress = displayedOfflineDownloadProgress.value;
+        if (currentProgress === null || progress >= currentProgress) {
+            displayedOfflineDownloadProgress.value = progress;
+        }
+    },
+    { immediate: true },
+);
 
 // 実行中の保存ジョブをキャンセルする
 const cancelOfflineDownload = () => {
@@ -968,7 +985,6 @@ const deleteVideo = async () => {
         &-bar {
             height: 100%;
             background: rgb(var(--v-theme-secondary-lighten-1));
-            transition: width 0.2s ease;
         }
     }
 
