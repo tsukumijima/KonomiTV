@@ -22,11 +22,11 @@ export default class OfflineVideoStorage {
 
     static readonly eventTarget = new EventTarget();
 
-    private static readonly DB_NAME = 'KonomiTV-Offline-Videos';
+    private static readonly DB_NAME = 'KonomiTV-OfflineVideos';
     private static readonly DB_VERSION = 1;
     private static readonly VIDEO_STORE_NAME = 'videos';
     private static readonly JOB_STORE_NAME = 'jobs';
-    private static readonly CACHE_NAME = 'KonomiTV-Offline-Videos';
+    private static readonly CACHE_NAME = 'KonomiTV-OfflineVideos';
     private static databasePromise: Promise<IDBPDatabase<IOfflineVideoDB>> | null = null;
 
     /**
