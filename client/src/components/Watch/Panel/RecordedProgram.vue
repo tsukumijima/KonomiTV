@@ -115,6 +115,9 @@ export default defineComponent({
 
             // 実行中のオフライン保存ジョブ (存在しない場合は null)
             offlineDownloadJob: null as IOfflineDownloadJob | null,
+
+            // OfflineVideos.change リスナー解除用 (Options API で this 束縛を保つ)
+            onOfflineVideosChange: null as (() => void) | null,
         };
     },
     computed: {
@@ -129,12 +132,34 @@ export default defineComponent({
 
         // オフライン保存済みかどうか
         isOfflineSaved(): boolean {
-            return this.offlineVideo !== null;
+            // オフライン再生中は PlayerStore 側に保存済み動画が載っている
+            return this.offlineVideo !== null || this.playerStore.offline_video !== null;
         },
 
         // オフライン保存中かどうか
         isOfflineDownloading(): boolean {
             return this.offlineDownloadJob !== null;
+        },
+    },
+    watch: {
+        // init() 完了後に recorded_program.id が確定するため、ID 変化を契機に IndexedDB から読み直す
+        'playerStore.recorded_program.id': {
+            handler(id: number) {
+                if (id <= 0) {
+                    this.offlineVideo = null;
+                    this.offlineDownloadJob = null;
+                    return;
+                }
+                void this.refreshOfflineState();
+            },
+            immediate: true,
+        },
+
+        // ダイアログを閉じた直後もボタン表示を最新化する
+        showOfflineDownload(show: boolean) {
+            if (show === false && this.playerStore.recorded_program.id > 0) {
+                void this.refreshOfflineState();
+            }
         },
     },
     methods: {
@@ -182,13 +207,18 @@ export default defineComponent({
         });
 
         // オフライン保存の追加・削除・保存し直し後にボタン表示を更新する
-        OfflineVideos.eventTarget.addEventListener('change', this.refreshOfflineState);
-        await this.refreshOfflineState();
+        // Options API のメソッドをそのまま渡すと this が EventTarget 側に向くため、ラムダで包む
+        this.onOfflineVideosChange = () => {
+            void this.refreshOfflineState();
+        };
+        OfflineVideos.eventTarget.addEventListener('change', this.onOfflineVideosChange);
     },
     beforeUnmount() {
         // CommentReceived イベントの全てのイベントハンドラーを削除
         this.playerStore.event_emitter.off('CommentReceived');
-        OfflineVideos.eventTarget.removeEventListener('change', this.refreshOfflineState);
+        if (this.onOfflineVideosChange !== null) {
+            OfflineVideos.eventTarget.removeEventListener('change', this.onOfflineVideosChange);
+        }
     },
 });
 
@@ -324,11 +354,30 @@ export default defineComponent({
             flex-wrap: wrap;
             gap: 8px;
             margin-top: 16px;
+
+            // PC・タブレット横画面・スマホ横画面はパネル幅が狭く、長いラベルで折り返しチラつきが起きるため縦並び固定
+            // align-items: stretch (既定) だとボタンがパネル全幅に引き延ばされるので flex-start にする
+            @include desktop {
+                flex-direction: column;
+                flex-wrap: nowrap;
+                align-items: flex-start;
+            }
+            @include tablet-horizontal {
+                flex-direction: column;
+                flex-wrap: nowrap;
+                align-items: flex-start;
+            }
+            @include smartphone-horizontal {
+                flex-direction: column;
+                flex-wrap: nowrap;
+                align-items: flex-start;
+            }
         }
 
         .program-info__button {
             display: flex;
             align-items: center;
+            width: fit-content;
             padding: 5px 8px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 12.7px;
