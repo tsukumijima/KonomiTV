@@ -60,7 +60,10 @@
                     <div class="account-feature">
                         <Icon class="account-feature__icon" icon="fluent:arrow-sync-20-filled" />
                         <div class="account-feature__info">
-                            <span class="account-feature__info-heading" style="white-space: nowrap;">設定・マイリスト・視聴履歴などを<wbr>デバイス間で同期</span>
+                            <span class="account-feature__info-heading">
+                                <span class="account-feature__info-heading-part">設定・マイリスト・視聴履歴などを</span><wbr>
+                                <span class="account-feature__info-heading-part">デバイス間で同期</span>
+                            </span>
                             <span class="account-feature__info-text">ピン留めしたチャンネル、マイリスト、視聴履歴など、ブラウザに保存されている各種設定をブラウザやデバイスをまたいで同期できます。</span>
                         </div>
                     </div>
@@ -612,7 +615,8 @@ export default defineComponent({
 
     &__feature {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        // 2列表示では長い見出しの最小幅に左右されず、機能説明を均等幅で表示
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-row-gap: 18px;
         grid-column-gap: 16px;
         margin-top: 28px;
@@ -644,8 +648,13 @@ export default defineComponent({
             &__info {
                 display: flex;
                 flex-direction: column;
+                min-width: 0;
                 &-heading {
                     font-size: 15px;
+
+                    &-part {
+                        white-space: nowrap;
+                    }
                 }
                 &-text {
                     margin-top: 3px;
