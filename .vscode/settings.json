@@ -31,6 +31,8 @@
         "reportUnknownVariableType": "none",
         "reportUnusedFunction": "none",
     },
+    "python-envs.defaultEnvManager": "ms-python.python:poetry",
+    "python-envs.defaultPackageManager": "ms-python.python:poetry",
     // TypeScript で自動インポートを有効化
     "typescript.suggest.autoImports": true,
     // TypeScript でファイルの名前を変更または移動するときにインポートパスを自動更新する
