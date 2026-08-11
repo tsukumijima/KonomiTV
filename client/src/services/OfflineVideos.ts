@@ -732,34 +732,40 @@ export default class OfflineVideos {
      */
     static formatOfflineSize(bytes: number, approximate: boolean): string {
 
-        const formatted = OfflineVideos.formatOfflineSizeValue(bytes);
+        const formatted = OfflineVideos.formatOfflineSizeValue(bytes, approximate);
         return approximate === true ? `約${formatted}` : formatted;
     }
 
     /**
      * オフライン保存容量の単位付き文字列を返す。
-     * GB 以上は小数1桁、MB のみ1の位を四捨五入して10MB刻み、それ未満は通常の自動単位切り替え。
+     * 見積もり表示では GB 以上は小数1桁、MB は10MB刻みに丸める。
+     * 実測表示では GB 以上は小数2桁、MB は1MB単位の整数、それ未満は通常の自動単位切り替え。
      * @param bytes バイト数
+     * @param approximate 見積もり表示なら true
      * @returns 2.2GB や 340MB などの文字列
      */
-    private static formatOfflineSizeValue(bytes: number): string {
+    private static formatOfflineSizeValue(bytes: number, approximate: boolean): string {
 
         const oneMB = 1024 * 1024;
         const oneGB = oneMB * 1024;
 
-        // GB 以上は従来どおり小数1桁で表示する
+        // GB 以上は見積もりなら粗く、実測なら小数2桁まで表示する
         if (bytes >= oneGB) {
-            return Utils.formatBytes(bytes, 1);
+            return Utils.formatBytes(bytes, approximate === true ? 1 : 2);
         }
 
-        // MB 帯だけ 344.4MB のような細かい値を避け、340MB のように10MB刻みへ丸める
         if (bytes >= oneMB) {
             const megabytes = bytes / oneMB;
-            const roundedMegabytes = Math.round(megabytes / 10) * 10;
-            return `${roundedMegabytes}MB`;
+            // 見積もりだけ 344MB のような細かい値を避け、340MB のように10MB刻みへ丸める
+            if (approximate === true) {
+                const roundedMegabytes = Math.round(megabytes / 10) * 10;
+                return `${roundedMegabytes}MB`;
+            }
+            // 実測値は1MB単位でそのまま表示する
+            return `${Math.round(megabytes)}MB`;
         }
 
-        return Utils.formatBytes(bytes, 1);
+        return Utils.formatBytes(bytes, approximate === true ? 1 : 0);
     }
 
     /**
