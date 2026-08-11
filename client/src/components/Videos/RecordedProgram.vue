@@ -42,14 +42,19 @@
                 <div class="recorded-program__content-header">
                     <div class="recorded-program__content-title"
                         v-html="ProgramUtils.decorateProgramInfo(program, 'title')"></div>
-                    <v-chip v-if="offlineQualityLabel !== null"
-                        class="recorded-program__quality-chip" color="info" size="small" variant="tonal">
-                        {{offlineQualityLabel}}
-                    </v-chip>
-                    <v-chip v-if="offlineSizeLabel !== null"
-                        class="recorded-program__quality-chip" color="info" size="small" variant="tonal">
-                        {{offlineSizeLabel}}
-                    </v-chip>
+                    <div v-if="offlineQualityLabel !== null || offlineSizeLabel !== null"
+                        class="recorded-program__content-chips">
+                        <v-chip v-if="offlineQualityLabel !== null"
+                            class="recorded-program__quality-chip recorded-program__quality-chip--resolution"
+                            color="info" size="small" variant="tonal">
+                            {{offlineQualityLabel}}
+                        </v-chip>
+                        <v-chip v-if="offlineSizeLabel !== null"
+                            class="recorded-program__quality-chip recorded-program__quality-chip--size"
+                            color="info" size="small" variant="tonal">
+                            {{offlineSizeLabel}}
+                        </v-chip>
+                    </div>
                 </div>
                 <div class="recorded-program__content-meta">
                     <div class="recorded-program__content-meta-broadcaster" v-if="program.channel">
@@ -105,15 +110,6 @@
                 @mousedown.prevent.stop="">
                 <Icon icon="fluent:dismiss-16-regular" width="22px" height="22px" />
             </div>
-            <div v-else-if="forOffline && offlineVideo !== null" v-ripple class="recorded-program__mylist"
-                role="button" tabindex="0" aria-label="オフライン保存を削除する"
-                v-ftooltip="'オフライン保存を削除する'"
-                @click.prevent.stop="deleteOfflineVideo"
-                @keydown.enter.prevent.stop="deleteOfflineVideo"
-                @keydown.space.prevent.stop="deleteOfflineVideo"
-                @mousedown.prevent.stop="">
-                <Icon icon="fluent:delete-20-regular" width="22px" height="22px" />
-            </div>
             <div v-if="forWatchedHistory" v-ripple class="recorded-program__mylist"
                 v-ftooltip="'視聴履歴から削除する'"
                 @click.prevent.stop="removeFromWatchedHistory"
@@ -122,7 +118,7 @@
                     <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
                 </svg>
             </div>
-            <div v-if="!forOffline" class="recorded-program__menu">
+            <div v-if="!forOffline || offlineVideo !== null" class="recorded-program__menu">
                 <v-menu location="bottom end" :close-on-content-click="true">
                     <template v-slot:activator="{ props }">
                         <div v-ripple class="recorded-program__menu-button"
@@ -135,6 +131,24 @@
                         </div>
                     </template>
                     <v-list density="compact" bg-color="background-lighten-1" class="recorded-program__menu-list">
+                        <template v-if="forOffline">
+                            <v-list-item @click="show_video_info = true">
+                                <template v-slot:prepend>
+                                    <svg width="20px" height="20px" viewBox="0 0 16 16">
+                                        <path fill="currentColor" d="M8.499 7.5a.5.5 0 1 0-1 0v3a.5.5 0 0 0 1 0zm.25-2a.749.749 0 1 1-1.499 0a.749.749 0 0 1 1.498 0M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1M2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8"></path>
+                                    </svg>
+                                </template>
+                                <v-list-item-title class="ml-3">録画ファイル情報を表示</v-list-item-title>
+                            </v-list-item>
+                            <v-divider></v-divider>
+                            <v-list-item @click="deleteOfflineVideo" class="recorded-program__menu-list-item--danger">
+                                <template v-slot:prepend>
+                                    <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
+                                </template>
+                                <v-list-item-title class="ml-3">オフライン保存を削除</v-list-item-title>
+                            </v-list-item>
+                        </template>
+                        <template v-else>
                         <v-list-item @click="showOfflineDownload = true" :disabled="program.recorded_video.status === 'Recording'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:cloud-arrow-down-20-regular" width="20px" height="20px" />
@@ -174,6 +188,7 @@
                             </template>
                             <v-list-item-title class="ml-3">録画ファイルを削除</v-list-item-title>
                         </v-list-item>
+                        </template>
                     </v-list>
                 </v-menu>
             </div>
@@ -698,6 +713,13 @@ const deleteVideo = async () => {
             }
         }
 
+        &-chips {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            gap: 4px;
+        }
+
         &-title {
             min-width: 0;
             overflow: hidden;
@@ -873,11 +895,22 @@ const deleteVideo = async () => {
     }
 
     &__quality-chip {
+        padding: 0px 9px;
         flex-shrink: 0;
         min-width: 0;
         font-size: 12px !important;
         font-weight: 500;
         text-autospace: normal;
+
+        // スマホでは解像度より容量の方が重要なので、720p などの解像度表示は非表示にする
+        &--resolution {
+            @include smartphone-horizontal {
+                display: none !important;
+            }
+            @include smartphone-vertical {
+                display: none !important;
+            }
+        }
 
         :deep(.v-chip) {
             height: 22px !important;
@@ -899,17 +932,27 @@ const deleteVideo = async () => {
             }
         }
         @include smartphone-horizontal {
+            padding: 0 6px;
+            height: 18px !important;
+            min-height: 18px !important;
+            font-size: 10px !important;
+
             :deep(.v-chip) {
-                height: 22px !important;
+                height: 18px !important;
                 padding: 0 6px !important;
-                font-size: 11px !important;
+                font-size: 10px !important;
             }
         }
         @include smartphone-vertical {
+            padding: 0 6px;
+            height: 18px !important;
+            min-height: 18px !important;
+            font-size: 10px !important;
+
             :deep(.v-chip) {
-                height: 22px !important;
+                height: 18px !important;
                 padding: 0 6px !important;
-                font-size: 11px !important;
+                font-size: 10px !important;
             }
         }
     }
@@ -1129,10 +1172,10 @@ const deleteVideo = async () => {
         }
     }
 
-    // ドロップダウンメニューが無いオフライン一覧では、右端ボタンを縦中央へ寄せる
-    &--offline {
+    // ダウンロード中・失敗時はドロップダウンを出さず、右端ボタンだけ縦中央へ寄せる
+    &--offline-blocked, &--offline-job-failed {
         .recorded-program__mylist {
-            top: 50%;
+            top: 49%;
         }
     }
 }

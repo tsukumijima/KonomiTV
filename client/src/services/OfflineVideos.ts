@@ -259,7 +259,6 @@ export default class OfflineVideos {
             const assetRequests = [
                 {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail`, destination: `${generationBaseURL}/assets/thumbnail.webp`},
                 {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail/tiled`, destination: `${generationBaseURL}/assets/thumbnail-tiled.webp`},
-                {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`, destination: `${generationBaseURL}/assets/jikkyo.json`},
             ];
             if (programSnapshot.channel !== null) {
                 assetRequests.push({
@@ -280,6 +279,28 @@ export default class OfflineVideos {
                     console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
                 }
             }));
+
+            // 実況 API は応答が遅くなりがちで、保存開始自体はコメントがなくても問題ないため、動画転送の登録を待たせない
+            void (async () => {
+                const jikkyoSource = `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`;
+                const jikkyoDestination = `${generationBaseURL}/assets/jikkyo.json`;
+                try {
+                    const assetResponse = await fetch(jikkyoSource, {
+                        headers: {'Authorization': `Bearer ${accessToken}`},
+                    });
+                    if (assetResponse.ok !== true) return;
+
+                    // キャンセルや失敗で世代が破棄された後の到着分を CacheStorage へ書き込まない
+                    const latestJob = await OfflineVideoStorage.getJob(job.job_id);
+                    if (latestJob === null || latestJob.generation_id !== generationID ||
+                        ['Failed', 'Cancelled'].includes(latestJob.state)) {
+                        return;
+                    }
+                    await cache.put(jikkyoDestination, assetResponse);
+                } catch (error) {
+                    console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
+                }
+            })();
 
             // 付随データの取得中にも別画面からキャンセルできるため、実際の動画転送を登録する直前に最新状態を確認する
             if (await OfflineVideoStorage.updateActiveJob(job) === false) {

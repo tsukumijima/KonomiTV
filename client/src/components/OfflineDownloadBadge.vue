@@ -55,6 +55,12 @@ onBeforeUnmount(() => {
     border-radius: 50%;
     color: rgb(var(--v-theme-text));
 
+    @include smartphone-vertical {
+        margin-top: 4px;
+        width: 36px;
+        height: 36px;
+    }
+
     span {
         display: flex;
         align-items: center;
