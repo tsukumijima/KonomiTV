@@ -472,8 +472,15 @@ const offlineMenuSizeLabel = computed(() => {
 // 保存ジョブの進捗率 (0〜99)。完了確定前は 100% にしない
 const offlineDownloadProgress = computed(() => {
     if (isOfflineJobActive.value === false || props.offlineDownloadJob === null) return null;
-    if (props.offlineDownloadJob.estimated_size_bytes <= 0) return 0;
-    return Math.min(99, (props.offlineDownloadJob.downloaded_bytes / props.offlineDownloadJob.estimated_size_bytes) * 100);
+    if (props.offlineDownloadJob.state === 'Finalizing') return 99;
+
+    // ジョブ開始時に固定した estimated_size_bytes は表示のたびに再見積もりする
+    const estimatedSizeBytes = OfflineVideos.estimateJobSizeBytes(
+        props.program.recorded_video.duration,
+        props.offlineDownloadJob.quality,
+    );
+    if (estimatedSizeBytes === null || estimatedSizeBytes <= 0) return 0;
+    return Math.min(99, (props.offlineDownloadJob.downloaded_bytes / estimatedSizeBytes) * 100);
 });
 
 // 進捗更新のたびに 0% へ戻ってから伸び直す見え方を避けるため、表示値は単調増加だけを反映する
@@ -975,6 +982,7 @@ const deleteVideo = async () => {
         &-bar {
             height: 100%;
             background: rgb(var(--v-theme-secondary-lighten-1));
+            transition: width 0.2s ease;
         }
     }
 

@@ -115,13 +115,48 @@ const applyBackgroundFetchProgress = async (targetJobs: IOfflineDownloadJob[]): 
     }));
 };
 
-/** 実行中ジョブの Background Fetch 進捗だけを既存配列へ反映する (一覧の再構築を避ける) */
-const refreshBackgroundFetchProgress = async (): Promise<void> => {
+/** 実行中ジョブの進捗を IndexedDB と Background Fetch から既存配列へ反映する */
+const refreshActiveJobProgress = async (): Promise<void> => {
     if (activeJobs.value.length === 0) return;
     try {
-        await applyBackgroundFetchProgress(jobs.value);
+        const latestJobs = await OfflineVideos.getJobs();
+        let needsFullRefresh = false;
+
+        const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+        const backgroundFetchManager = registration?.backgroundFetch;
+
+        for (const job of activeJobs.value) {
+            const latestJob = latestJobs.find(candidate => candidate.job_id === job.job_id);
+
+            // IndexedDB から消えていれば Service Worker 側で保存処理が終わっている
+            if (latestJob === undefined || ['Waiting', 'Downloading', 'Finalizing'].includes(latestJob.state) === false) {
+                needsFullRefresh = true;
+                continue;
+            }
+
+            // 前景保存は finalizeResponse() が IndexedDB だけ更新するため、表示中オブジェクトへ状態を写す
+            job.downloaded_bytes = latestJob.downloaded_bytes;
+            job.state = latestJob.state;
+            job.error = latestJob.error;
+
+            // Background Fetch 中はブラウザ側の受信量の方が進んでいることが多い
+            if (job.background_fetch_id !== null && backgroundFetchManager !== undefined &&
+                ['Waiting', 'Downloading'].includes(job.state) === true) {
+                const backgroundFetch = await backgroundFetchManager.get(job.background_fetch_id);
+                if (backgroundFetch === undefined) {
+                    needsFullRefresh = true;
+                    continue;
+                }
+                job.downloaded_bytes = Math.max(job.downloaded_bytes, backgroundFetch.downloaded);
+                job.state = job.downloaded_bytes > 0 ? 'Downloading' : 'Waiting';
+            }
+        }
+
+        if (needsFullRefresh === true) {
+            await refresh();
+        }
     } catch (error) {
-        console.error('[OfflineVideos] Failed to refresh background fetch progress:', error);
+        console.error('[OfflineVideos] Failed to refresh active offline job progress:', error);
     }
 };
 
@@ -177,7 +212,7 @@ let refreshTimerID: number | null = null;
 watch(() => activeJobs.value.length > 0, (hasActiveJobs) => {
     // Background Fetch 進捗だけを1秒おきに反映し、IndexedDB 全読み直しによる UI の巻き戻りを避ける
     if (hasActiveJobs === true && refreshTimerID === null) {
-        refreshTimerID = window.setInterval(refreshBackgroundFetchProgress, 1000);
+        refreshTimerID = window.setInterval(refreshActiveJobProgress, 1000);
     } else if (hasActiveJobs === false && refreshTimerID !== null) {
         window.clearInterval(refreshTimerID);
         refreshTimerID = null;

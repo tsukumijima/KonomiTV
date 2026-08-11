@@ -370,7 +370,7 @@ export default class OfflineVideos {
                     await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'バックグラウンド保存を登録できませんでした。');
                     throw error;
                 }
-                this.eventTarget.dispatchEvent(new Event('change'));
+                this.notifyChange();
                 return job;
             }
 
@@ -610,7 +610,7 @@ export default class OfflineVideos {
             if (previousVideo !== null && previousVideo.generation_id !== video.generation_id) {
                 await OfflineVideoStorage.deleteGeneration(previousVideo.video_id, previousVideo.generation_id);
             }
-            this.eventTarget.dispatchEvent(new Event('change'));
+            this.notifyChange();
         } catch (error) {
             // 破損応答や保存キャンセルでは未読部分の受信を打ち切り、ネットワーク接続とストリームロックを解放する
             try {
@@ -640,6 +640,7 @@ export default class OfflineVideos {
         const job = await OfflineVideoStorage.transitionActiveJobToTerminalState(jobID, 'Failed', error);
         if (job === null) return;
         await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
+        this.notifyChange();
     }
 
     /**
@@ -652,6 +653,7 @@ export default class OfflineVideos {
         const job = await OfflineVideoStorage.transitionActiveJobToTerminalState(jobID, 'Cancelled', null);
         if (job === null) return;
         await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
+        this.notifyChange();
     }
 
     /**
@@ -1084,4 +1086,32 @@ export default class OfflineVideos {
         return () => resolveLockRelease?.();
     }
 
+    /**
+     * 保存状態の変更を同一コンテキストと、開いているページへ通知する。
+     * Service Worker 内からは EventTarget がページと共有されないため、postMessage でも伝える。
+     */
+    private static notifyChange(): void {
+
+        OfflineVideos.eventTarget.dispatchEvent(new Event('change'));
+
+        // Service Worker 側の EventTarget はページから参照できないため、開いているクライアントへ直接通知する
+        if (typeof window === 'undefined') {
+            const serviceWorkerScope = self as unknown as ServiceWorkerGlobalScope;
+            void serviceWorkerScope.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+                for (const client of clients) {
+                    client.postMessage({ type: 'konomitv-offline-videos-change' });
+                }
+            });
+        }
+    }
+
+}
+
+// Service Worker からの保存状態更新をページ側 EventTarget へ橋渡しする
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+        if (event.data?.type === 'konomitv-offline-videos-change') {
+            OfflineVideos.eventTarget.dispatchEvent(new Event('change'));
+        }
+    });
 }
