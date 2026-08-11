@@ -77,7 +77,9 @@ export default defineConfig({
         // ref: https://vite-pwa-org.netlify.app/guide/
         VitePWA({
             // Service Worker の登録方法
-            strategies: 'generateSW',
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.ts',
             registerType: 'prompt',  // PWA の更新前にユーザーに確認する
             injectRegister: 'auto',
             // PWA のキャッシュに含めるファイル
@@ -118,15 +120,10 @@ export default defineConfig({
                     }
                 ]
             },
-            // Workbox の設定
-            workbox: {
-                // 古いキャッシュを自動削除する
-                cleanupOutdatedCaches: true,
-                // /api/, /cdn-cgi/(cloudflare) 以下のリクエストでは index.html を返さない
-                navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi/],
-                // キャッシュするファイルの最大サイズ
+            // 独自 Service Worker へ注入する事前キャッシュの設定
+            injectManifest: {
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
-            }
+            },
         }),
     ],
     // Web Worker 上のプラグインの設定

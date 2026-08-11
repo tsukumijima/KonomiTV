@@ -2,6 +2,8 @@
 import mitt from 'mitt';
 import { defineStore } from 'pinia';
 
+import type { IOfflineVideo } from '@/services/OfflineVideos';
+
 import { ITweetCapture } from '@/components/Watch/Panel/Twitter.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager';
 import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
@@ -130,6 +132,12 @@ const usePlayerStore = defineStore('player', {
         // null の間は回線種別から選び、チャンネル切り替えなどでプレイヤーを作り直すときは手動選択を引き継ぐ
         selected_quality_profile_type: null as 'Wi-Fi' | 'Cellular' | null,
 
+        // ビデオ視聴: CacheStorage に保存した単一画質を再生しているか
+        is_offline_playback: false,
+
+        // ビデオ視聴: 再生中の保存世代と画質
+        offline_video: null as IOfflineVideo | null,
+
         // プレイヤーのローディング状態
         // 既定でローディングとする
         is_loading: true,
@@ -234,6 +242,8 @@ const usePlayerStore = defineStore('player', {
             this.is_zapping = false;
             this.is_player_setting_panel_open = false;
             this.selected_quality_profile_type = null;
+            this.is_offline_playback = false;
+            this.offline_video = null;
             this.is_loading = true;
             this.is_video_buffering = true;
             this.is_video_paused = false;

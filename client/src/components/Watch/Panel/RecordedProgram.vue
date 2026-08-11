@@ -40,16 +40,22 @@
                     <span class="ml-2">コメント数:</span>
                     <span class="ml-2">{{comment_count ?? '--'}}</span>
                 </div>
-                <div v-ripple class="program-info__button" @click="toggleMylist">
-                    <template v-if="isInMylist">
-                        <Icon icon="fluent:checkmark-16-filled" width="18px" height="18px"
-                            style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
-                        <span style="margin-left: 6px;">マイリストに追加済み</span>
-                    </template>
-                    <template v-else>
-                        <Icon icon="fluent:add-16-filled" width="18px" height="18px" style="margin-bottom: -1px" />
-                        <span style="margin-left: 6px;">マイリストに追加</span>
-                    </template>
+                <div class="program-info__buttons">
+                    <div v-ripple class="program-info__button" @click="toggleMylist">
+                        <template v-if="isInMylist">
+                            <Icon icon="fluent:checkmark-16-filled" width="18px" height="18px"
+                                style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
+                            <span style="margin-left: 6px;">マイリストに追加済み</span>
+                        </template>
+                        <template v-else>
+                            <Icon icon="fluent:add-16-filled" width="18px" height="18px" style="margin-bottom: -1px" />
+                            <span style="margin-left: 6px;">マイリストに追加</span>
+                        </template>
+                    </div>
+                    <div v-ripple class="program-info__button" @click="showOfflineDownload = true">
+                        <Icon icon="fluent:cloud-arrow-down-20-regular" width="18px" height="18px" />
+                        <span style="margin-left: 6px;">オフライン保存</span>
+                    </div>
                 </div>
             </div>
         </section>
@@ -60,6 +66,7 @@
                 <div class="program-detail__text" v-html="Utils.URLtoLink(detail_text)"></div>
             </div>
         </section>
+        <OfflineVideoDownloadDialog :program="playerStore.recorded_program" v-model:show="showOfflineDownload" />
     </div>
 </template>
 <script lang="ts">
@@ -67,6 +74,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import OfflineVideoDownloadDialog from '@/components/Videos/Dialogs/OfflineVideoDownloadDialog.vue';
 import Message from '@/message';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
@@ -74,6 +82,9 @@ import Utils, { ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'Panel-RecordedProgramTab',
+    components: {
+        OfflineVideoDownloadDialog,
+    },
     data() {
         return {
             // ユーティリティをテンプレートで使えるように
@@ -82,6 +93,9 @@ export default defineComponent({
 
             // コメント数カウント
             comment_count: null as number | null,
+
+            // オフライン保存ダイアログの表示状態
+            showOfflineDownload: false,
         };
     },
     computed: {
@@ -255,11 +269,17 @@ export default defineComponent({
             }
         }
 
+        .program-info__buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
         .program-info__button {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             padding: 5px 8px;
-            margin-top: 16px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 12.7px;
             line-height: 170%;

@@ -279,3 +279,44 @@ declare global {
         window: Window;
     }
 }
+
+declare global {
+    interface BackgroundFetchOptions {
+        title: string;
+        icons?: ImageResource[];
+        downloadTotal?: number;
+    }
+
+    interface BackgroundFetchRegistration {
+        readonly id: string;
+        readonly downloaded: number;
+        readonly downloadTotal: number;
+        readonly result: '' | 'success' | 'failure';
+        readonly failureReason: '' | 'aborted' | 'bad-status' | 'fetch-error' | 'quota-exceeded' | 'download-total-exceeded';
+        abort(): Promise<boolean>;
+        matchAll(): Promise<BackgroundFetchRecord[]>;
+    }
+
+    interface BackgroundFetchRecord {
+        readonly request: Request;
+        readonly responseReady: Promise<Response>;
+    }
+
+    interface BackgroundFetchManager {
+        fetch(id: string, requests: RequestInfo[], options: BackgroundFetchOptions): Promise<BackgroundFetchRegistration>;
+        get(id: string): Promise<BackgroundFetchRegistration | undefined>;
+    }
+
+    interface ServiceWorkerRegistration {
+        readonly backgroundFetch?: BackgroundFetchManager;
+    }
+
+    interface BackgroundFetchEvent extends ExtendableEvent {
+        readonly registration: BackgroundFetchRegistration;
+    }
+    interface ServiceWorkerGlobalScopeEventMap {
+        backgroundfetchsuccess: BackgroundFetchEvent;
+        backgroundfetchfail: BackgroundFetchEvent;
+        backgroundfetchabort: BackgroundFetchEvent;
+    }
+}

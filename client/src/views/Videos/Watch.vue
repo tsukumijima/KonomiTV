@@ -7,6 +7,7 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import Watch from '@/components/Watch/Watch.vue';
+import OfflineVideos from '@/services/OfflineVideos';
 import PlayerController from '@/services/player/PlayerController';
 import Videos from '@/services/Videos';
 import usePlayerStore from '@/stores/PlayerStore';
@@ -66,13 +67,27 @@ export default defineComponent({
                 return;
             }
 
-            // 録画番組情報を更新する
-            const recorded_program = await Videos.fetchVideo(parseFloat(this.$route.params.video_id as string));
+            const video_id_text = this.$route.params.video_id;
+            if (typeof video_id_text !== 'string' || /^[1-9]\d*$/.test(video_id_text) === false) {
+                this.$router.push({path: '/not-found/'});
+                return;
+            }
+            const video_id = Number(video_id_text);
+
+            // オフライン保存ページから開いた場合は保存時点の番組情報を使い、通常再生の通信失敗時だけ保存版へ切り替える
+            let offline_video = this.$route.query.offline === '1' ? await OfflineVideos.getVideo(video_id) : null;
+            let recorded_program = offline_video?.program ?? await Videos.fetchVideo(video_id);
+            if (recorded_program === null && offline_video === null) {
+                offline_video = await OfflineVideos.getVideo(video_id);
+                recorded_program = offline_video?.program ?? null;
+            }
             if (recorded_program === null) {
                 this.$router.push({path: '/not-found/'});
                 return;
             }
             this.playerStore.recorded_program = recorded_program;
+            this.playerStore.is_offline_playback = offline_video !== null;
+            this.playerStore.offline_video = offline_video;
 
             // PlayerController を初期化
             player_controller = new PlayerController('Video');

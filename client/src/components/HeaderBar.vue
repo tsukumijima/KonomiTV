@@ -6,6 +6,7 @@
         <v-spacer></v-spacer>
         <!-- 番組表コントロール用スロット -->
         <slot name="timetable-controls"></slot>
+        <OfflineDownloadBadge class="mr-4" />
         <div v-if="showSearchInput" class="search-box">
             <input class="search-input" type="search" name="header-search" enterkeyhint="search" :placeholder="searchPlaceholder"
                 v-model="searchQuery" @keydown="handleKeyDown">
@@ -24,6 +25,8 @@
 import { pwaInstallHandler } from 'pwa-install-handler';
 import { onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+
+import OfflineDownloadBadge from '@/components/OfflineDownloadBadge.vue';
 
 const props = defineProps<{
     searchQuery?: string;

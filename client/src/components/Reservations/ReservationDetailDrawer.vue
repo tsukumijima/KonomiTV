@@ -172,11 +172,11 @@
             <v-card-actions class="pt-4 px-6 pb-6">
                 <v-spacer></v-spacer>
                 <v-btn color="text" variant="text" @click="showCloseConfirmDialog = false">
-                    <Icon icon="fluent:arrow-left-20-regular" width="18px" height="18px" />
+                    <Icon icon="fluent:arrow-left-16-regular" width="18px" height="18px" />
                     <span class="ml-1">編集に戻る</span>
                 </v-btn>
                 <v-btn class="px-3" color="secondary" variant="flat" @click="confirmClose">
-                    <Icon icon="fluent:dismiss-20-regular" width="18px" height="18px" />
+                    <Icon icon="fluent:dismiss-16-regular" width="18px" height="18px" />
                     <span class="ml-1">変更を破棄</span>
                 </v-btn>
             </v-card-actions>

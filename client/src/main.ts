@@ -14,6 +14,7 @@ import Message from '@/message';
 import FloatingVue from '@/plugins/floating-vue';
 import vuetify from '@/plugins/vuetify';
 import router from '@/router';
+import OfflineVideos from '@/services/OfflineVideos';
 import useSettingsStore, {
     getLocalStorageSettings,
     getNormalizedLocalClientSettings,
@@ -28,6 +29,12 @@ import Utils from '@/utils';
 SeamlessScrollPolyfill();
 
 // ***** Vue アプリケーションの初期化 *****
+
+// 前回のページ終了時に前景保存が中断されていれば、起動時に既存ジョブだけを失敗状態へ移して残片を回収する
+void OfflineVideos.recoverInterruptedForegroundDownloads().catch((error) => {
+    // オフライン保存領域だけの読み取り失敗で、通常のオンライン視聴画面まで起動不能にはしない
+    console.error('Failed to recover interrupted foreground offline downloads:', error);
+});
 
 // Vue アプリケーションを作成
 const app = createApp(App);
@@ -77,6 +84,13 @@ const { updateServiceWorker } = useRegisterSW({
     // PWA の更新が必要なとき
     async onNeedRefresh() {
         console.log('New content is available; please refresh.');
+        // Safari などの前景保存中はリロードで通信が切れるため、完了またはキャンセルまで更新を保留する
+        if (await OfflineVideos.hasActiveForegroundDownload() === true) {
+            Message.show('オフライン保存の完了後にクライアントを更新します。', 10);
+            while (await OfflineVideos.hasActiveForegroundDownload() === true) {
+                await Utils.sleep(1);
+            }
+        }
         // リロードするまでトーストを表示し続ける
         Message.show('クライアントが新しいバージョンに更新されました。5秒後にリロードします。', 10);  // 10秒間表示
         await Utils.sleep(5);  // 5秒待つ

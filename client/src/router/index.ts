@@ -75,6 +75,11 @@ const router = createRouter({
             component: () => import('@/views/Mylist.vue'),
         },
         {
+            path: '/offline-videos/',
+            name: 'Offline Videos',
+            component: () => import('@/views/OfflineVideos.vue'),
+        },
+        {
             path: '/watched-history/',
             name: 'Watched History',
             component: () => import('@/views/WatchedHistory.vue'),
