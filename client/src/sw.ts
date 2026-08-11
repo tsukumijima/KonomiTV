@@ -25,10 +25,10 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
     denylist: [/^\/api/, /^\/cdn-cgi/],
 }));
 
-// 保存済み HLS は通常の HTTP キャッシュへ依存せず、オフライン動画専用 CacheStorage から返す
+// 保存済み HLS は /local/offline-videos/ 以下の仮想 URL として CacheStorage から返す
 self.addEventListener('fetch', (event) => {
     const requestURL = new URL(event.request.url);
-    if (requestURL.origin === self.location.origin && requestURL.pathname.startsWith('/__offline__/videos/')) {
+    if (requestURL.origin === self.location.origin && OfflineVideoStorage.isLocalOfflineVideoPathname(requestURL.pathname)) {
         event.respondWith(OfflineVideoStorage.getResponse(event.request));
     }
 });

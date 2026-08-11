@@ -271,13 +271,13 @@ export default class OfflineVideos {
                 if (accessToken === null) {
                     throw new Error('ログイン情報がありません。');
                 }
-                request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline`, {
+                request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline-stream`, {
                     headers: {'Authorization': `Bearer ${accessToken}`},
                 });
 
                 // 番組一覧とシークバーが通信なしでも描画できるよう、小さな付随データは動画本体より先に同じ世代へ保存する
                 const cache = await OfflineVideoStorage.openCache();
-                const generationBaseURL = `${self.location.origin}/__offline__/videos/${programSnapshot.id}/${generationID}`;
+                const generationBaseURL = OfflineVideoStorage.getGenerationBaseURL(programSnapshot.id, generationID);
                 const assetRequests = [
                     {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail`, destination: `${generationBaseURL}/assets/thumbnail.webp`},
                     {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail/tiled`, destination: `${generationBaseURL}/assets/thumbnail-tiled.webp`},
@@ -462,7 +462,7 @@ export default class OfflineVideos {
         let lastPersistedProgressAt = Date.now();
         const segmentDurations: number[] = [];
         const cache = await OfflineVideoStorage.openCache();
-        const generationBaseURL = `${self.location.origin}/__offline__/videos/${job.video_id}/${job.generation_id}`;
+        const generationBaseURL = OfflineVideoStorage.getGenerationBaseURL(job.video_id, job.generation_id);
 
         /** 指定バイト数をネットワークチャンク列から読み取る */
         const readBytes = async (length: number): Promise<Uint8Array> => {

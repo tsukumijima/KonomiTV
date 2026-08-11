@@ -22,11 +22,15 @@ export default class OfflineVideoStorage {
 
     static readonly eventTarget = new EventTarget();
 
+    /** Service Worker が CacheStorage から返す保存済み HLS の URL プレフィックス */
+    static readonly LOCAL_OFFLINE_VIDEOS_PATH_PREFIX = '/local/offline-videos/';
+
     private static readonly DB_NAME = 'KonomiTV-OfflineVideos';
     private static readonly DB_VERSION = 1;
     private static readonly VIDEO_STORE_NAME = 'videos';
     private static readonly JOB_STORE_NAME = 'jobs';
     private static readonly CACHE_NAME = 'KonomiTV-OfflineVideos';
+    private static readonly GENERATION_URL_PATTERN = /\/local\/offline-videos\/(\d+)\/([^/]+)\//;
     private static databasePromise: Promise<IDBPDatabase<IOfflineVideoDB>> | null = null;
 
     /**
@@ -209,7 +213,7 @@ export default class OfflineVideoStorage {
 
         // CacheStorage 上の保存世代 URL から video_id / generation_id の組を回収する
         for (const request of requests) {
-            const matched = request.url.match(/\/__offline__\/videos\/(\d+)\/([^/]+)\//);
+            const matched = request.url.match(this.GENERATION_URL_PATTERN);
             if (matched !== null) {
                 generationKeys.add(`${matched[1]}:${matched[2]}`);
             }
@@ -230,11 +234,21 @@ export default class OfflineVideoStorage {
     /** 指定した保存世代に属する CacheStorage のデータを削除する */
     static async deleteGeneration(videoID: number, generationID: string): Promise<void> {
         const cache = await this.openCache();
-        const generationPrefix = `${self.location.origin}/__offline__/videos/${videoID}/${generationID}/`;
+        const generationPrefix = `${this.getGenerationBaseURL(videoID, generationID)}/`;
         const requests = await cache.keys();
         await Promise.all(requests
             .filter(request => request.url.startsWith(generationPrefix))
             .map(request => cache.delete(request)));
+    }
+
+    /** 保存済み HLS 世代のベース URL を返す */
+    static getGenerationBaseURL(videoID: number, generationID: string): string {
+        return `${self.location.origin}${this.LOCAL_OFFLINE_VIDEOS_PATH_PREFIX}${videoID}/${generationID}`;
+    }
+
+    /** Service Worker が横取りすべき保存済み HLS のリクエストかを判定する */
+    static isLocalOfflineVideoPathname(pathname: string): boolean {
+        return pathname.startsWith(this.LOCAL_OFFLINE_VIDEOS_PATH_PREFIX);
     }
 
     /** オフライン動画専用 CacheStorage を開く */
@@ -253,12 +267,12 @@ export default class OfflineVideoStorage {
 
     /** 保存済み動画の HLS プレイリスト URL を返す */
     static getPlaylistURL(video: IOfflineVideo): string {
-        return `${self.location.origin}/__offline__/videos/${video.video_id}/${video.generation_id}/playlist.m3u8`;
+        return `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/playlist.m3u8`;
     }
 
     /** 保存済み動画に付随する画像・JSON の URL を返す */
     static getAssetURL(video: IOfflineVideo, assetName: 'thumbnail.webp' | 'thumbnail-tiled.webp' | 'channel-logo' | 'jikkyo.json'): string {
-        return `${self.location.origin}/__offline__/videos/${video.video_id}/${video.generation_id}/assets/${assetName}`;
+        return `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/assets/${assetName}`;
     }
 
     private static async openDatabase(): Promise<IDBPDatabase<IOfflineVideoDB>> {
@@ -301,7 +315,7 @@ export default class OfflineVideoStorage {
     }
 
     private static isVideoCacheComplete(video: IOfflineVideo, cachedRequestURLs: string[]): boolean {
-        const generationPrefix = `${self.location.origin}/__offline__/videos/${video.video_id}/${video.generation_id}/`;
+        const generationPrefix = `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/`;
         const hasPlaylist = cachedRequestURLs.includes(`${generationPrefix}playlist.m3u8`);
         const segmentCount = cachedRequestURLs.filter(url => url.startsWith(`${generationPrefix}segments/`)).length;
         const isComplete = hasPlaylist === true && segmentCount === video.segment_count;

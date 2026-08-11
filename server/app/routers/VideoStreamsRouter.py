@@ -251,7 +251,7 @@ async def VideoHLSKeepAliveAPI(
 
 
 @router.get(
-    '/{video_id}/{quality}/offline',
+    '/{video_id}/{quality}/offline-stream',
     summary = '録画番組オフライン保存ストリーム API',
     response_class = StreamingResponse,
     responses = {
