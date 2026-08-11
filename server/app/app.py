@@ -148,8 +148,8 @@ def Root(file: str):
 
     # 存在しない静的ファイルが指定された場合
     else:
-        if file.startswith('api/'):
-            # パスに api/ が前方一致で含まれているなら、404 Not Found を返す
+        if file.startswith('api/') or file.startswith('local/'):
+            # サーバー側に存在しない API または Service Worker が提供する仮想 URL へ直接アクセスされた場合は 404 Not Found を返す
             return JSONResponse({'detail': 'Not Found'}, status_code = status.HTTP_404_NOT_FOUND)
         else:
             # パスに api/ が前方一致で含まれていなければ、index.html を返す
