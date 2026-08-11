@@ -184,6 +184,9 @@ class VideoStream:
             # イベントループ上の Task は弱参照で管理されるため、自然終了するまでここで強参照を保持する
             instance._detached_video_encoding_task_refs = set()
 
+            # destroy() の開始後に待機中のセグメント要求や生存期限更新がセッションを再始動しないよう、破棄済みかどうかを共有する
+            instance._is_destroyed = False
+
             # キャンセルされない限り SESSION_TIMEOUT 秒後にインスタンスを破棄するタイマー
             # cancel_destroy_timer() を呼び出すことでタイマーをキャンセルできる
             instance._cancel_destroy_timer = SetTimeout(lambda: asyncio.create_task(instance.destroy()), cls.SESSION_TIMEOUT)
@@ -377,6 +380,10 @@ class VideoStream:
         録画視聴セッションのアクティブ状態を維持する
         番組の視聴中は定期的にこのメソッドを呼び出す必要があり、呼び出されなくなった場合は自動的に終了処理が行われる
         """
+
+        # 終了処理へ入ったセッションは、待機中だった要求から生存期限を更新して復活させない
+        if self._is_destroyed is True:
+            return
 
         # 前回のタイマーをキャンセルする
         self._cancel_destroy_timer()
@@ -759,6 +766,10 @@ class VideoStream:
         # セッションのアクティブ状態を維持する
         self.keepAlive()
 
+        # 終了処理と競合した要求は、破棄予定のセグメントやエンコーダーへ触れず終了する
+        if self._is_destroyed is True:
+            return None
+
         # セグメントのシーケンス番号が不正な場合は None を返す
         if segment_sequence < 0 or segment_sequence >= len(self._segments):
             return None
@@ -769,6 +780,10 @@ class VideoStream:
         # 当該セグメントのエンコードがまだ完了していない場合は、エンコードタスクを非同期で開始する
         if segment.encode_status == 'Pending':
             async with self._video_encoding_task_lock:
+                # ロック待ちの間に終了処理が始まった場合は、新しいエンコードタスクを作成しない
+                if self._is_destroyed is True:
+                    return None
+
                 # ロック待ちの間に他のリクエストがすでにエンコードを開始している可能性があるため再確認する
                 if segment.encode_status == 'Pending':
                     # シークでは旧エンコーダーが同じ録画ファイルを読み続けていると、未キャッシュ区間の探索と I/O が競合する
@@ -903,17 +918,24 @@ class VideoStream:
         ユーザーが番組の視聴を終了した (keepAlive() が呼び出されなくなった) 場合に自動的に呼び出される
         """
 
-        # 起動中のエンコードタスクがあればキャンセルする
-        # この時点ですでにエンコードを完了して終了している場合もある
+        # await より前に破棄済みフラグを立て、待機中のセグメント要求と古い生存期限タイマーからの再始動を防ぐ
+        if self._is_destroyed is True:
+            return
+        self._is_destroyed = True
+        self._cancel_destroy_timer()
+
+        # 明示的な終了処理と生存期限タイマーが競合しても、新しく作られた同名セッションや登録解除済みセッションへ触れない
         async with self._video_encoding_task_lock:
+            if self.__instances.get(self.session_id) is not self:
+                return
+
+            # 起動中のエンコードタスクがあればキャンセルする
+            # この時点ですでにエンコードを完了して終了している場合もある
             await self.__cancelVideoEncodingTask()
 
-        # すべての HLS セグメントを削除する
-        self._segments = []
-
-        # アクティブな間保持されていたインスタンスを削除する
-        ## これにより、このインスタンスには誰も参照できなくなるため、ガベージコレクションによりメモリから解放される (はず)
-        ## 今後同じセッション ID が指定された場合は新たに別のインスタンスが生成される
-        self.__instances.pop(self.session_id)
+            # すべての HLS セグメントと、アクティブな間保持されていたインスタンスを削除する
+            ## 今後同じセッション ID が指定された場合は新たに別のインスタンスが生成される
+            self._segments = []
+            self.__instances.pop(self.session_id)
 
         logging.info(f'{self.log_prefix} Streaming Session Finished.')
