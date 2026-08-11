@@ -53,8 +53,20 @@
                         </template>
                     </div>
                     <div v-ripple class="program-info__button" @click="showOfflineDownload = true">
-                        <Icon icon="fluent:cloud-arrow-down-20-regular" width="18px" height="18px" />
-                        <span style="margin-left: 6px;">オフライン保存</span>
+                        <template v-if="isOfflineDownloading">
+                            <Icon icon="fluent:cloud-arrow-down-20-filled" width="18px" height="18px"
+                                style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
+                            <span style="margin-left: 6px;">オフライン保存中</span>
+                        </template>
+                        <template v-else-if="isOfflineSaved">
+                            <Icon icon="fluent:checkmark-16-filled" width="18px" height="18px"
+                                style="color: rgb(var(--v-theme-primary)); margin-bottom: -1px" />
+                            <span style="margin-left: 6px;">オフライン保存済み</span>
+                        </template>
+                        <template v-else>
+                            <Icon icon="fluent:cloud-arrow-down-20-regular" width="18px" height="18px" />
+                            <span style="margin-left: 6px;">オフライン保存</span>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -76,6 +88,7 @@ import { defineComponent } from 'vue';
 
 import OfflineVideoDownloadDialog from '@/components/Videos/Dialogs/OfflineVideoDownloadDialog.vue';
 import Message from '@/message';
+import OfflineVideos, { type IOfflineDownloadJob, type IOfflineVideo } from '@/services/OfflineVideos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import Utils, { ProgramUtils } from '@/utils';
@@ -96,6 +109,12 @@ export default defineComponent({
 
             // オフライン保存ダイアログの表示状態
             showOfflineDownload: false,
+
+            // IndexedDB 上のオフライン保存済み動画 (存在しない場合は null)
+            offlineVideo: null as IOfflineVideo | null,
+
+            // 実行中のオフライン保存ジョブ (存在しない場合は null)
+            offlineDownloadJob: null as IOfflineDownloadJob | null,
         };
     },
     computed: {
@@ -107,8 +126,34 @@ export default defineComponent({
                 item.type === 'RecordedProgram' && item.id === this.playerStore.recorded_program.id
             );
         },
+
+        // オフライン保存済みかどうか
+        isOfflineSaved(): boolean {
+            return this.offlineVideo !== null;
+        },
+
+        // オフライン保存中かどうか
+        isOfflineDownloading(): boolean {
+            return this.offlineDownloadJob !== null;
+        },
     },
     methods: {
+        // IndexedDB から現在の番組のオフライン保存状態を読み直す
+        async refreshOfflineState(): Promise<void> {
+            try {
+                const videoID = this.playerStore.recorded_program.id;
+                const [offlineVideo, offlineDownloadJob] = await Promise.all([
+                    OfflineVideos.getVideo(videoID),
+                    OfflineVideos.getActiveJobForVideo(videoID),
+                ]);
+                this.offlineVideo = offlineVideo;
+                this.offlineDownloadJob = offlineDownloadJob;
+            } catch (error) {
+                // 一時的な読み取り失敗で視聴パネル全体の描画を止めない
+                console.warn('[Panel-RecordedProgramTab] Failed to read offline state:', error);
+            }
+        },
+
         // マイリストの追加/削除を切り替える
         toggleMylist(): void {
             const program = this.playerStore.recorded_program;
@@ -128,17 +173,22 @@ export default defineComponent({
             }
         },
     },
-    created() {
+    async created() {
         // PlayerController 側からCommentReceived イベントで過去ログコメントを受け取り、コメント数を算出する
         this.playerStore.event_emitter.on('CommentReceived', (event) => {
             if (event.is_initial_comments === true) {  // 録画では初期コメントしか発生しない
                 this.comment_count = event.comments.length;
             }
         });
+
+        // オフライン保存の追加・削除・保存し直し後にボタン表示を更新する
+        OfflineVideos.eventTarget.addEventListener('change', this.refreshOfflineState);
+        await this.refreshOfflineState();
     },
     beforeUnmount() {
         // CommentReceived イベントの全てのイベントハンドラーを削除
         this.playerStore.event_emitter.off('CommentReceived');
+        OfflineVideos.eventTarget.removeEventListener('change', this.refreshOfflineState);
     },
 });
 

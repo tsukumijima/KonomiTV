@@ -106,6 +106,8 @@ export default class OfflineVideos {
     private static readonly STREAM_MAGIC = new TextEncoder().encode('KTVODLP\n');
     private static foregroundAbortControllers = new Map<string, AbortController>();
     private static foregroundLockReleases = new Map<string, () => void>();
+    /** Web Locks 非対応環境で、同一タブ内の start() 呼び出しを録画番組 ID ごとに直列化する */
+    private static startMutexTailByVideoID = new Map<number, Promise<void>>();
 
     /** 前景保存中にタブを閉じようとしたときの警告 */
     private static readonly onBeforeUnload = (event: BeforeUnloadEvent): void => {
@@ -151,6 +153,19 @@ export default class OfflineVideos {
     static async getJobs(): Promise<IOfflineDownloadJob[]> {
 
         return await OfflineVideoStorage.getJobs();
+    }
+
+    /**
+     * 指定した録画番組の実行中保存ジョブを取得する。
+     * @param videoID 録画番組 ID
+     * @returns 実行中ジョブ (存在しない場合は null)
+     */
+    static async getActiveJobForVideo(videoID: number): Promise<IOfflineDownloadJob | null> {
+
+        const jobs = await this.getJobs();
+        return jobs.find(job =>
+            job.video_id === videoID && ['Waiting', 'Downloading', 'Finalizing'].includes(job.state),
+        ) ?? null;
     }
 
     /**
@@ -204,198 +219,206 @@ export default class OfflineVideos {
         // API 由来の JSON データだけを保存時点のスナップショットへ変換し、Service Worker からも安全に読み出せる値へ固定する
         const programSnapshot = JSON.parse(JSON.stringify(program)) as IRecordedProgram;
 
-        // ビットレートの上限側へ余裕を加え、容量不足を保存途中で発見する可能性を下げる
-        const estimatedSizeBytes = OfflineVideos.estimateJobSizeBytes(programSnapshot.recorded_video.duration, quality);
-        if (estimatedSizeBytes === null) {
-            throw new Error(`オフライン保存に対応していない画質です。(${quality})`);
-        }
-
-        // Background Fetch は一時応答と展開後キャッシュが併存するため、前景保存の2倍を空き容量判定へ使う
-        const isBackgroundFetchSupported = await this.isBackgroundFetchSupported();
-        const storageEstimate = await navigator.storage?.estimate() ?? {};
-        const availableBytes = (storageEstimate.quota ?? 0) - (storageEstimate.usage ?? 0);
-        const requiredBytes = estimatedSizeBytes * (isBackgroundFetchSupported === true ? 2 : 1);
-        if (storageEstimate.quota !== undefined && availableBytes < requiredBytes) {
-            throw new Error(`オフライン保存に必要な空き容量が不足しています。必要: ${Utils.formatBytes(requiredBytes)} / 空き: ${Utils.formatBytes(Math.max(0, availableBytes))}`);
-        }
-
-        // 同じ録画番組を保存し直す場合も、旧世代を消さず新しい世代へ書き込む
-        const generationID = crypto.randomUUID();
-        const jobID = crypto.randomUUID();
-        const job: IOfflineDownloadJob = {
-            job_id: jobID,
-            video_id: programSnapshot.id,
-            generation_id: generationID,
-            program: programSnapshot,
-            quality,
-            state: 'Waiting',
-            estimated_size_bytes: estimatedSizeBytes,
-            downloaded_bytes: 0,
-            background_fetch_id: isBackgroundFetchSupported === true ? `konomitv-offline-${jobID}` : null,
-            error: null,
-        };
-        const releaseForegroundLock = isBackgroundFetchSupported === false ? await this.acquireForegroundLock(job.job_id) : null;
-        try {
-            await OfflineVideoStorage.putJobIfVideoIdle(job);
-        } catch (error) {
-            releaseForegroundLock?.();
-            throw error;
-        }
-
-        let request: Request;
-        try {
-            // API と同じオリジンの Request へ認証情報を固定し、ページ終了後もブラウザが単独で取得できるようにする
-            const accessToken = Utils.getAccessToken();
-            if (accessToken === null) {
-                throw new Error('ログイン情報がありません。');
+        // 同一録画番組への並行 start() を直列化し、IndexedDB へジョブが載る前の重複開始を防ぐ
+        return await this.withVideoStartLock(programSnapshot.id, async () => {
+            const activeJob = await this.getActiveJobForVideo(programSnapshot.id);
+            if (activeJob !== null) {
+                throw new Error('この録画番組はすでにオフライン保存中です。');
             }
-            request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline`, {
-                headers: {'Authorization': `Bearer ${accessToken}`},
-            });
 
-            // 番組一覧とシークバーが通信なしでも描画できるよう、小さな付随データは動画本体より先に同じ世代へ保存する
-            const cache = await OfflineVideoStorage.openCache();
-            const generationBaseURL = `${self.location.origin}/__offline__/videos/${programSnapshot.id}/${generationID}`;
-            const assetRequests = [
-                {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail`, destination: `${generationBaseURL}/assets/thumbnail.webp`},
-                {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail/tiled`, destination: `${generationBaseURL}/assets/thumbnail-tiled.webp`},
-            ];
-            if (programSnapshot.channel !== null) {
-                assetRequests.push({
-                    source: `${Utils.api_base_url}/channels/${programSnapshot.channel.id}/logo`,
-                    destination: `${generationBaseURL}/assets/channel-logo`,
-                });
+            // ビットレートの上限側へ余裕を加え、容量不足を保存途中で発見する可能性を下げる
+            const estimatedSizeBytes = OfflineVideos.estimateJobSizeBytes(programSnapshot.recorded_video.duration, quality);
+            if (estimatedSizeBytes === null) {
+                throw new Error(`オフライン保存に対応していない画質です。(${quality})`);
             }
-            await Promise.all(assetRequests.map(async assetRequest => {
-                try {
-                    const assetResponse = await fetch(assetRequest.source, {
-                        headers: {'Authorization': `Bearer ${accessToken}`},
-                    });
-                    if (assetResponse.ok === true) {
-                        await cache.put(assetRequest.destination, assetResponse);
-                    }
-                } catch (error) {
-                    // 付随データの取得失敗は動画保存を止めず、映像本体を優先する
-                    console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
-                }
-            }));
 
-            // 実況 API は応答が遅くなりがちで、保存開始自体はコメントがなくても問題ないため、動画転送の登録を待たせない
-            void (async () => {
-                const jikkyoSource = `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`;
-                const jikkyoDestination = `${generationBaseURL}/assets/jikkyo.json`;
-                try {
-                    const assetResponse = await fetch(jikkyoSource, {
-                        headers: {'Authorization': `Bearer ${accessToken}`},
-                    });
-                    if (assetResponse.ok !== true) return;
-
-                    // キャンセルや失敗で世代が破棄された後の到着分を CacheStorage へ書き込まない
-                    const latestJob = await OfflineVideoStorage.getJob(job.job_id);
-                    if (latestJob === null || latestJob.generation_id !== generationID ||
-                        ['Failed', 'Cancelled'].includes(latestJob.state)) {
-                        return;
-                    }
-                    await cache.put(jikkyoDestination, assetResponse);
-                } catch (error) {
-                    console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
-                }
-            })();
-
-            // 付随データの取得中にも別画面からキャンセルできるため、実際の動画転送を登録する直前に最新状態を確認する
-            if (await OfflineVideoStorage.updateActiveJob(job) === false) {
-                throw new Error('オフライン保存はキャンセルされました。');
+            // Background Fetch は一時応答と展開後キャッシュが併存するため、前景保存の2倍を空き容量判定へ使う
+            const isBackgroundFetchSupported = await this.isBackgroundFetchSupported();
+            const storageEstimate = await navigator.storage?.estimate() ?? {};
+            const availableBytes = (storageEstimate.quota ?? 0) - (storageEstimate.usage ?? 0);
+            const requiredBytes = estimatedSizeBytes * (isBackgroundFetchSupported === true ? 2 : 1);
+            if (storageEstimate.quota !== undefined && availableBytes < requiredBytes) {
+                throw new Error(`オフライン保存に必要な空き容量が不足しています。必要: ${Utils.formatBytes(requiredBytes)} / 空き: ${Utils.formatBytes(Math.max(0, availableBytes))}`);
             }
-        } catch (error) {
-            // 動画転送へ所有権を渡す前の失敗では、作成済みの断片と前景ロックをこの呼び出し内で回収する
-            releaseForegroundLock?.();
-            await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存を開始できませんでした。');
-            throw error;
-        }
 
-        if (isBackgroundFetchSupported === true && job.background_fetch_id !== null) {
+            // 同じ録画番組を保存し直す場合も、旧世代を消さず新しい世代へ書き込む
+            const generationID = crypto.randomUUID();
+            const jobID = crypto.randomUUID();
+            const job: IOfflineDownloadJob = {
+                job_id: jobID,
+                video_id: programSnapshot.id,
+                generation_id: generationID,
+                program: programSnapshot,
+                quality,
+                state: 'Waiting',
+                estimated_size_bytes: estimatedSizeBytes,
+                downloaded_bytes: 0,
+                background_fetch_id: isBackgroundFetchSupported === true ? `konomitv-offline-${jobID}` : null,
+                error: null,
+            };
+            const releaseForegroundLock = isBackgroundFetchSupported === false ? await this.acquireForegroundLock(job.job_id) : null;
             try {
-                const registration = await navigator.serviceWorker.getRegistration();
-                if (registration === undefined) {
-                    throw new Error('Service Worker の登録が見つかりません。');
+                await OfflineVideoStorage.putJobIfVideoIdle(job);
+            } catch (error) {
+                releaseForegroundLock?.();
+                throw error;
+            }
+
+            let request: Request;
+            try {
+            // API と同じオリジンの Request へ認証情報を固定し、ページ終了後もブラウザが単独で取得できるようにする
+                const accessToken = Utils.getAccessToken();
+                if (accessToken === null) {
+                    throw new Error('ログイン情報がありません。');
                 }
-                const backgroundFetchManager = registration.backgroundFetch;
-                if (backgroundFetchManager === undefined) {
-                    throw new Error('Background Fetch API を利用できません。');
-                }
-                await backgroundFetchManager.fetch(job.background_fetch_id, [request], {
-                    title: `${programSnapshot.title}をオフライン保存`,
-                    icons: [{src: '/assets/images/icons/icon-192px.png', sizes: '192x192', type: 'image/png'}],
+                request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline`, {
+                    headers: {'Authorization': `Bearer ${accessToken}`},
                 });
 
-                // 登録処理中にキャンセルされた場合は、ブラウザへ渡した直後の Background Fetch も確実に停止する
+                // 番組一覧とシークバーが通信なしでも描画できるよう、小さな付随データは動画本体より先に同じ世代へ保存する
+                const cache = await OfflineVideoStorage.openCache();
+                const generationBaseURL = `${self.location.origin}/__offline__/videos/${programSnapshot.id}/${generationID}`;
+                const assetRequests = [
+                    {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail`, destination: `${generationBaseURL}/assets/thumbnail.webp`},
+                    {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail/tiled`, destination: `${generationBaseURL}/assets/thumbnail-tiled.webp`},
+                ];
+                if (programSnapshot.channel !== null) {
+                    assetRequests.push({
+                        source: `${Utils.api_base_url}/channels/${programSnapshot.channel.id}/logo`,
+                        destination: `${generationBaseURL}/assets/channel-logo`,
+                    });
+                }
+                await Promise.all(assetRequests.map(async assetRequest => {
+                    try {
+                        const assetResponse = await fetch(assetRequest.source, {
+                            headers: {'Authorization': `Bearer ${accessToken}`},
+                        });
+                        if (assetResponse.ok === true) {
+                            await cache.put(assetRequest.destination, assetResponse);
+                        }
+                    } catch (error) {
+                    // 付随データの取得失敗は動画保存を止めず、映像本体を優先する
+                        console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
+                    }
+                }));
+
+                // 実況 API は応答が遅くなりがちで、保存開始自体はコメントがなくても問題ないため、動画転送の登録を待たせない
+                void (async () => {
+                    const jikkyoSource = `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`;
+                    const jikkyoDestination = `${generationBaseURL}/assets/jikkyo.json`;
+                    try {
+                        const assetResponse = await fetch(jikkyoSource, {
+                            headers: {'Authorization': `Bearer ${accessToken}`},
+                        });
+                        if (assetResponse.ok !== true) return;
+
+                        // キャンセルや失敗で世代が破棄された後の到着分を CacheStorage へ書き込まない
+                        const latestJob = await OfflineVideoStorage.getJob(job.job_id);
+                        if (latestJob === null || latestJob.generation_id !== generationID ||
+                        ['Failed', 'Cancelled'].includes(latestJob.state)) {
+                            return;
+                        }
+                        await cache.put(jikkyoDestination, assetResponse);
+                    } catch (error) {
+                        console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
+                    }
+                })();
+
+                // 付随データの取得中にも別画面からキャンセルできるため、実際の動画転送を登録する直前に最新状態を確認する
                 if (await OfflineVideoStorage.updateActiveJob(job) === false) {
-                    const backgroundFetch = await backgroundFetchManager.get(job.background_fetch_id);
-                    await backgroundFetch?.abort();
-                    await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
                     throw new Error('オフライン保存はキャンセルされました。');
                 }
             } catch (error) {
-                // 登録失敗時は先に保存した付随データを残さず、一覧へ失敗理由を引き継ぐ
-                await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'バックグラウンド保存を登録できませんでした。');
+            // 動画転送へ所有権を渡す前の失敗では、作成済みの断片と前景ロックをこの呼び出し内で回収する
+                releaseForegroundLock?.();
+                await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存を開始できませんでした。');
                 throw error;
             }
-            this.eventTarget.dispatchEvent(new Event('change'));
-            return job;
-        }
 
-        // Safari などではページが存続している間だけ通常の Fetch で同じ応答を保存する
-        try {
-            job.state = 'Downloading';
-            if (await OfflineVideoStorage.updateActiveJob(job) === false) {
-                throw new Error('オフライン保存はキャンセルされました。');
-            }
-        } catch (error) {
-            // 転送処理へ引き渡す前の失敗は、この呼び出しで前景ロックを解放する
-            releaseForegroundLock?.();
-            await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存を開始できませんでした。');
-            throw error;
-        }
-        const abortController = new AbortController();
-        this.foregroundAbortControllers.set(job.job_id, abortController);
-        void (async () => {
-            let wakeLock: WakeLockSentinel | null = null;
-            try {
-                // 前景保存中だけ画面の自動消灯を抑え、Safari などで JavaScript 実行が止まる可能性を下げる
-                if ('wakeLock' in navigator) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                    } catch (error) {
-                        console.warn('[OfflineVideos] Failed to acquire a screen wake lock:', error);
-                    }
-                }
-                const response = await fetch(request, {signal: abortController.signal});
-                if (response.ok === false) {
-                    throw new Error(`オフライン保存 API が HTTP ${response.status} を返しました。`);
-                }
-                await this.finalizeResponse(job.job_id, response);
-            } catch (error) {
-                const latestJob = await OfflineVideoStorage.getJob(job.job_id);
-                if (latestJob !== null && ['Waiting', 'Downloading', 'Finalizing'].includes(latestJob.state)) {
-                    // 利用者による中止とページ終了による fetch 中断の双方で、未完の断片を残さない
-                    if (abortController.signal.aborted === true) {
-                        await this.markJobCancelled(job.job_id);
-                    } else {
-                        await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存に失敗しました。');
-                    }
-                }
-            } finally {
-                // Wake Lock の解放失敗でも、前景保存の所有情報と Web Lock は必ず回収する
-                this.foregroundAbortControllers.delete(job.job_id);
-                releaseForegroundLock?.();
+            if (isBackgroundFetchSupported === true && job.background_fetch_id !== null) {
                 try {
-                    await wakeLock?.release();
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration === undefined) {
+                        throw new Error('Service Worker の登録が見つかりません。');
+                    }
+                    const backgroundFetchManager = registration.backgroundFetch;
+                    if (backgroundFetchManager === undefined) {
+                        throw new Error('Background Fetch API を利用できません。');
+                    }
+                    await backgroundFetchManager.fetch(job.background_fetch_id, [request], {
+                        title: `${programSnapshot.title}をオフライン保存`,
+                        icons: [{src: '/assets/images/icons/icon-192px.png', sizes: '192x192', type: 'image/png'}],
+                    });
+
+                    // 登録処理中にキャンセルされた場合は、ブラウザへ渡した直後の Background Fetch も確実に停止する
+                    if (await OfflineVideoStorage.updateActiveJob(job) === false) {
+                        const backgroundFetch = await backgroundFetchManager.get(job.background_fetch_id);
+                        await backgroundFetch?.abort();
+                        await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
+                        throw new Error('オフライン保存はキャンセルされました。');
+                    }
                 } catch (error) {
-                    console.warn('[OfflineVideos] Failed to release the screen wake lock:', error);
+                // 登録失敗時は先に保存した付随データを残さず、一覧へ失敗理由を引き継ぐ
+                    await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'バックグラウンド保存を登録できませんでした。');
+                    throw error;
                 }
+                this.eventTarget.dispatchEvent(new Event('change'));
+                return job;
             }
-        })();
-        return job;
+
+            // Safari などではページが存続している間だけ通常の Fetch で同じ応答を保存する
+            try {
+                job.state = 'Downloading';
+                if (await OfflineVideoStorage.updateActiveJob(job) === false) {
+                    throw new Error('オフライン保存はキャンセルされました。');
+                }
+            } catch (error) {
+            // 転送処理へ引き渡す前の失敗は、この呼び出しで前景ロックを解放する
+                releaseForegroundLock?.();
+                await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存を開始できませんでした。');
+                throw error;
+            }
+            const abortController = new AbortController();
+            this.foregroundAbortControllers.set(job.job_id, abortController);
+            void (async () => {
+                let wakeLock: WakeLockSentinel | null = null;
+                try {
+                // 前景保存中だけ画面の自動消灯を抑え、Safari などで JavaScript 実行が止まる可能性を下げる
+                    if ('wakeLock' in navigator) {
+                        try {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                        } catch (error) {
+                            console.warn('[OfflineVideos] Failed to acquire a screen wake lock:', error);
+                        }
+                    }
+                    const response = await fetch(request, {signal: abortController.signal});
+                    if (response.ok === false) {
+                        throw new Error(`オフライン保存 API が HTTP ${response.status} を返しました。`);
+                    }
+                    await this.finalizeResponse(job.job_id, response);
+                } catch (error) {
+                    const latestJob = await OfflineVideoStorage.getJob(job.job_id);
+                    if (latestJob !== null && ['Waiting', 'Downloading', 'Finalizing'].includes(latestJob.state)) {
+                    // 利用者による中止とページ終了による fetch 中断の双方で、未完の断片を残さない
+                        if (abortController.signal.aborted === true) {
+                            await this.markJobCancelled(job.job_id);
+                        } else {
+                            await this.markJobFailed(job.job_id, error instanceof Error ? error.message : 'オフライン保存に失敗しました。');
+                        }
+                    }
+                } finally {
+                // Wake Lock の解放失敗でも、前景保存の所有情報と Web Lock は必ず回収する
+                    this.foregroundAbortControllers.delete(job.job_id);
+                    releaseForegroundLock?.();
+                    try {
+                        await wakeLock?.release();
+                    } catch (error) {
+                        console.warn('[OfflineVideos] Failed to release the screen wake lock:', error);
+                    }
+                }
+            })();
+            return job;
+        });
     }
 
     /**
@@ -839,6 +862,39 @@ export default class OfflineVideos {
 
     private static getForegroundLockName(jobID: string): string {
         return `konomitv-offline-foreground-${jobID}`;
+    }
+
+    private static getVideoStartLockName(videoID: number): string {
+        return `konomitv-offline-start-${videoID}`;
+    }
+
+    /**
+     * 録画番組 ID ごとに start() の本体処理を直列化する。
+     * Web Locks 対応環境ではタブ間も含めて排他し、非対応環境では同一タブ内だけを直列化する。
+     */
+    private static async withVideoStartLock<T>(videoID: number, operation: () => Promise<T>): Promise<T> {
+
+        if ('locks' in navigator) {
+            return await navigator.locks.request(this.getVideoStartLockName(videoID), operation);
+        }
+
+        const previous = this.startMutexTailByVideoID.get(videoID) ?? Promise.resolve();
+        let releaseCurrent!: () => void;
+        const currentGate = new Promise<void>(resolve => {
+            releaseCurrent = resolve;
+        });
+        const queued = previous.then(() => currentGate);
+        this.startMutexTailByVideoID.set(videoID, queued);
+
+        await previous;
+        try {
+            return await operation();
+        } finally {
+            releaseCurrent();
+            if (this.startMutexTailByVideoID.get(videoID) === queued) {
+                this.startMutexTailByVideoID.delete(videoID);
+            }
+        }
     }
 
     /** 前景保存中だけタブ閉じ警告を有効化する */

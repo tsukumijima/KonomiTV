@@ -12,10 +12,20 @@
                         {{ ProgramUtils.getProgramTime(program) }}
                     </div>
                 </div>
-                <v-alert v-if="savedVideo !== null" class="mt-4" color="primary" variant="tonal">
-                    現在は {{OfflineVideos.formatQualityLabel(savedVideo.quality)}} / {{OfflineVideos.formatOfflineSize(savedVideo.size_bytes, false)}} で保存されています。<br>
-                    新しい保存が完了するまで、現在のデータは削除されません。
-                </v-alert>
+                <div v-if="activeDownloadJob !== null" class="warning-banner warning-banner--normal mt-4">
+                    <Icon icon="fluent:info-16-regular" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        現在オフライン保存中です ({{OfflineVideos.formatQualityLabel(activeDownloadJob.quality)}}) 。<br>
+                        完了するまで新しい保存は開始できません。
+                    </span>
+                </div>
+                <div v-if="savedVideo !== null" class="warning-banner warning-banner--keyword mt-4">
+                    <Icon icon="fluent:warning-16-filled" class="warning-banner__icon" />
+                    <span class="warning-banner__text">
+                        現在は {{OfflineVideos.formatQualityLabel(savedVideo.quality)}} / {{OfflineVideos.formatOfflineSize(savedVideo.size_bytes, false)}} で保存されています。<br>
+                        新しい保存が完了するまで、現在のデータは削除されません。
+                    </span>
+                </div>
                 <v-select class="offline-download-dialog__select settings__item-form mt-7" v-model="selectedQuality" :items="qualityItems"
                     label="保存画質" color="primary" variant="outlined" hide-details :density="selectDensity" />
                 <div class="offline-download-dialog__switch mt-6" :class="{'offline-download-dialog__switch--disabled': isHEVCSupported === false}">
@@ -42,7 +52,8 @@
                     <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                     <span class="ml-1">キャンセル</span>
                 </v-btn>
-                <v-btn class="px-3" color="secondary" variant="flat" :disabled="isPreparing" :loading="isStarting" @click="startDownload">
+                <v-btn class="px-3" color="secondary" variant="flat"
+                    :disabled="isPreparing || activeDownloadJob !== null" :loading="isStarting" @click="startDownload">
                     <Icon icon="fluent:cloud-arrow-down-20-filled" width="18px" height="18px" />
                     <span class="ml-1">{{savedVideo === null ? 'ダウンロード開始' : '保存し直す'}}</span>
                 </v-btn>
@@ -82,7 +93,7 @@ import { computed, ref, watch } from 'vue';
 import type { IRecordedProgram } from '@/services/Videos';
 
 import Message from '@/message';
-import OfflineVideos, { type IOfflineVideo } from '@/services/OfflineVideos';
+import OfflineVideos, { type IOfflineDownloadJob, type IOfflineVideo } from '@/services/OfflineVideos';
 import Utils, { PlayerUtils, ProgramUtils } from '@/utils';
 
 const props = defineProps<{
@@ -102,6 +113,7 @@ const isHEVC10bitSupported = ref(false);
 const isPreparing = ref(false);
 const isStarting = ref(false);
 const savedVideo = ref<IOfflineVideo | null>(null);
+const activeDownloadJob = ref<IOfflineDownloadJob | null>(null);
 const showPersistenceWarning = ref(false);
 const pendingAPIQuality = ref<string | null>(null);
 
@@ -137,6 +149,7 @@ const buildAPIQuality = (): string => {
 
 /** 選択した画質でオフライン保存を開始する */
 const startDownload = async (): Promise<void> => {
+    if (isStarting.value === true || activeDownloadJob.value !== null) return;
     isStarting.value = true;
     try {
         const apiQuality = buildAPIQuality();
@@ -159,7 +172,7 @@ const startDownload = async (): Promise<void> => {
 
 /** 永続ストレージを利用できない条件を了承して保存を開始する */
 const continueAfterPersistenceWarning = async (): Promise<void> => {
-    if (pendingAPIQuality.value === null) return;
+    if (pendingAPIQuality.value === null || isStarting.value === true || activeDownloadJob.value !== null) return;
     isStarting.value = true;
     try {
         await OfflineVideos.start(props.program, pendingAPIQuality.value);
@@ -187,7 +200,12 @@ watch(() => props.show, async (show) => {
     isDataSaverMode.value = isHEVCSupported.value;
     is24fpsMode.value = true;
     try {
-        savedVideo.value = await OfflineVideos.getVideo(props.program.id);
+        const [savedVideoResult, activeJobResult] = await Promise.all([
+            OfflineVideos.getVideo(props.program.id),
+            OfflineVideos.getActiveJobForVideo(props.program.id),
+        ]);
+        savedVideo.value = savedVideoResult;
+        activeDownloadJob.value = activeJobResult;
         isHEVC10bitSupported.value = isHEVCSupported.value === true && await PlayerUtils.isHEVC10bitVideoSupported();
     } catch (error) {
         Message.error(error instanceof Error ? error.message : 'オフライン保存の準備に失敗しました。');
@@ -284,6 +302,51 @@ watch(() => props.show, async (show) => {
 
         &--disabled {
             opacity: 0.5;
+        }
+    }
+}
+
+// 既存保存の警告バナー (ReservationDetailDrawer.vue と同じスタイル)
+.warning-banner {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 6px;
+
+    &__icon {
+        width: 22px;
+        height: 22px;
+        margin-right: 8px;
+        flex-shrink: 0;
+    }
+
+    &__text {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.55;
+    }
+
+    &--keyword {
+        background-color: rgb(var(--v-theme-warning-darken-3), 0.5);
+
+        .warning-banner__icon {
+            color: rgb(var(--v-theme-warning));
+        }
+
+        .warning-banner__text {
+            color: rgb(var(--v-theme-warning-lighten-1));
+        }
+    }
+
+    &--normal {
+        background-color: rgb(var(--v-theme-info-darken-3), 0.5);
+
+        .warning-banner__icon {
+            color: rgb(var(--v-theme-info));
+        }
+
+        .warning-banner__text {
+            color: rgb(var(--v-theme-info-lighten-1));
         }
     }
 }
