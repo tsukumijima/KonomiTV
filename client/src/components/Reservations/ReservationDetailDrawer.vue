@@ -143,11 +143,11 @@
             <v-card-actions class="pt-4 px-6 pb-6">
                 <v-spacer></v-spacer>
                 <v-btn color="text" variant="text" @click="showDeleteDialog = false">
-                    <Icon icon="fluent:dismiss-20-regular" width="18px" height="18px" />
+                    <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                     <span class="ml-1">キャンセル</span>
                 </v-btn>
                 <v-btn class="px-3" color="error" variant="flat" @click="confirmDelete">
-                    <Icon icon="fluent:delete-20-regular" width="18px" height="18px" />
+                    <Icon icon="fluent:delete-16-regular" width="18px" height="18px" />
                     <span class="ml-1">予約を削除</span>
                 </v-btn>
             </v-card-actions>
