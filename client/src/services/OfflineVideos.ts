@@ -382,6 +382,7 @@ export default class OfflineVideos {
             this.foregroundAbortControllers.set(job.job_id, abortController);
             void (async () => {
                 let wakeLock: WakeLockSentinel | null = null;
+                let releaseForegroundActivityProtection: (() => void) | null = null;
                 try {
                 // 前景保存中だけ画面の自動消灯を抑え、Safari などで JavaScript 実行が止まる可能性を下げる
                     if ('wakeLock' in navigator) {
@@ -390,6 +391,14 @@ export default class OfflineVideos {
                         } catch (error) {
                             console.warn('[OfflineVideos] Failed to acquire a screen wake lock:', error);
                         }
+                    }
+
+                    // 無音音声は Chrome のバックグラウンド保護対象にならないため、ローカル WebRTC 接続でページ凍結を抑える
+                    // マイク権限や外部サーバーを使わない RTCDataChannel を、動画転送が終わるまで開いたまま保持する
+                    try {
+                        releaseForegroundActivityProtection = await this.acquireForegroundActivityProtection();
+                    } catch (error) {
+                        console.warn('[OfflineVideos] Failed to acquire foreground activity protection:', error);
                     }
                     const response = await fetch(request, {signal: abortController.signal});
                     if (response.ok === false) {
@@ -407,7 +416,10 @@ export default class OfflineVideos {
                         }
                     }
                 } finally {
-                // Wake Lock の解放失敗でも、前景保存の所有情報と Web Lock は必ず回収する
+                    // ページ凍結防止用の WebRTC 接続を先に閉じ、前景保存中だけの資源利用に限定する
+                    releaseForegroundActivityProtection?.();
+
+                    // Wake Lock の解放失敗でも、前景保存の所有情報と Web Lock は必ず回収する
                     this.foregroundAbortControllers.delete(job.job_id);
                     releaseForegroundLock?.();
                     try {
@@ -866,6 +878,84 @@ export default class OfflineVideos {
 
     private static getVideoStartLockName(videoID: number): string {
         return `konomitv-offline-start-${videoID}`;
+    }
+
+    /**
+     * 前景保存中のページ凍結を抑えるローカル WebRTC 接続を開始する。
+     * @returns WebRTC 接続を閉じる関数（利用できない環境では null）
+     */
+    private static async acquireForegroundActivityProtection(): Promise<(() => void) | null> {
+
+        if ('RTCPeerConnection' in window === false) return null;
+
+        const offerPeerConnection = new RTCPeerConnection({iceServers: []});
+        const answerPeerConnection = new RTCPeerConnection({iceServers: []});
+        const offerDataChannel = offerPeerConnection.createDataChannel('konomitv-offline-download');
+        const dataChannels = [offerDataChannel];
+
+        /** ICE 候補を SDP に集約し、外部の STUN サーバーなしでローカル接続を確立できるまで待つ */
+        const waitForICEGathering = async (peerConnection: RTCPeerConnection): Promise<void> => {
+            if (peerConnection.iceGatheringState === 'complete') return;
+            await new Promise<void>((resolve, reject) => {
+                const timeoutID = window.setTimeout(() => {
+                    peerConnection.removeEventListener('icegatheringstatechange', onICEGatheringStateChange);
+                    reject(new Error('WebRTC のローカル接続準備がタイムアウトしました。'));
+                }, 5_000);
+                const onICEGatheringStateChange = (): void => {
+                    if (peerConnection.iceGatheringState !== 'complete') return;
+                    window.clearTimeout(timeoutID);
+                    peerConnection.removeEventListener('icegatheringstatechange', onICEGatheringStateChange);
+                    resolve();
+                };
+                peerConnection.addEventListener('icegatheringstatechange', onICEGatheringStateChange);
+            });
+        };
+
+        try {
+            answerPeerConnection.addEventListener('datachannel', (event) => {
+                dataChannels.push(event.channel);
+            }, {once: true});
+
+            // ICE 候補を含む Offer / Answer を同一ページ内で交換し、ネットワーク上の相手を必要としない接続にする
+            await offerPeerConnection.setLocalDescription(await offerPeerConnection.createOffer());
+            await waitForICEGathering(offerPeerConnection);
+            const offerDescription = offerPeerConnection.localDescription;
+            if (offerDescription === null) {
+                throw new Error('WebRTC の Offer を作成できませんでした。');
+            }
+            await answerPeerConnection.setRemoteDescription(offerDescription);
+            await answerPeerConnection.setLocalDescription(await answerPeerConnection.createAnswer());
+            await waitForICEGathering(answerPeerConnection);
+            const answerDescription = answerPeerConnection.localDescription;
+            if (answerDescription === null) {
+                throw new Error('WebRTC の Answer を作成できませんでした。');
+            }
+            await offerPeerConnection.setRemoteDescription(answerDescription);
+
+            // Chrome が保護対象と判定するのは開いた DataChannel なので、接続完了後に動画転送へ進む
+            if (offerDataChannel.readyState !== 'open') {
+                await new Promise<void>((resolve, reject) => {
+                    const timeoutID = window.setTimeout(() => {
+                        reject(new Error('WebRTC のローカル接続がタイムアウトしました。'));
+                    }, 5_000);
+                    offerDataChannel.addEventListener('open', () => {
+                        window.clearTimeout(timeoutID);
+                        resolve();
+                    }, {once: true});
+                });
+            }
+
+            return () => {
+                dataChannels.forEach(dataChannel => dataChannel.close());
+                offerPeerConnection.close();
+                answerPeerConnection.close();
+            };
+        } catch (error) {
+            dataChannels.forEach(dataChannel => dataChannel.close());
+            offerPeerConnection.close();
+            answerPeerConnection.close();
+            throw error;
+        }
     }
 
     /**
