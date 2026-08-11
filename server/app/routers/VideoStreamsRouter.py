@@ -1,14 +1,18 @@
 
 import asyncio
 import json
+import struct
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from starlette.background import BackgroundTask
 
 from app import logging
 from app.models.RecordedProgram import RecordedProgram
+from app.schemas import OfflineVideoStreamMetadata
 from app.streams.StreamEncodingOptions import (
     SplitQualityAndEncodingOptions,
     StreamQualityWithOptions,
@@ -21,6 +25,9 @@ router = APIRouter(
     tags = ['Streams'],
     prefix = '/api/streams/video',
 )
+
+# オフライン保存はエンコーダーを長時間占有するため、通常視聴分の余裕を残して同時実行数を制限する
+OFFLINE_VIDEO_STREAM_SEMAPHORE = asyncio.Semaphore(3)
 
 
 async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
@@ -241,3 +248,124 @@ async def VideoHLSKeepAliveAPI(
 
     # セッションのアクティブ状態を維持する
     video_stream.keepAlive()
+
+
+@router.get(
+    '/{video_id}/{quality}/offline',
+    summary = '録画番組オフライン保存ストリーム API',
+    response_class = StreamingResponse,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'オフライン保存用のメタデータと HLS セグメントを格納したバイナリストリーム。',
+            'content': {'application/octet-stream': {}},
+        },
+        status.HTTP_409_CONFLICT: {
+            'description': '録画中のためオフライン保存を開始できない。',
+        },
+    },
+)
+async def VideoOfflineStreamAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
+    quality: Annotated[str, Path(description='映像の品質。ex: 720p-hevc-10bit-24fps')],
+) -> StreamingResponse:
+    """
+    録画番組を指定画質で先頭から順にエンコードし、オフライン保存用の単一ストリームとして返す。<br>
+    応答は `KTVODL1` のヘッダーから始まる独自バイナリ形式で、長さ付き JSON メタデータ、長さ付き MPEG-TS セグメント、終端レコードの順に格納される。
+    """
+
+    # 追いかけ再生中のファイルは終端とハッシュが変化するため、録画完了後だけ保存を許可する
+    if recorded_program.recorded_video.status == 'Recording':
+        logging.error(f'[VideoOfflineStreamAPI] Recording video cannot be saved for offline playback. [video_id: {recorded_program.id}]')
+        raise HTTPException(
+            status_code = status.HTTP_409_CONFLICT,
+            detail = 'Recording video cannot be saved for offline playback',
+        )
+
+    # 待機中のリクエストは HTTP 応答を開始せず、クライアント側で Waiting と表示できる状態を維持する
+    await OFFLINE_VIDEO_STREAM_SEMAPHORE.acquire()
+    video_stream: VideoStream | None = None
+    try:
+        # 通常再生とは独立したセッションを作り、仮想プレイリスト生成によって全セグメント情報を初期化する
+        session_id = f'offline-{uuid.uuid4().hex}'
+        video_stream = VideoStream(
+            session_id,
+            recorded_program,
+            stream_quality.quality,
+            stream_quality.encoding_options,
+            is_new_session_allowed = True,
+        )
+        video_stream.getVirtualPlaylist()
+
+        # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する
+        metadata = OfflineVideoStreamMetadata(
+            protocol_version = 1,
+            video_id = recorded_program.id,
+            file_hash = recorded_program.recorded_video.file_hash,
+            quality = quality,
+            duration_seconds = recorded_program.recorded_video.duration,
+        ).model_dump_json().encode('utf-8')
+    except Exception:
+        # StreamingResponse を返す前の失敗ではジェネレーターの finally が動かないため、ここで実行枠を返す
+        if video_stream is not None:
+            await video_stream.destroy()
+        OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
+        raise
+
+    is_stream_cleaned_up = False
+
+    async def CleanupOfflineVideoStream() -> None:
+        """オフライン保存用ストリームと同時実行枠を解放する。"""
+        nonlocal is_stream_cleaned_up
+        # 応答本文の finally と StreamingResponse の終了処理から重複して呼ばれるため、最初の1回だけ解放する
+        if is_stream_cleaned_up is True:
+            return
+        is_stream_cleaned_up = True
+        await video_stream.destroy()
+        OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
+
+    async def GenerateOfflineVideoStream():
+        """オフライン保存用のバイナリストリームを生成する。"""
+
+        # 長い1セグメントのエンコード中も10秒のセッションタイムアウトを迎えないよう、視聴画面と同じ周期で維持する
+        async def KeepVideoStreamAlive() -> None:
+            """ダウンロード中の録画視聴セッションを維持する。"""
+            while True:
+                await asyncio.sleep(5)
+                video_stream.keepAlive()
+
+        keep_alive_task = asyncio.create_task(KeepVideoStreamAlive())
+        try:
+            # 固定マジック値とメタデータ長により、任意のネットワーク分割位置から同じ規則で復元できる
+            yield b'KTVODL1\n'
+            yield struct.pack('>I', len(metadata))
+            yield metadata
+
+            # VideoStream が連続生成したセグメントを順番どおり読み、各データを独立して CacheStorage へ格納できる単位にする
+            for segment in video_stream.segments:
+                segment_data = await video_stream.getSegment(segment.sequence_index)
+                if segment_data is None or len(segment_data) == 0:
+                    logging.error(f'[VideoOfflineStreamAPI] Offline segment generation failed. [sequence: {segment.sequence_index}]')
+                    raise RuntimeError(f'Offline segment generation failed. [sequence: {segment.sequence_index}]')
+                duration_milliseconds = max(1, round(segment.duration_seconds * 1000))
+                yield struct.pack('>III', segment.sequence_index, duration_milliseconds, len(segment_data))
+                yield segment_data
+
+            # 終端レコードには件数を格納し、通信切断による末尾欠落をクライアント側で検出できるようにする
+            yield struct.pack('>II', 0xffffffff, len(video_stream.segments))
+        finally:
+            # 応答完了・切断・例外のすべてで維持タスクとエンコーダーを終了し、次の保存へ実行枠を返す
+            keep_alive_task.cancel()
+            await asyncio.gather(keep_alive_task, return_exceptions=True)
+            await CleanupOfflineVideoStream()
+
+    return StreamingResponse(
+        GenerateOfflineVideoStream(),
+        media_type = 'application/octet-stream',
+        headers = {
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+        },
+        # クライアントが応答開始直後に切断し、ジェネレーター本体が一度も実行されない場合も必ず解放する
+        background = BackgroundTask(CleanupOfflineVideoStream),
+    )
