@@ -118,7 +118,7 @@
                     <path fill="currentColor" d="M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 1 0v-5a.5.5 0 0 0-.5-.5"></path>
                 </svg>
             </div>
-            <div v-if="forOffline && offlineVideo !== null" v-ripple class="recorded-program__mylist"
+            <div v-if="forOffline && offlineVideo !== null && isOfflineJobActive === false && isOfflineJobFailed === false" v-ripple class="recorded-program__mylist"
                 v-ftooltip="'オフライン保存を削除する'"
                 @click.prevent.stop="deleteOfflineVideo"
                 @mousedown.prevent.stop="">
@@ -473,14 +473,8 @@ const offlineMenuSizeLabel = computed(() => {
 const offlineDownloadProgress = computed(() => {
     if (isOfflineJobActive.value === false || props.offlineDownloadJob === null) return null;
     if (props.offlineDownloadJob.state === 'Finalizing') return 99;
-
-    // ジョブ開始時に固定した estimated_size_bytes は表示のたびに再見積もりする
-    const estimatedSizeBytes = OfflineVideos.estimateJobSizeBytes(
-        props.program.recorded_video.duration,
-        props.offlineDownloadJob.quality,
-    );
-    if (estimatedSizeBytes === null || estimatedSizeBytes <= 0) return 0;
-    return Math.min(99, (props.offlineDownloadJob.downloaded_bytes / estimatedSizeBytes) * 100);
+    if (props.offlineDownloadJob.estimated_size_bytes <= 0) return 0;
+    return Math.min(99, (props.offlineDownloadJob.downloaded_bytes / props.offlineDownloadJob.estimated_size_bytes) * 100);
 });
 
 // 進捗更新のたびに 0% へ戻ってから伸び直す見え方を避けるため、表示値は単調増加だけを反映する

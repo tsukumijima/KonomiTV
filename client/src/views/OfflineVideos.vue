@@ -134,22 +134,26 @@ const refreshActiveJobProgress = async (): Promise<void> => {
                 continue;
             }
 
-            // 前景保存は finalizeResponse() が IndexedDB だけ更新するため、表示中オブジェクトへ状態を写す
-            job.downloaded_bytes = latestJob.downloaded_bytes;
-            job.state = latestJob.state;
-            job.error = latestJob.error;
+            // 非同期取得の途中で Waiting を画面へ反映せず、受信量と状態を確定してからまとめて更新する
+            let nextDownloadedBytes = Math.max(job.downloaded_bytes, latestJob.downloaded_bytes);
+            let nextState = latestJob.state;
 
             // Background Fetch 中はブラウザ側の受信量の方が進んでいることが多い
-            if (job.background_fetch_id !== null && backgroundFetchManager !== undefined &&
-                ['Waiting', 'Downloading'].includes(job.state) === true) {
-                const backgroundFetch = await backgroundFetchManager.get(job.background_fetch_id);
+            if (latestJob.background_fetch_id !== null && backgroundFetchManager !== undefined &&
+                ['Waiting', 'Downloading'].includes(latestJob.state) === true) {
+                const backgroundFetch = await backgroundFetchManager.get(latestJob.background_fetch_id);
                 if (backgroundFetch === undefined) {
                     needsFullRefresh = true;
                     continue;
                 }
-                job.downloaded_bytes = Math.max(job.downloaded_bytes, backgroundFetch.downloaded);
-                job.state = job.downloaded_bytes > 0 ? 'Downloading' : 'Waiting';
+                nextDownloadedBytes = Math.max(nextDownloadedBytes, backgroundFetch.downloaded);
+                nextState = nextDownloadedBytes > 0 ? 'Downloading' : 'Waiting';
             }
+
+            // 関連する表示値を同じ同期処理内で代入し、状態ラベルとプログレスバーの中間表示を防ぐ
+            job.downloaded_bytes = nextDownloadedBytes;
+            job.state = nextState;
+            job.error = latestJob.error;
         }
 
         if (needsFullRefresh === true) {
