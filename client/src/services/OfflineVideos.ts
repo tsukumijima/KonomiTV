@@ -274,14 +274,8 @@ export default class OfflineVideos {
 
             let request: Request;
             try {
-            // API と同じオリジンの Request へ認証情報を固定し、ページ終了後もブラウザが単独で取得できるようにする
-                const accessToken = Utils.getAccessToken();
-                if (accessToken === null) {
-                    throw new Error('ログイン情報がありません。');
-                }
-                request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline-stream`, {
-                    headers: {'Authorization': `Bearer ${accessToken}`},
-                });
+                // オフライン保存 API は認証不要なので、ページ終了後もブラウザが単独で取得できる通常の Request を作成する
+                request = new Request(`${Utils.api_base_url}/streams/video/${programSnapshot.id}/${quality}/offline-stream`);
 
                 // 番組一覧とシークバーが通信なしでも描画できるよう、小さな付随データは動画本体より先に同じ世代へ保存する
                 const cache = await OfflineVideoStorage.openCache();
@@ -298,14 +292,12 @@ export default class OfflineVideos {
                 }
                 await Promise.all(assetRequests.map(async assetRequest => {
                     try {
-                        const assetResponse = await fetch(assetRequest.source, {
-                            headers: {'Authorization': `Bearer ${accessToken}`},
-                        });
+                        const assetResponse = await fetch(assetRequest.source);
                         if (assetResponse.ok === true) {
                             await cache.put(assetRequest.destination, assetResponse);
                         }
                     } catch (error) {
-                    // 付随データの取得失敗は動画保存を止めず、映像本体を優先する
+                        // 付随データの取得失敗は動画保存を止めず、映像本体を優先する
                         console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
                     }
                 }));
@@ -315,9 +307,7 @@ export default class OfflineVideos {
                     const jikkyoSource = `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`;
                     const jikkyoDestination = `${generationBaseURL}/assets/jikkyo.json`;
                     try {
-                        const assetResponse = await fetch(jikkyoSource, {
-                            headers: {'Authorization': `Bearer ${accessToken}`},
-                        });
+                        const assetResponse = await fetch(jikkyoSource);
                         if (assetResponse.ok !== true) return;
 
                         // キャンセルや失敗で世代が破棄された後の到着分を CacheStorage へ書き込まない
