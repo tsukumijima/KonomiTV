@@ -92,7 +92,8 @@ const searchPlaceholder = computed(() => {
 const isVideoSection = (path: string) => {
     return path.startsWith('/videos') ||
            path.startsWith('/mylist') ||
-           path.startsWith('/watched-history');
+           path.startsWith('/watched-history') ||
+           path.startsWith('/offline-videos');
 };
 
 // 検索パスを取得
