@@ -42,6 +42,22 @@
                     </div>
                     <v-switch v-model="is24fpsMode" color="primary" hide-details />
                 </div>
+                <div class="offline-download-dialog__switch mt-3"
+                    :class="{'offline-download-dialog__switch--disabled': isBackgroundFetchSupported !== true}">
+                    <div>
+                        <div class="font-weight-bold mb-1" style="font-size: 15px;">バックグラウンドでダウンロードする</div>
+                        <div class="text-text-darken-1">
+                            オフのときは、完了まで KonomiTV のタブを開いたまま待つ必要があります。スマートフォンでは画面を閉じずに開き続けてください。<br>
+                            オンにするとタブを閉じてもダウンロードを続行できますが、ブラウザの制限で同時に保存できるのは<b>1本まで</b>です。2本目以降は順番待ちになります。Android ではダウンロードが始まらず待機したままになることがあり、挙動が不安定です。<br>
+                            急いで保存したいときや、複数本を同時に保存したいときは、<b>オフのまま使うことをおすすめします。</b>
+                        </div>
+                        <p class="mt-1 mb-0 text-error-lighten-1" v-if="isBackgroundFetchSupported === false">
+                            このブラウザではバックグラウンドダウンロードに対応していません。
+                        </p>
+                    </div>
+                    <v-switch v-model="isBackgroundDownload" color="primary" hide-details
+                        :disabled="isBackgroundFetchSupported !== true" />
+                </div>
                 <v-alert v-if="isMeteredConnection" class="mt-4" color="warning" variant="tonal">
                     従量制通信の可能性があります。通信量に注意してください。
                 </v-alert>
@@ -109,6 +125,9 @@ const emit = defineEmits<{
 const selectedQuality = ref('720p');
 const isDataSaverMode = ref(true);
 const is24fpsMode = ref(true);
+// Background Fetch は同時に1件までしか実行できず、Android では開始しないことがあるため、明示的に選ばれたときだけ使う
+const isBackgroundDownload = ref(false);
+const isBackgroundFetchSupported = ref<boolean | null>(null);
 const isHEVC10bitSupported = ref(false);
 const isPreparing = ref(false);
 const isStarting = ref(false);
@@ -116,6 +135,12 @@ const savedVideo = ref<IOfflineVideo | null>(null);
 const activeDownloadJob = ref<IOfflineDownloadJob | null>(null);
 const showPersistenceWarning = ref(false);
 const pendingAPIQuality = ref<string | null>(null);
+const pendingUseBackgroundFetch = ref(false);
+
+// ダイアログを開く前に対応可否を把握し、未対応ブラウザで一瞬有効に見えないようにする
+void OfflineVideos.isBackgroundFetchSupported().then(supported => {
+    isBackgroundFetchSupported.value = supported;
+});
 
 const isShown = computed({
     get: () => props.show,
@@ -157,10 +182,11 @@ const startDownload = async (): Promise<void> => {
         // 永続化を拒否された環境では、専用ダイアログでブラウザによる削除可能性を伝える
         if (navigator.storage?.persist !== undefined && await navigator.storage.persist() === false) {
             pendingAPIQuality.value = apiQuality;
+            pendingUseBackgroundFetch.value = isBackgroundDownload.value;
             showPersistenceWarning.value = true;
             return;
         }
-        await OfflineVideos.start(props.program, apiQuality);
+        await OfflineVideos.start(props.program, apiQuality, isBackgroundDownload.value);
         Message.success('オフライン保存を開始しました。');
         isShown.value = false;
     } catch (error) {
@@ -175,10 +201,11 @@ const continueAfterPersistenceWarning = async (): Promise<void> => {
     if (pendingAPIQuality.value === null || isStarting.value === true || activeDownloadJob.value !== null) return;
     isStarting.value = true;
     try {
-        await OfflineVideos.start(props.program, pendingAPIQuality.value);
+        await OfflineVideos.start(props.program, pendingAPIQuality.value, pendingUseBackgroundFetch.value);
         Message.success('オフライン保存を開始しました。');
         showPersistenceWarning.value = false;
         pendingAPIQuality.value = null;
+        pendingUseBackgroundFetch.value = false;
         isShown.value = false;
     } catch (error) {
         Message.error(error instanceof Error ? error.message : 'オフライン保存を開始できませんでした。');
@@ -187,10 +214,11 @@ const continueAfterPersistenceWarning = async (): Promise<void> => {
     }
 };
 
-// 永続ストレージの警告を閉じ、保留した画質を破棄
+// 永続ストレージの警告を閉じ、保留した画質とバックグラウンド保存の選択を破棄
 const cancelPersistenceWarning = (): void => {
     showPersistenceWarning.value = false;
     pendingAPIQuality.value = null;
+    pendingUseBackgroundFetch.value = false;
 };
 
 watch(() => props.show, async (show) => {
@@ -199,13 +227,16 @@ watch(() => props.show, async (show) => {
     selectedQuality.value = '720p';
     isDataSaverMode.value = isHEVCSupported.value;
     is24fpsMode.value = true;
+    isBackgroundDownload.value = false;
     try {
-        const [savedVideoResult, activeJobResult] = await Promise.all([
+        const [savedVideoResult, activeJobResult, isBackgroundFetchSupportedResult] = await Promise.all([
             OfflineVideos.getVideo(props.program.id),
             OfflineVideos.getActiveJobForVideo(props.program.id),
+            OfflineVideos.isBackgroundFetchSupported(),
         ]);
         savedVideo.value = savedVideoResult;
         activeDownloadJob.value = activeJobResult;
+        isBackgroundFetchSupported.value = isBackgroundFetchSupportedResult;
         isHEVC10bitSupported.value = isHEVCSupported.value === true && await PlayerUtils.isHEVC10bitVideoSupported();
     } catch (error) {
         Message.error(error instanceof Error ? error.message : 'オフライン保存の準備に失敗しました。');
