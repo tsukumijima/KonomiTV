@@ -182,9 +182,7 @@ export default class OfflineVideos {
         return this.foregroundLockReleases.size > 0;
     }
 
-    /**
-     * 前回のページ終了で中断された前景保存ジョブを回収する。
-     */
+    /** 前回のページ終了後も実行中として残った前景保存ジョブを失敗状態へ回収する */
     static async recoverInterruptedForegroundDownloads(): Promise<void> {
 
         const jobs = await this.getJobs();
@@ -207,8 +205,6 @@ export default class OfflineVideos {
                 await this.markJobFailed(job.job_id, 'ページが閉じられたため、オフライン保存が中断されました。');
             }
         }
-
-        await OfflineVideoStorage.cleanupOrphanedGenerations();
     }
 
     /**
@@ -321,6 +317,13 @@ export default class OfflineVideos {
                             return;
                         }
                         await cache.put(jikkyoDestination, assetResponse);
+
+                        // 状態確認と書き込みの間に終了した場合は、遅れて到着した実況データまで同じ失敗処理で回収する
+                        const jobAfterWrite = await OfflineVideoStorage.getJob(job.job_id);
+                        if (jobAfterWrite === null || jobAfterWrite.generation_id !== generationID ||
+                            ['Failed', 'Cancelled'].includes(jobAfterWrite.state)) {
+                            await cache.delete(jikkyoDestination);
+                        }
                     } catch (error) {
                         console.warn('[OfflineVideos] Failed to cache an optional offline asset:', error);
                     }
@@ -633,7 +636,13 @@ export default class OfflineVideos {
         // 状態遷移に勝った失敗処理だけが断片を削除し、確定済みの保存世代には触れない
         const job = await OfflineVideoStorage.transitionActiveJobToTerminalState(jobID, 'Failed', error);
         if (job === null) return;
-        await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
+
+        // 失敗理由は IndexedDB へ確定済みなので、断片削除の成否にかかわらず一覧から確認できる状態を保つ
+        try {
+            await OfflineVideoStorage.deleteGeneration(job.video_id, job.generation_id);
+        } catch (deleteError) {
+            console.warn('[OfflineVideos] Failed to delete incomplete offline video data:', deleteError);
+        }
         this.notifyChange();
     }
 

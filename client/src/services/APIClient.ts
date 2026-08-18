@@ -209,6 +209,12 @@ class APIClient {
      * @param template エラーメッセージのテンプレート（「アカウント情報を取得できませんでした。」など)
      */
     static showGenericError(error_response: IErrorResponse, template: string): void {
+
+        // ブラウザが明確にオフラインと判定した通信失敗では、サーバーが応答したエラーだけを利用者通知の対象にする
+        // navigator.onLine が true でもサーバーへ到達できる保証はないため、オンライン扱いのエラーは従来どおり表示する
+        if (Number.isNaN(error_response.status) && navigator.onLine === false) {
+            return;
+        }
         const user_store = useUserStore();
         switch (error_response.data.detail) {
             case 'Not authenticated': {

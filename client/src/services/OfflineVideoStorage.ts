@@ -30,33 +30,19 @@ export default class OfflineVideoStorage {
     private static readonly VIDEO_STORE_NAME = 'videos';
     private static readonly JOB_STORE_NAME = 'jobs';
     private static readonly CACHE_NAME = 'KonomiTV-OfflineVideos';
-    private static readonly GENERATION_URL_PATTERN = /\/local\/offline-videos\/(\d+)\/([^/]+)\//;
     private static databasePromise: Promise<IDBPDatabase<IOfflineVideoDB>> | null = null;
 
     /**
-     * 保存日時が新しい順に、欠損のない保存済み動画を取得する。
+     * 保存日時が新しい順に、保存済み動画のメタデータを取得する。
      * @returns 保存済み動画一覧
      */
     static async getVideos(): Promise<IOfflineVideo[]> {
 
         const database = await this.openDatabase();
         const videos = await database.getAll(this.VIDEO_STORE_NAME);
-        const cache = await this.openCache();
-        const cachedRequestURLs = (await cache.keys()).map(request => request.url);
-        const validVideos: IOfflineVideo[] = [];
 
-        // IndexedDB だけ残った不完全な世代は一覧へ出さず、同じ世代の保存断片も回収する
-        for (const video of videos) {
-            if (this.isVideoCacheComplete(video, cachedRequestURLs) === true) {
-                validVideos.push(video);
-            } else {
-                await this.deleteIncompleteVideo(video);
-            }
-        }
-
-        // オフライン保存ページでは最後に保存した番組を先頭へ表示する
-        await this.cleanupOrphanedGenerations();
-        return validVideos.sort((first, second) => second.saved_at - first.saved_at);
+        // 動画レコードは全セグメントの保存後にだけ作られるため、一覧表示では軽量なメタデータをそのまま使う
+        return videos.sort((first, second) => second.saved_at - first.saved_at);
     }
 
     /**
@@ -69,14 +55,10 @@ export default class OfflineVideoStorage {
         const video = await this.getStoredVideo(videoID);
         if (video === null) return null;
 
-        // 再生直前にも全セグメントを照合し、途中欠損したデータを hls.js へ渡さない
+        // 完了済み動画はプレイリストが最後に書かれるため、入口の1件だけで保存完了を確認する
         const cache = await this.openCache();
-        const cachedRequestURLs = (await cache.keys()).map(request => request.url);
-        if (this.isVideoCacheComplete(video, cachedRequestURLs) === false) {
-            const database = await this.openDatabase();
-            await database.delete(this.VIDEO_STORE_NAME, video.video_id);
-            await this.deleteGeneration(video.video_id, video.generation_id);
-            this.eventTarget.dispatchEvent(new Event('change'));
+        if (await cache.match(`${this.getGenerationBaseURL(video.video_id, video.generation_id)}/playlist.m3u8`) === undefined) {
+            await this.markVideoUnavailable(video, '保存済み動画のデータが端末から失われました。');
             return null;
         }
         return video;
@@ -117,6 +99,12 @@ export default class OfflineVideoStorage {
             await transaction.done;
             throw new Error('この録画番組はすでにオフライン保存中です。');
         }
+
+        // 再保存を始める録画では過去の失敗・キャンセル表示を削除し、新しいジョブの進捗を一覧へ表示する
+        await Promise.all(jobs
+            .filter(existingJob => existingJob.video_id === job.video_id &&
+                ['Failed', 'Cancelled'].includes(existingJob.state))
+            .map(existingJob => transaction.store.delete(existingJob.job_id)));
         await transaction.store.put(job);
         await transaction.done;
         this.eventTarget.dispatchEvent(new Event('change'));
@@ -143,7 +131,8 @@ export default class OfflineVideoStorage {
     static async completeJob(job: IOfflineDownloadJob, video: IOfflineVideo): Promise<boolean> {
         const database = await this.openDatabase();
         const transaction = database.transaction([this.JOB_STORE_NAME, this.VIDEO_STORE_NAME], 'readwrite');
-        const latestJob = await transaction.objectStore(this.JOB_STORE_NAME).get(job.job_id);
+        const jobStore = transaction.objectStore(this.JOB_STORE_NAME);
+        const latestJob = await jobStore.get(job.job_id);
 
         // キャンセルや失敗が先に確定していれば、動画エントリを作らない
         if (latestJob === undefined || ['Completed', 'Failed', 'Cancelled'].includes(latestJob.state)) {
@@ -156,7 +145,13 @@ export default class OfflineVideoStorage {
             downloaded_bytes: video.size_bytes,
         };
         await transaction.objectStore(this.VIDEO_STORE_NAME).put(video);
-        await transaction.objectStore(this.JOB_STORE_NAME).put(completedJob);
+
+        // 保存世代の切り替え後は過去の保存ジョブを削除し、今回の完了状態だけを一覧へ残す
+        const jobs = await jobStore.getAll();
+        await Promise.all(jobs
+            .filter(existingJob => existingJob.video_id === video.video_id && existingJob.job_id !== completedJob.job_id)
+            .map(existingJob => jobStore.delete(existingJob.job_id)));
+        await jobStore.put(completedJob);
         await transaction.done;
         this.eventTarget.dispatchEvent(new Event('change'));
         return true;
@@ -200,38 +195,46 @@ export default class OfflineVideoStorage {
         this.eventTarget.dispatchEvent(new Event('change'));
     }
 
-    /** 有効な保存世代と実行中ジョブから参照されない CacheStorage の断片を削除する */
-    static async cleanupOrphanedGenerations(): Promise<void> {
+    /** 保存済み動画を失敗表示へ移し、端末から失われた理由を一覧へ残す */
+    static async markVideoUnavailable(video: IOfflineVideo, error: string): Promise<void> {
         const database = await this.openDatabase();
-        const [videos, jobs] = await Promise.all([
-            database.getAll(this.VIDEO_STORE_NAME),
-            database.getAll(this.JOB_STORE_NAME),
-        ]);
-        const cache = await this.openCache();
-        const requests = await cache.keys();
-        const generationKeys = new Set<string>();
+        const transaction = database.transaction([this.VIDEO_STORE_NAME, this.JOB_STORE_NAME], 'readwrite');
+        const currentVideo = await transaction.objectStore(this.VIDEO_STORE_NAME).get(video.video_id);
 
-        // CacheStorage 上の保存世代 URL から video_id / generation_id の組を回収する
-        for (const request of requests) {
-            const matched = request.url.match(this.GENERATION_URL_PATTERN);
-            if (matched !== null) {
-                generationKeys.add(`${matched[1]}:${matched[2]}`);
-            }
+        // 欠損確認後に別タブが新しい保存世代へ差し替えた場合は、確認対象だった旧世代だけを扱う
+        if (currentVideo?.generation_id !== video.generation_id) {
+            await transaction.done;
+            return;
         }
+        const jobs = await transaction.objectStore(this.JOB_STORE_NAME).getAll();
+        const completedJob = jobs.find(job => job.video_id === video.video_id &&
+            job.generation_id === video.generation_id && job.state === 'Completed');
+        const failedJob: IOfflineDownloadJob = completedJob ?? {
+            job_id: crypto.randomUUID(),
+            video_id: video.video_id,
+            generation_id: video.generation_id,
+            program: video.program,
+            quality: video.quality,
+            state: 'Failed',
+            estimated_size_bytes: video.size_bytes,
+            downloaded_bytes: video.size_bytes,
+            background_fetch_id: null,
+            error,
+        };
+        failedJob.state = 'Failed';
+        failedJob.error = error;
+        await transaction.objectStore(this.VIDEO_STORE_NAME).delete(video.video_id);
+        await transaction.objectStore(this.JOB_STORE_NAME).put(failedJob);
+        await transaction.done;
+        this.eventTarget.dispatchEvent(new Event('change'));
 
-        await Promise.all([...generationKeys].map(async generationKey => {
-            const separatorIndex = generationKey.indexOf(':');
-            const videoID = Number(generationKey.slice(0, separatorIndex));
-            const generationID = generationKey.slice(separatorIndex + 1);
-            const savedVideo = videos.find(video => video.video_id === videoID && video.generation_id === generationID);
-            const activeJob = jobs.find(job => job.video_id === videoID && job.generation_id === generationID &&
-                ['Waiting', 'Downloading', 'Finalizing'].includes(job.state));
-            if (savedVideo !== undefined || activeJob !== undefined) return;
-            await this.deleteGeneration(videoID, generationID);
-        }));
+        // 失敗表示を先に返し、キャッシュ断片の後処理は画面遷移と並行して進める
+        void this.deleteGeneration(video.video_id, video.generation_id).catch((error) => {
+            console.warn('[OfflineVideoStorage] Failed to delete unavailable offline video data:', error);
+        });
     }
 
-    /** 指定した保存世代に属する CacheStorage のデータを削除する */
+    /** 指定した保存世代に属する CacheStorage データを削除する */
     static async deleteGeneration(videoID: number, generationID: string): Promise<void> {
         const cache = await this.openCache();
         const generationPrefix = `${this.getGenerationBaseURL(videoID, generationID)}/`;
@@ -314,36 +317,4 @@ export default class OfflineVideoStorage {
         return await this.databasePromise;
     }
 
-    private static isVideoCacheComplete(video: IOfflineVideo, cachedRequestURLs: string[]): boolean {
-        const generationPrefix = `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/`;
-        const hasPlaylist = cachedRequestURLs.includes(`${generationPrefix}playlist.m3u8`);
-        const segmentCount = cachedRequestURLs.filter(url => url.startsWith(`${generationPrefix}segments/`)).length;
-        const isComplete = hasPlaylist === true && segmentCount === video.segment_count;
-
-        // 再生に必要なプレイリストまたは映像セグメントが欠けた世代だけを削除対象として報告する
-        // サムネイルなどの付随データは取得失敗を許容しているため、動画本体の完成判定には含めない
-        if (isComplete === false) {
-            console.warn(
-                `[OfflineVideoStorage] Removed incomplete offline video data. [video_id: ${video.video_id}, ` +
-                `has_playlist: ${hasPlaylist}, expected_segment_count: ${video.segment_count}, actual_segment_count: ${segmentCount}]`,
-            );
-        }
-        return isComplete;
-    }
-
-    private static async deleteIncompleteVideo(video: IOfflineVideo): Promise<void> {
-        const database = await this.openDatabase();
-        const transaction = database.transaction(this.VIDEO_STORE_NAME, 'readwrite');
-        const currentVideo = await transaction.store.get(video.video_id);
-
-        // 欠損検査後に別タブが保存を置き換えていれば、新しい保存世代には触れない
-        if (currentVideo?.generation_id !== video.generation_id) {
-            await transaction.done;
-            return;
-        }
-        await transaction.store.delete(video.video_id);
-        await transaction.done;
-        await this.deleteGeneration(video.video_id, video.generation_id);
-        this.eventTarget.dispatchEvent(new Event('change'));
-    }
 }

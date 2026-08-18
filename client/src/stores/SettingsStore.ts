@@ -671,6 +671,11 @@ const useSettingsStore = defineStore('settings', {
                 return;
             }
 
+            // 遅い回線では前回の取得完了後に次の周期が再試行する
+            if (is_syncing_client_settings_from_server === true) {
+                return;
+            }
+
             // ここから先、設定データの pull 中に syncClientSettingsToServer() が実行されないようロックする
             is_syncing_client_settings_from_server = true;
             try {

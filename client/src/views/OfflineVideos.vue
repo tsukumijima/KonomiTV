@@ -25,7 +25,9 @@
                                     </div>
                                     <div class="offline-videos-storage__content">
                                         <div class="offline-videos-storage__label">オフライン保存済み</div>
-                                        <div class="offline-videos-storage__value">{{Utils.formatBytes(savedSizeBytes, 2, true)}}</div>
+                                        <div class="offline-videos-storage__value">
+                                            {{isLoading === true ? '読み込み中...' : Utils.formatBytes(savedSizeBytes, 2, true)}}
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="offline-videos-storage__item">
@@ -35,7 +37,10 @@
                                     <div class="offline-videos-storage__content">
                                         <div class="offline-videos-storage__label">ストレージクオータ</div>
                                         <div class="offline-videos-storage__value">
-                                            {{Utils.formatBytes(storageUsageBytes, 2, true)}} / {{Utils.formatBytes(storageQuotaBytes, 2, true)}}
+                                            <template v-if="isLoading === true">読み込み中...</template>
+                                            <template v-else>
+                                                {{Utils.formatBytes(storageUsageBytes, 2, true)}} / {{Utils.formatBytes(storageQuotaBytes, 2, true)}}
+                                            </template>
                                         </div>
                                     </div>
                                 </div>
