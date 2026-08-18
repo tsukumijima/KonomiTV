@@ -311,6 +311,14 @@ class LiveEncodingTask:
         ## QSVEncC・NVEncC・rkmppenc は HW デコーダーを利用する
         else:
             options.append('--avhw')
+        ## 入力途中の解像度変更に備えて、デコーダー/入力サーフェスの最大確保解像度を指定する
+        ## --output-res は出力側の固定解像度であり、こちらは入力側の上限なので併用する
+        ## BS4K は入力が 4K のため 3840×2160、それ以外のチャンネルは HD 上限の 1920×1080 とする
+        ## (画質プリセットの出力解像度とは独立で、入力に現れうる最大解像度を確保する必要がある)
+        if channel_type == 'BS4K':
+            options.append('--adapt-resolution 3840x2160')
+        else:
+            options.append('--adapt-resolution 1920x1080')
 
         # ストリームのマッピング
         ## 音声切り替えのため、主音声・副音声両方をエンコード後の TS に含む
@@ -1263,8 +1271,7 @@ class LiveEncodingTask:
                         if program_following is not None:
 
                             # 現在の番組のタイトルをログに出力
-                            ## TODO: 番組の解像度が変わった際にエンコーダーがクラッシュorフリーズする可能性があるが、
-                            ## その場合はここでエンコードタスクを再起動させる必要があるかも
+                            ## 番組の解像度が変わった場合は HWEncC の --adapt-resolution でデコーダー側が追従する想定
                             logging.info(f'{self.live_stream.log_prefix} Title: {program_following.title}')
 
                         program_present = program_following

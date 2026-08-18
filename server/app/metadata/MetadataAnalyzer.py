@@ -879,10 +879,8 @@ class MetadataAnalyzer:
         base_stream_info = stream_infos[0][1]
         for sample_ratio, stream_info in stream_infos[1:]:
             # 映像 PID や映像ストリーム構成が途中で変わる録画（マルチ編成開始/終了での解像度変更時など）に関して、
-            # HWEncC 系エンコーダーは --avhw だと録画マージン区間 -> 本編での解像度切り替えに対応できずクラッシュし、
-            # --avsw の場合はエラーこそ出ないがデコードがめちゃくちゃになる問題がある
-            ## 録画ファイル自体の代表解像度は 25% 位置の FFprobe サンプルから取得済みなので、ここではエンコーダー選択用のフラグのみ決める
-            ## この関数の戻り値が RecordedVideo.has_video_stream_changes に反映され、True の場合は再生時エンコーダーが FFmpeg に固定される
+            # サムネイル生成や解析時の注意喚起に使うフラグを立てる
+            ## 録画ファイル自体の代表解像度は 25% 位置の FFprobe サンプルから取得済みなので、ここでは変化検出のみ行う
             if (
                 stream_info.video_pid != base_stream_info.video_pid or
                 stream_info.codec != base_stream_info.codec
