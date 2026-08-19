@@ -270,12 +270,16 @@ def install(
         # コンピューター名とユーザーアカウント名から SID を取得
         if '\\' not in account_name or account_name.startswith('.\\'):
             computer_name = os.environ['COMPUTERNAME']
+            domain_name = os.environ['USERDOMAIN']
             if not computer_name:
                 computer_name: str = win32api.GetComputerName()
                 if not computer_name:
                     print('Error: Cannot determine computer name.')
                     return
-            account_name = computer_name + '\\' + account_name.lstrip('.\\')
+            if domain_name is None or computer_name == domain_name:
+                account_name = computer_name + '\\' + account_name.lstrip('.\\')
+            else:
+                account_name = domain_name + '\\' + account_name.lstrip('.\\')
         account_sid = win32security.LookupAccountName(None, account_name)[0]
 
         # ユーザーアカウントに SeServiceLogonRight 権限を付与
