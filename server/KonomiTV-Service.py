@@ -269,14 +269,14 @@ def install(
 
         # コンピューター名とユーザーアカウント名から SID を取得
         if '\\' not in account_name or account_name.startswith('.\\'):
-            computer_name = os.environ['COMPUTERNAME']
-            domain_name = os.environ['USERDOMAIN']
+            computer_name = os.environ.get('COMPUTERNAME', '')
+            domain_name = os.environ.get('USERDOMAIN', '')
             if not computer_name:
                 computer_name: str = win32api.GetComputerName()
                 if not computer_name:
                     print('Error: Cannot determine computer name.')
                     return
-            if domain_name is None or computer_name == domain_name:
+            if not domain_name or computer_name == domain_name:
                 account_name = computer_name + '\\' + account_name.lstrip('.\\')
             else:
                 account_name = domain_name + '\\' + account_name.lstrip('.\\')
