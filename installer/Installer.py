@@ -1020,11 +1020,11 @@ def Installer(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
 
-            # "プライベート" と "パブリック" で有効な受信規則を追加
+            # すべてのプロファイルで有効な受信規則を追加
             subprocess.run(
                 args = [
                     'netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name=KonomiTV Service', 'description=KonomiTV Windows Service.',
-                    'profile=private,public', 'enable=yes', 'action=allow', 'dir=in', 'protocol=TCP',
+                    'profile=any', 'enable=yes', 'action=allow', 'dir=in', 'protocol=TCP',
                     f'program={install_path / "server/thirdparty/Akebi/akebi-https-server.exe"}',
                 ],
                 stdout = subprocess.DEVNULL,  # 標準出力を表示しない
@@ -1040,46 +1040,46 @@ def Installer(version: str) -> None:
         venv_python_executable_path = install_path / 'server/.venv/Scripts/python.exe'
 
         # 現在ログオン中のユーザー名を取得
-        ## PowerShell の [Environment]::UserName を使う
+        ## PowerShell の [Environment]::UserDomainName と [Environment]::UserName を使う
         current_user_name_default = subprocess.run(
-            args = ['powershell', '-Command', '[Environment]::UserName'],
+            args = ['powershell', '-Command', r'"$([Environment]::UserDomainName)\$([Environment]::UserName)"'],
             stdout = subprocess.PIPE,  # 標準出力をキャプチャする
             stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             text = True,  # 出力をテキストとして取得する
         ).stdout.strip()
 
-        table_08 = CreateTable()
-        table_08.add_column('08. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
-        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_08.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
-        table_08.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
-        print(Padding(table_08, (0, 2, 0, 2)))
-
-        # ユーザー名を入力
-        current_user_name: str = CustomPrompt.ask('KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
-
-        table_09 = CreateTable()
-        table_09.add_column(f'09. ユーザー ({current_user_name}) のパスワードを入力してください。')
-        table_09.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_09.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
-        table_09.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
-        table_09.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        table_09.add_row('なお、PIN などのほかの認証方法には対応していません。')
-        table_09.add_row(CreateRule())
-        table_09.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
-        table_09.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
-        table_09.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
-        table_09.add_row(CreateRule())
-        table_09.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
-        table_09.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
-        table_09.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
-        table_09.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
-        print(Padding(table_09, (1, 2, 1, 2)))
-
-        # ユーザーのパスワードを取得
         while True:
 
-            # 入力プロンプト (サービスのインストールに失敗し続ける限り何度でも表示される)
+            table_08 = CreateTable()
+            table_08.add_column('08. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
+            table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+            table_08.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
+            table_08.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
+            print(Padding(table_08, (0, 2, 0, 2)))
+
+            # ユーザー名を入力 (サービスのインストールに失敗し続ける限り何度でも表示される)
+            current_user_name: str = CustomPrompt.ask('KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
+
+            table_09 = CreateTable()
+            table_09.add_column(f'09. ユーザー ({current_user_name}) のパスワードを入力してください。')
+            table_09.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+            table_09.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
+            table_09.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
+            table_09.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+            table_09.add_row('なお、PIN などのほかの認証方法には対応していません。')
+            table_09.add_row(CreateRule())
+            table_09.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
+            table_09.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
+            table_09.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
+            table_09.add_row(CreateRule())
+            table_09.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
+            table_09.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
+            table_09.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
+            table_09.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
+            print(Padding(table_09, (1, 2, 1, 2)))
+
+            # ユーザーのパスワードを取得
+            # 入力プロンプト
             ## バリデーションのしようがないので、バリデーションは行わない
             current_user_password = CustomPrompt.ask(f'ログオン中のユーザー ({current_user_name}) のパスワード')
 
@@ -1103,12 +1103,21 @@ def Installer(version: str) -> None:
                     stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
                     text = True,  # 出力をテキストとして取得する
                 )
+            if 'Error: ' in service_install_result.stdout:
+                print(Padding(
+                    '[red]Windows サービスのインストールに失敗しました。\n'\
+                    '入力されたユーザーが存在しないか、コンピューター名または\n'\
+                    'ドメイン名が間違っている可能性があります。'\
+                , (1, 2, 0, 2)))
+                print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
+                continue
+
             if 'Error installing service' in service_install_result.stdout:
-                print(Padding(str(
-                    '[red]Windows サービスのインストールに失敗しました。\n'
-                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'
-                    'すでに KonomiTV がインストールされている可能性があります。',
-                ), (1, 2, 0, 2)))
+                print(Padding(
+                    '[red]Windows サービスのインストールに失敗しました。\n'\
+                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'\
+                    'すでに KonomiTV がインストールされている可能性があります。'\
+                , (1, 2, 0, 2)))
                 print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
 
@@ -1125,11 +1134,11 @@ def Installer(version: str) -> None:
                     text = True,  # 出力をテキストとして取得する
                 )
             if 'Error starting service' in service_start_result.stdout:
-                print(Padding(str(
-                    '[red]Windows サービスの起動に失敗しました。\n'
-                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'
-                    'すでに KonomiTV がインストールされている可能性があります。',
-                ), (1, 2, 0, 2)))
+                print(Padding(
+                    '[red]Windows サービスの起動に失敗しました。\n'\
+                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'\
+                    'すでに KonomiTV がインストールされている可能性があります。'\
+                , (1, 2, 0, 2)))
                 print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
                 continue
 

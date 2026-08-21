@@ -254,6 +254,37 @@ def install(
     username: str = typer.Option(..., help='Username under which KonomiTV service runs.'),
     password: str = typer.Option(..., help='Password of the user under which KonomiTV service runs.'),
 ):
+    def SamAccountNameHelper(account_name: str) -> str:
+        """
+        ユーザー名から SAM アカウント名を推定して返す
+        ローカルユーザーの場合、サービスのインストール後は自動的に.\\userNameへ変換される
+        Args:
+            account_name (str): accountName(str): Windows ユーザー名 (非修飾可)
+        Returns:
+            str: Windows SAM アカウント名 (computerName\\accountName)
+        """
+
+        # SAM アカウント名ではない場合またはローカル指定がある場合
+        if '\\' not in account_name or account_name.startswith('.\\'):
+            computer_name = os.environ.get('COMPUTERNAME', '')
+            domain_name = os.environ.get('USERDOMAIN', '')
+            if not computer_name:
+                computer_name: str = win32api.GetComputerName()
+                if not computer_name:
+                    # エラーメッセージ
+                    print('Error: Cannot determine computer name.')
+                    sys.exit(1)
+            if not domain_name:
+                domain_name = computer_name
+            # ローカル指定があるか、コンピューター名がドメイン名と同一の場合
+            ## ワークグループ (ローカルコンピューター)
+            if account_name.startswith('.\\') or computer_name == domain_name:
+                return computer_name + '\\' + (account_name[2:] if account_name.startswith('.\\') else account_name)
+            else:
+                return domain_name + '\\' + (account_name[2:] if account_name.startswith('.\\') else account_name)
+
+        return account_name
+
     def AddLogOnAsAServicePrivilege(account_name: str) -> None:
         """
         "サービスとしてログオン" (SeServiceLogonRight) 権限をユーザーアカウントに付与する
@@ -264,29 +295,32 @@ def install(
         ref: https://github.com/flathub/buildbot/blob/flathub/worker/buildbot_worker/scripts/windows_service.py#L480-L508
 
         Args:
-            account_name (str): accountName(str): Windows ユーザーアカウントの名前
+            account_name (str): accountName(str): Windows SAM アカウント名
         """
 
-        # コンピューター名とユーザーアカウント名から SID を取得
-        if '\\' not in account_name or account_name.startswith('.\\'):
-            computer_name = os.environ['COMPUTERNAME']
-            if not computer_name:
-                computer_name: str = win32api.GetComputerName()
-                if not computer_name:
-                    print('Error: Cannot determine computer name.')
-                    return
-            account_name = computer_name + '\\' + account_name.lstrip('.\\')
-        account_sid = win32security.LookupAccountName(None, account_name)[0]
-
+        # SAM アカウント名から SID を取得
+        try:
+            account_sid = win32security.LookupAccountName(None, account_name)[0]
+        except win32security.error:
+            # SID の取得に失敗したときは、ログメッセージを出力して例外を再スローする (終了)
+            print(f'Error: Failed to look up SID for \'{account_name}\'.')
+            raise
         # ユーザーアカウントに SeServiceLogonRight 権限を付与
         policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)
         win32security.LsaAddAccountRights(policy_handle, account_sid, ('SeServiceLogonRight',))
         win32security.LsaClose(policy_handle)
 
+    # SAM アカウント名を取得
+    account_name = SamAccountNameHelper(username)
+    if not account_name or '\\' not in account_name:
+        # 取得できなかったときは終了する (念のため)
+        print('Error: Failed to parse SAM account name.')
+        return
+
     # 指定されたユーザーアカウントに "サービスとしてログオン" (SeServiceLogonRight) 権限を付与する
     ## "サービスとしてログオン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
     ## 手動でサービス管理ツールから操作すると自動的に付与されるらしく、気づくのに時間が掛かった…
-    AddLogOnAsAServicePrivilege(username)
+    AddLogOnAsAServicePrivilege(account_name)
 
     # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
     win32serviceutil.HandleCommandLine(
@@ -294,7 +328,7 @@ def install(
         # 「自動 (遅延開始)」(delayed) でインストールする
         ## 「自動」(auto) だと EDCB や Mirakurun のサービスが起動していない段階で実行されてしまい、EDCB または Mirakurun にアクセスできず起動に失敗する
         ## 「自動 (遅延開始)」だとシステム起動から2分ほど遅れて実行されるが、上記の問題があるため致し方ない
-        argv = [sys.argv[0], '--startup', 'delayed', '--username', f'.\\{username}', '--password', password, 'install'],
+        argv = [sys.argv[0], '--startup', 'delayed', '--username', account_name, '--password', password, 'install'],
     )
 
 @app.command(help='Uninstall KonomiTV service.')
