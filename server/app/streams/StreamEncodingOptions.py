@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.config import Config
-from app.constants import QUALITY, QUALITY_TYPES
+from app.constants import LIVE_STREAMING_QUALITY_TYPES, QUALITY, QUALITY_TYPES
 
 
 @dataclass(frozen=True)
@@ -97,7 +97,8 @@ class StreamQualityWithOptions:
 
     # QUALITY に定義されているベース画質
     ## API パスには 720p-hevc-10bit-24fps のようにオプション付きの品質が渡されるが、エンコード処理にはこの値だけを渡す
-    quality: QUALITY_TYPES
+    ## ライブ時のみ "original" を受け付ける (録画再生時は VideoEncodingTask 自体を迂回するので設定できないが、型を分けるのが面倒なのでこれで)
+    quality: LIVE_STREAMING_QUALITY_TYPES
 
     # ベース画質に追加するエンコードオプション
     ## HEVC 10bit や 24fps モードは、ベース画質から分けてストリーム ID やエンコード引数へ渡す

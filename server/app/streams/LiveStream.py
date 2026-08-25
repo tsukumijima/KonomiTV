@@ -11,7 +11,7 @@ from hashids import Hashids
 
 from app import logging
 from app.config import Config
-from app.constants import QUALITY_TYPES
+from app.constants import LIVE_STREAMING_QUALITY_TYPES
 from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
@@ -112,7 +112,7 @@ class LiveStream:
     def __new__(
         cls,
         display_channel_id: str,
-        quality: QUALITY_TYPES,
+        quality: LIVE_STREAMING_QUALITY_TYPES,
         encoding_options: StreamEncodingOptions | None = None,
     ) -> LiveStream:
 
@@ -189,7 +189,7 @@ class LiveStream:
     def __init__(
         self,
         display_channel_id: str,
-        quality: QUALITY_TYPES,
+        quality: LIVE_STREAMING_QUALITY_TYPES,
         encoding_options: StreamEncodingOptions | None = None,
     ) -> None:
         """
@@ -197,7 +197,7 @@ class LiveStream:
 
         Args:
             display_channel_id (str): チャンネルID
-            quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
+            quality (LIVE_STREAMING_QUALITY_TYPES): 映像の品質 (original, 1080p-60fps ~ 240p)
             encoding_options (StreamEncodingOptions | None): ベース画質に追加するエンコードオプション
         """
 
@@ -205,7 +205,7 @@ class LiveStream:
         # Singleton のためインスタンスの生成は __new__() で行うが、__init__() も定義しておかないと補完がうまく効かない
         self.live_stream_id: str
         self.display_channel_id: str
-        self.quality: QUALITY_TYPES
+        self.quality: LIVE_STREAMING_QUALITY_TYPES
         self.encoding_options: StreamEncodingOptions
         self._clients: list[LiveStreamClient]
         self._status: Literal['Offline', 'Standby', 'ONAir', 'Idling', 'Restart']

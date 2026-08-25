@@ -14,6 +14,7 @@ from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream, LiveStreamStatus
 from app.streams.StreamEncodingOptions import (
     SplitQualityAndEncodingOptions,
+    StreamEncodingOptions,
     StreamQualityWithOptions,
 )
 
@@ -39,10 +40,30 @@ async def ValidateChannelID(display_channel_id: Annotated[str, Path(description=
     return display_channel_id
 
 
-async def ValidateQuality(quality: Annotated[str, Path(description='映像の品質。ex: 1080p')]) -> StreamQualityWithOptions:
+async def ValidateQuality(
+    display_channel_id: Annotated[str, Path(description='チャンネル ID 。ex: gr011')],
+    quality: Annotated[str, Path(description='映像の品質。ex: original, 1080p')],
+) -> StreamQualityWithOptions:
     """ 映像の品質のバリデーション """
 
-    # 指定された品質が存在するか確認
+    # "original" は追加のエンコードオプションを持たない特別なライブ配信品質として扱う
+    if quality == 'original':
+
+        # ラジオチャンネルには MPEG-2 映像がなく、mpeg2toh264 では再生できないため受け付けない
+        channel = await Channel.filter(display_channel_id=display_channel_id).get_or_none()
+        if channel is not None and channel.is_radiochannel is True:
+            logging.error(f'[LiveStreamsRouter][ValidateQuality] Original quality is not available for radio channels. [display_channel_id: {display_channel_id}]')
+            raise HTTPException(
+                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail = 'Original quality is not available for radio channels',
+            )
+
+        return StreamQualityWithOptions(
+            quality = 'original',
+            encoding_options = StreamEncodingOptions(),
+        )
+
+    # 指定されたエンコード済み品質が存在するか確認
     ## 品質の指定に -10bit や -24fps が付いていれば分解する
     stream_quality = SplitQualityAndEncodingOptions(quality)
     if stream_quality is None:
@@ -52,7 +73,10 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
             detail = 'Specified quality was not found',
         )
 
-    return stream_quality
+    return StreamQualityWithOptions(
+        quality = stream_quality.quality,
+        encoding_options = stream_quality.encoding_options,
+    )
 
 
 @router.get(

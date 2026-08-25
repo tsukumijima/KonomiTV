@@ -96,6 +96,8 @@ app.add_middleware(
     # すべての HTTP メソッドと HTTP ヘッダーを許可
     allow_methods = ['*'],
     allow_headers = ['*'],
+    # 録画 TS の直接再生でクライアントが Range 応答の開始位置と総ファイルサイズを検証するため必要なヘッダーを許可
+    expose_headers = ['Accept-Ranges', 'Content-Length', 'Content-Range', 'ETag', 'Last-Modified'],
     allow_credentials = True,
 )
 
@@ -234,6 +236,10 @@ async def Startup():
 
     # 全てのチャンネル&品質のライブストリームを初期化する
     for channel in await Channel.filter(is_watchable=True).order_by('channel_number'):
+        # 映像チャンネルのみ、放送 TS を直接出力するオリジナル画質を用意する
+        # ラジオチャンネル (=放送大学ラジオのみ) は映像自体が存在しないため、音声のみエンコードして出力する
+        if channel.is_radiochannel is False:
+            LiveStream(channel.display_channel_id, 'original')
         for quality in QUALITY:
             LiveStream(channel.display_channel_id, quality)
 
