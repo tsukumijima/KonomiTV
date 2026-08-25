@@ -14,7 +14,6 @@ from app.models.Channel import Channel
 from app.streams.LiveStream import LiveStream, LiveStreamStatus
 from app.streams.StreamEncodingOptions import (
     SplitQualityAndEncodingOptions,
-    StreamEncodingOptions,
     StreamQualityWithOptions,
 )
 
@@ -46,10 +45,8 @@ async def ValidateQuality(
 ) -> StreamQualityWithOptions:
     """ 映像の品質のバリデーション """
 
-    # "original" は追加のエンコードオプションを持たない特別なライブ配信品質として扱う
+    # ラジオチャンネルには MPEG-2 映像がなく、mpeg2toh264 では再生できないため受け付けない
     if quality == 'original':
-
-        # ラジオチャンネルには MPEG-2 映像がなく、mpeg2toh264 では再生できないため受け付けない
         channel = await Channel.filter(display_channel_id=display_channel_id).get_or_none()
         if channel is not None and channel.is_radiochannel is True:
             logging.error(f'[LiveStreamsRouter][ValidateQuality] Original quality is not available for radio channels. [display_channel_id: {display_channel_id}]')
@@ -57,11 +54,6 @@ async def ValidateQuality(
                 status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail = 'Original quality is not available for radio channels',
             )
-
-        return StreamQualityWithOptions(
-            quality = 'original',
-            encoding_options = StreamEncodingOptions(),
-        )
 
     # 指定されたエンコード済み品質が存在するか確認
     ## 品質の指定に -10bit や -24fps が付いていれば分解する

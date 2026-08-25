@@ -694,30 +694,64 @@ async def VideoAPI(
 
 @router.get(
     '/{video_id}/download',
-    summary = '録画番組ダウンロード API',
-    response_description = '録画番組の MPEG-TS ファイル。',
+    summary = '録画ファイルダウンロード API',
+    response_description = '指定された録画番組に対応する録画ファイル。',
     response_class = FileResponse,
     responses = {
-        200: {'content': {'video/mp2t': {}}},
-        422: {'description': 'Specified video_id was not found'},
+        200: {'content': {'video/mp2t': {}, 'video/mp4': {}}},
+        404: {'description': 'The recorded file was not found'},
+        422: {'description': 'Specified video_id was not found / The recorded video is recording'},
     },
 )
 async def VideoDownloadAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組の MPEG-TS ファイルをダウンロードする。
+    指定された録画番組に対応する録画ファイルをダウンロードする。<br>
+    この API は、mpeg2toh264 を使い、ブラウザ側で MPEG-2 映像を H.264 にリアルタイム変換して再生する際にも利用される。
     """
+
+    # 録画中にダウンロードすると途中まで録画されたファイルがダウンロードされるなど予期せぬ事態が発生する可能性があるため、
+    # 明示的に録画完了状態のファイルのみを対象とする
+    if recorded_program.recorded_video.status == 'Recording':
+        logging.error(
+            f'[VideosRouter][VideoDownloadAPI] Recorded video is recording. '
+            f'[video_id: {recorded_program.id}]'
+        )
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'The recorded video is recording',
+        )
 
     # ファイルパスとファイル名を取得
     file_path = recorded_program.recorded_video.file_path
     filename = pathlib.Path(file_path).name
 
-    # MPEG-TS ファイルをダウンロードさせる
+    # 万が一ファイルが存在しない場合は明示的に 404 エラーを返す
+    if pathlib.Path(file_path).is_file() is False:
+        logging.error(
+            f'[VideosRouter][VideoDownloadAPI] Recorded file was not found. '
+            f'[video_id: {recorded_program.id}]'
+        )
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = 'The recorded file was not found',
+        )
+
+    # 動画コンテナに合わせて MIME タイプを設定
+    match recorded_program.recorded_video.container_format:
+        case 'MPEG-TS':
+            media_type = 'video/mp2t'
+        case 'MPEG-4':
+            media_type = 'video/mp4'
+        case _:
+            media_type = 'application/octet-stream'
+
+    # 録画ファイルをダウンロードさせる
     return FileResponse(
         path = file_path,
         filename = filename,
-        media_type = 'video/mp2t',
+        media_type = media_type,
     )
 
 

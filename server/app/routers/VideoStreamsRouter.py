@@ -60,6 +60,14 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
             detail = 'Specified quality was not found',
         )
 
+    # 指定された画質が "original" の場合、HLS プレイリストではオリジナル画質で配信できないのでエラーにする
+    if stream_quality.quality == 'original':
+        logging.error(f'[VideoStreamsRouter][ValidateQuality] Original quality is not available for HLS playlist. [quality: {quality}]')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Original quality is not available for HLS playlist',
+        )
+
     return stream_quality
 
 
@@ -86,6 +94,7 @@ async def VideoHLSPlaylistAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを作成または取得
+    assert stream_quality.quality != 'original'
     video_stream = VideoStream(
         session_id,
         recorded_program,
@@ -130,6 +139,7 @@ async def VideoHLSSegmentAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
+    assert stream_quality.quality != 'original'
     video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
 
     # セグメントを取得（キャッシュキーはブラウザキャッシュ避けのための ID なので特に使わない）
@@ -183,6 +193,7 @@ async def VideoHLSBufferAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
+    assert stream_quality.quality != 'original'
     video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
 
     # バッファ範囲の変更を監視し、変更があればバッファ範囲をイベントストリームとして出力する
@@ -244,6 +255,7 @@ async def VideoHLSKeepAliveAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
+    assert stream_quality.quality != 'original'
     video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
 
     # セッションのアクティブ状態を維持する
@@ -288,6 +300,7 @@ async def VideoOfflineStreamAPI(
     try:
         # 通常再生とは独立したセッションを作り、仮想プレイリスト生成によって全セグメント情報を初期化する
         session_id = f'offline-{uuid.uuid4().hex}'
+        assert stream_quality.quality != 'original'
         video_stream = VideoStream(
             session_id,
             recorded_program,

@@ -88,10 +88,10 @@ class StreamEncodingOptions:
 @dataclass(frozen=True)
 class StreamQualityWithOptions:
     """
-    API パスの品質指定を、ベース画質と追加エンコードオプションへ分解した結果を表す
+   ストリーミング配信 API の品質指定を、ベース画質と追加エンコードオプションへ分解した結果を表す
 
     Args:
-        quality (QUALITY_TYPES): ベース画質
+        quality (LIVE_STREAMING_QUALITY_TYPES): ベース画質
         encoding_options (StreamEncodingOptions): ベース画質に追加するエンコードオプション
     """
 
@@ -115,6 +115,14 @@ def SplitQualityAndEncodingOptions(quality: str) -> StreamQualityWithOptions | N
     Returns:
         StreamQualityWithOptions | None: 分解結果 (不正な品質指定の場合は None)
     """
+
+    # オリジナル画質が指定された場合は確実にライブ配信からなので特別扱い
+    if quality == 'original':
+        return StreamQualityWithOptions(
+            quality = 'original',
+            # エンコーダーを通さないためエンコードオプションは空
+            encoding_options = StreamEncodingOptions(),
+        )
 
     # -10bit / -24fps は buildSuffix() と同じ順序でのみ受け付ける
     ## 末尾から剥がすことで、1080p-60fps-hevc のようにベース画質自体が -hevc を含むケースを安全に扱う
