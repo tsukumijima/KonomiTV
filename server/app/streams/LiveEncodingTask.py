@@ -63,6 +63,11 @@ class LiveEncodingTask:
     ENCODER_TS_READ_TIMEOUT_ONAIR: ClassVar[int] = 5
     ENCODER_TS_READ_TIMEOUT_ONAIR_VCEENCC: ClassVar[int] = 10
 
+    # オリジナル画質で ONAir に移行するために必要な、ライブストリームへ書き込んだ TS データの累積バイト数
+    ## 地上波・BS 放送の TS ビットレート (おおよそ 16〜19Mbps) を前提に、約 0.75 秒分のデータ量 (1.5MiB) とする
+    ## tsreadex から最初の TS パケットが出た直後だと再生に足りないため、実際に再生可能な量が溜まってから ONAir にする
+    ORIGINAL_QUALITY_ONAIR_BUFFER_BYTES: ClassVar[int] = int(1.5 * 1024 * 1024)
+
 
     def __init__(self, live_stream: LiveStream) -> None:
         """
@@ -1056,9 +1061,12 @@ class LiveEncodingTask:
             ## そうしないと稀にパケロスするらしく、ブラウザ側で突如再生できなくなることがある
             writer_lock = asyncio.Lock()
 
+            # オリジナル画質向け: ライブストリームへ書き込んだ TS データの累積バイト数
+            original_quality_bytes_written: int = 0
+
             async def Writer() -> None:
 
-                nonlocal chunk_buffer, chunk_written_at, writer_lock
+                nonlocal chunk_buffer, chunk_written_at, writer_lock, original_quality_bytes_written
 
                 while True:
                     try:
@@ -1078,15 +1086,23 @@ class LiveEncodingTask:
                             if len(chunk_buffer) >= 65536:
 
                                 # エンコーダーからの出力をライブストリームの Queue に書き込む
+                                chunk_size = len(chunk_buffer)
                                 self.live_stream.writeStreamData(bytes(chunk_buffer))
-                                # print(f'Writer:    Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
+                                # print(f'Writer:    Chunk size: {chunk_size:05} / Time: {time.time()}')
 
                                 # オリジナル画質 ("original") 指定時のみ、エンコーダーログがないため、
-                                # TS データを最初に受け取ったタイミングでステータスを ONAir にする
-                                if is_original_quality is True and self.live_stream.getStatus().status == 'Standby':
-                                    self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
-                                    if self._retry_count > 0:
-                                        self._retry_count = 0
+                                # ライブストリームへ書き込んだ TS データ量からバッファリング完了を判定する
+                                if is_original_quality is True:
+                                    live_stream_status = self.live_stream.getStatus()
+                                    if live_stream_status.status == 'Standby':
+                                        original_quality_bytes_written += chunk_size
+                                        if original_quality_bytes_written < self.ORIGINAL_QUALITY_ONAIR_BUFFER_BYTES:
+                                            if live_stream_status.detail != 'ストリーミングを開始しています…':
+                                                self.live_stream.setStatus('Standby', 'ストリーミングを開始しています…')
+                                        else:
+                                            self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                                            if self._retry_count > 0:
+                                                self._retry_count = 0
 
                                 # チャンクバッファを空にする（重要）
                                 chunk_buffer = bytearray()
@@ -1106,7 +1122,7 @@ class LiveEncodingTask:
             ## ラジオチャンネルは通常のチャンネルと比べてデータ量が圧倒的に少ないため、64KB に達することは稀で SubWriter でのチャンク書き込みがメインになる
             async def SubWriter() -> None:
 
-                nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock
+                nonlocal tuner_ts_read_at, tuner_ts_read_at_lock, chunk_buffer, chunk_written_at, writer_lock, original_quality_bytes_written
 
                 while True:
 
@@ -1121,15 +1137,23 @@ class LiveEncodingTask:
                         if (time.monotonic() - chunk_written_at) > 0.025 and (len(chunk_buffer) > 0):
 
                             # エンコーダーからの出力をライブストリームの Queue に書き込む
+                            chunk_size = len(chunk_buffer)
                             self.live_stream.writeStreamData(bytes(chunk_buffer))
                             # print(f'SubWriter: Chunk size: {len(chunk_buffer):05} / Time: {time.time()}')
 
                             # オリジナル画質 ("original") 指定時のみ、エンコーダーログがないため、
-                            # TS データを最初に受け取ったタイミングでステータスを ONAir にする
-                            if is_original_quality is True and self.live_stream.getStatus().status == 'Standby':
-                                self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
-                                if self._retry_count > 0:
-                                    self._retry_count = 0
+                            # ライブストリームへ書き込んだ TS データ量からバッファリング完了を判定する
+                            if is_original_quality is True:
+                                live_stream_status = self.live_stream.getStatus()
+                                if live_stream_status.status == 'Standby':
+                                    original_quality_bytes_written += chunk_size
+                                    if original_quality_bytes_written < self.ORIGINAL_QUALITY_ONAIR_BUFFER_BYTES:
+                                        if live_stream_status.detail != 'ストリーミングを開始しています…':
+                                            self.live_stream.setStatus('Standby', 'ストリーミングを開始しています…')
+                                    else:
+                                        self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                                        if self._retry_count > 0:
+                                            self._retry_count = 0
 
                             # チャンクバッファを空にする（重要）
                             chunk_buffer = bytearray()
