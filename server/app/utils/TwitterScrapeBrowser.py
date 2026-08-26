@@ -857,7 +857,8 @@ class TwitterScrapeBrowser:
 
         try:
             # スクリーンショットの保存先ディレクトリを作成
-            TWITTER_DEBUG_SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+            debug_screenshots_dir = anyio.Path(TWITTER_DEBUG_SCREENSHOTS_DIR)
+            await debug_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
             # CDP Page.captureScreenshot でスクリーンショットを取得
             ## capture_screenshot() は Base64 エンコードされた画像データを str として直接返す
@@ -871,8 +872,8 @@ class TwitterScrapeBrowser:
             safe_reason = re.sub(r'[<>:"/\\|?*\x00-\x1f\s]+', '_', reason).strip('_')[:80]
             timestamp = datetime.now(JST).strftime('%Y%m%d_%H%M%S')
             filename = f'{self.twitter_account.screen_name}_{timestamp}_{safe_reason}.png'
-            filepath = TWITTER_DEBUG_SCREENSHOTS_DIR / filename
-            filepath.write_bytes(screenshot_bytes)
+            filepath = debug_screenshots_dir / filename
+            await filepath.write_bytes(screenshot_bytes)
 
             logging.info(f'{self.log_prefix} Debug screenshot saved: {filepath}')
 
@@ -880,10 +881,10 @@ class TwitterScrapeBrowser:
             ## スクリーンショットにはユーザーの下書きテキストやタイムラインが写り込む可能性があるため、
             ## 診断に十分な期間だけ保持し、それ以降は自動的に削除する
             cutoff_time = time.time() - (TWITTER_DEBUG_SCREENSHOTS_RETENTION_DAYS * 86400)
-            for old_file in TWITTER_DEBUG_SCREENSHOTS_DIR.glob('*.png'):
+            async for old_file in debug_screenshots_dir.glob('*.png'):
                 try:
-                    if old_file.stat().st_mtime < cutoff_time:
-                        old_file.unlink()
+                    if (await old_file.stat()).st_mtime < cutoff_time:
+                        await old_file.unlink()
                 except OSError:
                     pass
 

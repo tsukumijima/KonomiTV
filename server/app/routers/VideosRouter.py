@@ -724,11 +724,11 @@ async def VideoDownloadAPI(
         )
 
     # ファイルパスとファイル名を取得
-    file_path = recorded_program.recorded_video.file_path
-    filename = pathlib.Path(file_path).name
+    file_path = anyio.Path(recorded_program.recorded_video.file_path)
+    filename = file_path.name
 
     # 万が一ファイルが存在しない場合は明示的に 404 エラーを返す
-    if pathlib.Path(file_path).is_file() is False:
+    if await file_path.is_file() is False:
         logging.error(
             f'[VideosRouter][VideoDownloadAPI] Recorded file was not found. '
             f'[video_id: {recorded_program.id}]'
