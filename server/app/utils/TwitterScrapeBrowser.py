@@ -8,17 +8,19 @@ import re
 import sys
 import time
 from datetime import datetime
-from typing import Any, ClassVar, cast
+from typing import Annotated, Any, ClassVar, cast
 
 import anyio
+import httpx
 import psutil
 from fastapi import UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 from zendriver import Browser, Tab, cdp
 
 from app import logging, schemas
 from app.constants import (
+    DATA_DIR,
     JST,
     STATIC_DIR,
     TWITTER_DEBUG_SCREENSHOTS_DIR,
@@ -62,6 +64,15 @@ class PostTweetViaComposeUIResult(BaseModel):
     graphql_api_result: TwitterBrowserGraphQLAPIResult | None = None
 
 
+class TwitterAnalyticsBlockFilterCache(BaseModel):
+    """Twitter のアナリティクス通信をブロックする動的フィルターのキャッシュ。"""
+
+    regex_patterns: Annotated[
+        list[Annotated[str, Field(max_length=512)]],
+        Field(max_length=256),
+    ]
+
+
 class TwitterScrapeBrowser:
     """
     Twitter のヘッドレスブラウザ操作を隠蔽するクラス
@@ -87,6 +98,22 @@ class TwitterScrapeBrowser:
     ## 保存値がない場合だけこの既定値を使い、x.com へ `Accept-Language: en-US` を送信しないようにする
     _FALLBACK_ACCEPT_LANGUAGE: ClassVar[str] = 'ja,en;q=0.9'
     _FALLBACK_ACCEPT_LANGUAGES: ClassVar[tuple[str, ...]] = ('ja', 'en')
+    # uBlock Origin Lite の既定構成から、Twitter に関係する通信ブロックルールを取得する配布元
+    ## EasyPrivacy は生成元リポジトリの対象ファイルを、uBlock 固有ルールは uAssets の既定リストを参照する
+    _ANALYTICS_BLOCK_FILTER_URLS: ClassVar[tuple[str, ...]] = (
+        'https://raw.githubusercontent.com/easylist/easylist/master/easyprivacy/easyprivacy_specific.txt',
+        'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt',
+        'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt',
+        'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt',
+        'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt',
+        'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/ubol-filters.txt',
+    )
+    # ブラウザ起動が GitHub の応答待ちで長時間止まらないための取得タイムアウト
+    _ANALYTICS_BLOCK_FILTER_TIMEOUT_SECONDS: ClassVar[float] = 3.0
+    # GitHub の想定外レスポンスを無制限に保持せず、通常のフィルターリストだけを処理する上限
+    _ANALYTICS_BLOCK_FILTER_MAX_BYTES: ClassVar[int] = 2 * 1024 * 1024
+    # 複数アカウントのブラウザが同時に起動しても、完全なキャッシュだけが残るよう更新を直列化する
+    _analytics_block_filter_update_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     def __init__(self, twitter_account: TwitterAccount) -> None:
         """
@@ -118,6 +145,104 @@ class TwitterScrapeBrowser:
         ログのプレフィックス
         """
         return f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}]'
+
+    async def _getDynamicAnalyticsBlockRegexPatterns(self) -> list[str]:
+        """
+        uBlock Origin Lite の既定フィルターから Twitter 向け通信ブロックルールを取得する
+
+        Returns:
+            list[str]: JavaScript の RegExp へ渡す URL 正規表現
+        """
+
+        cache_path = anyio.Path(DATA_DIR / 'twitter-analytics-block-filters.json')
+
+        # 同時起動時のダウンロードとキャッシュ更新をまとめ、途中まで書かれた JSON を別タスクが読まない状態を作る
+        async with self._analytics_block_filter_update_lock:
+            try:
+                # 配布元は並行取得し、1つでも取得できなければ既知の完全なキャッシュを維持する
+                timeout = httpx.Timeout(self._ANALYTICS_BLOCK_FILTER_TIMEOUT_SECONDS)
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                    async def FetchFilterList(filter_url: str) -> str:
+                        """
+                        GitHub からフィルターリストをサイズ上限まで取得する
+
+                        Args:
+                            filter_url (str): 取得するフィルターリストの URL
+
+                        Returns:
+                            str: フィルターリストの内容
+                        """
+
+                        downloaded_chunks: list[bytes] = []
+                        downloaded_bytes = 0
+
+                        # ストリーミング中に上限を検査し、想定外の巨大レスポンスをメモリへ保持する前に中断する
+                        async with client.stream(
+                            'GET',
+                            filter_url,
+                            headers={'User-Agent': 'KonomiTV TwitterScrapeBrowser'},
+                        ) as response:
+                            response.raise_for_status()
+                            async for chunk in response.aiter_bytes():
+                                downloaded_bytes += len(chunk)
+                                if downloaded_bytes > self._ANALYTICS_BLOCK_FILTER_MAX_BYTES:
+                                    raise ValueError(
+                                        f'Filter list is too large. url: {response.url}, bytes: {downloaded_bytes}',
+                                    )
+                                downloaded_chunks.append(chunk)
+
+                        # 空の成功レスポンスで既知のキャッシュを消さず、完全なリストだけを更新候補にする
+                        if downloaded_bytes == 0:
+                            raise ValueError(f'Filter list is empty. url: {filter_url}')
+                        return b''.join(downloaded_chunks).decode('utf-8-sig')
+
+                    filter_list_contents = await asyncio.gather(*(
+                        FetchFilterList(filter_url)
+                        for filter_url in self._ANALYTICS_BLOCK_FILTER_URLS
+                    ))
+
+                regex_patterns = self._extractAnalyticsBlockRegexPatterns(filter_list_contents)
+                if len(regex_patterns) == 0:
+                    raise ValueError('No compatible Twitter analytics block filters were found.')
+
+                # 一時ファイルへ完全な JSON を書いてから置き換え、プロセス停止時にも以前のキャッシュを残す
+                cache = TwitterAnalyticsBlockFilterCache(regex_patterns=regex_patterns)
+                temporary_cache_path = cache_path.with_suffix('.json.tmp')
+                await temporary_cache_path.write_text(cache.model_dump_json(), encoding='utf-8')
+                await temporary_cache_path.replace(cache_path)
+                logging.info(
+                    f'{self.log_prefix} Updated Twitter analytics block filters. count: {len(regex_patterns)}',
+                )
+                return regex_patterns
+            except Exception as ex:
+                # GitHub やネットワークの一時障害ではブラウザ起動を継続し、前回成功時のルールを再利用する
+                logging.warning(
+                    f'{self.log_prefix} Failed to update Twitter analytics block filters; loading cache:',
+                    exc_info=ex,
+                )
+
+                try:
+                    cached_json = await cache_path.read_text(encoding='utf-8')
+                    cache = TwitterAnalyticsBlockFilterCache.model_validate_json(cached_json)
+                    logging.info(
+                        f'{self.log_prefix} Loaded cached Twitter analytics block filters. '
+                        f'count: {len(cache.regex_patterns)}',
+                    )
+                    return cache.regex_patterns
+                except FileNotFoundError:
+                    # 初回起動かつ取得失敗時は JavaScript 側のハードコードだけで安全に起動する
+                    logging.warning(
+                        f'{self.log_prefix} Twitter analytics block filter cache does not exist; '
+                        'using built-in filters only.',
+                    )
+                except Exception as cache_ex:
+                    # 破損したキャッシュは使わず、JavaScript 側のハードコードだけでブラウザを起動する
+                    logging.warning(
+                        f'{self.log_prefix} Failed to load cached Twitter analytics block filters; '
+                        'using built-in filters only:',
+                        exc_info=cache_ex,
+                    )
+                return []
 
     async def _detectCurrentUserAgent(self, page: Tab) -> str | None:
         """
@@ -517,6 +642,9 @@ class TwitterScrapeBrowser:
             # セットアップ処理の完了を把握するための Future を作成
             setup_complete_future: asyncio.Future[bool] = asyncio.Future()
 
+            # ブラウザを起動するたびに uBlock Origin Lite 相当の最新ルールを取得し、失敗時はキャッシュへ戻す
+            dynamic_analytics_block_regex_patterns = await self._getDynamicAnalyticsBlockRegexPatterns()
+
             # Zendriver でヘッドレスブラウザを起動
             logging.info(f'{self.log_prefix} Starting browser...')
             try:
@@ -629,7 +757,11 @@ class TwitterScrapeBrowser:
 
                 # zendriver_setup.js の内容を読み込む
                 setup_js_path = anyio.Path(STATIC_DIR / 'zendriver_setup.js')
-                setup_js_code = await setup_js_path.read_text(encoding='utf-8')
+                setup_js_code = (
+                    'window.__dynamicAnalyticsBlockRegexPatterns = '
+                    f'{json.dumps(dynamic_analytics_block_regex_patterns)};\n'
+                    + await setup_js_path.read_text(encoding='utf-8')
+                )
 
                 # Debugger.paused イベントをリッスン
                 async def on_paused(event: cdp.debugger.Paused) -> None:
@@ -1734,6 +1866,53 @@ class TwitterScrapeBrowser:
             lines.append(netscape_line)
 
         return '\n'.join(lines)
+
+    @classmethod
+    def _extractAnalyticsBlockRegexPatterns(cls, filter_list_contents: list[str]) -> list[str]:
+        """
+        EasyList 互換フィルターから Twitter の通信ブロックに安全に適用できる URL 正規表現を抽出する
+
+        Args:
+            filter_list_contents (list[str]): フィルターリストの内容
+
+        Returns:
+            list[str]: JavaScript の RegExp へ渡す URL 正規表現
+        """
+
+        regex_patterns: set[str] = set()
+
+        # アプリ側で完全に再現できる、対象ホストが明記された単純なネットワークブロックルールだけを採用する
+        ## 例外・リソース種別・適用元ドメイン・リダイレクトを伴うルールは uBlock の評価器なしでは意味が変わるため対象外とする
+        for filter_list_content in filter_list_contents:
+            for raw_filter in filter_list_content.splitlines():
+                network_filter = raw_filter.strip()
+                if network_filter.startswith('||') is False or '$' in network_filter:
+                    continue
+
+                filter_match = re.fullmatch(
+                    r'\|\|(?P<hostname>(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com))(?P<url_pattern>.+)',
+                    network_filter,
+                    flags=re.IGNORECASE,
+                )
+                if filter_match is None:
+                    continue
+
+                # ホスト全体を対象にするルールは通常の GraphQL 通信まで止めるため、パスなどの条件があるルールに限定する
+                url_pattern = filter_match.group('url_pattern')
+                if url_pattern.startswith('/') is False and url_pattern.startswith('^*/') is False:
+                    continue
+
+                # EasyList の `*` と区切り記号 `^` だけを正規表現へ変換し、残りの文字はリテラルとして扱う
+                ## `^` は英数字・URL で意味を持つ記号以外、または URL 末尾へ一致する EasyList の区切り記号
+                escaped_url_pattern = re.escape(url_pattern)
+                escaped_url_pattern = escaped_url_pattern.replace(r'\*', '.*')
+                escaped_url_pattern = escaped_url_pattern.replace(r'\^', r'(?:[^A-Za-z0-9_.%-]|$)')
+                hostname = re.escape(filter_match.group('hostname').lower())
+                regex_patterns.add(
+                    rf'^https?://(?:[^/?#]+\.)*{hostname}(?::\d+)?{escaped_url_pattern}',
+                )
+
+        return sorted(regex_patterns)
 
     @staticmethod
     def parseNetscapeCookieFile(cookies_content: str) -> list[cdp.network.CookieParam]:
