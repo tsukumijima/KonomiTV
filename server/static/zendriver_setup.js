@@ -239,7 +239,7 @@ window.__invokeGraphQLAPISetupPromise = (async () => {
     // ||twitter.com / ||x.com / ||platform.twitter.com 系ルールを網羅する
     // 加えて、jot → graphql/user_flow に移行された新エンドポイントもブロックする
     const analyticsBlockPatterns = [
-        '/graphql/viewe_context.json',  // 新: scribe イベント (rweb_home_jot_context_enabled=true 時)
+        '/graphql/viewer_context.json',  // 新: scribe イベント (rweb_home_jot_context_enabled=true 時)
         '/graphql/app_context.json',      // 新: エラーログ (同上)
         '/graphql/user_flow.json',      // 新: scribe イベント (rweb_home_jot_migrate_enabled=true 時)
         '/graphql/error_log.json',      // 新: エラーログ (同上)
