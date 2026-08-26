@@ -22,6 +22,8 @@ import servicemanager
 import typer
 import win32api
 import win32con
+import win32net
+import win32netcon
 import win32security
 import win32service
 import win32serviceutil
@@ -256,34 +258,86 @@ def install(
 ):
     def SamAccountNameHelper(account_name: str) -> str:
         """
-        ユーザー名から SAM アカウント名を推定して返す
+        ユーザー名から SAM アカウント名を推定する
+        ローカル指定がある、または推定した場合は、実在するか確認する
+        存在するか、SAM アカウント名が入力された場合、SAM アカウント名を返す
         ローカルユーザーの場合、サービスのインストール後は自動的に.\\userNameへ変換される
+
         Args:
-            account_name (str): accountName(str): Windows ユーザー名 (非修飾可)
+            account_name (str): Windows ユーザー名 (非修飾可)
         Returns:
             str: Windows SAM アカウント名 (computerName\\accountName)
         """
 
-        # SAM アカウント名ではない場合またはローカル指定がある場合
-        if '\\' not in account_name or account_name.startswith('.\\'):
-            computer_name = os.environ.get('COMPUTERNAME', '')
-            domain_name = os.environ.get('USERDOMAIN', '')
-            if not computer_name:
-                computer_name: str = win32api.GetComputerName()
-                if not computer_name:
-                    # エラーメッセージ
-                    print('Error: Cannot determine computer name.')
-                    sys.exit(1)
-            if not domain_name:
-                domain_name = computer_name
-            # ローカル指定があるか、コンピューター名がドメイン名と同一の場合
-            ## ワークグループ (ローカルコンピューター)
-            if account_name.startswith('.\\') or computer_name == domain_name:
-                return computer_name + '\\' + (account_name[2:] if account_name.startswith('.\\') else account_name)
-            else:
-                return domain_name + '\\' + (account_name[2:] if account_name.startswith('.\\') else account_name)
+        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合はそのまま返す
+        if '\\' in account_name and not account_name.startswith('.\\'):
+            return account_name
 
-        return account_name
+        # コンピュータ名の取得
+        computer_name = os.environ.get('COMPUTERNAME', '')
+        if not computer_name:
+            computer_name = win32api.GetComputerName()
+            if not computer_name:
+                print('Error: Cannot determine computer name.')
+                sys.exit(1)
+
+        # ローカル指定の有無を確認しフラグ化する
+        force_local = False
+        if account_name.startswith('.\\'):
+            account_name = account_name[2:]
+            force_local = True
+
+        # 端末のドメイン参加状態を取得する
+        try:
+            _, join_status = win32net.NetGetJoinInformation()
+            is_domain_joined = (join_status == win32netcon.NetSetupDomainName)
+        except Exception:
+            is_domain_joined = False
+
+        # ローカルのSAMを検索し、アカウントが存在するか確認する
+        ## ドメイン環境かつローカル指定がない場合はアカウントの種別を検証する
+        try:
+            _, found_domain, _ = win32security.LookupAccountName(None, account_name)
+
+            # ローカルアカウントか確認しフラグ化する
+            is_hit_local = (found_domain.upper() == computer_name.upper())
+
+            # ドメイン環境下でローカルユーザーがマッチしたとき
+            ## 同名のドメイン上のユーザーが実在するか確認する
+            if is_domain_joined and not force_local and is_hit_local:
+                try:
+                    # ドメイン名を取得してドメインコントローラーを探す
+                    joined_domain_name, _ = win32net.NetGetJoinInformation()
+                    domain_controller_name = win32net.NetGetDCName(None, joined_domain_name)
+                    # ドメインコントローラーに問い合わせする
+                    ## 見つかればドメインユーザー
+                    _, domain_controller_domain, _ = win32security.LookupAccountName(domain_controller_name, account_name)
+                    print(f'Found user \'{domain_controller_domain}\\{account_name}\' (Domain Priority).')
+                    return domain_controller_domain + '\\' + account_name
+                except Exception:
+                    # ドメインコントローラーに接続できないかドメインに同名ユーザーがいない場合
+                    ## ローカルユーザーを採用する
+                    print(f'Found user \'{found_domain}\\{account_name}\' (Fallback to local account).')
+                    return found_domain + '\\' + account_name
+
+            # ローカル指定にもかかわらずドメインユーザーが返ってきた場合
+            ## 不正とみなす
+            ## ドメインユーザーとしてローカルに居る(既知の?)ユーザーが対象
+            if force_local and not is_hit_local:
+                print(f'Error: User \'{account_name}\' was not found on local computer.')
+                sys.exit(1)
+
+            # 期待するアカウントが取得できた場合
+            print(f'Found user \'{found_domain}\\{account_name}\'.')
+            return found_domain + '\\' + account_name
+
+        except pywintypes.error as e:
+            # アカウントが見つからない場合
+            if e.winerror == 1332:
+                print(f'Error: User \'{account_name}\' was not found.')
+                sys.exit(1)
+            else:
+                raise
 
     def AddLogOnAsAServicePrivilege(account_name: str) -> None:
         """
