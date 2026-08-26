@@ -4,6 +4,7 @@ import assert from 'assert';
 import * as Comlink from 'comlink';
 import { convertBlobToPng, copyBlobToClipboard } from 'copy-image-clipboard';
 import DPlayer from 'dplayer';
+import { Deinterlacer } from 'mpeg2toh264/yadif';
 
 import Captures from '@/services/Captures';
 import { ILiveChannelDefault } from '@/services/Channels';
@@ -361,10 +362,15 @@ class CaptureManager implements PlayerManager {
 
         // ***** キャプチャの実行・字幕/文字スーパー/コメントを合成 *****
 
+        // YADIF Deinterlacer の動作中は Canvas が実際の表示映像を持つため、キャプチャ元も同じ Canvas へ切り替える
+        const deinterlacer = this.player.plugins.mpeg2toh264?.deinterlacer;
+        const video_source = deinterlacer instanceof Deinterlacer && deinterlacer.running === true ?
+            deinterlacer.canvas : this.player.video;
+
         // 高速化のため、Promise.all() で並列に実行する
         const create_image_bitmap_results = await Promise.all([
             // 現在再生中の動画のキャプチャを ImageBitmap として取得
-            createImageBitmap(this.player.video),
+            createImageBitmap(video_source),
             // 字幕が表示されていれば、字幕の Canvas を ImageBitmap として取得
             is_caption_showing ? createImageBitmap(caption_canvas) : null,
             // 文字スーパーが表示されていれば、文字スーパーの Canvas を ImageBitmap として取得

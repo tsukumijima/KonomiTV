@@ -1,6 +1,7 @@
 
 import * as Comlink from 'comlink';
 import DPlayer from 'dplayer';
+import { Deinterlacer } from 'mpeg2toh264/yadif';
 import { isEqual } from 'ohash';
 import { AribKeyCode, BMLBrowser, BMLBrowserFontFace } from 'web-bml';
 
@@ -60,6 +61,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
     // 動画の要素が BML ブラウザ上に移動されているかどうか
     private is_video_element_moved_to_bml_browser: boolean = false;
+
+    // BML ブラウザ内での表示用に変更する前の映像要素一式のインラインスタイル
+    // moveVideoElementToDPlayer() で DPlayer と Deinterlacer が設定した値を正確に復元するために参照する
+    private media_element_original_styles = new Map<HTMLElement, string | null>();
 
     // PSI/SI アーカイブデータデコーダーのインスタンス
     private live_psi_archived_data_decoder: Comlink.Remote<ILivePSIArchivedDataDecoder> | null = null;
@@ -601,16 +606,33 @@ class LiveDataBroadcastingManager implements PlayerManager {
         // データ放送内に映像の要素を入れる
         this.#bml_browser?.getVideoElement()?.appendChild(this.media_element);
 
-        // データ放送内での表示用にスタイルを調整
+        // web-bml の閉じた Shadow DOM 内では DPlayer 側の CSS が届かないため、映像要素一式をインラインで整形する
+        // YADIF Deinterlacer の動作中は Deinterlacer のラッパー内に video と Canvas が入るので、直下だけでなく子孫要素まで対象にする
+        const media_elements = [this.media_element, ...this.media_element.querySelectorAll<HTMLElement>('*')];
+        for (const element of media_elements) {
+            // web-bml は同じ表示中にも load と visible を複数回発火するため、最初に記録した DPlayer 側の値を維持する
+            // データ放送表示中に字幕 Canvas などが増えた場合だけ、その要素の初期値を追加で記録する
+            if (this.media_element_original_styles.has(element) === false) {
+                this.media_element_original_styles.set(element, element.getAttribute('style'));
+            }
+            element.style.display = 'block';
+            element.style.visibility = 'visible';
+        }
         this.media_element.style.width = '100%';
         this.media_element.style.height = '100%';
-        for (const child of this.media_element.children) {
-            (child as HTMLElement).style.display = 'block';
-            (child as HTMLElement).style.visibility = 'visible';
-            if (child instanceof HTMLVideoElement) {
-                (child as HTMLVideoElement).style.width = '100%';
-                (child as HTMLVideoElement).style.height = '100%';
-            }
+        for (const video of this.media_element.querySelectorAll('video')) {
+            video.style.width = '100%';
+            video.style.height = '100%';
+        }
+        const deinterlacer = this.player.plugins.mpeg2toh264?.deinterlacer;
+        if (deinterlacer instanceof Deinterlacer && this.media_element.contains(deinterlacer.container)) {
+            deinterlacer.container.style.width = '100%';
+            deinterlacer.container.style.height = '100%';
+            // 閉じた Shadow DOM への移動は Deinterlacer の ResizeObserver で検出できないため、映像枠へ直接合わせる
+            deinterlacer.canvas.style.left = '0';
+            deinterlacer.canvas.style.top = '0';
+            deinterlacer.canvas.style.width = '100%';
+            deinterlacer.canvas.style.height = '100%';
         }
         // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
         if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
@@ -619,20 +641,23 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.media_element.style.transformOrigin = 'center center';
             // 上記ケースでは親要素に映像のアスペクト比を矯正する目的で
             // scaleY() が設定されるため、Canvas 要素のみ親要素の scaleY() を打ち消す縮小方向の scaleY() を設定する
-            for (const child of this.media_element.children) {
-                if (child instanceof HTMLCanvasElement) {
-                    child.style.transform = `scaleY(${1 / magnification})`;
-                    child.style.transformOrigin = 'center center';
+            for (const canvas of this.media_element.querySelectorAll('canvas')) {
+                // YADIF Deinterlacer の Canvas は video と同じ変形を受けることで映像へ重なるため、字幕 Canvas だけを補正する
+                if (deinterlacer instanceof Deinterlacer && canvas === deinterlacer.canvas) {
+                    continue;
                 }
+                canvas.style.transform = `scaleY(${1 / magnification})`;
+                canvas.style.transformOrigin = 'center center';
             }
         } else {
             this.media_element.style.transform = '';
             this.media_element.style.transformOrigin = '';
-            for (const child of this.media_element.children) {
-                if (child instanceof HTMLCanvasElement) {
-                    child.style.transform = '';
-                    child.style.transformOrigin = '';
+            for (const canvas of this.media_element.querySelectorAll('canvas')) {
+                if (deinterlacer instanceof Deinterlacer && canvas === deinterlacer.canvas) {
+                    continue;
                 }
+                canvas.style.transform = '';
+                canvas.style.transformOrigin = '';
             }
         }
 
@@ -662,23 +687,26 @@ class LiveDataBroadcastingManager implements PlayerManager {
             this.player.template.videoWrap.insertBefore(this.media_element, this.container_element.nextElementSibling);
         }
 
-        // データ放送内での表示用に調整していたスタイルを戻す
-        this.media_element.style.width = '';
-        this.media_element.style.height = '';
-        for (const child of this.media_element.children) {
-            (child as HTMLElement).style.display = '';
-            (child as HTMLElement).style.visibility = '';
-            if (child instanceof HTMLVideoElement) {
-                (child as HTMLVideoElement).style.width = '';
-                (child as HTMLVideoElement).style.height = '';
-            }
-            if (child instanceof HTMLCanvasElement) {
-                child.style.transform = '';
-                child.style.transformOrigin = '';
+        // DPlayer と Deinterlacer が設定していたインラインスタイルを要素ごとに完全復元する
+        for (const [element, original_style] of this.media_element_original_styles) {
+            if (original_style === null) {
+                element.removeAttribute('style');
+            } else {
+                element.setAttribute('style', original_style);
             }
         }
-        this.media_element.style.transform = '';
-        this.media_element.style.transformOrigin = '';
+        this.media_element_original_styles.clear();
+
+        // Deinterlacer のラッパーは Shadow DOM から戻した後に intrinsic size だけでは元の高さを復元できないため、DPlayer の映像枠へ合わせ直す
+        const deinterlacer = this.player.plugins.mpeg2toh264?.deinterlacer;
+        if (deinterlacer instanceof Deinterlacer && this.media_element.contains(deinterlacer.container)) {
+            deinterlacer.container.style.width = '100%';
+            deinterlacer.container.style.height = '100%';
+            for (const video of this.media_element.querySelectorAll('video')) {
+                video.style.width = '100%';
+                video.style.height = '100%';
+            }
+        }
 
         this.is_video_element_moved_to_bml_browser = false;
     }

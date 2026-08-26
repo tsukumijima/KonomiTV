@@ -30,6 +30,7 @@ type APIBaseVideoQuality = (
  * ライブストリーミング API で設定できる動画の画質
  */
 type LiveAPIVideoQuality = (
+    'original' |
     APIBaseVideoQuality |
     `${APIBaseVideoQuality}-10bit` |
     `${APIBaseVideoQuality}-24fps` |

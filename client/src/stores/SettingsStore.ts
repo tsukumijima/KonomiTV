@@ -9,11 +9,11 @@ import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Set
 import Utils from '@/utils';
 
 
-// 選択可能な画質の種類
-export type LiveStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
-export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
-export type VideoStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
-export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
+// 選択可能な画質の型と、エンコーダーで生成する画質の列挙
+export type LiveStreamingQuality = 'original' | '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+export const LIVE_STREAMING_QUALITIES: Exclude<LiveStreamingQuality, 'original'>[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
+export type VideoStreamingQuality = 'original' | '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
+export const VIDEO_STREAMING_QUALITIES: Exclude<VideoStreamingQuality, 'original'>[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
 // 番組表関連の型定義
 export type TimeTableSizeOption = 'Wide' | 'Normal' | 'Narrow';
