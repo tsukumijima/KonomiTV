@@ -8,7 +8,7 @@ import re
 import sys
 import time
 from datetime import datetime
-from typing import Annotated, Any, ClassVar, cast
+from typing import Annotated, Any, ClassVar, Literal, cast
 
 import anyio
 import httpx
@@ -64,11 +64,21 @@ class PostTweetViaComposeUIResult(BaseModel):
     graphql_api_result: TwitterBrowserGraphQLAPIResult | None = None
 
 
+class TwitterAnalyticsBlockFilter(BaseModel):
+    """Twitter のアナリティクス通信をブロックする動的フィルター。"""
+
+    regex_pattern: Annotated[str, Field(max_length=512)]
+    request_types: Annotated[
+        list[Literal['XHR', 'Ping']],
+        Field(min_length=1, max_length=2),
+    ]
+
+
 class TwitterAnalyticsBlockFilterCache(BaseModel):
     """Twitter のアナリティクス通信をブロックする動的フィルターのキャッシュ。"""
 
-    regex_patterns: Annotated[
-        list[Annotated[str, Field(max_length=512)]],
+    filters: Annotated[
+        list[TwitterAnalyticsBlockFilter],
         Field(max_length=256),
     ]
 
@@ -146,12 +156,12 @@ class TwitterScrapeBrowser:
         """
         return f'[TwitterScrapeBrowser][@{self.twitter_account.screen_name}]'
 
-    async def _getDynamicAnalyticsBlockRegexPatterns(self) -> list[str]:
+    async def _getDynamicAnalyticsBlockFilters(self) -> list[TwitterAnalyticsBlockFilter]:
         """
         uBlock Origin Lite の既定フィルターから Twitter 向け通信ブロックルールを取得する
 
         Returns:
-            list[str]: JavaScript の RegExp へ渡す URL 正規表現
+            list[TwitterAnalyticsBlockFilter]: JavaScript へ渡す通信種別付き URL フィルター
         """
 
         cache_path = anyio.Path(DATA_DIR / 'twitter-analytics-block-filters.json')
@@ -201,19 +211,19 @@ class TwitterScrapeBrowser:
                         for filter_url in self._ANALYTICS_BLOCK_FILTER_URLS
                     ))
 
-                regex_patterns = self._extractAnalyticsBlockRegexPatterns(filter_list_contents)
-                if len(regex_patterns) == 0:
+                filters = self._extractAnalyticsBlockFilters(filter_list_contents)
+                if len(filters) == 0:
                     raise ValueError('No compatible Twitter analytics block filters were found.')
 
                 # 一時ファイルへ完全な JSON を書いてから置き換え、プロセス停止時にも以前のキャッシュを残す
-                cache = TwitterAnalyticsBlockFilterCache(regex_patterns=regex_patterns)
+                cache = TwitterAnalyticsBlockFilterCache(filters=filters)
                 temporary_cache_path = cache_path.with_suffix('.json.tmp')
                 await temporary_cache_path.write_text(cache.model_dump_json(), encoding='utf-8')
                 await temporary_cache_path.replace(cache_path)
                 logging.info(
-                    f'{self.log_prefix} Updated Twitter analytics block filters. count: {len(regex_patterns)}',
+                    f'{self.log_prefix} Updated Twitter analytics block filters. count: {len(filters)}',
                 )
-                return regex_patterns
+                return filters
             except Exception as ex:
                 # GitHub やネットワークの一時障害ではブラウザ起動を継続し、前回成功時のルールを再利用する
                 logging.warning(
@@ -226,9 +236,9 @@ class TwitterScrapeBrowser:
                     cache = TwitterAnalyticsBlockFilterCache.model_validate_json(cached_json)
                     logging.info(
                         f'{self.log_prefix} Loaded cached Twitter analytics block filters. '
-                        f'count: {len(cache.regex_patterns)}',
+                        f'count: {len(cache.filters)}',
                     )
-                    return cache.regex_patterns
+                    return cache.filters
                 except FileNotFoundError:
                     # 初回起動かつ取得失敗時は JavaScript 側のハードコードだけで安全に起動する
                     logging.warning(
@@ -643,7 +653,7 @@ class TwitterScrapeBrowser:
             setup_complete_future: asyncio.Future[bool] = asyncio.Future()
 
             # ブラウザを起動するたびに uBlock Origin Lite 相当の最新ルールを取得し、失敗時はキャッシュへ戻す
-            dynamic_analytics_block_regex_patterns = await self._getDynamicAnalyticsBlockRegexPatterns()
+            dynamic_analytics_block_filters = await self._getDynamicAnalyticsBlockFilters()
 
             # Zendriver でヘッドレスブラウザを起動
             logging.info(f'{self.log_prefix} Starting browser...')
@@ -758,8 +768,8 @@ class TwitterScrapeBrowser:
                 # zendriver_setup.js の内容を読み込む
                 setup_js_path = anyio.Path(STATIC_DIR / 'zendriver_setup.js')
                 setup_js_code = (
-                    'window.__dynamicAnalyticsBlockRegexPatterns = '
-                    f'{json.dumps(dynamic_analytics_block_regex_patterns)};\n'
+                    'window.__dynamicAnalyticsBlockFilters = '
+                    f'{json.dumps([block_filter.model_dump(mode="json") for block_filter in dynamic_analytics_block_filters])};\n'
                     + await setup_js_path.read_text(encoding='utf-8')
                 )
 
@@ -1868,51 +1878,104 @@ class TwitterScrapeBrowser:
         return '\n'.join(lines)
 
     @classmethod
-    def _extractAnalyticsBlockRegexPatterns(cls, filter_list_contents: list[str]) -> list[str]:
+    def _extractAnalyticsBlockFilters(
+        cls,
+        filter_list_contents: list[str],
+    ) -> list[TwitterAnalyticsBlockFilter]:
         """
-        EasyList 互換フィルターから Twitter の通信ブロックに安全に適用できる URL 正規表現を抽出する
+        EasyList 互換フィルターから Twitter の通信ブロックに適用できるルールを抽出する
 
         Args:
             filter_list_contents (list[str]): フィルターリストの内容
 
         Returns:
-            list[str]: JavaScript の RegExp へ渡す URL 正規表現
+            list[TwitterAnalyticsBlockFilter]: JavaScript へ渡す通信種別付き URL フィルター
         """
 
-        regex_patterns: set[str] = set()
+        extracted_filters: dict[tuple[str, tuple[Literal['XHR', 'Ping'], ...]], TwitterAnalyticsBlockFilter] = {}
 
-        # アプリ側で完全に再現できる、対象ホストが明記された単純なネットワークブロックルールだけを採用する
-        ## 例外・リソース種別・適用元ドメイン・リダイレクトを伴うルールは uBlock の評価器なしでは意味が変わるため対象外とする
+        # 対象ホストが明記され、ScrapeBrowser の通信フックで同じ条件を再現できるネットワークルールだけを採用する
+        ## 適用元ドメイン・未対応リソース・badfilter など、URL と通信種別だけでは意味が変わる条件は対象外とする
         for filter_list_content in filter_list_contents:
             for raw_filter in filter_list_content.splitlines():
                 network_filter = raw_filter.strip()
-                if network_filter.startswith('||') is False or '$' in network_filter:
+                if network_filter.startswith('||') is False:
                     continue
 
+                # URL 部分とオプションを分離し、オプションなしの EasyPrivacy ルールも同じ経路で扱う
+                filter_parts = network_filter.split('$', maxsplit=1)
+                url_filter = filter_parts[0]
                 filter_match = re.fullmatch(
                     r'\|\|(?P<hostname>(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com))(?P<url_pattern>.+)',
-                    network_filter,
+                    url_filter,
                     flags=re.IGNORECASE,
                 )
                 if filter_match is None:
                     continue
+
+                # fetch / XHR は uBlock の xhr、sendBeacon() は ping と同じ通信種別として判定する
+                request_types: list[Literal['XHR', 'Ping']] = ['XHR', 'Ping']
+                if len(filter_parts) == 2:
+                    filter_options = {option.lower() for option in filter_parts[1].split(',')}
+                    supported_options = {
+                        'xhr',
+                        'xmlhttprequest',
+                        'ping',
+                        '1p',
+                        'first-party',
+                        '3p',
+                        'third-party',
+                        'important',
+                        'redirect=nooptext',
+                    }
+                    if filter_options.issubset(supported_options) is False:
+                        continue
+
+                    # リソース種別が明記されたルールは、指定された通信フックだけへ適用する
+                    request_types = []
+                    if 'xhr' in filter_options or 'xmlhttprequest' in filter_options:
+                        request_types.append('XHR')
+                    if 'ping' in filter_options:
+                        request_types.append('Ping')
+                    if len(request_types) == 0:
+                        request_types = ['XHR', 'Ping']
+
+                    # ScrapeBrowser は x.com 上で動くため、対象ホストからファーストパーティー／サードパーティー条件を確定できる
+                    hostname = filter_match.group('hostname').lower()
+                    is_third_party = hostname == 'twitter.com' or hostname.endswith('.twitter.com')
+                    if ('3p' in filter_options or 'third-party' in filter_options) and is_third_party is False:
+                        continue
+                    if ('1p' in filter_options or 'first-party' in filter_options) and is_third_party is True:
+                        continue
 
                 # ホスト全体を対象にするルールは通常の GraphQL 通信まで止めるため、パスなどの条件があるルールに限定する
                 url_pattern = filter_match.group('url_pattern')
                 if url_pattern.startswith('/') is False and url_pattern.startswith('^*/') is False:
                     continue
 
-                # EasyList の `*` と区切り記号 `^` だけを正規表現へ変換し、残りの文字はリテラルとして扱う
+                # 末尾の `|` は URL 末尾アンカーとして分離し、途中の `|` を含む未対応構文は採用しない
+                end_anchor = '$' if url_pattern.endswith('|') else ''
+                if end_anchor != '':
+                    url_pattern = url_pattern[:-1]
+                if '|' in url_pattern:
+                    continue
+
+                # EasyList の `*` と区切り記号 `^` を正規表現へ変換し、残りの文字はリテラルとして扱う
                 ## `^` は英数字・URL で意味を持つ記号以外、または URL 末尾へ一致する EasyList の区切り記号
                 escaped_url_pattern = re.escape(url_pattern)
                 escaped_url_pattern = escaped_url_pattern.replace(r'\*', '.*')
                 escaped_url_pattern = escaped_url_pattern.replace(r'\^', r'(?:[^A-Za-z0-9_.%-]|$)')
                 hostname = re.escape(filter_match.group('hostname').lower())
-                regex_patterns.add(
-                    rf'^https?://(?:[^/?#]+\.)*{hostname}(?::\d+)?{escaped_url_pattern}',
+                regex_pattern = (
+                    rf'^https?://(?:[^/?#]+\.)*{hostname}(?::\d+)?{escaped_url_pattern}{end_anchor}'
+                )
+                filter_key = (regex_pattern, tuple(request_types))
+                extracted_filters[filter_key] = TwitterAnalyticsBlockFilter(
+                    regex_pattern=regex_pattern,
+                    request_types=request_types,
                 )
 
-        return sorted(regex_patterns)
+        return [extracted_filters[filter_key] for filter_key in sorted(extracted_filters)]
 
     @staticmethod
     def parseNetscapeCookieFile(cookies_content: str) -> list[cdp.network.CookieParam]:
