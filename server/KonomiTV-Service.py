@@ -269,9 +269,7 @@ def install(
             str: Windows SAM アカウント名 (computerName\\accountName)
         """
 
-        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合はそのまま返す
-        if '\\' in account_name and not account_name.startswith('.\\'):
-            return account_name
+        sid_type_user = 1
 
         # コンピュータ名の取得
         computer_name = os.environ.get('COMPUTERNAME', '')
@@ -280,6 +278,40 @@ def install(
             if not computer_name:
                 print('Error: Cannot determine computer name.')
                 sys.exit(1)
+
+        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合はそのまま返す
+        if '\\' in account_name and not account_name.startswith('.\\'):
+            # ドメイン（またはコンピュータ名）とユーザー名に分解
+            input_domain, input_user = account_name.split('\\', 1)
+
+            input_domain = '.' if (input_domain.upper() == computer_name.upper()) else input_domain
+
+            # 入力されたドメイン部分が "." の場合はローカル SAM に置き換える
+            search_server = None if input_domain == '.' else win32net.NetGetAnyDCName(None, input_domain)
+
+            try:
+                # 指定されたサーバーに対して直接照会
+                _, found_domain, account_type = win32security.LookupAccountName(search_server, input_user)
+
+                # ユーザーアカウントかチェック
+                if account_type != sid_type_user:
+                    print(f"Error: '{found_domain}\\{input_user}' is a group or non-user account. Only user accounts are allowed.")
+                    sys.exit(1)
+
+                print(f"Found validated user '{found_domain}\\{input_user}'.")
+                return found_domain + '\\' + input_user
+
+            except pywintypes.error as e:
+                # アカウントが見つからない場合
+                if e.winerror == 1332:
+                    print(f"Error: User '{account_name}' was not found.")
+                    sys.exit(1)
+                # サーバーが見つからないか、接続できない場合
+                elif e.winerror == 1722:
+                    print(f"Error: RPC server unavailable. Cannot contact domain '{input_domain}'.")
+                    sys.exit(1)
+                else:
+                    raise
 
         # ローカル指定の有無を確認しフラグ化する
         force_local = False
@@ -297,7 +329,7 @@ def install(
         # ローカルのSAMを検索し、アカウントが存在するか確認する
         ## ドメイン環境かつローカル指定がない場合はアカウントの種別を検証する
         try:
-            _, found_domain, _ = win32security.LookupAccountName(None, account_name)
+            _, found_domain, account_type = win32security.LookupAccountName(None, account_name)
 
             # ローカルアカウントか確認しフラグ化する
             is_hit_local = (found_domain.upper() == computer_name.upper())
@@ -306,19 +338,28 @@ def install(
             ## 同名のドメイン上のユーザーが実在するか確認する
             if is_domain_joined and not force_local and is_hit_local:
                 try:
+
                     # ドメイン名を取得してドメインコントローラーを探す
                     joined_domain_name, _ = win32net.NetGetJoinInformation()
                     domain_controller_name = win32net.NetGetDCName(None, joined_domain_name)
+
                     # ドメインコントローラーに問い合わせする
-                    ## 見つかればドメインユーザー
-                    _, domain_controller_domain, _ = win32security.LookupAccountName(domain_controller_name, account_name)
+                    ## 見つかればドメイン所属
+                    _, domain_controller_domain, account_type = win32security.LookupAccountName(domain_controller_name, account_name)
+
+                    # 取得したアカウントがユーザーか確認
+                    ## ユーザーではないときは終了
+                    if account_type != sid_type_user:
+                        print(f"Error: '{joined_domain_name}\\{account_name}' is a group or non-user account.\nOnly user accounts are allowed.")
+                        sys.exit(1)
+
+                    # 取得したユーザーの SAM アカウント名を返す
                     print(f'Found user \'{domain_controller_domain}\\{account_name}\' (Domain Priority).')
                     return domain_controller_domain + '\\' + account_name
+                except SystemExit:
+                    raise
                 except Exception:
-                    # ドメインコントローラーに接続できないかドメインに同名ユーザーがいない場合
-                    ## ローカルユーザーを採用する
-                    print(f'Found user \'{found_domain}\\{account_name}\' (Fallback to local account).')
-                    return found_domain + '\\' + account_name
+                    pass
 
             # ローカル指定にもかかわらずドメインユーザーが返ってきた場合
             ## 不正とみなす
@@ -327,7 +368,11 @@ def install(
                 print(f'Error: User \'{account_name}\' was not found on local computer.')
                 sys.exit(1)
 
-            # 期待するアカウントが取得できた場合
+            # 期待するアカウントが取得できた場合、取得したアカウントがユーザーか確認
+            ## ユーザーではない(=グループ)のときは終了
+            if account_type != sid_type_user:
+                print(f"Error: '{found_domain}\\{account_name}' is a group or non-user account. Only user accounts are allowed.")
+                sys.exit(1)
             print(f'Found user \'{found_domain}\\{account_name}\'.')
             return found_domain + '\\' + account_name
 
@@ -359,6 +404,7 @@ def install(
             # SID の取得に失敗したときは、ログメッセージを出力して例外を再スローする (終了)
             print(f'Error: Failed to look up SID for \'{account_name}\'.')
             raise
+
         # ユーザーアカウントに SeServiceLogonRight 権限を付与
         policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)
         win32security.LsaAddAccountRights(policy_handle, account_sid, ('SeServiceLogonRight',))
