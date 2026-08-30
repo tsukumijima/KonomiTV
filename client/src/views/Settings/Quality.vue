@@ -56,8 +56,7 @@
                 </label>
                 <label class="settings__item-label" :for="`tv_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                     通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して視聴できます！</b> サーバー PC によっては高負荷になることがあります。<br>
-                </label>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から視聴するときに特におすすめです。<br>
                     <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                         このデバイスでは通信節約モードがサポートされていません。
@@ -65,7 +64,7 @@
                     <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
                         お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                     </p>
-                </div>
+                </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_data_saver_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                 </v-switch>
@@ -80,10 +79,9 @@
                 <label class="settings__item-label" :for="`tv_low_latency_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                     低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
                     また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
-                </label>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     映像がカクつきやすくなるため、<b>通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、オフにすることをおすすめします。</b><br>
-                </div>
+                </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_low_latency_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_low_latency_mode">
                 </v-switch>
@@ -98,13 +96,11 @@
                 <label class="settings__item-label" :for="`tv_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                     映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
                     画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
-                </label>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
-                </div>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     画質で [Original (MPEG-2)] を選択している場合は、若干描画が不安定になる可能性があります。<br>
-                </div>
+                </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_24fps_mode">
                 </v-switch>
@@ -153,8 +149,7 @@
                 </label>
                 <label class="settings__item-label" :for="`video_data_saver_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                     通信節約モードでは、圧縮率の高い H.265 / HEVC を使い、<b>画質はほぼそのまま、通信量を通常より 50% 〜 70% 削減して再生できます！</b> サーバー PC によっては高負荷になることがあります。<br>
-                </label>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     通信が不安定になりがちなモバイル回線 (4G/5G)・通信速度の遅いフリー Wi-Fi から再生するときに特におすすめです。<br>
                     <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === false">
                         このデバイスでは通信節約モードがサポートされていません。
@@ -162,7 +157,7 @@
                     <p class="mt-1 mb-0 text-error-lighten-1" v-if="PlayerUtils.isHEVCVideoSupported() === false && Utils.isFirefox() === true">
                         お使いの Firefox ブラウザでは通信節約モードがサポートされていません。
                     </p>
-                </div>
+                </label>
                 <v-switch class="settings__item-switch" color="primary" id="video_data_saver_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.video_data_saver_mode" :disabled="PlayerUtils.isHEVCVideoSupported() === false">
                 </v-switch>
@@ -177,13 +172,11 @@
                 <label class="settings__item-label" :for="`video_24fps_mode${network_circuit === 'モバイル回線時' ? '_cellular' : ''}`">
                     映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
                     画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
-                </label>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
-                </div>
-                <div class="settings__item-label mt-1">
+                    <div class="mt-1"></div>
                     画質で [Original (MPEG-2)] を選択している場合は、若干描画が不安定になる可能性があります。<br>
-                </div>
+                </label>
                 <v-switch class="settings__item-switch" color="primary" id="video_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.video_24fps_mode">
                 </v-switch>

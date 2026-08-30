@@ -153,8 +153,7 @@
                 <label class="settings__item-label" for="always_receive_tv_from_mirakurun">
                     利用するバックエンドが EDCB のとき、常に Mirakurun / mirakc から放送波を受信するかを設定します。
                     バックエンドに Mirakurun が選択されているときは効果がありません。<br>
-                </label>
-                <label class="settings__item-label mt-1" for="always_receive_tv_from_mirakurun">
+                    <div class="mt-1"></div>
                     KonomiTV から EDCB と Mirakurun / mirakc 両方にアクセスできる必要があります。<br>
                     EDCB はチューナー起動やチャンネル切り替えに時間がかかるため、Mirakurun / mirakc が利用できる環境であれば、この設定を有効にするとより快適に使えます。<br>
                 </label>

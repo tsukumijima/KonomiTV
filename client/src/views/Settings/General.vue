@@ -58,8 +58,7 @@
                 <label class="settings__item-label" for="tv_channel_sort_by_jikkyo_force">
                     オンにすると、チャンネル一覧を実況勢い (ニコニコ実況に1分間に投稿されたコメント数) が強い順に並べ替えます。デフォルトはオフです。<br>
                     実況勢いが同じ場合や、ニコニコ実況が存在しないチャンネル、実況勢いの取得に失敗したチャンネルは、通常通りチャンネル番号順で表示されます。<br>
-                </label>
-                <label class="settings__item-label" for="tv_channel_sort_by_jikkyo_force">
+                    <div class="mt-1"></div>
                     この設定がオンのときは、ピン留め中チャンネルの並び替え設定は無視されます。この設定をオフにすれば、再び並び替え設定が反映されます。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_channel_sort_by_jikkyo_force" hide-details

@@ -15,8 +15,7 @@
                 <label class="settings__item-heading" for="tv_show_data_broadcasting">テレビをみるときにデータ放送機能を利用する</label>
                 <label class="settings__item-label" for="tv_show_data_broadcasting">
                     データ放送画面自体のオン/オフは、視聴画面右側のパネルからリモコンを表示した上で、リモコンの d ボタンから切り替えられます。<br>
-                </label>
-                <label class="settings__item-label" for="tv_show_data_broadcasting">
+                    <div class="mt-1"></div>
                     データ放送機能をオンにすると、視聴時の負荷が若干高くなります。データ放送を利用しない場合や、スペックの低い Android デバイスで動作が重い場合は、オフに設定してみてください。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_show_data_broadcasting" hide-details
@@ -28,8 +27,7 @@
                 <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
                     オンにすると、データ放送機能を利用する際に、データ放送からインターネットにアクセスできるようになります。<br>
                     たとえば紅白歌合戦の視聴者投票をはじめとした双方向番組に参加したり、ネット接続時限定のミニゲームが遊べるようになります。<br>
-                </label>
-                <label class="settings__item-label" for="enable_internet_access_from_data_broadcasting">
+                    <div class="mt-1"></div>
                     その一方で、<b>データ放送からのインターネットアクセスが有効な場合、あなたの視聴データがテレビ局に送信されることがあります。</b><br>
                     大半のチャンネルでは個別に視聴データの送信を無効化できますが、依然プライバシー上の問題が残ります。
                     通常はオフにしておき、双方向コンテンツを使うときだけオンにすることをおすすめします。<br>
