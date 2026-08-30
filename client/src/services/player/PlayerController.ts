@@ -442,7 +442,9 @@ class PlayerController {
                         // ラジオチャンネルは mpeg2toh264 に対応していないため、1080p 固定 (実際には映像エンコードは行われない)
                         default_quality = channels_store.channel.current.is_radiochannel === true ? '1080p' : 'Original (MPEG-2)';
                     } else {
-                        default_quality = this.quality_profile.tv_streaming_quality;
+                        // DPlayer は表示名と完全一致する画質を選ぶため、1080p-60fps のみ表示名へ変換する
+                        default_quality = this.quality_profile.tv_streaming_quality === '1080p-60fps' ?
+                            '1080p (60fps)' : this.quality_profile.tv_streaming_quality;
                     }
                     if (options.default_quality !== null) {
                         // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
@@ -521,7 +523,9 @@ class PlayerController {
                     if (this.quality_profile.video_streaming_quality === 'original') {
                         default_quality = is_original_quality_available === true ? 'Original (MPEG-2)' : original_quality_fallback;
                     } else {
-                        default_quality = this.quality_profile.video_streaming_quality;
+                        // DPlayer は表示名と完全一致する画質を選ぶため、1080p-60fps のみ表示名へ変換する
+                        default_quality = this.quality_profile.video_streaming_quality === '1080p-60fps' ?
+                            '1080p (60fps)' : this.quality_profile.video_streaming_quality;
                     }
                     if (options.default_quality !== null) {
                         // PlayerController.init() のオプションでデフォルト画質が指定されている場合は
