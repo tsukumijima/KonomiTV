@@ -40,6 +40,9 @@ class DocumentPiPManager implements PlayerManager {
     // ネイティブの HTMLVideoElement.requestPictureInPicture() メソッド
     private request_picture_in_picture: (() => Promise<PictureInPictureWindow>) | null = null;
 
+    // PlayerManager の破棄中に pagehide から映像再生を再開しないためのフラグ
+    private is_destroying = false;
+
 
     /**
      * コンストラクタ
@@ -59,6 +62,7 @@ class DocumentPiPManager implements PlayerManager {
      * Document Picture-in-Picture を開始するイベントハンドラーを登録する
      */
     public async init(): Promise<void> {
+        this.is_destroying = false;
         const player_store = usePlayerStore();
 
         // Document Picture-in-Picture API がサポートされていない場合は何もしない
@@ -198,6 +202,8 @@ class DocumentPiPManager implements PlayerManager {
             // Document Picture-in-Picture ウインドウが閉じられた際のイベントを登録
             // すでに登録されている場合は上書きされる
             pip_window.onpagehide = async () => {
+                const video = this.player.video;
+                const should_resume_playback = video.paused === false;
                 player_store.is_document_pip = false;
                 // is_control_display の watcher を停止
                 stop_control_display_watcher();
@@ -208,6 +214,22 @@ class DocumentPiPManager implements PlayerManager {
                 // DOM 要素を視聴画面内に戻す
                 this.watch_content_element.append(this.watch_header_element);
                 this.watch_content_element.append(this.watch_player_element);
+
+                // Chrome では再生中の video 要素を Document Picture-in-Picture ウインドウから戻した際に、
+                // requestVideoFrameCallback() の通知だけが止まることがある
+                // 再生状態を一度確定させてから再開し、移動後の Document で映像フレームの通知を再始動する
+                if (should_resume_playback && this.is_destroying === false) {
+                    video.pause();
+                    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+                    if (this.is_destroying) {
+                        return;
+                    }
+                    try {
+                        await video.play();
+                    } catch (error) {
+                        console.warn('[DocumentPiPManager] Failed to resume playback after leaving Picture-in-Picture.', error);
+                    }
+                }
                 console.log('[DocumentPiPManager] Picture-in-Picture window exited.');
             };
 
@@ -238,6 +260,8 @@ class DocumentPiPManager implements PlayerManager {
      * Document Picture-in-Picture を開始するイベントハンドラーを削除する
      */
     public async destroy(): Promise<void> {
+
+        this.is_destroying = true;
 
         // Document Picture-in-Picture API がサポートされていない場合は何もしない
         if (('documentPictureInPicture' in window) === false) {
