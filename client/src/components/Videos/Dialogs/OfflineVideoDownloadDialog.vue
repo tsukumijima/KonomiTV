@@ -1,5 +1,5 @@
 <template>
-    <v-dialog max-width="620" v-model="isShown">
+    <v-dialog max-width="630" v-model="isShown">
         <v-card class="offline-download-dialog__card">
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
                 オフライン再生用に保存
@@ -47,9 +47,11 @@
                     <div>
                         <div class="font-weight-bold mb-1" style="font-size: 15px;">バックグラウンドでダウンロードする</div>
                         <div class="text-text-darken-1">
-                            オフのときは、完了まで KonomiTV のタブを開いたまま待つ必要があります。スマートフォンでは画面を閉じずに開き続けてください。<br>
-                            オンにするとタブを閉じてもダウンロードを続行できますが、ブラウザの制限で同時に保存できるのは<b>1本まで</b>です。2本目以降は順番待ちになります。Android ではダウンロードが始まらず待機したままになることがあり、挙動が不安定です。<br>
-                            急いで保存したいときや、複数本を同時に保存したいときは、<b>オフのまま使うことをおすすめします。</b>
+                            <b>オンにすると、ブラウザのタブやアプリを閉じてもダウンロードを続行できます。</b><br>
+                            その代わり、<b>仕様上並列ダウンロードができません。</b>2本目以降は前のダウンロードが終わるまで順番待ちになります。<br>
+                            また、Android では一向にダウンロードが始まらないなど、挙動が不安定気味です。<br>
+                            <div class="mt-1"></div>
+                            急いで保存したいときや、複数番組を一度に保存したいケースでは、<b>オフのまま使うことをおすすめします。</b>
                         </div>
                         <p class="mt-1 mb-0 text-error-lighten-1" v-if="isBackgroundFetchSupported === false">
                             このブラウザではバックグラウンドダウンロードに対応していません。
