@@ -21,12 +21,118 @@ from biim.mpeg2ts.parser import PESParser, SectionParser
 from biim.mpeg2ts.pat import PATSection
 from biim.mpeg2ts.pes import PES
 from biim.mpeg2ts.pmt import PMTSection
+from biim.mpeg2ts.section import Section
 
 from app import logging
 from app.config import Config
 from app.constants import LIBRARY_PATH, QUALITY, QUALITY_TYPES
 from app.schemas import KeyFrame
 from app.utils.TSKeyFrameSeeker import TSKeyFrameCollector
+
+
+def _BuildFilteredPMTPayload(pmt: PMTSection, exclude_pids: set[int]) -> bytes:
+    """
+    与えられた PMTSection から、exclude_pids に含まれる Elementary PID の
+    ストリームエントリを取り除いた、新しく妥当な PMT セクションのバイト列を再構築する
+
+    packetize_section() は Section の生バイト列 (__len__/__getitem__ 経由) を
+    そのまま切り出すだけで、PMTSection.entry (パース済みのリスト) の内容は
+    一切参照しない。そのため entry を直接編集しても出力には反映されず、
+    実際に送出される PMT のバイト列自体を正しい PSI 構文で組み立て直す必要がある。
+
+    これが必要な理由: 副音声選択で選ばれなかった方の AAC PID のパケットは
+    VideoEncodingTask.run() 側で既にドロップされているが、PMT 自体は元のまま
+    (音声ストリームが2本あると宣言したまま) 転送されていた。この不整合
+    (PMT は2本と宣言するが実際には1本しかデータが来ない) が、AVPlayer 側で
+    HLS セグメントの解決に極端に長い時間 (数分) がかかったり、最終的に無音に
+    なったりする原因だったと実機で確認された (ffprobe/ffplay など寛容な
+    パーサーでは問題が表面化しなかった)。
+
+    Args:
+        pmt (PMTSection): 元の (フィルタリング前の) PMTSection
+        exclude_pids (set[int]): ストリームエントリを除外する Elementary PID の集合
+
+    Returns:
+        bytes: exclude_pids のエントリを取り除き、CRC32 を再計算済みの新しい PMT セクションのバイト列
+    """
+
+    payload = pmt.payload
+
+    table_id = payload[0]
+    original_byte1 = payload[1]
+    table_id_extension = pmt.table_id_extension()
+    original_byte5 = payload[5]  # reserved + version_number + current_next_indicator, そのまま維持
+    section_number = pmt.section_number()
+    last_section_number = pmt.last_section_number()
+    pcr_pid = pmt.PCR_PID
+    original_pcr_pid_high_byte = payload[Section.EXTENDED_HEADER_SIZE + 0]
+
+    program_info_length = (
+        (payload[Section.EXTENDED_HEADER_SIZE + 2] & 0x0F) << 8
+    ) | payload[Section.EXTENDED_HEADER_SIZE + 3]
+    original_program_info_length_high_byte = payload[Section.EXTENDED_HEADER_SIZE + 2]
+    program_info_start = Section.EXTENDED_HEADER_SIZE + 4
+    program_info_bytes = bytes(payload[program_info_start: program_info_start + program_info_length])
+
+    # 除外対象でないストリームだけを残してストリームループ部分を再構築する
+    stream_loop = bytearray()
+    for stream_type, elementary_pid, descriptors in pmt.entry:
+        if elementary_pid in exclude_pids:
+            continue
+        descriptors_bytes = bytearray()
+        for descriptor_tag, descriptor_data in descriptors:
+            descriptors_bytes += bytes([descriptor_tag, len(descriptor_data)])
+            descriptors_bytes += bytes(descriptor_data)
+        es_info_length = len(descriptors_bytes)
+        stream_loop += bytes([
+            stream_type,
+            0xE0 | ((elementary_pid >> 8) & 0x1F),
+            elementary_pid & 0xFF,
+            0xF0 | ((es_info_length >> 8) & 0x0F),
+            es_info_length & 0xFF,
+        ])
+        stream_loop += descriptors_bytes
+
+    new_section_length = (
+        2 +  # table_id_extension
+        1 +  # version_number/current_next_indicator
+        1 +  # section_number
+        1 +  # last_section_number
+        2 +  # PCR_PID
+        2 +  # program_info_length
+        program_info_length +
+        len(stream_loop) +
+        Section.CRC_SIZE
+    )
+
+    header = bytes([
+        table_id,
+        (original_byte1 & 0xF0) | ((new_section_length >> 8) & 0x0F),
+        new_section_length & 0xFF,
+        (table_id_extension >> 8) & 0xFF,
+        table_id_extension & 0xFF,
+        original_byte5,
+        section_number,
+        last_section_number,
+        (original_pcr_pid_high_byte & 0xE0) | ((pcr_pid >> 8) & 0x1F),
+        pcr_pid & 0xFF,
+        (original_program_info_length_high_byte & 0xF0) | ((program_info_length >> 8) & 0x0F),
+        program_info_length & 0xFF,
+    ])
+
+    body_without_crc = header + program_info_bytes + bytes(stream_loop)
+
+    # 既存の Section.CRC32() をそのまま流用する (CRC アルゴリズムを
+    # 独自に再実装して転記ミスのリスクを負わないため)
+    crc = Section(body_without_crc).CRC32()
+    crc_bytes = bytes([
+        (crc >> 24) & 0xFF,
+        (crc >> 16) & 0xFF,
+        (crc >> 8) & 0xFF,
+        crc & 0xFF,
+    ])
+
+    return body_without_crc + crc_bytes
 
 
 if TYPE_CHECKING:
@@ -613,6 +719,10 @@ class VideoEncodingTask:
                 video_cc: int = 0
                 audio_pid: int | None = None
                 audio_cc: int = 0
+                # 見つかった全ての AAC (副音声を含む) の PID を PMT に現れた順に保持する
+                # 録画マージン内 (実際の番組が始まる前) では副音声がまだ存在しないことがあるため、
+                # 要求されたインデックスが見つからない場合は主音声 (index 0) にフォールバックする
+                audio_pids: list[int] = []
 
                 # 録画ファイルが MPEG-4 形式の場合、psisimux で MPEG-TS に変換し、
                 # TS ファイル入力の代わりに psisimux からの出力を tsreadex への入力として渡す
@@ -811,8 +921,15 @@ class VideoEncodingTask:
                     '-a', '13',
                     # 副音声ストリームが常に存在する状態にする
                     ## +1: ストリームが存在しない場合、無音の AAC ストリームが出力される
+                    ## +2: ストリームが存在しない場合、主音声をコピーする
                     ## +4: 音声がモノラルであればステレオにする
-                    '-b', '5',
+                    ## +2 は「副音声を選択する手段がないのに主音声分のデータ量が倍になる」ことを理由に
+                    ## 上流で削除されたが、本パッチでは選択されなかった方の音声パケットをエンコーダーに
+                    ## 渡す前に破棄するため (このファイル内、後述)、+2 を有効にしてもクライアントへの
+                    ## 転送量は変わらない。むしろ +2 を有効にすることで、副音声がまだ存在しない区間
+                    ## (録画マージンなど) でクライアントが副音声を要求した際に、無音ではなく主音声へ
+                    ## フォールバックできるようになる
+                    '-b', '7',
                     # 字幕ストリームが常に存在する状態にする
                     ## +1: ストリームが存在しない場合、PMT の項目が補われて出力される
                     ## +4: 実際の字幕データが現れない場合に5秒ごとに非表示の適当なデータを挿入する
@@ -1132,7 +1249,6 @@ class VideoEncodingTask:
                         for pmt in pmt_parser:
                             if pmt.CRC32() != 0:
                                 continue
-                            latest_pmt = pmt
 
                             # ストリームの PID を取得
                             for stream_type, elementary_pid, _ in pmt:
@@ -1149,11 +1265,49 @@ class VideoEncodingTask:
                                         video_parser = PESParser(H265PES)
                                         logging.debug(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x0F:  # AAC
-                                    if audio_pid is None:
-                                        audio_pid = elementary_pid
-                                        logging.debug(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
+                                    if elementary_pid not in audio_pids:
+                                        audio_pids.append(elementary_pid)
+                                        logging.debug(
+                                            f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x} '
+                                            f'(track index {len(audio_pids) - 1})'
+                                        )
+                            # 収集した音声 PID から、要求されたトラックインデックスを選択する
+                            # 要求されたインデックスが見つからない場合 (録画マージン内でまだ副音声が
+                            # 存在しない場合など) は、主音声 (index 0) にフォールバックする
+                            # ここで audio_pid を None のままにしないことが重要:
+                            # 後段の "video_pid is None or audio_pid is None" チェックが
+                            # リトライ処理につながっており、要求されたトラックが一時的に存在しないだけの
+                            # ケースでリトライを繰り返しても解決しないため
+                            if audio_pid is None and len(audio_pids) > 0:
+                                requested_index = self.video_stream.encoding_options.audio_track_index
+                                if requested_index < len(audio_pids):
+                                    audio_pid = audio_pids[requested_index]
+                                else:
+                                    # tsreadex は基本的に主音声・副音声の両方の PID を常に出力する
+                                    # ("-a" "-b" オプションの +1 ビット) ため、この分岐に実際に
+                                    # 到達することはほぼ無いはずだが、tsreadex 自体のソースコードや
+                                    # 全ての挙動を精査できているわけではないため、念のため残してある
+                                    audio_pid = audio_pids[0]
+                                    logging.debug(
+                                        f'{self.video_stream.log_prefix} Requested audio track index '
+                                        f'{requested_index} not yet present (only {len(audio_pids)} audio '
+                                        f'track(s) found in this segment) — falling back to track index 0.'
+                                    )
+
+                            # 選択されなかった方の AAC PID は、PMT 自体からもストリーム
+                            # エントリを取り除く。パケット単位では既にドロップ済みだが
+                            # (audio_pids に含まれ audio_pid と一致しないもの)、PMT が
+                            # 「音声ストリームが2本ある」と宣言したまま送出されると、
+                            # 実際には片方にデータが来ないという不整合が生じてしまう
+                            excluded_audio_pids = {p for p in audio_pids if p != audio_pid}
+                            if excluded_audio_pids:
+                                pmt_to_emit = PMTSection(_BuildFilteredPMTPayload(pmt, excluded_audio_pids))
+                            else:
+                                pmt_to_emit = pmt
+                            latest_pmt = pmt_to_emit
+
                             # PMT を再構築して candidate に追加
-                            for packet in packetize_section(pmt, False, False, cast(int, pmt_pid), 0, pmt_cc):
+                            for packet in packetize_section(pmt_to_emit, False, False, cast(int, pmt_pid), 0, pmt_cc):
                                 encoded_segment += packet
                                 pmt_cc = (pmt_cc + 1) & 0x0F
 
@@ -1283,6 +1437,14 @@ class VideoEncodingTask:
                             for packet in packetize_pes(audio, False, False, cast(int, audio_pid), 0, audio_cc):
                                 encoded_segment += packet
                                 audio_cc = (audio_cc + 1) & 0x0F
+
+                    # 選択されなかった方の音声 PID (主音声/副音声のうち非選択側) のパケットは、
+                    # そのまま通すとエンコーダーへの入力に2系統目の音声として紛れ込んでしまい、
+                    # 要求したトラックとは無関係に両方の音声トラックが最終的な出力セグメントに
+                    # 含まれてしまう (実際に確認済み)。既知の (選択されなかった) AAC PID の
+                    # パケットはここで明示的に破棄する
+                    elif pid in audio_pids:
+                        pass
 
                     # その他のパケット
                     else:

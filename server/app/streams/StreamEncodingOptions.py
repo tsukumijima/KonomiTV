@@ -14,6 +14,7 @@ class StreamEncodingOptions:
     Args:
         is_hevc_10bit_enabled (bool): HEVC 10bit を要求するクライアント向けのストリームかどうか
         is_24fps_mode_enabled (bool): 24fps モードを適用するストリームかどうか
+        audio_track_index (int): 選択する音声トラックの 0 スタートのインデックス (録画のみ、ライブでは常に 0)
     """
 
     # HEVC 10bit を要求するクライアント向けのストリームかどうか
@@ -25,12 +26,19 @@ class StreamEncodingOptions:
     ## 1080p-60fps では 60fps 化を優先し、24fps モードの要求があってもここでは無効にする
     is_24fps_mode_enabled: bool = False
 
+    # 選択する音声トラックの 0 スタートのインデックス (録画のみ、ライブでは常に 0)
+    ## 0: 主音声 (デフォルト), 1: 副音声。指定したインデックスの音声トラックが録画データに存在しない場合
+    ## (録画マージン内でまだ副音声が始まっていない場合など)、セグメント単位で主音声にフォールバックする
+    ## — VideoEncodingTask.run() 側の処理であり、ここでは指定値を保持するだけ
+    audio_track_index: int = 0
+
     @classmethod
     def fromRequest(
         cls,
         quality: QUALITY_TYPES,
         is_hevc_10bit_requested: bool,
         is_24fps_mode_requested: bool,
+        audio_track_index_requested: int = 0,
     ) -> StreamEncodingOptions:
         """
         API で指定されたオプションから、実際に使うストリームオプションを作る
@@ -39,6 +47,7 @@ class StreamEncodingOptions:
             quality (QUALITY_TYPES): ベース画質
             is_hevc_10bit_requested (bool): クライアントが HEVC 10bit を要求しているかどうか
             is_24fps_mode_requested (bool): クライアントが 24fps モードを要求しているかどうか
+            audio_track_index_requested (int): クライアントが要求する音声トラックインデックス (0: 主音声, 1: 副音声)
 
         Returns:
             StreamEncodingOptions: 実際のストリーム生成に使うエンコードオプション
@@ -59,9 +68,14 @@ class StreamEncodingOptions:
             QUALITY[quality].is_60fps is False
         )
 
+        # 現状 ARIB 放送で意味を持つのは主音声 (0) と副音声 (1) のみ
+        ## 不正な値が渡された場合は安全側に倒して主音声にする
+        audio_track_index = audio_track_index_requested if audio_track_index_requested in (0, 1) else 0
+
         return cls(
             is_hevc_10bit_enabled = is_hevc_10bit_enabled,
             is_24fps_mode_enabled = is_24fps_mode_enabled,
+            audio_track_index = audio_track_index,
         )
 
     def buildSuffix(self) -> str:
@@ -81,6 +95,12 @@ class StreamEncodingOptions:
         # 24fps モードが有効なストリームだけ -24fps を付ける
         if self.is_24fps_mode_enabled is True:
             suffix += '-24fps'
+
+        # 音声トラック指定は他のオプションと独立した概念のため、既存の並び (10bit → 24fps) の
+        # 一番最後に付ける。主音声 (index 0) の場合は既存の URL 形式を一切変えないよう、
+        # 接尾辞自体を付けない
+        if self.audio_track_index != 0:
+            suffix += f'-audio{self.audio_track_index + 1}'
 
         return suffix
 
@@ -124,9 +144,16 @@ def SplitQualityAndEncodingOptions(quality: str) -> StreamQualityWithOptions | N
             encoding_options = StreamEncodingOptions(),
         )
 
-    # -10bit / -24fps は buildSuffix() と同じ順序でのみ受け付ける
+    # -10bit / -24fps / -audio2 は buildSuffix() と同じ順序でのみ受け付ける
     ## 末尾から剥がすことで、1080p-60fps-hevc のようにベース画質自体が -hevc を含むケースを安全に扱う
     base_quality = quality
+
+    # -audio2 は buildSuffix() で一番最後に付けているため、剥がすのも一番最初に行う
+    audio_track_index_requested = 0
+    if base_quality.endswith('-audio2') is True:
+        base_quality = base_quality[:-len('-audio2')]
+        audio_track_index_requested = 1
+
     is_24fps_mode_requested = False
     if base_quality.endswith('-24fps') is True:
         base_quality = base_quality[:-len('-24fps')]
@@ -147,6 +174,7 @@ def SplitQualityAndEncodingOptions(quality: str) -> StreamQualityWithOptions | N
         base_quality,
         is_hevc_10bit_requested,
         is_24fps_mode_requested,
+        audio_track_index_requested,
     )
     return StreamQualityWithOptions(
         quality = base_quality,
