@@ -3,6 +3,7 @@
 ## プロジェクト固有の注意事項
 
 - yarn や poetry はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
+- `client/package.json` の mpeg2toh264 Git pin を更新するときは、`client/` で `yarn cache clean mpeg2toh264` を実行してから依存関係を再インストールしてください。yarn v1 は Git のコミットが変わっても同じパッケージ名とバージョンのキャッシュを再利用するため、古い JavaScript や型定義が残ります。
 - サーバー側では poetry を使っているので、python コマンドは必ず全て poetry run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
 
 ## 開発環境構成

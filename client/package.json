@@ -30,7 +30,7 @@
         "hls.js": "^1.6.9",
         "idb": "^8.0.3",
         "mitt": "^3.0.1",
-        "mpeg2toh264": "github:tsukumijima/mpeg2toh264#dafe8c3e40fd7a68fd682ddf4f2f84450ac6f4f8",
+        "mpeg2toh264": "github:tsukumijima/mpeg2toh264#cf4984e0607ae806ce7b2f898e8f95c234ae8e52",
         "mpegts.js": "github:tsukumijima/mpegts.js#c69a71c809b6e0a53f7101455333f8b3d98460d0",
         "nanoid": "^5.1.16",
         "ohash": "^1.1.3",
