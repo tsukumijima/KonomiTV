@@ -341,7 +341,8 @@ def install(
 
                     # ドメイン名を取得してドメインコントローラーを探す
                     joined_domain_name, _ = win32net.NetGetJoinInformation()
-                    domain_controller_name = win32net.NetGetDCName(None, joined_domain_name)
+                    domain_controller_info = win32security.DsGetDcName(None, joined_domain_name, None, None, 0)
+                    domain_controller_name = domain_controller_info['DomainControllerName']
 
                     # ドメインコントローラーに問い合わせする
                     ## 見つかればドメイン所属
