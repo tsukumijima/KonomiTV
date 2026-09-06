@@ -1949,7 +1949,9 @@ class PlayerController {
         // オフライン再生では通信節約モードや画質プロファイル切り替えは無関係なので、該当スイッチを設定パネルへ追加しない
         if (is_offline_playback === false) {
             // モバイル回線プロファイルに切り替えるボタンを動的に追加する
-            this.player.template.audio.insertAdjacentHTML('afterend', `
+            // DPlayer の設定パネルは画質・音声・再生速度の順なので、再生速度の直後へ挿入する
+            // ライブでは再生速度項目が非表示のため、見た目上は音声の直下に出る
+            this.player.template.speed.insertAdjacentHTML('afterend', `
                 <div class="dplayer-setting-item dplayer-setting-mobile-profile">
                     <span class="dplayer-label">モバイル回線向け画質</span>
                     <div class="dplayer-toggle">
