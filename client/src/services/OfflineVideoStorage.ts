@@ -2,6 +2,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 import type { IOfflineDownloadJob, IOfflineVideo } from '@/services/OfflineVideos';
 
+import MPEGTSSecondaryAudioExtractor from '@/utils/TSSecondaryAudioExtractor';
+
 
 /** オフライン保存用 IndexedDB の型付きスキーマ */
 interface IOfflineVideoDB extends DBSchema {
@@ -262,6 +264,33 @@ export default class OfflineVideoStorage {
     /** Service Worker から保存済み HLS と付随データを返す */
     static async getResponse(request: Request): Promise<Response> {
         const cache = await this.openCache();
+        const requestURL = new URL(request.url);
+        const pathMatch = requestURL.pathname.match(/^\/local\/offline-videos\/(\d+)\/([^/]+)\/(.+)$/);
+
+        // 仮想プレイリストと副音声セグメントを ignoreSearch の通常照合より先に処理し、副音声要求を抽出処理へ確実に送る
+        if (pathMatch !== null) {
+            const video = await this.getStoredVideo(Number(pathMatch[1]));
+            if (video !== null && video.generation_id === pathMatch[2]) {
+                const resourcePath = pathMatch[3];
+                if (resourcePath === 'playlist.m3u8') {
+                    const playlistType = requestURL.searchParams.get('type') ?? 'primary-audio';
+                    if (playlistType === 'master') return this.getMasterPlaylistResponse(video);
+                    if (playlistType === 'secondary-audio') return await this.getSecondaryAudioPlaylistResponse(video, cache);
+                    if (playlistType !== 'primary-audio') return new Response('Invalid playlist type.', {status: 422});
+                }
+                if (requestURL.searchParams.get('audio') === 'secondary' && resourcePath.startsWith('segments/')) {
+                    const sourceResponse = await cache.match(requestURL.origin + requestURL.pathname, {ignoreSearch: true});
+                    if (sourceResponse === undefined) return new Response('Offline video data was not found.', {status: 404});
+                    try {
+                        const segment = MPEGTSSecondaryAudioExtractor.extract(new Uint8Array(await sourceResponse.arrayBuffer()));
+                        return new Response(segment, {headers: {'Content-Type': 'video/mp2t'}});
+                    } catch (error) {
+                        console.error('[OfflineVideoStorage] Failed to extract secondary audio:', error);
+                        return new Response('Failed to extract secondary audio.', {status: 422});
+                    }
+                }
+            }
+        }
 
         // hls.js のキャッシュ回避クエリを除き、保存時の URL 本体だけで照合する
         return (await cache.match(request, {ignoreSearch: true})) ??
@@ -270,7 +299,34 @@ export default class OfflineVideoStorage {
 
     /** 保存済み動画の HLS プレイリスト URL を返す */
     static getPlaylistURL(video: IOfflineVideo): string {
-        return `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/playlist.m3u8`;
+        return `${this.getGenerationBaseURL(video.video_id, video.generation_id)}/playlist.m3u8?type=master`;
+    }
+
+    /** 保存済み Media Playlist を参照する仮想 Master Playlist を返す */
+    private static getMasterPlaylistResponse(video: IOfflineVideo): Response {
+        const bandwidthByQuality: Record<string, number> = {
+            '1080p-60fps': 14863200, '1080p-60fps-hevc': 6142400, '1080p': 14863200, '1080p-hevc': 5372400,
+            '810p': 8782400, '810p-hevc': 4492400, '720p': 7242400, '720p-hevc': 3722400,
+            '540p': 4932400, '540p-hevc': 2732400, '480p': 3502400, '480p-hevc': 2347400,
+            '360p': 2261600, '360p-hevc': 1656600, '240p': 996600, '240p-hevc': 996600,
+        };
+        const baseQuality = video.quality.replace(/-10bit|-24fps/g, '');
+        const bandwidth = bandwidthByQuality[baseQuality] ?? 15000000;
+        // 保存済み TS には無音補完を含む副音声 AAC が常にあるため、番組情報に関係なく2本の音声トラックを公開する
+        let playlist = '#EXTM3U\n#EXT-X-VERSION:6\n';
+        playlist += '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="主音声",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="jpn"\n';
+        playlist += '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="副音声",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="jpn",URI="playlist.m3u8?type=secondary-audio"\n';
+        playlist += `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},AUDIO="audio"\n`;
+        playlist += 'playlist.m3u8?type=primary-audio\n';
+        return new Response(playlist, {headers: {'Content-Type': 'application/vnd.apple.mpegurl'}});
+    }
+
+    /** 保存済み Media Playlist と同じ時間情報を持つ副音声用プレイリストを返す */
+    private static async getSecondaryAudioPlaylistResponse(video: IOfflineVideo, cache: Cache): Promise<Response> {
+        const playlistResponse = await cache.match(`${this.getGenerationBaseURL(video.video_id, video.generation_id)}/playlist.m3u8`);
+        if (playlistResponse === undefined) return new Response('Offline video data was not found.', {status: 404});
+        const playlist = (await playlistResponse.text()).replace(/^(segments\/\d+\.ts)$/gm, '$1?audio=secondary');
+        return new Response(playlist, {headers: {'Content-Type': 'application/vnd.apple.mpegurl'}});
     }
 
     /** 保存済み動画に付随する画像・JSON の URL を返す */
