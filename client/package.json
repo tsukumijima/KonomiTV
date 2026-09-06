@@ -31,7 +31,7 @@
         "idb": "^8.0.3",
         "mitt": "^3.0.1",
         "mpeg2toh264": "github:tsukumijima/mpeg2toh264#52a3db5e8fb9833e6cade2167097849c668bdb1f",
-        "mpegts.js": "github:tsukumijima/mpegts.js#c69a71c809b6e0a53f7101455333f8b3d98460d0",
+        "mpegts.js": "github:tsukumijima/mpegts.js#bf4e49d0ff004cf7546237393a62c66e4b926dca",
         "nanoid": "^5.1.16",
         "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
