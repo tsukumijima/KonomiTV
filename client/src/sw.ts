@@ -21,8 +21,9 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
 // 通常画面は従来の generateSW と同じく index.html へ戻し、API と Cloudflare の内部 URL は対象から外す
+// 前段認証の失効を検知した際の一時 URL も除外し、その1回だけトップレベルナビゲーションをネットワークへ到達させる
 registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), {
-    denylist: [/^\/api/, /^\/cdn-cgi/],
+    denylist: [/^\/api/, /^\/cdn-cgi/, /[?&]__konomitv_auth_bypass=1(?:&|$)/],
 }));
 
 // 保存済み HLS は /local/offline-videos/ 以下の仮想 URL として CacheStorage から返す

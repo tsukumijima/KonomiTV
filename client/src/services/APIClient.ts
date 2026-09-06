@@ -11,6 +11,11 @@ import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 
+// 前段の認証プロキシへトップレベルナビゲーションを到達させる間だけ付与するクエリパラメータ
+// client/src/sw.ts 側でも同じ値を NavigationRoute の除外判定に使用している
+const UPSTREAM_AUTHENTICATION_BYPASS_QUERY_PARAMETER = '__konomitv_auth_bypass';
+
+
 /** API リクエスト成功時のレスポンスを表すインターフェイス */
 export interface ISuccessResponse<T> {
     type: 'success';
@@ -50,6 +55,58 @@ export interface IErrorResponseData {
  */
 class APIClient {
 
+    // 同時に失敗した複数の API リクエストが、それぞれ同じトップレベルナビゲーションを開始しないようにする
+    private static is_upstream_authentication_redirecting = false;
+
+
+    /**
+     * レスポンス本文が KonomiTV API の標準エラー形式かどうかを判定する
+     * @param data レスポンス本文
+     * @returns KonomiTV API の標準エラー形式なら true
+     */
+    private static isKonomiTVErrorResponseData(data: unknown): data is IErrorResponseData {
+        return typeof data === 'object' && data !== null && 'detail' in data;
+    }
+
+
+    /**
+     * 前段の認証プロキシへ再認証を要求するため、現在の URL を一度だけ Service Worker の外へ送る
+     */
+    private static redirectToUpstreamAuthentication(): void {
+        const current_url = new URL(window.location.href);
+
+        // 最初の API リクエストですでに再認証のためのナビゲーションを開始していれば、後続の失敗では何もしない
+        if (APIClient.is_upstream_authentication_redirecting) {
+            return;
+        }
+
+        // すでに Service Worker を迂回しても認証できなかった場合は、無限リロードを避けて通常のエラー処理へ戻す
+        if (current_url.searchParams.get(UPSTREAM_AUTHENTICATION_BYPASS_QUERY_PARAMETER) === '1') {
+            return;
+        }
+
+        // 現在のパス・クエリ・ハッシュを維持したまま、一時パラメータを付けてトップレベルナビゲーションを行う
+        // この URL だけは Service Worker の NavigationRoute から除外され、Cloudflare Access などの前段認証へ到達する
+        APIClient.is_upstream_authentication_redirecting = true;
+        current_url.searchParams.set(UPSTREAM_AUTHENTICATION_BYPASS_QUERY_PARAMETER, '1');
+        window.location.replace(current_url.href);
+    }
+
+
+    /**
+     * 前段認証から正常に復帰した後、アドレスバーから一時的な Service Worker 迂回パラメータを取り除く
+     */
+    private static clearUpstreamAuthenticationBypass(): void {
+        const current_url = new URL(window.location.href);
+        if (current_url.searchParams.get(UPSTREAM_AUTHENTICATION_BYPASS_QUERY_PARAMETER) !== '1') {
+            return;
+        }
+
+        // ページを再読み込みせず URL だけを置き換え、以後の通常ナビゲーションでは従来どおり app shell を利用する
+        current_url.searchParams.delete(UPSTREAM_AUTHENTICATION_BYPASS_QUERY_PARAMETER);
+        window.history.replaceState(window.history.state, '', current_url.href);
+    }
+
     /**
      * Axios で HTTP リクエストを送信し、レスポンスを受け取る
      * @param request AxiosRequestConfig
@@ -68,7 +125,8 @@ class APIClient {
         }
 
         // 外部サイトへの HTTP/HTTPS リクエストでは実行しない
-        if (request.url?.startsWith('http') === false) {
+        const is_konomitv_api_request = request.url?.startsWith('http') === false;
+        if (is_konomitv_api_request) {
 
             // アクセストークンが取得できたら (=ログインされていれば)
             // 取得したアクセストークンを Authorization ヘッダーに Bearer トークンとしてセット
@@ -81,6 +139,10 @@ class APIClient {
             // KonomiTV クライアントのバージョンを設定
             // 今のところ使わないが、将来的にクライアントとサーバーを分離することを見据えて念のため
             request.headers['X-KonomiTV-Version'] = Utils.version;
+
+            // Cloudflare Access などの前段認証が失効した際、ログイン HTML へのリダイレクトではなく
+            // クライアント側で検知可能な 401 Unauthorized を返してもらう
+            request.headers['X-Requested-With'] = 'XMLHttpRequest';
         }
 
         // リクエストのタイムアウト時間を30秒に設定
@@ -103,6 +165,13 @@ class APIClient {
 
             // エラーレスポンスがあれば、エラー内容と AxiosError を IErrorResponse に入れて返す
             if (result.response) {
+
+                // KonomiTV API の形式ではない 401 は Cloudflare Access など前段認証の失効とみなし、
+                // Service Worker を一度だけ迂回するトップレベルナビゲーションで再認証を開始する
+                if (is_konomitv_api_request && result.response.status === 401 &&
+                    APIClient.isKonomiTVErrorResponseData(result.response.data) === false) {
+                    APIClient.redirectToUpstreamAuthentication();
+                }
                 return {
                     type: 'error',
                     status: result.response.status,
@@ -124,6 +193,12 @@ class APIClient {
 
         // 正常にレスポンスが返ってきた場合は ISuccessResponse を返す
         } else {
+
+            // 一時パラメータは、前段認証を通過して KonomiTV API から正常な応答を得られた時点でのみ削除する
+            // それまでは残すことで、前段が 401 を返し続ける場合の無限リロードを防ぐ
+            if (is_konomitv_api_request) {
+                APIClient.clearUpstreamAuthenticationBypass();
+            }
             return {
                 type: 'success',
                 headers: result.headers,
