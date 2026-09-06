@@ -28,7 +28,8 @@
   - 起動すると port 7001 で Akebi HTTPS Server 経由でリッスンされます (内部の Vite は `127.0.0.77:7011` でリッスンします)
 - **重複起動は禁止**です。起動前に必ず `ps -ef | grep vite` などで既存プロセスの有無を確認してください
 - `yarn dev` で起動するクライアントは、開発モード時のみ同じドメインの `:7000` のサーバー API を直接叩くようハードコードされています ([client/src/utils/Utils.ts](client/src/utils/Utils.ts) の `Utils.api_base_url` を参照)。Vite の proxy 設定は不要です
-- Chrome DevTools MCP からの検証時は `https://my.local.konomi.tv:7001` にアクセスしてください
+- UI 検証の URL は、ブラウザが Akebi と同じマシンで動いているときは `https://my.local.konomi.tv:7001` です (`localhost` や `127.0.0.1` では開けません)
+- `my.local.konomi.tv` は名前解決した側の `127.0.0.1` です。ブラウザが SSH クライアント側など別マシンで動くときは `my` を使わず、Akebi がリッスンしているマシンの LAN IP を `https://192-168-1-11.local.konomi.tv:7001` の形式 (ドットをハイフン) で開いてください。エディタ設定の変更やポート転送の追加で済ませないでください
 - クライアント開発サーバー経由で API リクエストが想定通りに動かない場合でも、**サーバーを立て直そうとしないでください**。まず `Utils.api_base_url` の DEV 分岐の挙動を読み直し、port 7000 で動いているサーバー側の状態を `ps -ef | grep KonomiTV` などで確認してください
 - 番組タイトルや番組概要を表示するときは必ず `ProgramUtils.decorateProgramInfo(program, 'field_name')` を使用してください
 
