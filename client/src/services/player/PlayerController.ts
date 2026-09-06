@@ -510,7 +510,7 @@ class PlayerController {
                             // 1080p-60fps のみ、見栄えの観点から表示上 "1080p (60fps)" と表示する
                             name: quality_name === '1080p-60fps' ? '1080p (60fps)' : quality_name,
                             type: 'hls',
-                            url: `${streaming_api_base_url}/${build_api_quality(quality_name)}/playlist?session_id=${session_id}`,
+                            url: `${streaming_api_base_url}/${build_api_quality(quality_name)}/playlist?session_id=${session_id}&type=master`,
                         });
                     }
                     // 録画ファイルのコンテナ・コーデック非対応などでオリジナル画質での再生ができない場合、
@@ -769,6 +769,10 @@ class PlayerController {
                     // startPosition に視聴履歴などから求めた再生位置を渡し、ロード開始時点で正しい Media Sequence を選択させる
                     // これを指定しないと manifest 解析後に sequence=0 からフラグメント取得が始まってしまう
                     startPosition: seek_seconds,
+                    // 通常の録画再生では先読みを30秒までに収め、再生位置の多重化 TS をサーバーの保持範囲内に残す
+                    // VideoStream は約6秒の取得済みセグメントを最大9件保持するため、セグメント境界を含めても余裕がある
+                    // これにより、その場で副音声へ切り替えた際に同じ TS を再利用できる (保存再生は hls.js の既定値を使う)
+                    maxMaxBufferLength: player_store.is_offline_playback === true ? Hls.DefaultConfig.maxMaxBufferLength : 30,
                     // 通常再生ではサーバー側のエンコード済み範囲と連携し、保存再生では完結した HLS を標準実装で扱う
                     // 保存版には buffer.m3u8 の SSE がないため、CustomBufferController を使うとシーク時に存在しない URL へ接続してしまう
                     // @ts-ignore
@@ -981,7 +985,7 @@ class PlayerController {
 
                 // MSE は AAC のサンプル境界に合わせてシーク位置をわずかに補正する場合がある
                 // DPlayer の画質切り替え完了判定が同じ位置へ戻し続けないよう、50ms 以内の補正値を現在位置として確定する
-                if (target_quality?.type === 'mpeg2toh264' && dplayer_instance.prevVideo !== null) {
+                if ((target_quality?.type === 'mpeg2toh264' || target_quality?.type === 'hls') && dplayer_instance.prevVideo !== null) {
                     const video = dplayer_instance.video;
                     const requested_time = dplayer_instance.prevVideoCurrentTime;
                     video.addEventListener('seeked', () => {
