@@ -30,6 +30,7 @@ from app.streams.VideoSegmentPlanner import VideoSegmentPlanner
 from app.utils import SetTimeout
 from app.utils.MP4KeyFrameParser import MP4KeyFrameParser
 from app.utils.TSKeyFrameSeeker import TSKeyFrameSeeker, TSStreamInfo
+from app.utils.TSSecondaryAudioExtractor import TSSecondaryAudioExtractor
 
 
 @dataclass
@@ -415,13 +416,14 @@ class VideoStream:
             return (0, 0)
 
 
-    def getVirtualPlaylist(self, cache_key: str | None = None) -> str:
+    def getVirtualPlaylist(self, cache_key: str | None = None, audio: Literal['primary', 'secondary'] = 'primary') -> str:
         """
         仮想 HLS M3U8 プレイリストを取得する
         返却時点では仮想 HLS M3U8 プレイリストに記載されているセグメントのデータは存在せず (「仮想」のゆえん)、随時エンコードされる
 
         Args:
             cache_key (str | None): キャッシュ制御用のキー (None の場合は新しいキーを生成する)
+            audio (Literal['primary', 'secondary']): 音声トラック
 
         Returns:
             str: 仮想 HLS M3U8 プレイリスト
@@ -471,7 +473,8 @@ class VideoStream:
             # セグメントの長さ (秒, 小数点以下6桁まで)
             virtual_playlist += f'#EXTINF:{segment.duration_seconds:.6f},\n'
             # キャッシュ避けのためにキャッシュキーを付与する
-            virtual_playlist += f'segment?session_id={self.session_id}&sequence={segment.sequence_index}&cache_key={cache_key}\n'
+            audio_query = '&audio=secondary' if audio == 'secondary' else ''
+            virtual_playlist += f'segment?session_id={self.session_id}&sequence={segment.sequence_index}&cache_key={cache_key}{audio_query}\n'
 
         virtual_playlist += '#EXT-X-ENDLIST\n'
         return virtual_playlist
@@ -750,7 +753,7 @@ class VideoStream:
             logging.warning(f'{self.log_prefix} Failed to save segment map entries:', exc_info=ex)
 
 
-    async def getSegment(self, segment_sequence: int) -> bytes | None:
+    async def getSegment(self, segment_sequence: int, audio: Literal['primary', 'secondary'] = 'primary') -> bytes | None:
         """
         エンコードされた HLS セグメントを取得する
         呼び出された時点でエンコードされていない場合は既存のエンコードタスクを終了し、
@@ -758,9 +761,13 @@ class VideoStream:
 
         Args:
             segment_sequence (int): HLS セグメントのシーケンス番号 (self.segments のインデックスと一致する)
+            audio (Literal['primary', 'secondary']): 音声トラック
 
         Returns:
-            bytes | None: HLS セグメントとしてエンコードされた MPEG-TS ストリーム (シーケンス番号が不正な場合は None)
+            bytes | None: HLS セグメントとしてエンコードされた MPEG-TS ストリーム (シーケンス番号が不正、またはシークやセッション終了で取得が中断された場合は None)
+
+        Raises:
+            RuntimeError: エンコードが空データで終了した場合
         """
 
         # セッションのアクティブ状態を維持する
@@ -778,11 +785,30 @@ class VideoStream:
         segment = self._segments[segment_sequence]
 
         # 当該セグメントのエンコードがまだ完了していない場合は、エンコードタスクを非同期で開始する
-        if segment.encode_status == 'Pending':
+        while segment.encode_status == 'Pending':
+            # 直前セグメントの待機中にセッションが終了した場合も、取得中断として終了する
+            if self._is_destroyed is True:
+                return None
+
+            # 主音声と副音声が隣り合うセグメントを要求した場合は、直前のエンコード完了を待って同じタスクを共有する
+            ## 待機中もシークやセッション終了を受け付けられるよう、エンコードタスクのロックを取得する前に待機する
+            if segment_sequence > 0:
+                previous_segment = self._segments[segment_sequence - 1]
+                # 直前セグメントの完了時には次のセグメントが Encoding に進むため、完了後の状態を再確認する
+                if previous_segment.encode_status == 'Encoding':
+                    # シークやセッション終了で直前のエンコードが中断された場合は、このリクエストも取得中断として終了する
+                    if len(await asyncio.shield(previous_segment.encoded_segment_ts_future)) == 0:
+                        return None
+                    continue
+
             async with self._video_encoding_task_lock:
                 # ロック待ちの間に終了処理が始まった場合は、新しいエンコードタスクを作成しない
                 if self._is_destroyed is True:
                     return None
+
+                # ロック待ちの間に直前セグメントのエンコードが始まった場合は、ロックを解放してその完了を待つ
+                if segment_sequence > 0 and self._segments[segment_sequence - 1].encode_status == 'Encoding':
+                    continue
 
                 # ロック待ちの間に他のリクエストがすでにエンコードを開始している可能性があるため再確認する
                 if segment.encode_status == 'Pending':
@@ -844,8 +870,28 @@ class VideoStream:
                     self.__registerVideoEncodingTaskRef(self._video_encoding_task_ref)
                     logging.info(f'{self.log_prefix}[Segment {encoding_start_sequence}] New Encoding Task Started.')
 
+            # 起動済みのタスクが生成するセグメントデータを、この後の Future で受け取る
+            break
+
         # セグメントデータの Future が完了したらそのデータを返す
-        encoded_segment_ts = await asyncio.shield(segment.encoded_segment_ts_future)
+        segment_future = segment.encoded_segment_ts_future
+        encoded_segment_ts = await asyncio.shield(segment_future)
+
+        # シークやセッション終了で空データを受け取ったリクエストは、取得中断として終了する
+        ## シーク前のセグメントは新しいタスクの処理対象から外れる場合があるため、必要な再取得はクライアントに委ねる
+        if len(encoded_segment_ts) == 0:
+            # Future の交換とセッションの終了を、取得中断の判定に使う
+            if self._is_destroyed is True or segment.encoded_segment_ts_future is not segment_future:
+                return None
+
+            # Future が交換されず空データで完了した場合は、エンコーダーの異常終了として取得処理を終了する
+            raise RuntimeError(f'Encoded segment is empty. [sequence: {segment_sequence}]')
+
+        # 副音声トラックは同じエンコード結果から要求時に抽出し、セッション内には多重化済みデータだけを保持する
+        result_segment_ts = encoded_segment_ts
+        if audio == 'secondary':
+            result_segment_ts = TSSecondaryAudioExtractor.extract(encoded_segment_ts)
+
         segment.is_encoded_segment_ts_future_readed = True
 
         # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
@@ -856,7 +902,7 @@ class VideoStream:
             await oldest_segment.resetState()
             logging.info(f'{self.log_prefix}[Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
 
-        return encoded_segment_ts
+        return result_segment_ts
 
 
     async def __cancelVideoEncodingTask(
@@ -932,6 +978,12 @@ class VideoStream:
             # 起動中のエンコードタスクがあればキャンセルする
             # この時点ですでにエンコードを完了して終了している場合もある
             await self.__cancelVideoEncodingTask()
+
+            # セグメントの完成を待つリクエストも、セッション終了に伴う取得中断として解放する
+            for segment in self._segments:
+                # 完了済みの結果は保持し、待機中の Future だけを空データで完了する
+                if not segment.encoded_segment_ts_future.done():
+                    segment.encoded_segment_ts_future.set_result(b'')
 
             # すべての HLS セグメントと、アクティブな間保持されていたインスタンスを削除する
             ## 今後同じセッション ID が指定された場合は新たに別のインスタンスが生成される
