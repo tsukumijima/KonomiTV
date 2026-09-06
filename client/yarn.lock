@@ -3581,9 +3581,9 @@ mitt@^3.0.1:
   resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.1.tgz#ea36cf0cc30403601ae074c8f77b7092cdab36d1"
   integrity sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==
 
-"mpeg2toh264@github:tsukumijima/mpeg2toh264#52a3db5e8fb9833e6cade2167097849c668bdb1f":
+"mpeg2toh264@github:tsukumijima/mpeg2toh264#faf1464e66693133fc9f4b8618992b0f557f0bc3":
   version "0.0.1"
-  resolved "https://codeload.github.com/tsukumijima/mpeg2toh264/tar.gz/52a3db5e8fb9833e6cade2167097849c668bdb1f"
+  resolved "https://codeload.github.com/tsukumijima/mpeg2toh264/tar.gz/faf1464e66693133fc9f4b8618992b0f557f0bc3"
 
 "mpegts.js@github:tsukumijima/mpegts.js#bf4e49d0ff004cf7546237393a62c66e4b926dca":
   version "1.8.0"
