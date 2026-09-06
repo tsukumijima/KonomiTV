@@ -265,7 +265,9 @@ export default class OfflineVideoStorage {
     static async getResponse(request: Request): Promise<Response> {
         const cache = await this.openCache();
         const requestURL = new URL(request.url);
-        const pathMatch = requestURL.pathname.match(/^\/local\/offline-videos\/(\d+)\/([^/]+)\/(.+)$/);
+        const pathMatch = requestURL.pathname.match(new RegExp(
+            `^${this.LOCAL_OFFLINE_VIDEOS_PATH_PREFIX}(\\d+)/([^/]+)/(.+)$`,
+        ));
 
         // 仮想プレイリストと副音声セグメントを ignoreSearch の通常照合より先に処理し、副音声要求を抽出処理へ確実に送る
         if (pathMatch !== null) {
@@ -304,6 +306,8 @@ export default class OfflineVideoStorage {
 
     /** 保存済み Media Playlist を参照する仮想 Master Playlist を返す */
     private static getMasterPlaylistResponse(video: IOfflineVideo): Response {
+        // クライアントから参照できない server/app/constants.py の QUALITY と server/app/routers/VideoStreamsRouter.py の計算式を写した値
+        // サーバー側の QUALITY を変更した場合は、この対応表も同期して更新する
         const bandwidthByQuality: Record<string, number> = {
             '1080p-60fps': 14863200, '1080p-60fps-hevc': 6142400, '1080p': 14863200, '1080p-hevc': 5372400,
             '810p': 8782400, '810p-hevc': 4492400, '720p': 7242400, '720p-hevc': 3722400,
