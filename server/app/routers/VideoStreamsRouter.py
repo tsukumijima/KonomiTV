@@ -169,10 +169,17 @@ async def VideoHLSSegmentAPI(
     try:
         segment_data = await video_stream.getSegment(sequence, audio)
     except ValueError as ex:
-        logging.error(f'{video_stream.log_prefix} Failed to extract secondary audio:', exc_info=ex)
+        logging.error(f'{video_stream.log_prefix} Failed to get segment. [sequence: {sequence}, audio: {audio}]', exc_info=ex)
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail = 'Failed to extract secondary audio from the segment',
+            detail = f'Failed to get segment. [audio: {audio}]',
+        ) from ex
+    # エンコードや入力位置の解決に失敗した場合は、再生クライアントへ原因を区別できるレスポンスを返す
+    except RuntimeError as ex:
+        logging.error(f'{video_stream.log_prefix} Failed to generate segment. [sequence: {sequence}, audio: {audio}]', exc_info=ex)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f'Failed to generate segment. [audio: {audio}]',
         ) from ex
     if segment_data is None:
         logging.error(
