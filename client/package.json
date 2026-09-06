@@ -18,7 +18,7 @@
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
         "@microsoft/fetch-event-source": "^2.0.1",
-        "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.3",
+        "arib-mmt-tlv-ts": "^2.0.2",
         "assert": "^2.1.0",
         "axios": "^1.16.0",
         "buffer": "^6.0.3",
@@ -46,7 +46,7 @@
         "vue-virtual-scroller": "^2.0.0-beta.8",
         "vuedraggable": "^4.1.0",
         "vuetify": "~3.7.1",
-        "web-bml": "github:tsukumijima/web-bml#6448ad51179048cedf9fae78d1c9e1c87ac395e6"
+        "web-bml": "github:tsukumijima/web-bml#023449ce8b504d0a38cb9816dfe51de352f1896b"
     },
     "devDependencies": {
         "@babel/types": "^7.25.4",
