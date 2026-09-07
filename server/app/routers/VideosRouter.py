@@ -30,6 +30,7 @@ from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
 from app.models.RecordedProgram import RecordedProgram
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
+from app.utils.DisconnectAwareFileResponse import DisconnectAwareFileResponse
 from app.utils.DriveIOLimiter import DriveIOLimiter
 from app.utils.JikkyoClient import JikkyoClient
 
@@ -696,7 +697,7 @@ async def VideoAPI(
     '/{video_id}/download',
     summary = '録画ファイルダウンロード API',
     response_description = '指定された録画番組に対応する録画ファイル。',
-    response_class = FileResponse,
+    response_class = DisconnectAwareFileResponse,
     responses = {
         200: {'content': {'video/mp2t': {}, 'video/mp4': {}}},
         404: {'description': 'The recorded file was not found'},
@@ -748,7 +749,7 @@ async def VideoDownloadAPI(
             media_type = 'application/octet-stream'
 
     # 録画ファイルをダウンロードさせる
-    return FileResponse(
+    return DisconnectAwareFileResponse(
         path = file_path,
         filename = filename,
         media_type = media_type,
