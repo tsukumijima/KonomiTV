@@ -22,6 +22,8 @@ import servicemanager
 import typer
 import win32api
 import win32con
+import win32net
+import win32netcon
 import win32security
 import win32service
 import win32serviceutil
@@ -254,6 +256,135 @@ def install(
     username: str = typer.Option(..., help='Username under which KonomiTV service runs.'),
     password: str = typer.Option(..., help='Password of the user under which KonomiTV service runs.'),
 ):
+    def SamAccountNameHelper(account_name: str) -> str:
+        """
+        ユーザー名から SAM アカウント名を推定する
+        ローカル指定がある、または推定した場合は、実在するか確認する
+        存在するか、SAM アカウント名が入力された場合、SAM アカウント名を返す
+        ローカルユーザーの場合、サービスのインストール後は自動的に.\\userNameへ変換される
+
+        Args:
+            account_name (str): Windows ユーザー名 (非修飾可)
+        Returns:
+            str: Windows SAM アカウント名 (computerName\\accountName)
+        """
+
+        sid_type_user = 1
+
+        # コンピュータ名の取得
+        computer_name = os.environ.get('COMPUTERNAME', '')
+        if not computer_name:
+            computer_name = win32api.GetComputerName()
+            if not computer_name:
+                print('Error: Cannot determine computer name.')
+                sys.exit(1)
+
+        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合はそのまま返す
+        if '\\' in account_name and not account_name.startswith('.\\'):
+            # ドメイン（またはコンピュータ名）とユーザー名に分解
+            input_domain, input_user = account_name.split('\\', 1)
+
+            input_domain = '.' if (input_domain.upper() == computer_name.upper()) else input_domain
+
+            # 入力されたドメイン部分が "." の場合はローカル SAM に置き換える
+            search_server = None if input_domain == '.' else win32net.NetGetAnyDCName(None, input_domain)
+
+            try:
+                # 指定されたサーバーに対して直接照会
+                _, found_domain, account_type = win32security.LookupAccountName(search_server, input_user)
+
+                # ユーザーアカウントかチェック
+                if account_type != sid_type_user:
+                    print(f"Error: '{found_domain}\\{input_user}' is a group or non-user account. Only user accounts are allowed.")
+                    sys.exit(1)
+
+                print(f"Found validated user '{found_domain}\\{input_user}'.")
+                return found_domain + '\\' + input_user
+
+            except pywintypes.error as e:
+                # アカウントが見つからない場合
+                if e.winerror == 1332:
+                    print(f"Error: User '{account_name}' was not found.")
+                    sys.exit(1)
+                # サーバーが見つからないか、接続できない場合
+                elif e.winerror == 1722:
+                    print(f"Error: RPC server unavailable. Cannot contact domain '{input_domain}'.")
+                    sys.exit(1)
+                else:
+                    raise
+
+        # ローカル指定の有無を確認しフラグ化する
+        force_local = False
+        if account_name.startswith('.\\'):
+            account_name = account_name[2:]
+            force_local = True
+
+        # 端末のドメイン参加状態を取得する
+        try:
+            _, join_status = win32net.NetGetJoinInformation()
+            is_domain_joined = (join_status == win32netcon.NetSetupDomainName)
+        except Exception:
+            is_domain_joined = False
+
+        # ローカルのSAMを検索し、アカウントが存在するか確認する
+        ## ドメイン環境かつローカル指定がない場合はアカウントの種別を検証する
+        try:
+            _, found_domain, account_type = win32security.LookupAccountName(None, account_name)
+
+            # ローカルアカウントか確認しフラグ化する
+            is_hit_local = (found_domain.upper() == computer_name.upper())
+
+            # ドメイン環境下でローカルユーザーがマッチしたとき
+            ## 同名のドメイン上のユーザーが実在するか確認する
+            if is_domain_joined and not force_local and is_hit_local:
+                try:
+
+                    # ドメイン名を取得してドメインコントローラーを探す
+                    joined_domain_name, _ = win32net.NetGetJoinInformation()
+                    domain_controller_info = win32security.DsGetDcName(None, joined_domain_name, None, None, 0)
+                    domain_controller_name = domain_controller_info['DomainControllerName']
+
+                    # ドメインコントローラーに問い合わせする
+                    ## 見つかればドメイン所属
+                    _, domain_controller_domain, account_type = win32security.LookupAccountName(domain_controller_name, account_name)
+
+                    # 取得したアカウントがユーザーか確認
+                    ## ユーザーではないときは終了
+                    if account_type != sid_type_user:
+                        print(f"Error: '{joined_domain_name}\\{account_name}' is a group or non-user account.\nOnly user accounts are allowed.")
+                        sys.exit(1)
+
+                    # 取得したユーザーの SAM アカウント名を返す
+                    print(f'Found user \'{domain_controller_domain}\\{account_name}\' (Domain Priority).')
+                    return domain_controller_domain + '\\' + account_name
+                except SystemExit:
+                    raise
+                except Exception:
+                    pass
+
+            # ローカル指定にもかかわらずドメインユーザーが返ってきた場合
+            ## 不正とみなす
+            ## ドメインユーザーとしてローカルに居る(既知の?)ユーザーが対象
+            if force_local and not is_hit_local:
+                print(f'Error: User \'{account_name}\' was not found on local computer.')
+                sys.exit(1)
+
+            # 期待するアカウントが取得できた場合、取得したアカウントがユーザーか確認
+            ## ユーザーではない(=グループ)のときは終了
+            if account_type != sid_type_user:
+                print(f"Error: '{found_domain}\\{account_name}' is a group or non-user account. Only user accounts are allowed.")
+                sys.exit(1)
+            print(f'Found user \'{found_domain}\\{account_name}\'.')
+            return found_domain + '\\' + account_name
+
+        except pywintypes.error as e:
+            # アカウントが見つからない場合
+            if e.winerror == 1332:
+                print(f'Error: User \'{account_name}\' was not found.')
+                sys.exit(1)
+            else:
+                raise
+
     def AddLogOnAsAServicePrivilege(account_name: str) -> None:
         """
         "サービスとしてログオン" (SeServiceLogonRight) 権限をユーザーアカウントに付与する
@@ -264,29 +395,33 @@ def install(
         ref: https://github.com/flathub/buildbot/blob/flathub/worker/buildbot_worker/scripts/windows_service.py#L480-L508
 
         Args:
-            account_name (str): accountName(str): Windows ユーザーアカウントの名前
+            account_name (str): accountName(str): Windows SAM アカウント名
         """
 
-        # コンピューター名とユーザーアカウント名から SID を取得
-        if '\\' not in account_name or account_name.startswith('.\\'):
-            computer_name = os.environ['COMPUTERNAME']
-            if not computer_name:
-                computer_name: str = win32api.GetComputerName()
-                if not computer_name:
-                    print('Error: Cannot determine computer name.')
-                    return
-            account_name = computer_name + '\\' + account_name.lstrip('.\\')
-        account_sid = win32security.LookupAccountName(None, account_name)[0]
+        # SAM アカウント名から SID を取得
+        try:
+            account_sid = win32security.LookupAccountName(None, account_name)[0]
+        except win32security.error:
+            # SID の取得に失敗したときは、ログメッセージを出力して例外を再スローする (終了)
+            print(f'Error: Failed to look up SID for \'{account_name}\'.')
+            raise
 
         # ユーザーアカウントに SeServiceLogonRight 権限を付与
         policy_handle = win32security.GetPolicyHandle('', win32security.POLICY_ALL_ACCESS)
         win32security.LsaAddAccountRights(policy_handle, account_sid, ('SeServiceLogonRight',))
         win32security.LsaClose(policy_handle)
 
+    # SAM アカウント名を取得
+    account_name = SamAccountNameHelper(username)
+    if not account_name or '\\' not in account_name:
+        # 取得できなかったときは終了する (念のため)
+        print('Error: Failed to parse SAM account name.')
+        return
+
     # 指定されたユーザーアカウントに "サービスとしてログオン" (SeServiceLogonRight) 権限を付与する
     ## "サービスとしてログオン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
     ## 手動でサービス管理ツールから操作すると自動的に付与されるらしく、気づくのに時間が掛かった…
-    AddLogOnAsAServicePrivilege(username)
+    AddLogOnAsAServicePrivilege(account_name)
 
     # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
     win32serviceutil.HandleCommandLine(
@@ -294,7 +429,7 @@ def install(
         # 「自動 (遅延開始)」(delayed) でインストールする
         ## 「自動」(auto) だと EDCB や Mirakurun のサービスが起動していない段階で実行されてしまい、EDCB または Mirakurun にアクセスできず起動に失敗する
         ## 「自動 (遅延開始)」だとシステム起動から2分ほど遅れて実行されるが、上記の問題があるため致し方ない
-        argv = [sys.argv[0], '--startup', 'delayed', '--username', f'.\\{username}', '--password', password, 'install'],
+        argv = [sys.argv[0], '--startup', 'delayed', '--username', account_name, '--password', password, 'install'],
     )
 
 @app.command(help='Uninstall KonomiTV service.')
