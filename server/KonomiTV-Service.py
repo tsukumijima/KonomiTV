@@ -279,39 +279,48 @@ def install(
                 print('Error: Cannot determine computer name.')
                 sys.exit(1)
 
-        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合はそのまま返す
+        # すでに完全修飾（DOMAIN\user）されているが、.\\ で始まらない場合
         if '\\' in account_name and not account_name.startswith('.\\'):
             # ドメイン（またはコンピュータ名）とユーザー名に分解
             input_domain, input_user = account_name.split('\\', 1)
 
             input_domain = '.' if (input_domain.upper() == computer_name.upper()) else input_domain
 
-            # 入力されたドメイン部分が "." の場合はローカル SAM に置き換える
-            search_server = None if input_domain == '.' else win32net.NetGetAnyDCName(None, input_domain)
-
             try:
+                # 入力されたドメイン部分が "." の場合はローカル SAM に置き換える
+                search_server = None if input_domain == '.' else win32net.NetGetAnyDCName(None, input_domain)
+
                 # 指定されたサーバーに対して直接照会
-                _, found_domain, account_type = win32security.LookupAccountName(search_server, input_user)
+                _, found_domain, account_type = win32security.LookupAccountName(search_server, account_name)
 
                 # ユーザーアカウントかチェック
                 if account_type != sid_type_user:
-                    print(f"Error: '{found_domain}\\{input_user}' is a group or non-user account. Only user accounts are allowed.")
+                    print(f'Error: \'{found_domain}\\{input_user}\' is a group or non-user account. Only user accounts are allowed.')
                     sys.exit(1)
 
-                print(f"Found validated user '{found_domain}\\{input_user}'.")
+                print(f'Found validated user \'{found_domain}\\{input_user}\'.')
                 return found_domain + '\\' + input_user
 
             except pywintypes.error as e:
                 # アカウントが見つからない場合
                 if e.winerror == 1332:
-                    print(f"Error: User '{account_name}' was not found.")
+                    print(f'Error: User \'{account_name}\' was not found.')
                     sys.exit(1)
-                # サーバーが見つからないか、接続できない場合
+                # 照会先サーバーが見つからない場合
+                elif e.winerror == 1311:
+                    print('Error: There are currently no logon servers available to service the logon request.')
+                    sys.exit(1)
+                # ドメインが見つからない場合
+                elif e.winerror == 1355:
+                    print(f'Error: Domain \'{input_domain}\' was not found or is not trusted.')
+                    sys.exit(1)
+                # 照会先サーバーに接続できない場合
                 elif e.winerror == 1722:
-                    print(f"Error: RPC server unavailable. Cannot contact domain '{input_domain}'.")
+                    print(f'Error: RPC server unavailable. Cannot contact domain \'{input_domain}\'.')
                     sys.exit(1)
                 else:
-                    raise
+                    print(f'Error: An unknown error has occurred.({e.winerror})')
+                    sys.exit(1)
 
         # ローカル指定の有無を確認しフラグ化する
         force_local = False
@@ -320,11 +329,14 @@ def install(
             force_local = True
 
         # 端末のドメイン参加状態を取得する
+        joined_domain_name = ''
+        is_domain_joined = False
         try:
-            _, join_status = win32net.NetGetJoinInformation()
+            joined_domain_name, join_status = win32net.NetGetJoinInformation()
             is_domain_joined = (join_status == win32netcon.NetSetupDomainName)
-        except Exception:
-            is_domain_joined = False
+        except pywintypes.error as e:
+            print(f'Error: Failed to get domain join information.({e.winerror})')
+            sys.exit(1)
 
         # ローカルのSAMを検索し、アカウントが存在するか確認する
         ## ドメイン環境かつローカル指定がない場合はアカウントの種別を検証する
@@ -340,7 +352,6 @@ def install(
                 try:
 
                     # ドメイン名を取得してドメインコントローラーを探す
-                    joined_domain_name, _ = win32net.NetGetJoinInformation()
                     domain_controller_info = win32security.DsGetDcName(None, joined_domain_name, None, None, 0)
                     domain_controller_name = domain_controller_info['DomainControllerName']
 
@@ -351,7 +362,7 @@ def install(
                     # 取得したアカウントがユーザーか確認
                     ## ユーザーではないときは終了
                     if account_type != sid_type_user:
-                        print(f"Error: '{joined_domain_name}\\{account_name}' is a group or non-user account.\nOnly user accounts are allowed.")
+                        print(f'Error: \'{joined_domain_name}\\{account_name}\' is a group or non-user account.\nOnly user accounts are allowed.')
                         sys.exit(1)
 
                     # 取得したユーザーの SAM アカウント名を返す
@@ -359,8 +370,29 @@ def install(
                     return domain_controller_domain + '\\' + account_name
                 except SystemExit:
                     raise
+                except pywintypes.error as e:
+                    # アカウントが見つからない場合
+                    if e.winerror == 1332:
+                        # ローカルユーザーしか存在しなかった
+                        pass
+                    # 照会先サーバーが見つからない場合
+                    elif e.winerror == 1311:
+                        print('Error: There are currently no logon servers available to service the logon request.')
+                        sys.exit(1)
+                    # ドメインが見つからない場合
+                    elif e.winerror == 1355:
+                        print('Error: Domain was not found or is not trusted.')
+                        sys.exit(1)
+                    # 照会先サーバーに接続できない場合
+                    elif e.winerror == 1722:
+                        print('Error: RPC server unavailable. Cannot contact domain controller.')
+                        sys.exit(1)
+                    # その他のエラー
+                    else:
+                        print(f'Error: An unknown error has occurred.({e.winerror})')
+                        sys.exit(1)
                 except Exception:
-                    pass
+                    raise
 
             # ローカル指定にもかかわらずドメインユーザーが返ってきた場合
             ## 不正とみなす
@@ -372,7 +404,7 @@ def install(
             # 期待するアカウントが取得できた場合、取得したアカウントがユーザーか確認
             ## ユーザーではない(=グループ)のときは終了
             if account_type != sid_type_user:
-                print(f"Error: '{found_domain}\\{account_name}' is a group or non-user account. Only user accounts are allowed.")
+                print(f'Error: \'{found_domain}\\{account_name}\' is a group or non-user account. Only user accounts are allowed.')
                 sys.exit(1)
             print(f'Found user \'{found_domain}\\{account_name}\'.')
             return found_domain + '\\' + account_name
@@ -383,7 +415,8 @@ def install(
                 print(f'Error: User \'{account_name}\' was not found.')
                 sys.exit(1)
             else:
-                raise
+                print(f'Error: An unknown error has occurred.({e.winerror})')
+                sys.exit(1)
 
     def AddLogOnAsAServicePrivilege(account_name: str) -> None:
         """
