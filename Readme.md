@@ -1116,6 +1116,31 @@ poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
 poetry install --no-root --with dev
 ```
 
+> [!NOTE]  
+> `git pull` で更新した結果、`server/pyproject.toml` の Python の要件が上がった場合は、既存の仮想環境のままでは `poetry run` がバージョンの不一致で実行できません。  
+> この場合は、既存の仮想環境の Python で直接サードパーティーライブラリを更新してから、新しいサードパーティーライブラリ内の Python で仮想環境を作り直してください。  
+> サードパーティーライブラリの更新時に Python のバージョンが変わったことが検出されると、作り直しに必要なコマンドも表示されます。
+>
+> ```bash
+> cd /Develop/KonomiTV/server/
+> 
+> # 既存の仮想環境の Python で直接サードパーティーライブラリを更新
+> # Windows:
+> .venv\Scripts\python.exe -m misc.UpdateThirdparty latest
+> # Linux:
+> .venv/bin/python -m misc.UpdateThirdparty latest
+> 
+> # サードパーティーライブラリ内の新しい Python で仮想環境を作り直す
+> # Windows:
+> Remove-Item -Recurse -Force .venv/
+> .\thirdparty\Python\python.exe -m poetry env use .\thirdparty\Python\python.exe
+> .\thirdparty\Python\python.exe -m poetry install --no-root --with dev
+> # Linux:
+> rm -rf .venv/
+> ./thirdparty/Python/bin/python -m poetry env use ./thirdparty/Python/bin/python
+> ./thirdparty/Python/bin/python -m poetry install --no-root --with dev
+> ```
+
 ### サーバーの起動
 
 KonomiTV サーバー (KonomiTV.py) を起動すると、内部で [Uvicorn](https://github.com/encode/uvicorn) と [Akebi HTTPS Server](https://github.com/tsukumijima/Akebi) が起動されます。
