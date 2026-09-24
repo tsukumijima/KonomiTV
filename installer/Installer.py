@@ -689,8 +689,9 @@ def Installer(version: str) -> None:
             elif platform_type == 'Linux':
                 # Linux: tar.xz 形式のアーカイブを解凍
                 ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
+                ## アーカイブ内のパスが展開先の外を指すエントリ (../ や絶対パス) を拒否するため、tar フィルタを指定する
                 with tarfile.open(thirdparty_compressed_file_path, mode='r:xz') as tar_xz:
-                    tar_xz.extractall(install_path / 'server/')
+                    tar_xz.extractall(install_path / 'server/', filter='tar')
             Path(thirdparty_compressed_file_path).unlink()
             # server/thirdparty/.gitkeep が消えてたらもう一度作成しておく
             if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
