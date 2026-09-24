@@ -34,9 +34,9 @@ env:
   ## ref: https://github.com/rigaya/NVEnc/releases
   ## ref: https://github.com/rigaya/VCEEnc/releases
   ## ref: https://github.com/rigaya/rkmppenc/releases
-  QSVENCC_VERSION: '8.26'
-  NVENCC_VERSION: '9.31'
-  VCEENCC_VERSION: '9.12'
+  QSVENCC_VERSION: '8.30'
+  NVENCC_VERSION: '9.35'
+  VCEENCC_VERSION: '9.17'
   RKMPPENC_VERSION: '0.19'
   # QSVEncC 向け Intel Media Stack の固定バージョン
   ## 旧世代 iGPU との後方互換性を鑑み、各ライブラリのバージョンを動作検証済みの組み合わせへ固定する
