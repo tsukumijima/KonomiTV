@@ -2377,6 +2377,11 @@ class PlayerController {
         }
         this.destroying = true;
 
+        // 非同期の終了処理を待つ間に視聴画面の DOM が外れるため、先に字幕と文字スーパーの描画を止める
+        // aribb24.js がサイズ 0 の Canvas に字幕を再描画すると例外になる
+        this.player?.plugins.aribb24Caption?.hide();
+        this.player?.plugins.aribb24Superimpose?.hide();
+
         // 視聴履歴の最終位置を更新
         // 現在の再生位置を取得するため、プレイヤーの破棄前に実行する必要がある
         if (this.playback_mode === 'Video' && this.player && this.player.video) {
