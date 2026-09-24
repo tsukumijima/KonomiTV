@@ -190,7 +190,7 @@
   - **Fire HD 10 (2021) などの一部のローエンド Android (特に MediaTek SoC 搭載) デバイスでは、1080p 以上の映像描画が不安定なことが確認されています。** その場合は 720p 以下の画質での視聴をおすすめします。
 - **今後、開発の過程で設定や構成が互換性なく大幅に変更される可能性があります。**
 - **ユーザービリティなどのフィードバック・不具合報告・Pull Requests (PR) などは歓迎します。**
-  - 技術スタックはサーバー側が Python 3.11 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 3.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 3.x の SPA です。
+  - 技術スタックはサーバー側が Python 3.13 + [FastAPI](https://github.com/tiangolo/fastapi) + [Tortoise ORM](https://github.com/tortoise/tortoise-orm) + [Uvicorn](https://github.com/encode/uvicorn) 、クライアント側が Vue.js 3.x + [Vuetify](https://github.com/vuetifyjs/vuetify) 3.x の SPA です。
     - Vuetify は補助的に利用しているだけで、大部分は独自で書いた SCSS スタイルを適用しています。
   - コメントを多めに書いたりそれなりにきれいにコーディングしているつもりです。少なくとも TVRemotePlus なんかよりかは読みやすいコードになっている…はず。
   - 他人が見るために書いたものではないのであれですが、一応自分用の [開発資料](https://mango-garlic-eff.notion.site/KonomiTV-90f4b25555c14b9ba0cf5498e6feb1c3) と [DB設計](https://mango-garlic-eff.notion.site/KonomiTV-544e02334c89420fa24804ec70f46b6d) 的なメモを公開しておきます。もし PR される場合などの参考になれば。
@@ -1066,7 +1066,7 @@ VS Code を開発に利用しています。
 ここでは、ソースツリーを手元に置いて Poetry や `yarn dev` でコードを改造・デバッグしたい開発者向けに、`master` ブランチの最新版を手動でセットアップする手順を説明します。  
 サポートは行えませんので、技術的な知識がある方のみお試しください。
 
-- Python 3.11.x
+- Python 3.13.x
 - Poetry (最新版)
 - Node.js 20.16.0 (クライアントの開発やビルドを行う場合のみ)
 - yarn 1.x (クライアントの開発やビルドを行う場合のみ)
@@ -1095,7 +1095,7 @@ nano config.yaml
 
 # 一時的な Poetry 仮想環境の構築 (poetry run task update-thirdparty の実行に必要)
 cd server/
-poetry env use 3.11
+poetry env use 3.13
 poetry install --no-root --with dev
 
 # 最新のサードパーティーライブラリを GitHub Actions からダウンロード
@@ -1103,7 +1103,7 @@ poetry install --no-root --with dev
 poetry run task update-thirdparty
 
 # サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して Poetry 仮想環境を再構築
-## ローカル環境の Python 3.11 を使うと、組み込みの SQLite バージョンが古いことによる問題が発生する可能性がある
+## ローカル環境の Python 3.13 を使うと、組み込みの SQLite バージョンが古いことによる問題が発生する可能性がある
 ## サードパーティーライブラリ内の Python には最新の SQLite が組み込まれているため、そちらを明示的に利用すべき
 # Windows:
 Remove-Item -Recurse -Force .venv/
