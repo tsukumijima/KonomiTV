@@ -335,7 +335,7 @@ class LiveCommentManager implements PlayerManager {
                             disconnect_reason = `${this.watch_session_type}の番組の座席を取得できませんでした。`;
                             break;
                         case 'END_PROGRAM':
-                            disconnect_reason = `${this.watch_session_type}がリセットされたか、コミュニティの番組が終了しました。`;
+                            disconnect_reason = `${this.watch_session_type}がリセットされたか、実況枠番組が終了しました。`;
                             break;
                         case 'PING_TIMEOUT':
                             disconnect_reason = 'コメントサーバーとの接続生存確認に失敗しました。';
