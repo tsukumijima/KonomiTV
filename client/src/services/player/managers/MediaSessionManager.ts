@@ -176,6 +176,11 @@ class MediaSessionManager implements PlayerManager {
         if ('setPositionState' in navigator.mediaSession) {
             // ビデオ視聴のみ
             if (this.playback_mode === 'Video') {
+                // 画質切り替え直後の ratechange は、メタデータ取得前で動画長が NaN のまま発火することがある
+                // MediaSession は NaN を受け付けないため、動画長が確定した後のイベントで再生位置を更新する
+                if (Number.isNaN(this.player.video.duration) === true) {
+                    return;
+                }
                 navigator.mediaSession.setPositionState({
                     // 現在の動画の長さ
                     duration: this.player.video.duration,
