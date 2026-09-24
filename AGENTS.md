@@ -61,7 +61,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
     - Vuetify 3.x
     - Pinia
 - `server/`: KonomiTV のバックエンド API サーバー
-  - Python 3.11
+  - Python 3.13
   - Poetry
   - Uvicorn
   - FastAPI
@@ -186,7 +186,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 
 - `LiveStream.connect()` と `LiveEncodingTask.run()` は相互依存の関係にある。チャンネル切り替え時は `connect()` が旧タスクを `cancel()` し、`CancelledError` が `Controller()` 内で捕捉されてクリーンアップに到達する
 - `EDCBTuner._isOwner()` チェックは二重操作を防ぐガードレールで、`handoff()` で所有権を移譲した後は旧ストリームからの `close()` / `disconnect()` はこのチェックで弾かれる
-- Python 3.11 では `CancelledError` を捕捉するとキャンセルカウンターがデクリメントされ、以降の `await` は正常に動作する。`asyncio.wait()` はタスク状態を変更しないが、`asyncio.wait_for()` はタイムアウト時にタスクを再度 cancel するので挙動が異なる点に注意する
+- Python 3.11 以降では、`CancelledError` を捕捉して握りつぶせば以降の `await` は正常に動作する (キャンセル要求の回数を示す `Task.cancelling()` は `uncancel()` を呼ばない限り減らない)。`asyncio.wait()` はタスク状態を変更しないが、`asyncio.wait_for()` はタイムアウト時にタスクを再度 cancel するので挙動が異なる点に注意する
 - より詳細な処理の流れは `server/app/streams/LiveEncodingTask.py` 内のコメントを参照すること
 
 ### 録画再生のシーク (VideoStream / VideoEncodingTask)
@@ -224,7 +224,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 ### Python コード
 - **コードの編集後には、必ず `poetry run task lint` コマンドで、Ruff によるコードリンターと Pyright による型チェッカーを実行すること**
 - 文字列にはシングルクォートを用いる (Docstring を除く)
-- Python 3.11 の機能を使う (3.10 以下での動作は考慮不要)
+- Python 3.13 の機能を使う (3.12 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
 - Pydantic モデル定義では必ず Annotated 記法を使う。`= Field()` 型の定義は行わずに全て Annotated 記法で定義すること
 - 変数・インスタンス変数は snake_case で命名する
