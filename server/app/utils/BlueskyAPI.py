@@ -6,7 +6,7 @@ import io
 import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, ClassVar, Final, TypeVar, cast, get_args
+from typing import Any, ClassVar, Final, TypedDict, TypeVar, cast, get_args
 
 from atproto import (
     AsyncClient,
@@ -27,7 +27,6 @@ from fastapi import HTTPException, UploadFile
 from httpx import Timeout
 from PIL import Image
 from pydantic import BaseModel
-from typing_extensions import TypedDict
 
 from app import logging, schemas
 from app.constants import JST

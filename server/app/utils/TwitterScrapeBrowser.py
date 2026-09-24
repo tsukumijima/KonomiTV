@@ -8,14 +8,13 @@ import re
 import sys
 import time
 from datetime import datetime
-from typing import Annotated, Any, ClassVar, Literal, cast
+from typing import Annotated, Any, ClassVar, Literal, TypedDict, cast
 
 import anyio
 import httpx
 import psutil
 from fastapi import UploadFile
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
 from zendriver import Browser, Tab, cdp
 
 from app import logging, schemas

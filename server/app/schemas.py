@@ -4,11 +4,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypedDict
 
 from pydantic import BaseModel, Field, RootModel, computed_field
 from tortoise.contrib.pydantic import PydanticModel
-from typing_extensions import TypedDict
 
 from app.utils.TSInformation import TerrestrialRegion
 

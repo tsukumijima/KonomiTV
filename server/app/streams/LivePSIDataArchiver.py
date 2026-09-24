@@ -52,7 +52,7 @@ class LivePSIDataArchiver:
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-    async def getPSIArchivedData(self, request: Request) -> AsyncGenerator[bytes, None]:
+    async def getPSIArchivedData(self, request: Request) -> AsyncGenerator[bytes]:
         """
         PSI/SI データアーカイバープロセスを起動し、受信した PSI/SI アーカイブデータをジェネレーターとして返す
         FastAPI の StreamingResponse での利用を想定している

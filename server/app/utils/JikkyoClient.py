@@ -6,11 +6,10 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
-from typing import Any, ClassVar, Literal, NotRequired, cast
+from typing import Any, ClassVar, Literal, NotRequired, TypedDict, cast
 
 import httpx
 from bs4 import BeautifulSoup
-from typing_extensions import TypedDict
 
 from app import logging, schemas
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, JST
