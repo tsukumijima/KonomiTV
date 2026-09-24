@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Literal, TypeVar, cast
+from typing import Any, Literal, TypedDict, TypeVar, cast
 from zoneinfo import ZoneInfo
 
 import aiofiles
@@ -35,7 +35,6 @@ from rich.rule import Rule
 from rich.style import Style
 from rich.table import Table
 from rich.text import TextType
-from typing_extensions import TypedDict
 from watchdog.events import (
     DirCreatedEvent,
     DirModifiedEvent,

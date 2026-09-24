@@ -263,10 +263,11 @@ def Uninstaller() -> None:
     with progress:
         # .git/ 以下の読み取り専用ファイルを削除できるようにする
         # ref: https://stackoverflow.com/a/4829285/17124142
-        def on_rm_error(func: Any, path: str, exc_info: Any):
+        ## Python 3.12 以降は onerror が非推奨になったため、例外オブジェクトを受け取る onexc を使う
+        def on_rm_error(func: Any, path: str, exc: BaseException):
             os.chmod(path, stat.S_IWRITE)
             os.unlink(path)
-        shutil.rmtree(uninstall_path, onerror=on_rm_error)
+        shutil.rmtree(uninstall_path, onexc=on_rm_error)
 
     # アンインストール完了
     ShowPanel([

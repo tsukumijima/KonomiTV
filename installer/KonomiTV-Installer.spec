@@ -19,7 +19,7 @@ else:
 datas: list[tuple[str, str]] = []
 datas += collect_data_files('emoji')
 
-# py7zr -> pyzstd が `from backports import zstd` を行うが、PyInstaller の onefile ビルドでは
+# py7zr は Python 3.14 未満では `from backports import zstd` を行うが、PyInstaller の onefile ビルドでは
 # backports-zstd (backports.zstd) が取りこぼされ、実行時に ImportError が発生する
 # そのため、backports.zstd 配下の Python モジュールもデータとしてまとめて同梱する
 # (include_py_files=True を指定しないと .py が収集されず import できない)
@@ -28,8 +28,6 @@ datas += collect_data_files('backports.zstd', include_py_files=True)
 # backports.zstd が持つネイティブ拡張 (.so/.pyd) を同梱する
 binaries: list[tuple[str, str]] = []
 binaries += collect_dynamic_libs('backports.zstd')
-
-block_cipher = None
 
 a = Analysis(
     ['KonomiTV-Installer.py'],
@@ -41,18 +39,14 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.zipfiles,
     a.datas,
     [],
     name=exe_name,
