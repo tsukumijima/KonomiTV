@@ -5,9 +5,9 @@ import type { ICaptureCompositorConstructor } from '@/workers/CaptureCompositor'
 
 
 // CaptureCompositor を Web Worker 上で動作させるためのラッパー
-// CaptureCompositor.ts 側ですでにクラスを Comlink にエクスポートしている
-// ComlinkWorker を使うとエクスポート処理が重複するため、通常の Worker を Comlink.wrap() に渡す
-// ラップ元と同じファイルに定義すると Circular Dependency として警告されブラウザの挙動が不安定になるため、別ファイルに定義している
+// Worker 側で Comlink.expose() により公開したクラスを、メインスレッドから Comlink.wrap() を通して操作する
+// vite-plugin-comlink の ComlinkWorker はモジュール全体を自動公開するため、クラスを手動公開する構成では通常の Worker を使う
+// Worker の生成処理を別ファイルに分け、実装からは型のみを import することで、メインスレッドと Worker の実行環境を分離する
 const CaptureCompositorProxy = Comlink.wrap<ICaptureCompositorConstructor>(
     new Worker(new URL('./CaptureCompositor.ts', import.meta.url), {type: 'module'}),
 );
