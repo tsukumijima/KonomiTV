@@ -34,13 +34,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Python 3.13 環境をセットアップ
-      - name: Setup Python ${{ env.PYTHON_MAJOR_VERSION }}
-        id: setup-python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_MAJOR_VERSION }}
-
       # uv をセットアップ
       - name: Setup uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
@@ -50,11 +43,10 @@ jobs:
           cache-dependency-glob: 'installer/uv.lock'
 
       # インストーラーの依存関係をインストール
-      ## setup-python でセットアップした Python の実行ファイルのパスを明示的に指定する
-      ## パスを指定しているため、uv が別の Python を自動でダウンロードすることはない
+      ## pyproject.toml の requires-python を満たす Python がなければ、uv が自動的にダウンロードして利用する
       - name: Install Dependencies
         working-directory: installer/
-        run: uv sync --frozen --python ${{ steps.setup-python.outputs.python-path }}
+        run: uv sync --frozen
 
       # インストーラーを PyInstaller でビルド
       - name: Build Installer with PyInstaller
