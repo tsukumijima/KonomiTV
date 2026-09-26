@@ -709,16 +709,12 @@ def Installer(version: str) -> None:
         ## サードパーティーライブラリ内の Python を明示的に指定して、server/.venv/ に仮想環境を作成し、依存パッケージをインストールする
         ## --frozen: uv.lock を更新せず、記録されているバージョンのままインストールする
         ## --no-dev: 開発時にのみ利用する依存パッケージ (Ruff・Pyright など) をインストールしない
+        ## --link-mode copy: uv のキャッシュとインストール先が別のドライブにあるとハードリンクに失敗して警告が出るため、最初からコピーする
+        ## --python: Python の実行ファイルのパスを指定しているため、uv が別の Python を自動でダウンロードすることはない
         result = RunSubprocessDirectLogOutput(
             '依存パッケージをインストールしています…',
-            [python_executable_path, '-m', 'uv', 'sync', '--frozen', '--no-dev', '--python', python_executable_path],
+            [python_executable_path, '-m', 'uv', 'sync', '--frozen', '--no-dev', '--link-mode', 'copy', '--python', python_executable_path],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            environment = {
-                # サードパーティーライブラリ内の Python 以外の Python を uv が自動でダウンロードしないようにする
-                'UV_PYTHON_DOWNLOADS': 'never',
-                # uv のキャッシュとインストール先が別のドライブにあるとハードリンクに失敗して警告が出るため、最初からコピーする
-                'UV_LINK_MODE': 'copy',
-            },
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
         if result is False:
