@@ -108,13 +108,14 @@ RUN apt-get update && \
 WORKDIR /code/server/
 COPY --from=thirdparty-downloader /thirdparty/ /code/server/thirdparty/
 
-# Poetry の依存パッケージリストだけをコピー
-COPY ./server/pyproject.toml ./server/poetry.lock ./server/poetry.toml /code/server/
+# uv の依存パッケージリストだけをコピー
+COPY ./server/pyproject.toml ./server/uv.lock /code/server/
 
-# 依存パッケージを poetry でインストール
-## 仮想環境 (.venv) をプロジェクト直下に作成する
-RUN /code/server/thirdparty/Python/bin/python -m poetry env use /code/server/thirdparty/Python/bin/python && \
-    /code/server/thirdparty/Python/bin/python -m poetry install --only main --no-root
+# 依存パッケージを uv でインストール
+## インストーラーと同様に、サードパーティーライブラリ内の Python と uv を使って仮想環境 (.venv) をプロジェクト直下に作成する
+## インストール後に uv のキャッシュを削除し、イメージ容量を削減する
+RUN /code/server/thirdparty/Python/bin/python -m uv sync --frozen --no-dev --python /code/server/thirdparty/Python/bin/python && \
+    /code/server/thirdparty/Python/bin/python -m uv cache clean
 
 # サーバーのソースコードをコピー
 COPY ./server/ /code/server/
