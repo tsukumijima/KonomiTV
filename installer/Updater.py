@@ -236,10 +236,17 @@ def Updater(version: str) -> None:
 
         # 新しいバージョンのコードをチェックアウト
         ## latest の場合は master ブランチを、それ以外は指定されたバージョンのタグをチェックアウト
-        revision = 'master' if version == 'latest' else f'v{version}'
+        ## git fetch はローカルの master ブランチを更新しないため、latest の場合は -B でローカルの master ブランチを
+        ## リモートの最新 (origin/master) に合わせて作り直してからチェックアウトする
+        ## 単に master をチェックアウトすると、初回インストール時点などの古いローカルの master ブランチのままになってしまう
+        checkout_args: list[str | Path]
+        if version == 'latest':
+            checkout_args = ['git', 'checkout', '--force', '-B', 'master', 'origin/master']
+        else:
+            checkout_args = ['git', 'checkout', '--force', f'v{version}']
         result = RunSubprocess(
             'KonomiTV のソースコードを更新しています…',
-            ['git', 'checkout', '--force', revision],
+            checkout_args,
             cwd = update_path,  # カレントディレクトリを KonomiTV のインストールフォルダに設定
             error_message = 'KonomiTV のソースコードの更新中に予期しないエラーが発生しました。',
             error_log_name = 'Git のエラーログ',
