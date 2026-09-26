@@ -697,7 +697,7 @@ def Installer(version: str) -> None:
             if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
                 Path(install_path / 'server/thirdparty/.gitkeep').touch()
 
-        # ***** poetry 環境の構築 (依存パッケージのインストール) *****
+        # ***** uv による仮想環境の構築 (依存パッケージのインストール) *****
 
         # Python の実行ファイルのパス (Windows と Linux で異なる)
         if platform_type == 'Windows':
@@ -705,24 +705,20 @@ def Installer(version: str) -> None:
         elif platform_type == 'Linux':
             python_executable_path = install_path / 'server/thirdparty/Python/bin/python'
 
-        # poetry env use を実行
-        result = RunSubprocessDirectLogOutput(
-            'Python の仮想環境を作成しています…',
-            [python_executable_path, '-m', 'poetry', 'env', 'use', python_executable_path],
-            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
-            error_message = 'Python の仮想環境の作成中に予期しないエラーが発生しました。',
-        )
-        if result is False:
-            return  # 処理中断
-
-        # poetry install を実行
-        # --no-root: プロジェクトのルートパッケージをインストールしない
+        # uv sync を実行
+        ## サードパーティーライブラリ内の Python を明示的に指定して、server/.venv/ に仮想環境を作成し、依存パッケージをインストールする
+        ## --frozen: uv.lock を更新せず、記録されているバージョンのままインストールする
+        ## --no-dev: 開発時にのみ利用する依存パッケージ (Ruff・Pyright など) をインストールしない
         result = RunSubprocessDirectLogOutput(
             '依存パッケージをインストールしています…',
-            [python_executable_path, '-m', 'poetry', 'install', '--only', 'main', '--no-root'],
+            [python_executable_path, '-m', 'uv', 'sync', '--frozen', '--no-dev', '--python', python_executable_path],
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
+            environment = {
+                # サードパーティーライブラリ内の Python 以外の Python を uv が自動でダウンロードしないようにする
+                'UV_PYTHON_DOWNLOADS': 'never',
+                # uv のキャッシュとインストール先が別のドライブにあるとハードリンクに失敗して警告が出るため、最初からコピーする
+                'UV_LINK_MODE': 'copy',
+            },
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
         if result is False:
@@ -1036,8 +1032,8 @@ def Installer(version: str) -> None:
 
     if platform_type == 'Windows':
 
-        # Windows サービス管理スクリプトは Poetry 経由ではなく、仮想環境の Python 実行ファイルを直接実行する
-        ## Poetry 経由だと Windows で shell 解釈の影響を受け、パスワード中の記号が崩れる可能性がある
+        # Windows サービス管理スクリプトはパッケージマネージャー経由ではなく、仮想環境の Python 実行ファイルを直接実行する
+        ## 以前 Poetry 経由で実行していた際、Windows で shell 解釈の影響を受けてパスワード中の記号が崩れる問題があったため
         venv_python_executable_path = install_path / 'server/.venv/Scripts/python.exe'
 
         # 現在ログオン中のユーザー名を取得
