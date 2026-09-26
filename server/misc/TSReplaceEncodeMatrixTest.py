@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: poetry run python -m misc.TSReplaceEncodeMatrixTest /path/to/input.ts
+# Usage: uv run python -m misc.TSReplaceEncodeMatrixTest /path/to/input.ts
 
 """
 tsreplace + QSVEncC/NVEncC のエンコードパターン横断検証スクリプト

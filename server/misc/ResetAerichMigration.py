@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: poetry run python -m misc.ResetAerichMigration
+# Usage: uv run python -m misc.ResetAerichMigration
 
 import asyncio
 

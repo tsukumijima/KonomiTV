@@ -2032,8 +2032,8 @@ class ThumbnailGenerator:
 if __name__ == "__main__":
     # デバッグ用 CLI
     # Usage:
-    #   poetry run python -m app.metadata.ThumbnailGenerator generate /path/to/recorded_file.ts
-    #   poetry run python -m app.metadata.ThumbnailGenerator migrate <file_hash> <duration_sec>
+    #   uv run python -m app.metadata.ThumbnailGenerator generate /path/to/recorded_file.ts
+    #   uv run python -m app.metadata.ThumbnailGenerator migrate <file_hash> <duration_sec>
     app = typer.Typer()
 
     @app.command()

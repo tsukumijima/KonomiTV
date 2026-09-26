@@ -1041,7 +1041,7 @@ class MetadataAnalyzer:
 
 if __name__ == '__main__':
     # デバッグ用: 録画ファイルのパスを引数に取り、そのファイルのメタデータを解析する
-    # Usage: poetry run python -m app.metadata.MetadataAnalyzer /path/to/recorded_file.ts
+    # Usage: uv run python -m app.metadata.MetadataAnalyzer /path/to/recorded_file.ts
     def main(recorded_file_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, resolve_path=True)):
         LoadConfig(bypass_validation=True)  # 一度実行しておかないと設定値を参照できない
         metadata_analyzer = MetadataAnalyzer(recorded_file_path)

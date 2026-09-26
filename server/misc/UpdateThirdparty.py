@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-# Usage: poetry run python -m misc.UpdateThirdparty DOWNLOAD_VERSION
+# Usage: uv run python -m misc.UpdateThirdparty DOWNLOAD_VERSION
 # サーバー稼働状態だと正常に動作しません。必ず KonomiTV サービスが停止している状態で実行してください。
 # 最新版のナイトリービルドをダウンロードする場合は、DOWNLOAD_VERSION に latest を指定する (開発版ではナイトリービルドを推奨)
 # 安定版をダウンロードする場合は、DOWNLOAD_VERSION にバージョン番号を指定する (例: 0.7.1)
-# pyproject.toml の Python の要件が上がり、poetry run がバージョンの不一致で実行できない場合は、
-# 既存の仮想環境の Python で直接実行する (Windows: .venv\Scripts\python.exe -m misc.UpdateThirdparty latest / Linux: .venv/bin/python -m misc.UpdateThirdparty latest)
 
 import platform
 import re
@@ -183,7 +181,7 @@ def main(
     new_python_version = new_python_result.stdout.decode('utf-8').strip() if new_python_result.returncode == 0 else None
 
     # server/.venv/pyvenv.cfg から、仮想環境を作成したときの Python のバージョンを取得する
-    ## virtualenv (Poetry が利用) と uv は version_info に、標準ライブラリの venv は version にバージョンを記録する
+    ## uv と virtualenv (以前利用していた Poetry が利用) は version_info に、標準ライブラリの venv は version にバージョンを記録する
     venv_config_path = INSTALLED_DIR / 'server/.venv/pyvenv.cfg'
     venv_python_version: str | None = None
     if venv_config_path.exists():
@@ -197,23 +195,19 @@ def main(
     ## 自動で作り直さないのは、このスクリプト自体がまさにその仮想環境の Python で動いているため
     if new_python_version is not None and venv_python_version is not None and new_python_version != venv_python_version:
         if platform_type == 'Windows':
-            remove_venv_command = 'Remove-Item -Recurse -Force .venv'
             installed_python_path = r'.\thirdparty\Python\python.exe'
         else:
-            remove_venv_command = 'rm -rf .venv'
             installed_python_path = './thirdparty/Python/bin/python'
         print(Padding(
             f'[yellow]サードパーティーライブラリの Python のバージョンが {venv_python_version} から {new_python_version} に変わりました。[/yellow]\n'
             f'server/.venv/ の仮想環境は Python {venv_python_version} で作成されているため、このままでは KonomiTV サーバーが起動しません。\n'
-            'このスクリプトの終了後、server/ で次のコマンドを実行し、仮想環境を作り直してください。',
+            'このスクリプトの終了後、server/ で次のコマンドを実行し、仮想環境を作り直してください。\n'
+            '(指定した Python と仮想環境の Python が異なる場合、uv が仮想環境を自動的に作り直します)',
             (0, 2, 1, 2),
         ))
         # コマンドはそのままコピーして実行できるよう、Rich による折り返しを受けない標準出力へ直接書き出す
-        sys.stdout.write(
-            f'  {remove_venv_command}\n'
-            f'  {installed_python_path} -m poetry env use {installed_python_path}\n'
-            f'  {installed_python_path} -m poetry install --no-root --with dev\n\n'
-        )
+        ## サードパーティーライブラリ内の Python には uv も含まれているため、グローバルに uv がインストールされていなくても実行できる
+        sys.stdout.write(f'  {installed_python_path} -m uv sync --python {installed_python_path}\n\n')
 
     # 最後に server/thirdparty/ を削除した後、インストールディレクトリ直下から server/ に移動する
     ## この処理のみ、subprocess で外部コマンドで実行する必要がある (実行中の Python の実行ファイル自身を上書きするため)

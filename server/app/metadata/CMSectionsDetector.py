@@ -198,7 +198,7 @@ class CMSectionsDetector:
 
 if __name__ == "__main__":
     # デバッグ用: 録画ファイルの CM 区間を検出する
-    # Usage: poetry run python -m app.metadata.CMSectionsDetector /path/to/recorded_file.ts
+    # Usage: uv run python -m app.metadata.CMSectionsDetector /path/to/recorded_file.ts
     def main(
         file_path: pathlib.Path = typer.Argument(
             ...,

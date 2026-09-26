@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: poetry run python -m misc.LiveBitrateCalculator
+# Usage: uv run python -m misc.LiveBitrateCalculator
 
 import time
 from concurrent.futures import ThreadPoolExecutor
