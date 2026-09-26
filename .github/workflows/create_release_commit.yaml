@@ -34,6 +34,13 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: '${{ github.workspace }}/client/yarn.lock'
 
+      # uv をセットアップ
+      ## pyproject.toml のバージョンを更新した後、uv.lock に記録されているプロジェクトのバージョンも更新するために利用する
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
+        with:
+          version: '0.12.18'
+
       # リリースコミットを作成
       - name: Create Release Commit
         run: |
@@ -49,6 +56,11 @@ jobs:
           sed -i -e "s|VERSION = '.*'|VERSION = '${{ github.event.inputs.version }}'|" server/app/constants.py
           sed -i -e 's|download/v.*/thirdparty-linux\.tar\.xz|download/v${{ github.event.inputs.version }}/thirdparty-linux\.tar\.xz|' Dockerfile
           sed -i -e 's|download/v.*/KonomiTV-Installer\.elf|download/v${{ github.event.inputs.version }}/KonomiTV-Installer\.elf|' Readme.md
+
+          # uv.lock に記録されているプロジェクトのバージョンを更新
+          ## 依存パッケージのバージョンは変更せず、pyproject.toml のバージョンの変更だけを反映する
+          (cd server/ && uv lock)
+          (cd installer/ && uv lock)
 
           # クライアントをビルド
           cd client/
