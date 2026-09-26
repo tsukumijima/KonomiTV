@@ -37,7 +37,7 @@ KonomiTV の新バージョンをリリースする前に、ユーザーと一�
   - `client/` で `yarn lint` と `yarn typecheck` を実行する
   - クライアントのビルド自体は Create Release Commit ワークフロー内で自動実行されるため、手元での `yarn build` は不要
 - [ ] **サーバー側の lint / 型チェックが通るか**
-  - `server/` で `poetry run task lint` を実行する
+  - `server/` で `uv run task lint` を実行する
 
 ### Phase 2: サードパーティライブラリの確認
 
@@ -115,7 +115,7 @@ KonomiTV の新バージョンをリリースする前に、ユーザーと一�
 
 - `git status` / `git log` による状態確認
 - `yarn lint` / `yarn typecheck` によるクライアント側 lint / 型チェック確認
-- `poetry run task lint` によるサーバー側 lint 確認
+- `uv run task lint` によるサーバー側 lint 確認
 - Dockerfile の diff 確認
 - `.github/workflows/build_thirdparty.yaml` のバージョン確認
 - `gh release list` で各サードパーティライブラリの最新バージョンとの比較

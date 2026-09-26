@@ -1063,15 +1063,15 @@ VS Code を開発に利用しています。
 ### 開発版 KonomiTV のインストール (開発環境の構築)
 
 **「`master` の最新をサービスとして動かして試したい」だけであれば、インストーラーで `4` (新規インストール) または `5` (更新) を選ぶ方法で十分です。**  
-ここでは、ソースツリーを手元に置いて Poetry や `yarn dev` でコードを改造・デバッグしたい開発者向けに、`master` ブランチの最新版を手動でセットアップする手順を説明します。  
+ここでは、ソースツリーを手元に置いて [uv](https://docs.astral.sh/uv/) や `yarn dev` でコードを改造・デバッグしたい開発者向けに、`master` ブランチの最新版を手動でセットアップする手順を説明します。  
 サポートは行えませんので、技術的な知識がある方のみお試しください。
 
-- Python 3.13.x
-- Poetry (最新版)
+- uv (最新版)
 - Node.js 20.16.0 (クライアントの開発やビルドを行う場合のみ)
 - yarn 1.x (クライアントの開発やビルドを行う場合のみ)
 
-事前に、上記ソフトウェアをインストールしている必要があります。
+事前に、上記ソフトウェアをインストールしている必要があります。  
+Python 3.13 は必要に応じて uv が自動的にダウンロードするため、別途インストールする必要はありません。
 
 開発環境は Windows 10 (x64) と Ubuntu 20.04 LTS (x64) で動作を確認しています。  
 なお、開発環境の Docker での動作は想定していません。サードパーティーライブラリなどの兼ね合いで、Docker では開発時の柔軟性が低くなってしまうためです。
@@ -1093,53 +1093,24 @@ Copy-Item -Force config.example.yaml config.yaml
 cp -a config.example.yaml config.yaml
 nano config.yaml
 
-# 一時的な Poetry 仮想環境の構築 (poetry run task update-thirdparty の実行に必要)
-cd server/
-poetry env use 3.13
-poetry install --no-root --with dev
-
 # 最新のサードパーティーライブラリを GitHub Actions からダウンロード
 ## 本番環境用のスタンドアローン版 Python もサードパーティーライブラリに含まれている
-poetry run task update-thirdparty
+## 初回実行時は、uv が一時的な仮想環境 (.venv) を自動的に作成してから実行する
+cd server/
+uv run task update-thirdparty
 
-# サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して Poetry 仮想環境を再構築
-## ローカル環境の Python 3.13 を使うと、組み込みの SQLite バージョンが古いことによる問題が発生する可能性がある
-## サードパーティーライブラリ内の Python には最新の SQLite が組み込まれているため、そちらを明示的に利用すべき
+# サードパーティーライブラリ内のスタンドアローン版 Python を明示的に指定して仮想環境を再構築し、依存パッケージをインストール
+## 本番環境と同じ Python で開発・動作確認できるよう、サードパーティーライブラリ内の Python を明示的に利用する
+## 指定した Python と既存の仮想環境の Python が異なる場合、uv sync は仮想環境を自動的に作り直す
 # Windows:
-Remove-Item -Recurse -Force .venv/
-poetry env use /Develop/KonomiTV/server/thirdparty/Python/python.exe
-# Linux
-rm -rf .venv/
-poetry env use /Develop/KonomiTV/server/thirdparty/Python/bin/python
-
-# 依存パッケージのインストール
-poetry install --no-root --with dev
+uv sync --python .\thirdparty\Python\python.exe
+# Linux:
+uv sync --python ./thirdparty/Python/bin/python
 ```
 
 > [!NOTE]  
-> `git pull` で更新した結果、`server/pyproject.toml` の Python の要件が上がった場合は、既存の仮想環境のままでは `poetry run` がバージョンの不一致で実行できません。  
-> この場合は、既存の仮想環境の Python で直接サードパーティーライブラリを更新してから、新しいサードパーティーライブラリ内の Python で仮想環境を作り直してください。  
+> `git pull` で更新した結果、サードパーティーライブラリの Python のバージョンが上がった場合は、`uv run task update-thirdparty` でサードパーティーライブラリを更新してから、上記と同じ `uv sync --python` で仮想環境を作り直してください。  
 > サードパーティーライブラリの更新時に Python のバージョンが変わったことが検出されると、作り直しに必要なコマンドも表示されます。
->
-> ```bash
-> cd /Develop/KonomiTV/server/
-> 
-> # 既存の仮想環境の Python で直接サードパーティーライブラリを更新
-> # Windows:
-> .venv\Scripts\python.exe -m misc.UpdateThirdparty latest
-> # Linux:
-> .venv/bin/python -m misc.UpdateThirdparty latest
-> 
-> # サードパーティーライブラリ内の新しい Python で仮想環境を作り直す
-> # Windows:
-> Remove-Item -Recurse -Force .venv/
-> .\thirdparty\Python\python.exe -m poetry env use .\thirdparty\Python\python.exe
-> .\thirdparty\Python\python.exe -m poetry install --no-root --with dev
-> # Linux:
-> rm -rf .venv/
-> ./thirdparty/Python/bin/python -m poetry env use ./thirdparty/Python/bin/python
-> ./thirdparty/Python/bin/python -m poetry install --no-root --with dev
-> ```
 
 ### サーバーの起動
 
@@ -1156,10 +1127,10 @@ Uvicorn も Akebi HTTPS Server も KonomiTV.py の起動時に透過的に同時
 cd /Develop/KonomiTV/server/
 
 # リロードモードで起動する
-poetry run task dev
+uv run task dev
 
 # 通常モードで起動する
-poetry run task serve
+uv run task serve
 ```
 
 サーバーの起動方法には、リロードモードと通常モードの2つがあります。
@@ -1205,31 +1176,31 @@ API ドキュメントは FastAPI によって自動生成されたものです�
 
 > [!WARNING]  
 > KonomiTV の Windows サービスは相当強引な手法で実装しているため (そうせざるを得なかった…) 、開発状況次第では Windows サービスでのみ動作しなくなっている可能性があります。  
-> 動作不良時は、一度 `poetry run task serve` で起動できるかや、`server/logs/KonomiTV-Server.log` 内のログを確認してみてください。
+> 動作不良時は、一度 `uv run task serve` で起動できるかや、`server/logs/KonomiTV-Server.log` 内のログを確認してみてください。
 
 > [!NOTE]  
 > KonomiTV-Service.py は、KonomiTV の Windows サービスの管理を行うユーティリティスクリプトです。  
-> `poetry run python KonomiTV-Service.py --help` と実行すると、利用できるコマンドの一覧が表示されます。
+> `uv run python KonomiTV-Service.py --help` と実行すると、利用できるコマンドの一覧が表示されます。
 
 ```powershell
 cd /Develop/KonomiTV/server/
 
 # Windows サービスのインストール
 ## インストールと同時に自動起動 (OS 起動後数分遅延してから) も設定される
-poetry run python KonomiTV-Service.py install --username (ログオン中のユーザー名) --password (ログオン中ユーザーのパスワード)
+uv run python KonomiTV-Service.py install --username (ログオン中のユーザー名) --password (ログオン中ユーザーのパスワード)
 
 # Windows サービスの起動
 ## sc start "KonomiTV Service" でも起動できる
-poetry run python KonomiTV-Service.py start
+uv run python KonomiTV-Service.py start
 
 # Windows サービスの停止
 ## sc stop "KonomiTV Service" でも停止できる
-poetry run python KonomiTV-Service.py stop
+uv run python KonomiTV-Service.py stop
 
 # Windows サービスのアンインストール
 ## アンインストールと同時に自動起動の設定も解除される
-poetry run python KonomiTV-Service.py stop  # サービスを停止してからアンインストールすること
-poetry run python KonomiTV-Service.py uninstall
+uv run python KonomiTV-Service.py stop  # サービスを停止してからアンインストールすること
+uv run python KonomiTV-Service.py uninstall
 ```
 
 #### PM2 サービス
@@ -1285,7 +1256,7 @@ yarn build
 サーバーを終了するときは、Ctrl+C を押してください。
 
 > [!WARNING]  
-> `yarn dev` でクライアントの開発サーバーを起動する際は、必ず `poetry run task dev` でサーバー側の開発サーバーも起動してください。  
+> `yarn dev` でクライアントの開発サーバーを起動する際は、必ず `uv run task dev` でサーバー側の開発サーバーも起動してください。  
 > クライアントの開発サーバーはフロントエンド側の静的ファイルのみをホスティングしますが、サーバー側の開発サーバーは静的ファイルの配信だけでなく、API サーバーとしての役割も兼ねています。  
 > このため、クライアントの開発サーバーのみ、クライアントからのサーバー API のアクセス先を `https://(サーバーと同じIPアドレス).local.konomi.tv:7000/` に固定しています。
 
