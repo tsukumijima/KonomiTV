@@ -9,6 +9,7 @@ on:
     paths:
       - '.github/workflows/build_thirdparty.yaml'
       - '.github/workflows/scripts/build_intel_media_stack_standalone.sh'
+      - '.github/workflows/scripts/poetry/**'
       - '.github/workflows/patches/**'
   workflow_call:
   workflow_dispatch:
@@ -20,8 +21,8 @@ env:
   PYTHON_TAG: '20260901'
   PYTHON_MAJOR_VERSION: '3.13'
   PYTHON_VERSION: '3.13.15'
-  # Poetry のバージョン
-  POETRY_VERSION: '1.8.5'
+  # uv のバージョン
+  UV_VERSION: '0.12.18'
   # FFmpeg のバージョン (FFmpeg-Builds のリリースを指定する)
   ## FFmpeg-Builds は毎月末のリリースが長期間保持されるため、基本毎月末のリリースを指定する
   ## Linux 版の最新 HWEncC バイナリは libav* を静的リンクするようになり、FFmpeg 共有ライブラリの別途同梱は不要になった
@@ -157,8 +158,16 @@ jobs:
           mv thirdparty/VCEEncC/VCEEncC64.exe thirdparty/VCEEncC/VCEEncC.exe
           curl -fSL -o thirdparty/VCEEncC/License.txt https://raw.githubusercontent.com/rigaya/VCEEnc/master/VCEEnc_license.txt
 
-      # Python Standalone Builds のダウンロードと poetry のインストール
-      - name: Install Python Standalone Builds & pip & poetry
+      # 旧バージョンのインストーラー向けの Poetry 互換モジュールを取得する
+      ## サードパーティーライブラリの組み立て先を汚さないよう、必要なフォルダだけを別フォルダにチェックアウトする
+      - name: Checkout Poetry Compatibility Shim
+        uses: actions/checkout@v4
+        with:
+          path: KonomiTV-Source
+          sparse-checkout: .github/workflows/scripts/poetry
+
+      # Python Standalone Builds のダウンロードと uv のインストール
+      - name: Install Python Standalone Builds & pip & uv
         run: |
 
           # Python 本体のダウンロード
@@ -167,8 +176,11 @@ jobs:
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
 
-          # poetry のインストール
-          thirdparty/Python/python.exe -m pip install poetry==${{ env.POETRY_VERSION }}
+          # uv のインストール
+          thirdparty/Python/python.exe -m pip install uv==${{ env.UV_VERSION }}
+
+          # 旧バージョンのインストーラーが実行する python -m poetry を uv に読み替える互換モジュールを配置
+          Copy-Item -Recurse KonomiTV-Source/.github/workflows/scripts/poetry thirdparty/Python/Lib/site-packages/poetry
 
       # サードパーティーライブラリを 7z で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
@@ -472,8 +484,8 @@ jobs:
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../lib:$ORIGIN/../Library' thirdparty/rkmppenc/rkmppenc.elf
           curl -fSL -o thirdparty/rkmppenc/License.txt https://raw.githubusercontent.com/rigaya/rkmppenc/master/rkmppenc_license.txt
 
-      # Python Standalone Builds のダウンロードと poetry のインストール
-      - name: Install Python Standalone Builds & pip & poetry
+      # Python Standalone Builds のダウンロードと uv のインストール
+      - name: Install Python Standalone Builds & pip & uv
         run: |
 
           # Python 本体のダウンロード
@@ -481,9 +493,12 @@ jobs:
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
 
-          # poetry のインストール
+          # 旧バージョンのインストーラーが実行する python -m poetry を uv に読み替える互換モジュールを配置
+          cp -r .github/workflows/scripts/poetry thirdparty/Python/lib/python${{ env.PYTHON_MAJOR_VERSION }}/site-packages/poetry
+
+          # uv のインストール
           cd thirdparty/Python/
-          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c './bin/python -m pip install poetry==${{ env.POETRY_VERSION }}'
+          docker run --rm -i -v $(pwd):/work -w /work ubuntu:20.04-custom bash -c './bin/python -m pip install uv==${{ env.UV_VERSION }}'
 
       # サードパーティーライブラリを tar.xz で圧縮
       # ファイルサイズ縮減のため、圧縮をかなり強めに掛けている
