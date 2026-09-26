@@ -31,7 +31,6 @@
         "reportUnknownVariableType": "none",
         "reportUnusedFunction": "none",
     },
-    // uv が作成する server/.venv/ は標準的な venv の仮想環境なので、venv として扱う
     "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python-envs.defaultPackageManager": "ms-python.python:pip",
     // TypeScript で自動インポートを有効化
