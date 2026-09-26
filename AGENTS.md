@@ -2,23 +2,23 @@
 
 ## プロジェクト固有の注意事項
 
-- yarn や poetry はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
+- yarn や uv はそれぞれ `client/` と `server/` のディレクトリに移動した状態で実行してください。ルートディレクトリにはパッケージ管理系のファイルは一切配置していません。
 - `client/package.json` の mpeg2toh264 Git pin を更新するときは、`client/` で `yarn cache clean mpeg2toh264` を実行してから依存関係を再インストールしてください。yarn v1 は Git のコミットが変わっても同じパッケージ名とバージョンのキャッシュを再利用するため、古い JavaScript や型定義が残ります。
-- サーバー側では poetry を使っているので、python コマンドは必ず全て poetry run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
+- サーバー側では uv を使っているので、python コマンドは必ず全て uv run 経由で実行します。python を直接実行すると .venv/ 以下のライブラリがインストールされていないために失敗します。
 
 ## 開発環境構成
 
 ### サーバー API (port 7000、常にユーザー管理)
 
 - 依頼を受けた時点で、サーバー API は次のいずれかの状態で常駐しています。**いずれもユーザーが管理しているプロセスであり、エージェントが直接起動・停止すべきではありません**
-  - **リロードモード**: `server/` で `poetry run task dev` で起動。コード変更が hot reload されます。基本的にこの状態で依頼が来ます
-  - **リロードなしの開発サーバー**: `server/` で `poetry run task serve` で起動。hot reload なしのユーザー権限プロセスです
+  - **リロードモード**: `server/` で `uv run task dev` で起動。コード変更が hot reload されます。基本的にこの状態で依頼が来ます
+  - **リロードなしの開発サーバー**: `server/` で `uv run task serve` で起動。hot reload なしのユーザー権限プロセスです
   - **pm2 常駐**: `sudo pm2 start KonomiTV` で起動。KonomiTV は root 側の pm2 プロファイルにしかインストールされていないため、`pm2` コマンドの実行には必ず `sudo` が必要であり、**エージェントがユーザーの許可なく `pm2` を実行することはできません**
 - FastAPI の listen ポートは常に 7000 で固定です (Akebi HTTPS Server が `127.0.0.77:7010` をリバースプロキシしています)
 - サーバー側コードを変更して挙動を確認したい場合の手順:
   - リロードモードで動いている場合は、変更が自動で反映されます
   - リロードなし開発サーバー / pm2 常駐で動いている場合は、**ユーザーに「リロードモードでの起動への切り替え、もしくはサーバー再起動」を依頼してください**
-- エージェントが直接 `python KonomiTV.py` や `poetry run python KonomiTV.py` を実行するのは禁止です。サーバーの起動には必ず taskipy で定義済みの `poetry run task serve` / `poetry run task dev` を使用してください (それでも、上記の通り既存プロセスとの衝突を避けるためエージェント自身が起動することは原則避けてください)
+- エージェントが直接 `python KonomiTV.py` や `uv run python KonomiTV.py` を実行するのは禁止です。サーバーの起動には必ず taskipy で定義済みの `uv run task serve` / `uv run task dev` を使用してください (それでも、上記の通り既存プロセスとの衝突を避けるためエージェント自身が起動することは原則避けてください)
 - **async def で定義された関数で pathlib のうち同期 I/O が発生する関数を絶対に呼び出さないでください。代わりに `anyio.Path` を使ってください**
 
 ### クライアント開発サーバー (port 7001、必要ならエージェントが起動可)
@@ -62,7 +62,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
     - Pinia
 - `server/`: KonomiTV のバックエンド API サーバー
   - Python 3.13
-  - Poetry
+  - uv
   - Uvicorn
   - FastAPI
     - Pydantic v2
@@ -175,8 +175,9 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - `logs/`: アプリケーションログ用ディレクトリ
 - `misc/`: メンテナンス・デバッグ用 Pythonスクリプト群
 - `static/`: サーバー API によって提供される静的ファイル (Git 管理下にあり、放送局ロゴなどが含まれる)
-- `thirdparty/`: FFmpeg や QSVEncC などのエンコーダーをはじめとした、ビルド済みのサードパーティー実行ファイル (Git 管理外で、`poetry run task update-thirdparty` で更新する)
-- `pyproject.toml`: Python プロジェクト設定と依存関係 (Poetry)
+- `thirdparty/`: FFmpeg や QSVEncC などのエンコーダーをはじめとした、ビルド済みのサードパーティー実行ファイル (Git 管理外で、`uv run task update-thirdparty` で更新する)
+- `pyproject.toml`: Python プロジェクト設定と依存関係 (uv)
+- `uv.lock`: uv によって生成される、依存パッケージのバージョンを固定するロックファイル
 - `KonomiTV.py`: KonomiTV サーバーのエントリーポイント
 - `KonomiTV-Service.py`: Windows サービス管理スクリプト & Windows サービスのエントリーポイント
 
@@ -222,7 +223,7 @@ Windows では Windows サービス、Linux では pm2 サービスとして動�
 - TypeScript 側のスキーマ定義も Python 側と同じ順序を維持する。もし差分が発生する場合は、その理由をコメントで明記する
 
 ### Python コード
-- **コードの編集後には、必ず `poetry run task lint` コマンドで、Ruff によるコードリンターと Pyright による型チェッカーを実行すること**
+- **コードの編集後には、必ず `uv run task lint` コマンドで、Ruff によるコードリンターと Pyright による型チェッカーを実行すること**
 - 文字列にはシングルクォートを用いる (Docstring を除く)
 - Python 3.13 の機能を使う (3.12 以下での動作は考慮不要)
 - ビルトイン型を使用した Type Hint で実装する (from typing import List, Dict などは避ける)
