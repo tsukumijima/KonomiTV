@@ -170,6 +170,14 @@ export interface IRecordedPrograms {
     recorded_programs: IRecordedProgram[];
 }
 
+/** 過去ログコメントのリストを表すインターフェース */
+export interface IJikkyoComments {
+    is_success: boolean;
+    comments: IJikkyoComment[];
+    detail: string;
+    channel_counts?: IJikkyoChannelCommentCount[];
+}
+
 /** 過去ログコメントを表すインターフェース */
 export interface IJikkyoComment {
     time: number;
@@ -178,13 +186,14 @@ export interface IJikkyoComment {
     color: string;
     author: string;
     text: string;
+    channel_id?: string;
 }
 
-/** 過去ログコメントのリストを表すインターフェース */
-export interface IJikkyoComments {
-    is_success: boolean;
-    comments: IJikkyoComment[];
-    detail: string;
+/** チャンネルごとの過去ログコメント数を表すインターフェース */
+export interface IJikkyoChannelCommentCount {
+    channel_id: string;
+    channel_name: string;
+    comment_count: number;
 }
 
 
@@ -274,12 +283,24 @@ class Videos {
     /**
      * 録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する
      * @param video_id 録画番組の ID
+     * @param sub_channel_ids 追加で過去ログコメントを取得する別チャンネル ID (単一または複数)
      * @returns 過去ログコメントのリスト
      */
-    static async fetchVideoJikkyoComments(video_id: number): Promise<IJikkyoComments> {
+    static async fetchVideoJikkyoComments(video_id: number, sub_channel_ids: string[] | string | null = null): Promise<IJikkyoComments> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IJikkyoComments>(`/videos/${video_id}/jikkyo`);
+        const params: Record<string, string> = {};
+        if (sub_channel_ids !== null) {
+            if (Array.isArray(sub_channel_ids)) {
+                if (sub_channel_ids.length > 0) {
+                    params.sub_channel_ids = sub_channel_ids.join(',');
+                }
+            } else if (sub_channel_ids.trim() !== '') {
+                params.sub_channel_id = sub_channel_ids.trim();
+            }
+        }
+        const config = Object.keys(params).length > 0 ? { params } : undefined;
+        const response = await APIClient.get<IJikkyoComments>(`/videos/${video_id}/jikkyo`, config);
 
         // エラー処理
         if (response.type === 'error') {
@@ -288,6 +309,7 @@ class Videos {
                 is_success: false,
                 comments: [],
                 detail: '過去ログコメントを取得できませんでした。',
+                channel_counts: [],
             };
         }
 

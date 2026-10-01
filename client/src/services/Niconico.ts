@@ -7,6 +7,13 @@ export interface INiconicoAuthURL {
     authorization_url: string;
 }
 
+/** ニコニコ実況のステータス情報を表すインターフェイス */
+export interface IJikkyoStatus {
+    force: number;
+    viewers: number;
+    comments: number;
+}
+
 
 class Niconico {
 
@@ -45,6 +52,25 @@ class Niconico {
         }
 
         return true;
+    }
+
+
+    /**
+     * 全ての実況チャンネルの最新ステータス情報を取得する
+     * @returns 実況チャンネル ID をキーとしたステータス情報の辞書 or 取得に失敗した場合は null
+     */
+    static async fetchJikkyoStatuses(): Promise<{ [key: string]: IJikkyoStatus } | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<{ [key: string]: IJikkyoStatus }>('/niconico/jikkyo/statuses');
+
+        // エラー処理
+        if (response.type === 'error') {
+            console.error('[Niconico.fetchJikkyoStatuses] Failed to fetch jikkyo statuses:', response);
+            return null;
+        }
+
+        return response.data;
     }
 }
 

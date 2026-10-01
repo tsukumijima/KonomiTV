@@ -13,6 +13,7 @@ from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, NICONICO_OAUTH_CLIE
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
+from app.utils.JikkyoClient import JikkyoClient
 from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
@@ -253,3 +254,18 @@ async def NiconicoAccountLogoutAPI(
     current_user.niconico_access_token = None
     current_user.niconico_refresh_token = None
     await current_user.save()
+
+
+@router.get(
+    '/jikkyo/statuses',
+    summary = 'ニコニコ実況ステータス一覧 API',
+    response_description = '全ての実況チャンネルの最新ステータス情報 (実況勢いなど)。',
+    response_model = dict[str, schemas.JikkyoStatus],
+)
+async def JikkyoStatusesAPI():
+    """
+    全ての実況チャンネルの最新ステータス情報 (実況勢いなど) を取得する。
+    """
+
+    return JikkyoClient.getStatuses()
+

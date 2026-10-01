@@ -282,6 +282,7 @@ const createFallbackChannel = (program: IProgram): IChannel => {
         channel_number: '---',
         type: 'GR',
         name: program.channel_id,
+        jikkyo_id: null,
         terrestrial_regions: null,
         jikkyo_force: null,
         is_subchannel: false,

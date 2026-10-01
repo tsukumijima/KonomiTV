@@ -70,6 +70,43 @@ class JikkyoClient:
         'jk333': None,
     }
 
+    # 実況チャンネル ID と代表チャンネル名のマッピング
+    JIKKYO_CHANNEL_NAMES: ClassVar[dict[str, str]] = {
+        'jk1': 'NHK総合',
+        'jk2': 'NHKEテレ',
+        'jk4': '日本テレビ',
+        'jk5': 'テレビ朝日',
+        'jk6': 'TBSテレビ',
+        'jk7': 'テレビ東京',
+        'jk8': 'フジテレビ',
+        'jk9': 'TOKYO MX',
+        'jk10': 'テレ玉',
+        'jk11': 'tvk',
+        'jk12': 'チバテレ',
+        'jk13': '群馬テレビ',
+        'jk14': 'とちぎテレビ',
+        'jk101': 'NHK BS',
+        'jk103': 'NHK BSプレミアム',
+        'jk141': 'BS日テレ',
+        'jk151': 'BS朝日',
+        'jk161': 'BS-TBS',
+        'jk171': 'BSテレ東',
+        'jk181': 'BSフジ',
+        'jk191': 'WOWOWプライム',
+        'jk192': 'WOWOWライブ',
+        'jk193': 'WOWOWシネマ',
+        'jk200': 'BSスカパー!',
+        'jk201': 'BS10スターチャンネル',
+        'jk211': 'BS11イレブン',
+        'jk222': 'BS12 トゥエルビ',
+        'jk236': 'BSアニマックス',
+        'jk252': 'WOWOWプラス',
+        'jk260': 'BS松竹東急',
+        'jk263': 'BSJapanext',
+        'jk265': 'BSよしもと',
+        'jk333': 'サンテレビ',
+    }
+
     # ニコニコの色指定と 16 進数カラーコードのマッピング
     COLOR_CODE_MAP: ClassVar[dict[str, str]] = {
         'white': '#FFEAEA',
@@ -130,6 +167,23 @@ class JikkyoClient:
             self.nicochannel_id: str | None = JikkyoClient.JIKKYO_CHANNEL_ID_MAP[self.jikkyo_id]
         else:
             self.nicochannel_id: str | None = None
+
+
+    @classmethod
+    def fromJikkyoID(cls, jikkyo_id: str) -> JikkyoClient:
+        # 実況チャンネル ID から直接インスタンスを生成する
+        client = cls.__new__(cls)
+        client.jikkyo_id = jikkyo_id
+        client.network_id = 0
+        client.service_id = 0
+        client.nicochannel_id = JikkyoClient.JIKKYO_CHANNEL_ID_MAP.get(jikkyo_id)
+        return client
+
+
+    @classmethod
+    def getJikkyoChannelName(cls, jikkyo_id: str) -> str:
+        """ 実況チャンネル ID (ex: jk101) から代表チャンネル名を取得する """
+        return cls.JIKKYO_CHANNEL_NAMES.get(jikkyo_id, jikkyo_id)
 
 
     def __getJikkyoChannelID(self) -> str | None:
@@ -212,6 +266,17 @@ class JikkyoClient:
 
         # このインスタンスに紐づく実況チャンネルのステータスを返す
         return self.__jikkyo_channels_statuses[self.jikkyo_id]
+
+
+    @classmethod
+    def getStatuses(cls) -> dict[str, JikkyoChannelStatus]:
+        """
+        全ての実況チャンネルの最新ステータス辞書を取得する (ステータス更新は updateStatuses() で行う)
+
+        Returns:
+            dict[str, JikkyoChannelStatus]: 実況チャンネル ID をキーとしたステータス辞書
+        """
+        return dict(cls.__jikkyo_channels_statuses)
 
 
     @classmethod

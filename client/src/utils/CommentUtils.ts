@@ -1,6 +1,8 @@
 
 import { Buffer } from 'buffer';
 
+import type { IChannel } from '@/services/Channels';
+
 import useSettingsStore from '@/stores/SettingsStore';
 
 
@@ -422,4 +424,69 @@ export class CommentUtils {
         // ミュート済みニコニコユーザー ID リストに追加
         settings_store.settings.muted_niconico_user_ids.push(user_id);
     }
+
+
+    /**
+     * チャンネル情報に対応する実況チャンネルオプションを取得する
+     * @param channel チャンネル情報
+     * @returns 実況チャンネルオプション (見つからない場合は null)
+     */
+    static findJikkyoOptionByChannel(channel: IChannel | null): IJikkyoOption | null {
+        if (!channel || !channel.jikkyo_id) return null;
+        return PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === channel.jikkyo_id) ?? null;
+    }
+
+
+    /**
+     * 指定されたチャンネル ID が視聴中チャンネルの実況チャンネルかどうかを判定する
+     * @param target_id 判定対象のチャンネル ID (ex: jk211, bs211, NID4-SID211)
+     * @param current_channel 視聴中チャンネル
+     */
+    static isCurrentJikkyoChannel(target_id: string, current_channel: IChannel | null): boolean {
+        if (!current_channel) return false;
+        // チャンネル ID または表示用 ID と一致するか判定
+        if (target_id === current_channel.id || target_id === current_channel.display_channel_id) {
+            return true;
+        }
+        // 実況 ID と一致するか判定
+        if (current_channel.jikkyo_id !== null && target_id === current_channel.jikkyo_id) {
+            return true;
+        }
+        return false;
+    }
 }
+
+/** 実況対応主要局の定義インターフェイス */
+export interface IJikkyoOption {
+    id: string;             // 実況 ID (ex: jk9)
+    name: string;           // 局名 (ex: TOKYO MX)
+    type: '地デジ' | 'BS';
+    channel_number: string; // チャンネル番号 (ex: 091)
+    logo_id: string;        // ロゴ取得用チャンネル ID
+}
+
+// リモコン順 (地デジ 1〜9 → BS 1〜12) の主要局リスト
+export const PRIMARY_JIKKYO_CHANNELS: IJikkyoOption[] = [
+    // 地デジ (リモコン番号順)
+    { id: 'jk1', name: 'NHK総合', type: '地デジ', channel_number: '011', logo_id: 'NID32736-SID1024' },
+    { id: 'jk2', name: 'NHKEテレ', type: '地デジ', channel_number: '021', logo_id: 'NID32737-SID1032' },
+    { id: 'jk11', name: 'tvk', type: '地デジ', channel_number: '031', logo_id: 'NID32375-SID24632' },
+    { id: 'jk10', name: 'テレ玉', type: '地デジ', channel_number: '031', logo_id: 'NID32295-SID29752' },
+    { id: 'jk12', name: 'チバテレ', type: '地デジ', channel_number: '031', logo_id: 'NID32327-SID27704' },
+    { id: 'jk333', name: 'サンテレビ', type: '地デジ', channel_number: '031', logo_id: 'NID32086-SID43056' },
+    { id: 'jk4', name: '日本テレビ', type: '地デジ', channel_number: '041', logo_id: 'NID32738-SID1040' },
+    { id: 'jk5', name: 'テレビ朝日', type: '地デジ', channel_number: '051', logo_id: 'NID32741-SID1064' },
+    { id: 'jk6', name: 'TBSテレビ', type: '地デジ', channel_number: '061', logo_id: 'NID32739-SID1048' },
+    { id: 'jk7', name: 'テレビ東京', type: '地デジ', channel_number: '071', logo_id: 'NID32742-SID1072' },
+    { id: 'jk8', name: 'フジテレビ', type: '地デジ', channel_number: '081', logo_id: 'NID32740-SID1056' },
+    { id: 'jk9', name: 'TOKYO MX', type: '地デジ', channel_number: '091', logo_id: 'NID32391-SID23608' },
+    // BS (リモコン番号順)
+    { id: 'jk101', name: 'NHK BS', type: 'BS', channel_number: '101', logo_id: 'NID4-SID101' },
+    { id: 'jk141', name: 'BS日テレ', type: 'BS', channel_number: '141', logo_id: 'NID4-SID141' },
+    { id: 'jk151', name: 'BS朝日', type: 'BS', channel_number: '151', logo_id: 'NID4-SID151' },
+    { id: 'jk161', name: 'BS-TBS', type: 'BS', channel_number: '161', logo_id: 'NID4-SID161' },
+    { id: 'jk171', name: 'BSテレ東', type: 'BS', channel_number: '171', logo_id: 'NID4-SID171' },
+    { id: 'jk181', name: 'BSフジ', type: 'BS', channel_number: '181', logo_id: 'NID4-SID181' },
+    { id: 'jk211', name: 'BS11イレブン', type: 'BS', channel_number: '211', logo_id: 'NID4-SID211' },
+    { id: 'jk222', name: 'BS12 トゥエルビ', type: 'BS', channel_number: '222', logo_id: 'NID4-SID222' },
+];

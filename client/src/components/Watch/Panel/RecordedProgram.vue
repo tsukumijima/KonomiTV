@@ -38,7 +38,7 @@
                 <div class="program-info__status">
                     <Icon icon="bi:chat-left-text-fill" height="12.5px" style="margin-bottom: -3px" />
                     <span class="ml-2">コメント数:</span>
-                    <span class="ml-2">{{comment_count ?? '--'}}</span>
+                    <span class="ml-2">{{formatted_comment_count}}</span>
                 </div>
                 <div class="program-info__buttons">
                     <div v-ripple class="program-info__button" @click="toggleMylist">
@@ -86,12 +86,14 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import type { IJikkyoChannelCommentCount } from '@/services/Videos';
+
 import OfflineVideoDownloadDialog from '@/components/Videos/Dialogs/OfflineVideoDownloadDialog.vue';
 import Message from '@/message';
 import OfflineVideos, { type IOfflineDownloadJob, type IOfflineVideo } from '@/services/OfflineVideos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { PRIMARY_JIKKYO_CHANNELS, ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'Panel-RecordedProgramTab',
@@ -106,6 +108,9 @@ export default defineComponent({
 
             // コメント数カウント
             comment_count: null as number | null,
+
+            // チャンネルごとの過去ログコメント数リスト
+            channel_comment_counts: [] as IJikkyoChannelCommentCount[],
 
             // オフライン保存ダイアログの表示状態
             showOfflineDownload: false,
@@ -122,6 +127,54 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
+
+        // 放送局別のコメント数フォーマット文字列 (例: "TOKYO MX 1234 BS11 5678")
+        formatted_comment_count(): string {
+            if (this.playerStore.sub_channel_ids.length === 0) {
+                return '--';
+            }
+            if (this.channel_comment_counts.length > 0) {
+                // 現在選択されているチャンネル (sub_channel_ids) のみに絞り込む
+                const current_channel = this.playerStore.recorded_program.channel;
+                const filtered_counts = this.channel_comment_counts.filter((item) => {
+                    // sub_channel_ids に直接 channel_id が含まれている場合
+                    if (this.playerStore.sub_channel_ids.includes(item.channel_id)) {
+                        return true;
+                    }
+                    // 実況主要局リストから該当局を検索
+                    const primary = PRIMARY_JIKKYO_CHANNELS.find(opt =>
+                        opt.id === item.channel_id || opt.name === item.channel_name
+                    );
+                    if (primary && this.playerStore.sub_channel_ids.includes(primary.id)) {
+                        return true;
+                    }
+                    // 自局のコメント数で、かつ自局の実況 ID が選択されている場合
+                    const is_current_item = current_channel && (
+                        item.channel_id === current_channel.id ||
+                        item.channel_id === current_channel.display_channel_id ||
+                        item.channel_id === current_channel.jikkyo_id
+                    );
+                    if (is_current_item && current_channel.jikkyo_id) {
+                        return this.playerStore.sub_channel_ids.includes(current_channel.jikkyo_id);
+                    }
+                    return false;
+                });
+                if (filtered_counts.length > 0) {
+                    return filtered_counts.map((item) => {
+                        const primary = PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === item.channel_id);
+                        const name = primary ? primary.name : item.channel_name;
+                        return `${name} ${item.comment_count}`;
+                    }).join(' ');
+                }
+            }
+            if (this.comment_count !== null) {
+                const channel = this.playerStore.recorded_program.channel;
+                const primary = channel?.jikkyo_id ? PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === channel.jikkyo_id) : null;
+                const name = primary ? primary.name : (channel?.name ?? '');
+                return name ? `${name} ${this.comment_count}` : `${this.comment_count}`;
+            }
+            return '--';
+        },
 
         // マイリストに追加されているかどうか
         isInMylist(): boolean {
@@ -203,6 +256,7 @@ export default defineComponent({
         this.playerStore.event_emitter.on('CommentReceived', (event) => {
             if (event.is_initial_comments === true) {  // 録画では初期コメントしか発生しない
                 this.comment_count = event.comments.length;
+                this.channel_comment_counts = event.channel_counts ?? [];
             }
         });
 

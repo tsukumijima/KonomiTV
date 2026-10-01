@@ -80,6 +80,16 @@ class Channel(TortoiseModel):
         from app.streams.LiveStream import LiveStream
         return LiveStream.getViewerCount(self.display_channel_id)
 
+    @property
+    def jikkyo_id(self) -> str | None:
+        client = JikkyoClient(self.network_id, self.service_id)
+        if client.jikkyo_id is not None:
+            return client.jikkyo_id
+        # 地デジで NID/SID から特定できない場合、全国共通のリモコンキー ID 2 (Eテレ) のみフォールバック
+        if self.type == 'GR' and self.remocon_id == 2:
+            return 'jk2'
+        return None
+
 
     @classmethod
     async def isReferencedByRecordedProgram(cls, channel_id: str) -> bool:

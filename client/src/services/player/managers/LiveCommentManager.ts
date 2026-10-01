@@ -61,7 +61,22 @@ class LiveCommentManager implements PlayerManager {
     private reconnecting = false;
 
     // 破棄済みかどうか
-    private destroyed = false;
+    private destroyed: boolean = false;
+
+    // サブチャンネルのコメントセッション WebSocket のマップ (キー: channel_id)
+    private sub_comment_sessions: Map<string, WebSocket> = new Map();
+
+    // サブチャンネル用の AbortController のマップ (キー: channel_id)
+    private sub_abort_controllers: Map<string, AbortController> = new Map();
+
+    // 現在接続中のサブチャンネル ID のセット
+    private sub_channel_ids: Set<string> = new Set();
+
+    // メインチャンネルのコメント描画が有効かどうか
+    private is_main_channel_enabled: boolean = true;
+
+    // サブチャンネル変更イベントのリスナー
+    private sub_channel_changed_listener: ((data: { sub_channel_id: string | null; sub_channel_ids?: string[] }) => void) | null = null;
 
     /**
      * コンストラクタ
@@ -112,6 +127,19 @@ class LiveCommentManager implements PlayerManager {
         // 視聴セッションを初期化できた場合のみ、
         // 取得したコメントサーバーへの接続情報を使い、非同期でコメントセッションを初期化
         this.initCommentSession(watch_session_info);
+
+        // サブチャンネル変更イベントを登録
+        this.sub_channel_changed_listener = async ({ sub_channel_ids }) => {
+            await this.setSubChannels(sub_channel_ids ?? []);
+        };
+        player_store.event_emitter.on('SubChannelChanged', this.sub_channel_changed_listener);
+
+        // すでに選択済みのサブチャンネルがあれば接続
+        if (player_store.sub_channel_ids.length > 0) {
+            await this.setSubChannels(player_store.sub_channel_ids);
+        } else if (player_store.sub_channel_id !== null) {
+            await this.setSubChannels([player_store.sub_channel_id]);
+        }
 
         console.log('[LiveCommentManager] Initialized.');
     }
@@ -592,19 +620,20 @@ class LiveCommentManager implements PlayerManager {
             }
             await Utils.sleep(comment_delay_time);
 
-            // コメントを一時バッファに格納し、スロットルを設定してイベントリスナーに送信する
-            // コメントの受信間隔が 333ms 以上あれば、今回のコールバックで取得したコメントがダイレクトにイベントリスナーに送信される
-            comments_buffer.push(comment_data);
-            emit_comments();
+            // メインチャンネルのコメント描画が有効な場合のみバッファへ追加し描画
+            if (this.is_main_channel_enabled === true) {
+                comments_buffer.push(comment_data);
+                emit_comments();
 
-            // プレイヤーにコメントを描画する (映像再生時のみ)
-            if (this.player.video.paused === false) {
-                this.player.danmaku!.draw({
-                    text: comment.content,
-                    color: color,
-                    type: position,
-                    size: size,
-                });
+                // プレイヤーにコメントを描画する (映像再生時のみ)
+                if (this.player.video.paused === false) {
+                    this.player.danmaku!.draw({
+                        text: comment.content,
+                        color: color,
+                        type: position,
+                        size: size,
+                    });
+                }
             }
 
         }, { signal: this.abort_controller.signal });
@@ -813,6 +842,19 @@ class LiveCommentManager implements PlayerManager {
         // ここでフラグを false にしないと再接続後にコメントリストにコメントが送信されない
         this.destroyed = false;
 
+        // サブチャンネル変更イベントを再登録
+        this.sub_channel_changed_listener = async ({ sub_channel_ids }) => {
+            await this.setSubChannels(sub_channel_ids ?? []);
+        };
+        player_store.event_emitter.on('SubChannelChanged', this.sub_channel_changed_listener);
+
+        // 選択中のサブチャンネルがあれば再接続
+        if (player_store.sub_channel_ids.length > 0) {
+            await this.setSubChannels(player_store.sub_channel_ids);
+        } else if (player_store.sub_channel_id !== null) {
+            await this.setSubChannels([player_store.sub_channel_id]);
+        }
+
         // 再接続完了
         this.reconnecting = false;
         console.warn('[LiveCommentManager] Reconnected.');
@@ -852,10 +894,278 @@ class LiveCommentManager implements PlayerManager {
         // 初期化に失敗した際のエラーメッセージを削除
         player_store.live_comment_init_failed_message = null;
 
+        // サブチャンネル変更イベントのリスナーを解除
+        if (this.sub_channel_changed_listener !== null) {
+            player_store.event_emitter.off('SubChannelChanged', this.sub_channel_changed_listener);
+            this.sub_channel_changed_listener = null;
+        }
+
+        // サブチャンネルのコメントセッションを切断
+        this.disconnectAllSubChannels();
+
         // 破棄済みかどうかのフラグを立てる
         this.destroyed = true;
 
         console.log('[LiveCommentManager] Destroyed.');
+    }
+
+
+    /**
+     * サブチャンネル (別チャンネル群) のコメントセッションを設定・初期化する
+     * @param target_sub_channel_ids 対象のサブチャンネル ID のリスト
+     */
+    public async setSubChannels(target_sub_channel_ids: string[]): Promise<void> {
+        if (this.destroyed === true) {
+            return;
+        }
+
+        const channels_store = useChannelsStore();
+        const player_store = usePlayerStore();
+        const current_channel = channels_store.channel.current;
+
+        // 全解除 (0局選択) の場合はメインもサブも描画を無効化し、画面上の弾幕も消去
+        if (target_sub_channel_ids.length === 0) {
+            this.is_main_channel_enabled = false;
+            this.disconnectAllSubChannels();
+            if (this.player.danmaku) {
+                this.player.danmaku.clear();
+            }
+            if (this.player.template.showDanmakuToggle) {
+                this.player.template.showDanmakuToggle.checked = false;
+            }
+            return;
+        }
+
+        // 1局以上ある場合はトグルを ON に同期し、last_selected_channel_ids を更新
+        if (this.player.template.showDanmakuToggle) {
+            this.player.template.showDanmakuToggle.checked = true;
+        }
+        player_store.last_selected_channel_ids = [...target_sub_channel_ids];
+
+        // 1局以上選択されている場合、自局が含まれているか判定
+        this.is_main_channel_enabled = target_sub_channel_ids.some(id =>
+            CommentUtils.isCurrentJikkyoChannel(id, current_channel)
+        );
+
+        // 自局以外の別チャンネルのみをサブチャンネル接続対象とする
+        const filtered_sub_ids = target_sub_channel_ids.filter(id =>
+            !CommentUtils.isCurrentJikkyoChannel(id, current_channel)
+        );
+        const target_set = new Set(filtered_sub_ids);
+
+        // 不要になったサブチャンネルを切断
+        for (const current_id of Array.from(this.sub_channel_ids)) {
+            if (!target_set.has(current_id)) {
+                this.disconnectSingleSubChannel(current_id);
+            }
+        }
+
+        // 新しく追加されたサブチャンネルに接続
+        for (const new_id of filtered_sub_ids) {
+            if (!this.sub_channel_ids.has(new_id)) {
+                await this.connectSingleSubChannel(new_id);
+            }
+        }
+    }
+
+
+    /**
+     * 後方互換用の単一サブチャンネル設定メソッド
+     * @param sub_channel_id サブチャンネルの ID (null で全切断)
+     */
+    public async setSubChannel(sub_channel_id: string | null): Promise<void> {
+        await this.setSubChannels(sub_channel_id ? [sub_channel_id] : []);
+    }
+
+
+    /**
+     * 特定のサブチャンネルを切断する
+     */
+    private disconnectSingleSubChannel(channel_id: string): void {
+        const controller = this.sub_abort_controllers.get(channel_id);
+        if (controller) {
+            controller.abort();
+            this.sub_abort_controllers.delete(channel_id);
+        }
+        const session = this.sub_comment_sessions.get(channel_id);
+        if (session) {
+            session.close();
+            this.sub_comment_sessions.delete(channel_id);
+        }
+        this.sub_channel_ids.delete(channel_id);
+    }
+
+
+    /**
+     * すべてのサブチャンネルを切断する
+     */
+    private disconnectAllSubChannels(): void {
+        for (const channel_id of Array.from(this.sub_channel_ids)) {
+            this.disconnectSingleSubChannel(channel_id);
+        }
+    }
+
+
+    /**
+     * 特定のサブチャンネルに接続する
+     */
+    private async connectSingleSubChannel(channel_id: string): Promise<void> {
+        if (this.destroyed === true) return;
+
+        // サブチャンネルの WebSocket 情報を取得
+        let comment_session_url: string | null = null;
+        if (channel_id.startsWith('jk')) {
+            // 実況 ID の場合は NX-Jikkyo の WebSocket URL を直接利用
+            comment_session_url = `wss://nx-jikkyo.tsukumijima.net/api/v1/channels/${channel_id}/ws/comment`;
+        } else {
+            const websocket_info = await Channels.fetchWebSocketInfo(channel_id);
+            comment_session_url = websocket_info?.comment_session_url ?? null;
+        }
+        if (comment_session_url === null) {
+            console.warn(`[LiveCommentManager][SubCommentSession] Failed to fetch websocket info for ${channel_id}`);
+            return;
+        }
+
+        // await の間にインスタンスが破棄された場合は処理を中断 (TS2367 回避のためキャスト)
+        if ((this.destroyed as boolean) === true) return;
+
+        this.sub_channel_ids.add(channel_id);
+        const abort_controller = new AbortController();
+        this.sub_abort_controllers.set(channel_id, abort_controller);
+
+        this.initSubCommentSession(comment_session_url, channel_id, abort_controller);
+    }
+
+
+    /**
+     * サブチャンネルのコメントセッションを初期化する
+     * @param comment_session_url コメントセッションの URL
+     * @param target_sub_channel_id 対象のサブチャンネル ID
+     * @param abort_controller このセッション用の中断コントローラー
+     */
+    private initSubCommentSession(comment_session_url: string, target_sub_channel_id: string, abort_controller: AbortController): void {
+        const player_store = usePlayerStore();
+        const user_store = useUserStore();
+
+        // 受信したコメントを一時的に格納するバッファ
+        const comments_buffer: ICommentData[] = [];
+
+        // サブコメントセッション WebSocket を開く
+        const sub_comment_session = new WebSocket(comment_session_url);
+        this.sub_comment_sessions.set(target_sub_channel_id, sub_comment_session);
+
+        // コメント送信をリクエスト
+        sub_comment_session.addEventListener('open', () => {
+            sub_comment_session.send(JSON.stringify([
+                {ping: {content: 'rs:0'}},
+                {ping: {content: 'ps:0'}},
+                {
+                    thread: {
+                        version: '20061206',
+                        thread: '',
+                        threadkey: '',
+                        user_id: '',
+                        res_from: 0,
+                    }
+                },
+                {ping: {content: 'pf:0'}},
+                {ping: {content: 'rf:0'}},
+            ]));
+        }, { signal: abort_controller.signal });
+
+        // 受信したコメントをイベントリスナーに送信する関数
+        const emit_comments = throttle(() => {
+            if (this.destroyed === false && this.sub_channel_ids.has(target_sub_channel_id)) {
+                player_store.event_emitter.emit('CommentReceived', {
+                    is_initial_comments: false,
+                    comments: comments_buffer,
+                });
+            }
+            comments_buffer.length = 0;
+        }, 333);
+
+        // コメントメッセージ受信時
+        sub_comment_session.addEventListener('message', async (event) => {
+            const message = JSON.parse(event.data);
+            const comment = message.chat;
+            if (comment === undefined || comment.content === undefined || comment.content === '') {
+                return;
+            }
+            // 自分のコメントを除外
+            if (user_store.user?.niconico_user_id?.toString() === comment.user_id.replace('nicolive:', '')) {
+                return;
+            }
+
+            // コメントコマンドをパース
+            const { color, position, size } = CommentUtils.parseCommentCommand(comment.mail);
+
+            // ミュート判定
+            if (CommentUtils.isMutedComment(comment.content, comment.user_id, color, position, size, comment.premium ?? null)) {
+                return;
+            }
+
+            // コメントデータオブジェクトを作成
+            const comment_data: ICommentData = {
+                id: comment.no,
+                text: comment.content,
+                time: Utils.apply28HourClock(dayjs(comment.date * 1000).format('HH:mm:ss')),
+                playback_position: this.player.video.currentTime,
+                user_id: comment.user_id,
+                premium: comment.premium ?? null,
+                my_post: false,
+            };
+
+            // 配信遅延分待機
+            let buffered_end = 0;
+            if (this.player.video.buffered.length >= 1) {
+                buffered_end = this.player.video.buffered.end(0);
+            }
+            const comment_delay_time = Math.max(buffered_end - this.player.video.currentTime, 0);
+            await Utils.sleep(comment_delay_time);
+
+            // 破棄またはサブチャンネル除外済みなら中断
+            if (this.destroyed === true || !this.sub_channel_ids.has(target_sub_channel_id)) {
+                return;
+            }
+
+            // コメントパネルへ送信
+            comments_buffer.push(comment_data);
+            emit_comments();
+
+            // プレイヤーにコメントを描画
+            if (this.player.video.paused === false) {
+                this.player.danmaku!.draw({
+                    text: comment.content,
+                    color: color,
+                    type: position,
+                    size: size,
+                });
+            }
+        }, { signal: abort_controller.signal });
+
+        // 切断ハンドラー
+        let is_closed = false;
+        const on_close = async () => {
+            if (is_closed) return;
+            is_closed = true;
+            console.warn(`[LiveCommentManager][SubCommentSession] Connection closed for ${target_sub_channel_id}`);
+            // 既存のセッションリソースを切断・クリーンアップ
+            this.disconnectSingleSubChannel(target_sub_channel_id);
+
+            // 破棄済み、または設定から除外済みの場合は再接続しない
+            if (this.destroyed === true || !player_store.sub_channel_ids.includes(target_sub_channel_id)) {
+                return;
+            }
+
+            // 3秒待機してから再接続を試行
+            await Utils.sleep(3);
+            if (this.destroyed === false && player_store.sub_channel_ids.includes(target_sub_channel_id) && !this.sub_channel_ids.has(target_sub_channel_id)) {
+                console.log(`[LiveCommentManager][SubCommentSession] Reconnecting to ${target_sub_channel_id}...`);
+                await this.connectSingleSubChannel(target_sub_channel_id);
+            }
+        };
+        sub_comment_session.addEventListener('close', on_close, { signal: abort_controller.signal });
+        sub_comment_session.addEventListener('error', on_close, { signal: abort_controller.signal });
     }
 }
 

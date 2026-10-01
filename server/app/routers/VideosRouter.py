@@ -2,6 +2,7 @@
 import asyncio
 import json
 import pathlib
+from collections import OrderedDict
 from datetime import datetime
 from email.utils import parsedate
 from typing import Annotated, Any, Literal
@@ -21,12 +22,14 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from starlette.datastructures import Headers
 from tortoise import connections
+from tortoise.expressions import Q
 
 from app import logging, schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
+from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
@@ -96,6 +99,10 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
     # channel のデータを構築 (channel_id が存在する場合のみ)
     channel_dict: dict[str, Any] | None = None
     if row['ch_id'] is not None:
+        ch_jikkyo_id: str | None = JikkyoClient(row['ch_network_id'], row['ch_service_id']).jikkyo_id
+        # 地デジで NID/SID から特定できない場合、全国共通のリモコンキー ID 2 (Eテレ) のみフォールバック
+        if ch_jikkyo_id is None and row['type'] == 'GR' and row['remocon_id'] == 2:
+            ch_jikkyo_id = 'jk2'
         channel_dict = {
             'id': row['ch_id'],
             'display_channel_id': row['display_channel_id'],
@@ -106,6 +113,7 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
             'channel_number': row['channel_number'],
             'type': row['type'],
             'name': row['ch_name'],
+            'jikkyo_id': ch_jikkyo_id,
             'jikkyo_force': row['jikkyo_force'],
             'is_subchannel': bool(row['is_subchannel']),
             'is_radiochannel': bool(row['is_radiochannel']),
@@ -756,6 +764,42 @@ async def VideoDownloadAPI(
     )
 
 
+# 過去ログコメントのインメモリキャッシュ
+_KAKOLOG_CACHE: OrderedDict[tuple[int, str], schemas.JikkyoComments] = OrderedDict()
+_MAX_KAKOLOG_CACHE_SIZE = 100
+
+
+async def _FetchJikkyoCommentsWithCache(
+    video_id: int,
+    jikkyo_client: JikkyoClient,
+    start_time: datetime,
+    end_time: datetime,
+) -> schemas.JikkyoComments:
+    """ キャッシュを考慮してニコニコ実況の過去ログコメントを取得する """
+    if jikkyo_client.jikkyo_id is None:
+        return schemas.JikkyoComments(
+            is_success = False,
+            comments = [],
+            detail = 'このチャンネルはニコニコ実況に対応していません。',
+        )
+
+    # キャッシュヒット時は複製して返却
+    cache_key = (video_id, jikkyo_client.jikkyo_id)
+    if cache_key in _KAKOLOG_CACHE:
+        _KAKOLOG_CACHE.move_to_end(cache_key)
+        return _KAKOLOG_CACHE[cache_key].model_copy(deep=True)
+
+    # 外部 API から取得してキャッシュに保存
+    comments = await jikkyo_client.fetchJikkyoComments(start_time, end_time)
+    if comments.is_success:
+        if len(_KAKOLOG_CACHE) >= _MAX_KAKOLOG_CACHE_SIZE:
+            _KAKOLOG_CACHE.popitem(last=False)
+        _KAKOLOG_CACHE[cache_key] = comments.model_copy(deep=True)
+        return comments.model_copy(deep=True)
+
+    return comments
+
+
 @router.get(
     '/{video_id}/jikkyo',
     summary = '録画番組過去ログコメント API',
@@ -764,6 +808,8 @@ async def VideoDownloadAPI(
 )
 async def VideoJikkyoCommentsAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    sub_channel_id: Annotated[str | None, Query(description='追加で過去ログコメントを取得する別チャンネルの ID (id または display_channel_id)。')] = None,
+    sub_channel_ids: Annotated[str | None, Query(description='取得対象のチャンネル ID リスト (カンマ区切り)。指定時は指定されたチャンネルのみが取得されます。')] = None,
 ):
     """
     指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。<br>
@@ -775,12 +821,120 @@ async def VideoJikkyoCommentsAPI(
         (recorded_program.recorded_video.recording_start_time is not None) and
         (recorded_program.recorded_video.recording_end_time is not None)):
 
-        # ニコニコ実況 過去ログ API から一致する過去ログコメントを取得して返す
-        jikkyo_client = JikkyoClient(recorded_program.channel.network_id, recorded_program.channel.service_id)
-        jikkyo_comments = await jikkyo_client.fetchJikkyoComments(
-            recorded_program.recorded_video.recording_start_time,
-            recorded_program.recorded_video.recording_end_time,
-        )
+        # メインチャンネルの実況クライアントを生成
+        if recorded_program.channel.jikkyo_id is not None:
+            main_client = JikkyoClient.fromJikkyoID(recorded_program.channel.jikkyo_id)
+        else:
+            main_client = JikkyoClient(recorded_program.channel.network_id, recorded_program.channel.service_id)
+
+        # メインチャンネルに関連する識別子候補のセット
+        main_identifiers: set[str] = {
+            recorded_program.channel.id,
+            recorded_program.channel.display_channel_id,
+            f'jk{recorded_program.channel.service_id}',
+        }
+        if main_client.jikkyo_id is not None:
+            main_identifiers.add(main_client.jikkyo_id if main_client.jikkyo_id.startswith('jk') else f'jk{main_client.jikkyo_id}')
+
+        # 局名マッピングおよび表示順序リスト
+        channel_names: dict[str, str] = {}
+        target_key_order: list[str] = []
+        main_channel_id = main_client.jikkyo_id if main_client.jikkyo_id is not None else recorded_program.channel.id
+        channel_names[main_channel_id] = JikkyoClient.getJikkyoChannelName(main_channel_id) if main_client.jikkyo_id is not None else recorded_program.channel.name
+
+        # 指定された全対象チャンネル ID
+        target_channel_ids: list[str] | None = None
+        if sub_channel_ids is not None:
+            target_channel_ids = [s.strip() for s in sub_channel_ids.split(',') if s.strip()]
+
+        # メインチャンネルを含めるかどうかの判定 (未指定ならデフォルトで含める)
+        should_include_main = True
+        if target_channel_ids is not None:
+            should_include_main = any(tid in main_identifiers for tid in target_channel_ids)
+
+        # 取得済み実況 ID
+        fetched_jikkyo_ids: set[str] = set()
+
+        # 追加で指定されたチャンネルの過去ログコメントを取得してマージ (メインチャンネル以外)
+        target_sub_ids: list[str] = []
+        if target_channel_ids is not None:
+            target_sub_ids = [tid for tid in dict.fromkeys(target_channel_ids) if tid not in main_identifiers]
+        elif sub_channel_id is not None and sub_channel_id not in main_identifiers:
+            target_sub_ids = [sub_channel_id]
+
+        jikkyo_comments: schemas.JikkyoComments
+        if should_include_main:
+            target_key_order.append(main_channel_id)
+            jikkyo_comments = await _FetchJikkyoCommentsWithCache(
+                recorded_program.recorded_video.id,
+                main_client,
+                recorded_program.recorded_video.recording_start_time,
+                recorded_program.recorded_video.recording_end_time,
+            )
+            if main_client.jikkyo_id is not None:
+                fetched_jikkyo_ids.add(main_client.jikkyo_id)
+            if jikkyo_comments.is_success and jikkyo_comments.comments:
+                for comment in jikkyo_comments.comments:
+                    comment.channel_id = main_channel_id
+        else:
+            # メインチャンネルを除外する場合の初期化
+            jikkyo_comments = schemas.JikkyoComments(
+                is_success = len(target_sub_ids) == 0,
+                comments = [],
+                detail = '過去ログコメントの表示は無効化されています。' if len(target_sub_ids) == 0 else '指定されたチャンネルの過去ログコメントを取得できませんでした。',
+            )
+
+        for target_id in target_sub_ids:
+            sub_jikkyo_client: JikkyoClient | None = None
+            sub_channel_name: str = target_id
+            if target_id.startswith('jk'):
+                sub_jikkyo_client = JikkyoClient.fromJikkyoID(target_id)
+                sub_channel_name = JikkyoClient.getJikkyoChannelName(target_id)
+            else:
+                sub_channel = await Channel.filter(Q(id=target_id) | Q(display_channel_id=target_id)).first()
+                if sub_channel is not None:
+                    if sub_channel.jikkyo_id is not None:
+                        sub_jikkyo_client = JikkyoClient.fromJikkyoID(sub_channel.jikkyo_id)
+                    else:
+                        sub_jikkyo_client = JikkyoClient(sub_channel.network_id, sub_channel.service_id)
+                    sub_channel_name = sub_channel.name
+
+            target_key = sub_jikkyo_client.jikkyo_id if (sub_jikkyo_client is not None and sub_jikkyo_client.jikkyo_id is not None) else target_id
+            if target_key not in target_key_order:
+                target_key_order.append(target_key)
+            if target_key not in channel_names:
+                channel_names[target_key] = sub_channel_name
+
+            # 取得済みの実況 ID はスキップ
+            if sub_jikkyo_client is not None:
+                if sub_jikkyo_client.jikkyo_id is not None and sub_jikkyo_client.jikkyo_id in fetched_jikkyo_ids:
+                    continue
+                if sub_jikkyo_client.jikkyo_id is not None:
+                    fetched_jikkyo_ids.add(sub_jikkyo_client.jikkyo_id)
+
+                sub_jikkyo_comments = await _FetchJikkyoCommentsWithCache(
+                    recorded_program.recorded_video.id,
+                    sub_jikkyo_client,
+                    recorded_program.recorded_video.recording_start_time,
+                    recorded_program.recorded_video.recording_end_time,
+                )
+                if sub_jikkyo_comments.is_success:
+                    if sub_jikkyo_comments.comments:
+                        for comment in sub_jikkyo_comments.comments:
+                            comment.channel_id = target_key
+                        if jikkyo_comments.is_success:
+                            jikkyo_comments.comments.extend(sub_jikkyo_comments.comments)
+                        else:
+                            jikkyo_comments = sub_jikkyo_comments
+                    elif not jikkyo_comments.is_success:
+                        jikkyo_comments = sub_jikkyo_comments
+                elif not jikkyo_comments.is_success and len(jikkyo_comments.comments) == 0:
+                    # すべての取得が失敗している場合は最後のエラー詳細を引き継ぐ
+                    jikkyo_comments.detail = sub_jikkyo_comments.detail
+
+        # コメントを再生時間順に事前ソート
+        if jikkyo_comments.comments:
+            jikkyo_comments.comments.sort(key=lambda comment: comment.time)
 
         if recorded_program.recorded_video.container_format != 'MPEG-TS' and jikkyo_comments.comments:
             # PSI/SI の書庫があればそこから動画のカット編集情報を抽出して過去ログコメントのタイミングを調節する
@@ -845,6 +999,27 @@ async def VideoJikkyoCommentsAPI(
                         # タイミングをずらす
                         comments[comment_index].time -= cut[1] - cut[0]
                         comment_index += 1
+
+        # コメントを再生時間順にソート
+        if jikkyo_comments.comments:
+            jikkyo_comments.comments.sort(key=lambda comment: comment.time)
+
+        # チャンネルごとのコメント数を集計
+        channel_counts_dict: dict[str, int] = {k: 0 for k in target_key_order}
+        for comment in jikkyo_comments.comments:
+            if comment.channel_id in channel_counts_dict:
+                channel_counts_dict[comment.channel_id] += 1
+            elif comment.channel_id:
+                channel_counts_dict[comment.channel_id] = 1
+
+        jikkyo_comments.channel_counts = [
+            schemas.JikkyoChannelCommentCount(
+                channel_id = ch_id,
+                channel_name = channel_names.get(ch_id, ch_id),
+                comment_count = count,
+            )
+            for ch_id, count in channel_counts_dict.items()
+        ]
 
         return jikkyo_comments
 

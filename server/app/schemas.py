@@ -35,6 +35,7 @@ class Channel(PydanticModel):
     channel_number: str
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']
     name: str
+    jikkyo_id: str | None = None
     # terrestrial_regions: network_id から算出した地デジチャンネルの地域名のリスト (デバッグ用)
     # 広域放送局の場合は複数の地域名が含まれる
     # 地デジ以外のチャンネルまたは地域が特定できない場合は None
@@ -673,6 +674,14 @@ class DataBroadcastingInternetStatus(BaseModel):
 
 # ***** ニコニコ実況連携 *****
 
+class JikkyoStatus(BaseModel):
+    # 実況勢い
+    force: int
+    # 累計視聴者数
+    viewers: int
+    # 累計コメント数
+    comments: int
+
 class JikkyoWebSocketInfo(BaseModel):
     # 視聴セッション維持用 WebSocket API の URL (NX-Jikkyo)
     watch_session_url: str | None
@@ -685,18 +694,39 @@ class JikkyoWebSocketInfo(BaseModel):
     # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
     is_nxjikkyo_exclusive: bool
 
-class JikkyoComment(BaseModel):
-    time: float
-    type: Literal['top', 'right', 'bottom']
-    size: Literal['big', 'medium', 'small']
-    color: str
-    author: str
-    text: str
-
 class JikkyoComments(BaseModel):
+    # 過去ログコメントの取得に成功したかどうか
     is_success: bool
+    # 過去ログコメントのリスト
     comments: list[JikkyoComment]
+    # エラーメッセージまたはステータス詳細
     detail: str
+    # チャンネルごとの過去ログコメント数リスト
+    channel_counts: list[JikkyoChannelCommentCount] = []
+
+class JikkyoComment(BaseModel):
+    # コメントの再生位置 (秒)
+    time: float
+    # コメントの表示位置
+    type: Literal['top', 'right', 'bottom']
+    # コメントのフォントサイズ
+    size: Literal['big', 'medium', 'small']
+    # コメントの 16 進数カラーコード
+    color: str
+    # コメントの投稿者 ID
+    author: str
+    # コメント本文
+    text: str
+    # コメントが投稿された実況チャンネル ID
+    channel_id: str | None = None
+
+class JikkyoChannelCommentCount(BaseModel):
+    # 実況チャンネル ID
+    channel_id: str
+    # 実況チャンネル名
+    channel_name: str
+    # 過去ログコメント数
+    comment_count: int
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str

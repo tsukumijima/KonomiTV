@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
@@ -142,6 +143,7 @@ async def ChannelsAPI():
             'channel_number': channel.channel_number,
             'type': channel.type,
             'name': channel.name,
+            'jikkyo_id': channel.jikkyo_id,
             'jikkyo_force': channel.jikkyo_force,
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
@@ -480,6 +482,63 @@ async def ChannelLogoAPI(
             'Cache-Control': CACHE_CONTROL,
             'ETag': GetETag(b'default'),
         })
+
+    # 実況 ID および親局 NID と同梱ロゴファイル名との対応マッピング
+    logo_alias_mapping: dict[str, str] = {
+        # 実況 ID (jk*) からのエイリアス
+        'jk1': 'NID32736-SID1024',
+        'jk2': 'NID32737-SID1032',
+        'jk4': 'NID32738-SID1040',
+        'jk5': 'NID32741-SID1064',
+        'jk6': 'NID32739-SID1048',
+        'jk7': 'NID32742-SID1072',
+        'jk8': 'NID32740-SID1056',
+        'jk9': 'NID32391-SID23608',
+        'jk10': 'NID32295-SID29752',
+        'jk11': 'NID32375-SID24632',
+        'jk12': 'NID32327-SID27704',
+        'jk333': 'NID32086-SID43056',
+        'jk101': 'NID4-SID101',
+        'jk141': 'NID4-SID141',
+        'jk151': 'NID4-SID151',
+        'jk161': 'NID4-SID161',
+        'jk171': 'NID4-SID171',
+        'jk181': 'NID4-SID181',
+        'jk211': 'NID4-SID211',
+        'jk222': 'NID4-SID222',
+        # 東京親局 NID (32736) および旧定義からのエイリアス
+        'NID32736-SID1032': 'NID32737-SID1032',
+        'NID32736-SID1040': 'NID32738-SID1040',
+        'NID32736-SID1048': 'NID32739-SID1048',
+        'NID32736-SID1056': 'NID32740-SID1056',
+        'NID32736-SID1064': 'NID32741-SID1064',
+        'NID32736-SID1072': 'NID32742-SID1072',
+        'NID32289-SID29752': 'NID32295-SID29752',
+        'NID32306-SID27704': 'NID32327-SID27704',
+        'NID32080-SID43056': 'NID32086-SID43056',
+    }
+
+    # パストラバーサル防止のため安全なチャンネル ID 形式のみ許可
+    if not re.match(r'^[a-zA-Z0-9_-]+$', channel_id):
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = 'Invalid channel ID format',
+        )
+
+    # 同梱ロゴファイルが存在する場合はチャンネル情報の存在有無に関わらず直接返す
+    # 実況チャンネル設定モーダル等で地方局環境から東京キー局のロゴを取得するケースに対応するため
+    resolved_logo_id = logo_alias_mapping.get(channel_id, channel_id)
+    logo_dir = anyio.Path(str(LOGO_DIR))
+    direct_logo_path = logo_dir / f'{resolved_logo_id}.png'
+    if await direct_logo_path.is_file():
+        etag = GetETag(f'{direct_logo_path}{VERSION}'.encode())
+        if request.headers.get('If-None-Match') == etag:
+            return Response(status_code=304)
+        return FileResponse(direct_logo_path, headers={
+            'Cache-Control': CACHE_CONTROL,
+            'ETag': etag,
+        })
+
     channel = await GetChannel(channel_id)
 
     # ***** 同梱のロゴを利用（存在する場合）*****
