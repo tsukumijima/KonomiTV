@@ -2,7 +2,9 @@
 import { Buffer } from 'buffer';
 
 import type { IChannel } from '@/services/Channels';
+import type { IJikkyoChannelCommentCount } from '@/services/Videos';
 
+import Niconico, { type IJikkyoPrimaryChannel } from '@/services/Niconico';
 import useSettingsStore from '@/stores/SettingsStore';
 
 
@@ -429,17 +431,26 @@ export class CommentUtils {
     /**
      * チャンネル情報に対応する実況チャンネルオプションを取得する
      * @param channel チャンネル情報
-     * @returns 実況チャンネルオプション (見つからない場合は null)
+     * @returns 実況チャンネルオプション。見つからない場合は null
      */
     static findJikkyoOptionByChannel(channel: IChannel | null): IJikkyoOption | null {
         if (!channel || !channel.jikkyo_id) return null;
-        return PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === channel.jikkyo_id) ?? null;
+        const found = PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === channel.jikkyo_id);
+        if (found) return found;
+        // PRIMARY_JIKKYO_CHANNELS 未ロード時のフォールバック
+        return {
+            id: channel.jikkyo_id,
+            name: channel.name,
+            type: channel.type === 'BS' ? 'BS' : '地デジ',
+            channel_number: channel.channel_number,
+            logo_id: channel.id,
+        };
     }
 
 
     /**
      * 指定されたチャンネル ID が視聴中チャンネルの実況チャンネルかどうかを判定する
-     * @param target_id 判定対象のチャンネル ID (ex: jk211, bs211, NID4-SID211)
+     * @param target_id 判定対象のチャンネル ID。jk211 や bs211 など
      * @param current_channel 視聴中チャンネル
      */
     static isCurrentJikkyoChannel(target_id: string, current_channel: IChannel | null): boolean {
@@ -454,39 +465,112 @@ export class CommentUtils {
         }
         return false;
     }
+
+
+    /**
+     * 主要実況チャンネル一覧を API から取得する。キャッシュあり
+     * @returns 主要実況チャンネル一覧
+     */
+    static async fetchPrimaryJikkyoChannels(): Promise<IJikkyoOption[]> {
+        if (PRIMARY_JIKKYO_CHANNELS.length > 0) {
+            return PRIMARY_JIKKYO_CHANNELS;
+        }
+        if (fetch_primary_channels_promise !== null) {
+            return fetch_primary_channels_promise;
+        }
+
+        fetch_primary_channels_promise = (async () => {
+            try {
+                const channels = await Niconico.fetchPrimaryJikkyoChannels();
+                if (channels !== null && channels.length > 0) {
+                    PRIMARY_JIKKYO_CHANNELS.splice(0, PRIMARY_JIKKYO_CHANNELS.length, ...channels);
+                }
+            } finally {
+                fetch_primary_channels_promise = null;
+            }
+            return PRIMARY_JIKKYO_CHANNELS;
+        })();
+
+        return fetch_primary_channels_promise;
+    }
+
+
+    /**
+     * 放送局別の過去ログコメント数文字列をフォーマットする
+     * @param selected_channel_ids 選択中の実況チャンネル ID リスト
+     * @param channel_comment_counts チャンネルごとのコメント数リスト
+     * @param current_channel 視聴中または録画番組のメインチャンネル情報
+     * @param total_comment_count 全体のコメント数
+     * @returns フォーマット済み文字列
+     */
+    static formatChannelCommentCounts(
+        selected_channel_ids: string[],
+        channel_comment_counts: IJikkyoChannelCommentCount[],
+        current_channel: IChannel | null,
+        total_comment_count: number | null,
+    ): string {
+        if (selected_channel_ids.length === 0) {
+            return '--';
+        }
+        if (channel_comment_counts.length > 0) {
+            const filtered_counts = channel_comment_counts.filter((item) => {
+                if (selected_channel_ids.includes(item.channel_id)) {
+                    return true;
+                }
+                const primary = PRIMARY_JIKKYO_CHANNELS.find(opt =>
+                    opt.id === item.channel_id || opt.name === item.channel_name
+                );
+                if (primary && selected_channel_ids.includes(primary.id)) {
+                    return true;
+                }
+                const is_current_item = current_channel && (
+                    item.channel_id === current_channel.id ||
+                    item.channel_id === current_channel.display_channel_id ||
+                    item.channel_id === current_channel.jikkyo_id
+                );
+                if (is_current_item && current_channel.jikkyo_id) {
+                    return selected_channel_ids.includes(current_channel.jikkyo_id);
+                }
+                return false;
+            });
+            if (filtered_counts.length > 0) {
+                return filtered_counts.map((item) => {
+                    const primary = PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === item.channel_id);
+                    const name = primary ? primary.name : item.channel_name;
+                    if (item.is_success === false) {
+                        return `${name} エラー`;
+                    }
+                    return `${name} ${item.comment_count}`;
+                }).join(' ');
+            }
+        }
+        if (total_comment_count !== null) {
+            const primary = current_channel?.jikkyo_id ? PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === current_channel.jikkyo_id) : null;
+            const name = primary ? primary.name : (current_channel?.name ?? '');
+            return name ? `${name} ${total_comment_count}` : `${total_comment_count}`;
+        }
+        return '--';
+    }
+
+
+    /**
+     * 主要実況チャンネル一覧のキャッシュを同期的に取得する
+     */
+    static getPrimaryJikkyoChannels(): IJikkyoOption[] {
+        return PRIMARY_JIKKYO_CHANNELS;
+    }
 }
 
-/** 実況対応主要局の定義インターフェイス */
-export interface IJikkyoOption {
-    id: string;             // 実況 ID (ex: jk9)
-    name: string;           // 局名 (ex: TOKYO MX)
-    type: '地デジ' | 'BS';
-    channel_number: string; // チャンネル番号 (ex: 091)
-    logo_id: string;        // ロゴ取得用チャンネル ID
-}
+/** 実況対応主要局の定義インターフェイス。サーバー側の定義と同期 */
+export type IJikkyoOption = IJikkyoPrimaryChannel;
 
-// リモコン順 (地デジ 1〜9 → BS 1〜12) の主要局リスト
-export const PRIMARY_JIKKYO_CHANNELS: IJikkyoOption[] = [
-    // 地デジ (リモコン番号順)
-    { id: 'jk1', name: 'NHK総合', type: '地デジ', channel_number: '011', logo_id: 'NID32736-SID1024' },
-    { id: 'jk2', name: 'NHKEテレ', type: '地デジ', channel_number: '021', logo_id: 'NID32737-SID1032' },
-    { id: 'jk11', name: 'tvk', type: '地デジ', channel_number: '031', logo_id: 'NID32375-SID24632' },
-    { id: 'jk10', name: 'テレ玉', type: '地デジ', channel_number: '031', logo_id: 'NID32295-SID29752' },
-    { id: 'jk12', name: 'チバテレ', type: '地デジ', channel_number: '031', logo_id: 'NID32327-SID27704' },
-    { id: 'jk333', name: 'サンテレビ', type: '地デジ', channel_number: '031', logo_id: 'NID32086-SID43056' },
-    { id: 'jk4', name: '日本テレビ', type: '地デジ', channel_number: '041', logo_id: 'NID32738-SID1040' },
-    { id: 'jk5', name: 'テレビ朝日', type: '地デジ', channel_number: '051', logo_id: 'NID32741-SID1064' },
-    { id: 'jk6', name: 'TBSテレビ', type: '地デジ', channel_number: '061', logo_id: 'NID32739-SID1048' },
-    { id: 'jk7', name: 'テレビ東京', type: '地デジ', channel_number: '071', logo_id: 'NID32742-SID1072' },
-    { id: 'jk8', name: 'フジテレビ', type: '地デジ', channel_number: '081', logo_id: 'NID32740-SID1056' },
-    { id: 'jk9', name: 'TOKYO MX', type: '地デジ', channel_number: '091', logo_id: 'NID32391-SID23608' },
-    // BS (リモコン番号順)
-    { id: 'jk101', name: 'NHK BS', type: 'BS', channel_number: '101', logo_id: 'NID4-SID101' },
-    { id: 'jk141', name: 'BS日テレ', type: 'BS', channel_number: '141', logo_id: 'NID4-SID141' },
-    { id: 'jk151', name: 'BS朝日', type: 'BS', channel_number: '151', logo_id: 'NID4-SID151' },
-    { id: 'jk161', name: 'BS-TBS', type: 'BS', channel_number: '161', logo_id: 'NID4-SID161' },
-    { id: 'jk171', name: 'BSテレ東', type: 'BS', channel_number: '171', logo_id: 'NID4-SID171' },
-    { id: 'jk181', name: 'BSフジ', type: 'BS', channel_number: '181', logo_id: 'NID4-SID181' },
-    { id: 'jk211', name: 'BS11イレブン', type: 'BS', channel_number: '211', logo_id: 'NID4-SID211' },
-    { id: 'jk222', name: 'BS12 トゥエルビ', type: 'BS', channel_number: '222', logo_id: 'NID4-SID222' },
-];
+// API から取得した主要実況チャンネルのキャッシュ配列
+// 外部からの参照を維持したまま更新できるよう、インプレースで splice する
+export const PRIMARY_JIKKYO_CHANNELS: IJikkyoOption[] = [];
+
+// 取得中プロミス。重複リクエスト防止用
+let fetch_primary_channels_promise: Promise<IJikkyoOption[]> | null = null;
+
+// モジュール読み込み時にバックグラウンドで主要局リストを取得しておく
+CommentUtils.fetchPrimaryJikkyoChannels();
+

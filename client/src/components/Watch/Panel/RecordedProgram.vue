@@ -93,7 +93,7 @@ import Message from '@/message';
 import OfflineVideos, { type IOfflineDownloadJob, type IOfflineVideo } from '@/services/OfflineVideos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { PRIMARY_JIKKYO_CHANNELS, ProgramUtils } from '@/utils';
+import Utils, { CommentUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'Panel-RecordedProgramTab',
@@ -128,52 +128,14 @@ export default defineComponent({
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
 
-        // 放送局別のコメント数フォーマット文字列 (例: "TOKYO MX 1234 BS11 5678")
+        // 放送局別のコメント数フォーマット文字列
         formatted_comment_count(): string {
-            if (this.playerStore.sub_channel_ids.length === 0) {
-                return '--';
-            }
-            if (this.channel_comment_counts.length > 0) {
-                // 現在選択されているチャンネル (sub_channel_ids) のみに絞り込む
-                const current_channel = this.playerStore.recorded_program.channel;
-                const filtered_counts = this.channel_comment_counts.filter((item) => {
-                    // sub_channel_ids に直接 channel_id が含まれている場合
-                    if (this.playerStore.sub_channel_ids.includes(item.channel_id)) {
-                        return true;
-                    }
-                    // 実況主要局リストから該当局を検索
-                    const primary = PRIMARY_JIKKYO_CHANNELS.find(opt =>
-                        opt.id === item.channel_id || opt.name === item.channel_name
-                    );
-                    if (primary && this.playerStore.sub_channel_ids.includes(primary.id)) {
-                        return true;
-                    }
-                    // 自局のコメント数で、かつ自局の実況 ID が選択されている場合
-                    const is_current_item = current_channel && (
-                        item.channel_id === current_channel.id ||
-                        item.channel_id === current_channel.display_channel_id ||
-                        item.channel_id === current_channel.jikkyo_id
-                    );
-                    if (is_current_item && current_channel.jikkyo_id) {
-                        return this.playerStore.sub_channel_ids.includes(current_channel.jikkyo_id);
-                    }
-                    return false;
-                });
-                if (filtered_counts.length > 0) {
-                    return filtered_counts.map((item) => {
-                        const primary = PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === item.channel_id);
-                        const name = primary ? primary.name : item.channel_name;
-                        return `${name} ${item.comment_count}`;
-                    }).join(' ');
-                }
-            }
-            if (this.comment_count !== null) {
-                const channel = this.playerStore.recorded_program.channel;
-                const primary = channel?.jikkyo_id ? PRIMARY_JIKKYO_CHANNELS.find(opt => opt.id === channel.jikkyo_id) : null;
-                const name = primary ? primary.name : (channel?.name ?? '');
-                return name ? `${name} ${this.comment_count}` : `${this.comment_count}`;
-            }
-            return '--';
+            return CommentUtils.formatChannelCommentCounts(
+                this.playerStore.sub_channel_ids,
+                this.channel_comment_counts,
+                this.playerStore.recorded_program.channel,
+                this.comment_count,
+            );
         },
 
         // マイリストに追加されているかどうか
@@ -252,6 +214,9 @@ export default defineComponent({
         },
     },
     async created() {
+        // 主要実況チャンネル一覧を取得 (キャッシュ済みの場合は即座に返る)
+        void CommentUtils.fetchPrimaryJikkyoChannels();
+
         // PlayerController 側からCommentReceived イベントで過去ログコメントを受け取り、コメント数を算出する
         this.playerStore.event_emitter.on('CommentReceived', (event) => {
             if (event.is_initial_comments === true) {  // 録画では初期コメントしか発生しない

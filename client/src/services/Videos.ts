@@ -1,4 +1,6 @@
 
+import axios, { AxiosRequestConfig } from 'axios';
+
 import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import { CommentUtils } from '@/utils';
@@ -194,6 +196,7 @@ export interface IJikkyoChannelCommentCount {
     channel_id: string;
     channel_name: string;
     comment_count: number;
+    is_success?: boolean;
 }
 
 
@@ -283,24 +286,40 @@ class Videos {
     /**
      * 録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する
      * @param video_id 録画番組の ID
-     * @param sub_channel_ids 追加で過去ログコメントを取得する別チャンネル ID (単一または複数)
-     * @returns 過去ログコメントのリスト
+     * @param sub_channel_ids 追加で過去ログコメントを取得する別チャンネル ID。単一または複数
+     * @param signal 中断用の AbortSignal。省略可能
+     * @returns 過去ログコメントのリスト。中断された場合は null
      */
-    static async fetchVideoJikkyoComments(video_id: number, sub_channel_ids: string[] | string | null = null): Promise<IJikkyoComments> {
+    static async fetchVideoJikkyoComments(video_id: number, sub_channel_ids?: string[] | string | null): Promise<IJikkyoComments>;
+    static async fetchVideoJikkyoComments(video_id: number, sub_channel_ids: string[] | string | null, signal: AbortSignal): Promise<IJikkyoComments | null>;
+    static async fetchVideoJikkyoComments(video_id: number, sub_channel_ids: string[] | string | null = null, signal?: AbortSignal): Promise<IJikkyoComments | null> {
 
         // API リクエストを実行
-        const params: Record<string, string> = {};
+        const params: Record<string, string | string[]> = {};
         if (sub_channel_ids !== null) {
             if (Array.isArray(sub_channel_ids)) {
-                if (sub_channel_ids.length > 0) {
-                    params.sub_channel_ids = sub_channel_ids.join(',');
-                }
+                // 配列パラメータとしてそのまま渡す。FastAPI の list[str] パラメータに対応
+                params.sub_channel_ids = sub_channel_ids;
             } else if (sub_channel_ids.trim() !== '') {
+                // 後方互換: 単一チャンネル ID は sub_channel_id パラメータで送信
                 params.sub_channel_id = sub_channel_ids.trim();
             }
         }
-        const config = Object.keys(params).length > 0 ? { params } : undefined;
+        const config: AxiosRequestConfig = {
+            params: Object.keys(params).length > 0 ? params : undefined,
+            // 配列パラメータを repeat 形式でシリアライズする
+            // axios デフォルトの brackets 形式では FastAPI が受け付けないため
+            paramsSerializer: {
+                indexes: null,  // repeat 形式を指定
+            },
+            signal: signal,
+        };
         const response = await APIClient.get<IJikkyoComments>(`/videos/${video_id}/jikkyo`, config);
+
+        // リクエストが中断された場合は null を返す
+        if (signal?.aborted || (response.type === 'error' && (axios.isCancel(response.error) || signal?.aborted))) {
+            return null;
+        }
 
         // エラー処理
         if (response.type === 'error') {
@@ -311,6 +330,11 @@ class Videos {
                 detail: '過去ログコメントを取得できませんでした。',
                 channel_counts: [],
             };
+        }
+
+        // レスポンス処理中に中断された場合は中断
+        if (signal?.aborted) {
+            return null;
         }
 
         // ミュート対象のコメントを除外して返す

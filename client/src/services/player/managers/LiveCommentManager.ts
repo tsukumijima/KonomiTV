@@ -3,6 +3,7 @@ import { throttle } from '@github/mini-throttle';
 import DPlayer, { DPlayerType } from 'dplayer';
 
 import Channels from '@/services/Channels';
+import Niconico from '@/services/Niconico';
 import PlayerManager from '@/services/player/PlayerManager';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
@@ -63,14 +64,23 @@ class LiveCommentManager implements PlayerManager {
     // 破棄済みかどうか
     private destroyed: boolean = false;
 
-    // サブチャンネルのコメントセッション WebSocket のマップ (キー: channel_id)
+    // サブチャンネルのコメントセッション WebSocket のマップ。キーはチャンネルID
     private sub_comment_sessions: Map<string, WebSocket> = new Map();
 
-    // サブチャンネル用の AbortController のマップ (キー: channel_id)
+    // サブチャンネル用の AbortController のマップ。キーはチャンネルID
     private sub_abort_controllers: Map<string, AbortController> = new Map();
 
     // 現在接続中のサブチャンネル ID のセット
     private sub_channel_ids: Set<string> = new Set();
+
+    // 接続処理中のサブチャンネル ID のセット。多重接続防止用
+    private connecting_sub_channel_ids: Set<string> = new Set();
+
+    // サブチャンネルの再接続リトライ回数のマップ。キーはチャンネルID
+    private sub_reconnect_counts: Map<string, number> = new Map();
+
+    // サブチャンネルの最大再接続試行回数
+    private static readonly MAX_SUB_CHANNEL_RECONNECT_ATTEMPTS = 5;
 
     // メインチャンネルのコメント描画が有効かどうか
     private is_main_channel_enabled: boolean = true;
@@ -189,22 +199,22 @@ class LiveCommentManager implements PlayerManager {
                 console.log('[LiveCommentManager][WatchSession] Post comments to Nicolive.');
                 watch_session_url = websocket_info.nicolive_watch_session_url;
 
-            // ニコニコ実況に存在しない実況チャンネル (ex: BS日テレ): コンソールにのみ警告を表示
-            // 頻度が多い上エラーではなく予期された挙動であり、毎回表示するのは鬱陶しいため
+                // ニコニコ実況に存在しない実況チャンネル (ex: BS日テレ): コンソールにのみ警告を表示
+                // 頻度が多い上エラーではなく予期された挙動であり、毎回表示するのは鬱陶しいため
             } else if (websocket_info.is_nxjikkyo_exclusive === true) {
                 console.warn('[LiveCommentManager][WatchSession] Failed to get Nicolive watch session URL. (This channel is exclusive to NX-Jikkyo.)');
 
-            // KonomiTV アカウントにログインしていないために視聴セッション WebSocket URL を取得できなかった: コンソールにのみ警告を表示
-            // ニコニコ実況を使わない人にとって、わざわざ設定をオフにしないとこのメッセージが消せないのはストレスなので、警告メッセージとしては表示しない
+                // KonomiTV アカウントにログインしていないために視聴セッション WebSocket URL を取得できなかった: コンソールにのみ警告を表示
+                // ニコニコ実況を使わない人にとって、わざわざ設定をオフにしないとこのメッセージが消せないのはストレスなので、警告メッセージとしては表示しない
             } else if (user_store.user === null) {
                 console.warn('[LiveCommentManager][WatchSession] Failed to get Nicolive watch session URL. (Not logged in to KonomiTV)');
 
-            // ニコニコアカウントと連携していないために視聴セッション WebSocket URL を取得できなかった: コンソールにのみ警告を表示
-            // ニコニコ実況を使わない人にとって、わざわざ設定をオフにしないとこのメッセージが消せないのはストレスなので、警告メッセージとしては表示しない
+                // ニコニコアカウントと連携していないために視聴セッション WebSocket URL を取得できなかった: コンソールにのみ警告を表示
+                // ニコニコ実況を使わない人にとって、わざわざ設定をオフにしないとこのメッセージが消せないのはストレスなので、警告メッセージとしては表示しない
             } else if (user_store.user?.niconico_user_id === null) {
                 console.warn('[LiveCommentManager][WatchSession] Failed to get Nicolive watch session URL. (Not linked with Niconico account)');
 
-            // ニコニコ生放送からエラーが返された: 普通発生しないため警告メッセージとして表示
+                // ニコニコ生放送からエラーが返された: 普通発生しないため警告メッセージとして表示
             } else if (websocket_info.nicolive_watch_session_error !== null) {
                 console.warn(`[LiveCommentManager][WatchSession] Failed to get Nicolive watch session URL. (${websocket_info.nicolive_watch_session_error})`);
                 this.player.notice(`${websocket_info.nicolive_watch_session_error}代わりに NX-Jikkyo にコメントします。`, undefined, undefined, '#FFA86A');
@@ -274,7 +284,7 @@ class LiveCommentManager implements PlayerManager {
                     this.keep_seat_interval_id = window.setInterval(() => {
                         if (this.watch_session && this.watch_session.readyState === WebSocket.OPEN) {
                             // セッションがまだ開いていれば、座席を維持する
-                            this.watch_session.send(JSON.stringify({type: 'keepSeat'}));
+                            this.watch_session.send(JSON.stringify({ type: 'keepSeat' }));
                         } else {
                             // セッションが閉じられている場合は、タイマーを停止する
                             window.clearInterval(this.keep_seat_interval_id ?? 0);
@@ -287,7 +297,7 @@ class LiveCommentManager implements PlayerManager {
                 case 'ping': {
                     // pong を返してセッションを維持する
                     // 送り返さなかった場合、勝手にセッションが閉じられてしまう
-                    this.watch_session.send(JSON.stringify({type: 'pong'}));
+                    this.watch_session.send(JSON.stringify({ type: 'pong' }));
                     break;
                 }
 
@@ -426,9 +436,9 @@ class LiveCommentManager implements PlayerManager {
                         your_post_key: (message.data.yourPostKey ? message.data.yourPostKey : null),
                     });
 
-                // 2024/08/05 以降のニコニコ生放送では room メッセージの代わりに messageServer メッセージが送信されてくる
-                // messageServer メッセージでは NDGR 新メッセージサーバーへの接続先 URL が返されるが、以前と異なり WebSocket ではないため
-                // CORS 制限で直接接続することはできずプロトコルも全く別物なので、コメントセッションは常に NX-Jikkyo のニコニコ生放送互換 API に接続する
+                    // 2024/08/05 以降のニコニコ生放送では room メッセージの代わりに messageServer メッセージが送信されてくる
+                    // messageServer メッセージでは NDGR 新メッセージサーバーへの接続先 URL が返されるが、以前と異なり WebSocket ではないため
+                    // CORS 制限で直接接続することはできずプロトコルも全く別物なので、コメントセッションは常に NX-Jikkyo のニコニコ生放送互換 API に接続する
                 } else if (message.type === 'messageServer') {
 
                     // vpos の基準時刻のタイムスタンプを取得 (ミリ秒単位)
@@ -489,8 +499,8 @@ class LiveCommentManager implements PlayerManager {
             // コメント送信をリクエスト
             // このコマンドを送らないとコメントが送信されてこない
             this.comment_session.send(JSON.stringify([
-                {ping: {content: 'rs:0'}},
-                {ping: {content: 'ps:0'}},
+                { ping: { content: 'rs:0' } },
+                { ping: { content: 'ps:0' } },
                 {
                     thread: {
                         version: '20061206',  // 設定必須
@@ -500,8 +510,8 @@ class LiveCommentManager implements PlayerManager {
                         res_from: -100,  // 最初にコメントを 100 個送信する
                     }
                 },
-                {ping: {content: 'pf:0'}},
-                {ping: {content: 'rf:0'}},
+                { ping: { content: 'pf:0' } },
+                { ping: { content: 'rf:0' } },
             ]));
 
         }, { signal: this.abort_controller.signal });
@@ -865,6 +875,9 @@ class LiveCommentManager implements PlayerManager {
      * 視聴セッションとコメントセッションをそれぞれ閉じる
      */
     public async destroy(): Promise<void> {
+        // 破棄済みかどうかのフラグを立てて非同期処理のすり抜けを防止
+        this.destroyed = true;
+
         const player_store = usePlayerStore();
 
         // セッションに紐いているすべての EventListener を解除
@@ -903,15 +916,12 @@ class LiveCommentManager implements PlayerManager {
         // サブチャンネルのコメントセッションを切断
         this.disconnectAllSubChannels();
 
-        // 破棄済みかどうかのフラグを立てる
-        this.destroyed = true;
-
         console.log('[LiveCommentManager] Destroyed.');
     }
 
 
     /**
-     * サブチャンネル (別チャンネル群) のコメントセッションを設定・初期化する
+     * サブチャンネル群のコメントセッションを設定・初期化する
      * @param target_sub_channel_ids 対象のサブチャンネル ID のリスト
      */
     public async setSubChannels(target_sub_channel_ids: string[]): Promise<void> {
@@ -923,7 +933,7 @@ class LiveCommentManager implements PlayerManager {
         const player_store = usePlayerStore();
         const current_channel = channels_store.channel.current;
 
-        // 全解除 (0局選択) の場合はメインもサブも描画を無効化し、画面上の弾幕も消去
+        // 0局選択の全解除時はメインもサブも描画を無効化し、画面上の弾幕も消去
         if (target_sub_channel_ids.length === 0) {
             this.is_main_channel_enabled = false;
             this.disconnectAllSubChannels();
@@ -971,7 +981,7 @@ class LiveCommentManager implements PlayerManager {
 
     /**
      * 後方互換用の単一サブチャンネル設定メソッド
-     * @param sub_channel_id サブチャンネルの ID (null で全切断)
+     * @param sub_channel_id サブチャンネルの ID。null で全切断
      */
     public async setSubChannel(sub_channel_id: string | null): Promise<void> {
         await this.setSubChannels(sub_channel_id ? [sub_channel_id] : []);
@@ -980,8 +990,10 @@ class LiveCommentManager implements PlayerManager {
 
     /**
      * 特定のサブチャンネルを切断する
+     * @param channel_id 切断対象のサブチャンネル ID
+     * @param reset_reconnect_count リトライ回数をリセットするかどうか。切断時の一時切断ではリセットしない
      */
-    private disconnectSingleSubChannel(channel_id: string): void {
+    private disconnectSingleSubChannel(channel_id: string, reset_reconnect_count: boolean = true): void {
         const controller = this.sub_abort_controllers.get(channel_id);
         if (controller) {
             controller.abort();
@@ -993,6 +1005,10 @@ class LiveCommentManager implements PlayerManager {
             this.sub_comment_sessions.delete(channel_id);
         }
         this.sub_channel_ids.delete(channel_id);
+        this.connecting_sub_channel_ids.delete(channel_id);
+        if (reset_reconnect_count) {
+            this.sub_reconnect_counts.delete(channel_id);
+        }
     }
 
 
@@ -1010,30 +1026,38 @@ class LiveCommentManager implements PlayerManager {
      * 特定のサブチャンネルに接続する
      */
     private async connectSingleSubChannel(channel_id: string): Promise<void> {
-        if (this.destroyed === true) return;
-
-        // サブチャンネルの WebSocket 情報を取得
-        let comment_session_url: string | null = null;
-        if (channel_id.startsWith('jk')) {
-            // 実況 ID の場合は NX-Jikkyo の WebSocket URL を直接利用
-            comment_session_url = `wss://nx-jikkyo.tsukumijima.net/api/v1/channels/${channel_id}/ws/comment`;
-        } else {
-            const websocket_info = await Channels.fetchWebSocketInfo(channel_id);
-            comment_session_url = websocket_info?.comment_session_url ?? null;
-        }
-        if (comment_session_url === null) {
-            console.warn(`[LiveCommentManager][SubCommentSession] Failed to fetch websocket info for ${channel_id}`);
+        if (this.destroyed === true || this.sub_channel_ids.has(channel_id) || this.connecting_sub_channel_ids.has(channel_id)) {
             return;
         }
 
-        // await の間にインスタンスが破棄された場合は処理を中断 (TS2367 回避のためキャスト)
-        if ((this.destroyed as boolean) === true) return;
+        this.connecting_sub_channel_ids.add(channel_id);
+        try {
+            // サブチャンネルの WebSocket 情報を取得
+            let comment_session_url: string | null = null;
+            if (channel_id.startsWith('jk')) {
+                // 実況 ID の場合はサーバー API から WebSocket 接続情報を取得
+                const websocket_info = await Niconico.fetchJikkyoWebSocketInfo(channel_id);
+                comment_session_url = websocket_info?.comment_session_url ?? null;
+            } else {
+                const websocket_info = await Channels.fetchWebSocketInfo(channel_id);
+                comment_session_url = websocket_info?.comment_session_url ?? null;
+            }
+            if (comment_session_url === null) {
+                console.warn(`[LiveCommentManager][SubCommentSession] Failed to fetch websocket info for ${channel_id}`);
+                return;
+            }
 
-        this.sub_channel_ids.add(channel_id);
-        const abort_controller = new AbortController();
-        this.sub_abort_controllers.set(channel_id, abort_controller);
+            // await の間にインスタンスが破棄された場合は処理を中断
+            if ((this.destroyed as boolean) === true) return;
 
-        this.initSubCommentSession(comment_session_url, channel_id, abort_controller);
+            this.sub_channel_ids.add(channel_id);
+            const abort_controller = new AbortController();
+            this.sub_abort_controllers.set(channel_id, abort_controller);
+
+            this.initSubCommentSession(comment_session_url, channel_id, abort_controller);
+        } finally {
+            this.connecting_sub_channel_ids.delete(channel_id);
+        }
     }
 
 
@@ -1056,9 +1080,11 @@ class LiveCommentManager implements PlayerManager {
 
         // コメント送信をリクエスト
         sub_comment_session.addEventListener('open', () => {
+            // 接続成功時にリトライカウントをリセット
+            this.sub_reconnect_counts.delete(target_sub_channel_id);
             sub_comment_session.send(JSON.stringify([
-                {ping: {content: 'rs:0'}},
-                {ping: {content: 'ps:0'}},
+                { ping: { content: 'rs:0' } },
+                { ping: { content: 'ps:0' } },
                 {
                     thread: {
                         version: '20061206',
@@ -1068,8 +1094,8 @@ class LiveCommentManager implements PlayerManager {
                         res_from: 0,
                     }
                 },
-                {ping: {content: 'pf:0'}},
-                {ping: {content: 'rf:0'}},
+                { ping: { content: 'pf:0' } },
+                { ping: { content: 'rf:0' } },
             ]));
         }, { signal: abort_controller.signal });
 
@@ -1121,7 +1147,9 @@ class LiveCommentManager implements PlayerManager {
                 buffered_end = this.player.video.buffered.end(0);
             }
             const comment_delay_time = Math.max(buffered_end - this.player.video.currentTime, 0);
-            await Utils.sleep(comment_delay_time);
+            if (comment_delay_time > 0.05) {
+                await Utils.sleep(comment_delay_time);
+            }
 
             // 破棄またはサブチャンネル除外済みなら中断
             if (this.destroyed === true || !this.sub_channel_ids.has(target_sub_channel_id)) {
@@ -1149,18 +1177,26 @@ class LiveCommentManager implements PlayerManager {
             if (is_closed) return;
             is_closed = true;
             console.warn(`[LiveCommentManager][SubCommentSession] Connection closed for ${target_sub_channel_id}`);
-            // 既存のセッションリソースを切断・クリーンアップ
-            this.disconnectSingleSubChannel(target_sub_channel_id);
+            // 既存のセッションリソースを切断・クリーンアップ 
+            this.disconnectSingleSubChannel(target_sub_channel_id, false);
 
             // 破棄済み、または設定から除外済みの場合は再接続しない
             if (this.destroyed === true || !player_store.sub_channel_ids.includes(target_sub_channel_id)) {
                 return;
             }
 
+            // リトライ上限チェック
+            const retry_count = (this.sub_reconnect_counts.get(target_sub_channel_id) ?? 0) + 1;
+            if (retry_count > LiveCommentManager.MAX_SUB_CHANNEL_RECONNECT_ATTEMPTS) {
+                console.error(`[LiveCommentManager][SubCommentSession] Giving up reconnection to ${target_sub_channel_id} after ${LiveCommentManager.MAX_SUB_CHANNEL_RECONNECT_ATTEMPTS} attempts.`);
+                return;
+            }
+            this.sub_reconnect_counts.set(target_sub_channel_id, retry_count);
+
             // 3秒待機してから再接続を試行
             await Utils.sleep(3);
             if (this.destroyed === false && player_store.sub_channel_ids.includes(target_sub_channel_id) && !this.sub_channel_ids.has(target_sub_channel_id)) {
-                console.log(`[LiveCommentManager][SubCommentSession] Reconnecting to ${target_sub_channel_id}...`);
+                console.log(`[LiveCommentManager][SubCommentSession] Reconnecting to ${target_sub_channel_id} (attempt ${retry_count}/${LiveCommentManager.MAX_SUB_CHANNEL_RECONNECT_ATTEMPTS})...`);
                 await this.connectSingleSubChannel(target_sub_channel_id);
             }
         };

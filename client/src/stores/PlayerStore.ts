@@ -61,7 +61,7 @@ export type PlayerEvents = {
     }
     // 複数チャンネル同時取得でサブチャンネルが変更されたことを通知する
     SubChannelChanged: {
-        sub_channel_id: string | null;  // 選択されたサブチャンネルの ID (後方互換用)
+        sub_channel_id: string | null;  // 選択されたサブチャンネルの ID。後方互換用
         sub_channel_ids: string[];  // 選択されたサブチャンネル ID のリスト
     }
 };
@@ -179,7 +179,7 @@ const usePlayerStore = defineStore('player', {
         // 複数チャンネル同時取得で選択されている別チャンネルの ID リスト
         sub_channel_ids: [] as string[],
 
-        // 最後に選択されていたチャンネル ID リスト (トグル再有効化時に復元用)
+        // 最後に選択されていたチャンネル ID リスト。トグル再有効化時の復元用
         last_selected_channel_ids: [] as string[],
 
         // ライブ視聴: 現在のライブストリームのステータス

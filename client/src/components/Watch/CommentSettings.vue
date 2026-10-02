@@ -77,8 +77,11 @@
                                 <span class="text-text-darken-1 mr-2 font-weight-regular" style="font-size: 13px;">Ch.{{ item.channel_number }}</span>
                                 <span>{{ item.name }}</span>
                             </div>
-                            <div class="channel-force ml-3 flex-shrink-0"
-                                :class="`channel-force--${ChannelUtils.getChannelForceType(item.jikkyo_force)}`">
+                            <div
+                                v-if="playback_mode === 'Live'"
+                                class="channel-force ml-3 flex-shrink-0"
+                                :class="`channel-force--${ChannelUtils.getChannelForceType(item.jikkyo_force)}`"
+                            >
                                 <svg class="iconify iconify--fa-solid mr-1" width="10.5px" height="12px" viewBox="0 0 448 512">
                                     <path fill="currentColor" d="M323.56 51.2c-20.8 19.3-39.58 39.59-56.22 59.97C240.08 73.62 206.28 35.53 168 0C69.74 91.17 0 209.96 0 281.6C0 408.85 100.29 512 224 512s224-103.15 224-230.4c0-53.27-51.98-163.14-124.44-230.4zm-19.47 340.65C282.43 407.01 255.72 416 226.86 416C154.71 416 96 368.26 96 290.75c0-38.61 24.31-72.63 72.79-130.75c6.93 7.98 98.83 125.34 98.83 125.34l58.63-66.88c4.14 6.85 7.91 13.55 11.27 19.97c27.35 52.19 15.81 118.97-33.43 153.42z"></path>
                                 </svg>
@@ -100,12 +103,12 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, ref, watch, type PropType } from 'vue';
+import { computed, onMounted, ref, watch, type PropType } from 'vue';
 
 import Niconico, { type IJikkyoStatus } from '@/services/Niconico';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
-import Utils, { PRIMARY_JIKKYO_CHANNELS, CommentUtils, ChannelUtils, type IJikkyoOption } from '@/utils';
+import Utils, { CommentUtils, ChannelUtils, type IJikkyoOption } from '@/utils';
 
 // Props
 const props = defineProps({
@@ -119,6 +122,9 @@ const props = defineProps({
 const channelsStore = useChannelsStore();
 const playerStore = usePlayerStore();
 
+// 主要実況チャンネル一覧。API から取得
+const primaryChannels = ref<IJikkyoOption[]>([...CommentUtils.getPrimaryJikkyoChannels()]);
+
 // 実況チャンネル全体の最新ステータス
 const jikkyoStatuses = ref<{ [key: string]: IJikkyoStatus }>({});
 
@@ -130,9 +136,16 @@ const updateJikkyoStatuses = async () => {
     }
 };
 
-// 初回およびチャンネルリスト更新
-updateJikkyoStatuses();
-channelsStore.update();
+// 主要実況チャンネル一覧を取得
+const updatePrimaryChannels = async () => {
+    const channels = await CommentUtils.fetchPrimaryJikkyoChannels();
+    primaryChannels.value = [...channels];
+};
+
+// マウント時に主要実況チャンネル一覧を取得
+onMounted(() => {
+    updatePrimaryChannels();
+});
 
 // 現在の再生対象チャンネル情報
 const playbackChannel = computed(() => {
@@ -166,7 +179,7 @@ const channelItems = computed(() => {
         }
     }
 
-    return PRIMARY_JIKKYO_CHANNELS.map(channel => {
+    return primaryChannels.value.map(channel => {
         // Niconico.fetchJikkyoStatuses() の全体ステータスを優先し、なければ channelsStore から取得
         const statusForce = jikkyoStatuses.value[channel.id]?.force;
         const force = (statusForce !== undefined && statusForce !== -1)
@@ -181,7 +194,7 @@ const channelItems = computed(() => {
     });
 });
 
-// デフォルトの選択状態 (自局のみ)
+// デフォルトの選択状態。自局のみ
 const getDefaultChannelIds = (): string[] => {
     const current = currentChannel.value;
     return current ? [current.id] : [];
@@ -190,14 +203,14 @@ const getDefaultChannelIds = (): string[] => {
 // 選択中のチャンネル ID リスト
 const selectedChannelIds = ref<string[]>([...playerStore.sub_channel_ids]);
 
-// 画面上で選択されている局数 (主要局一覧に実在する局のみ)
+// 画面上で選択されている局数。主要局一覧に実在する局のみ
 const displaySelectedCount = computed(() => {
     return selectedChannelIds.value.filter(id =>
-        PRIMARY_JIKKYO_CHANNELS.some(item => item.id === id)
+        primaryChannels.value.some(item => item.id === id)
     ).length;
 });
 
-// 実況チャンネルのロゴ URL を取得 (ニコニコ実況は東京基準のため常に東京キー局のロゴを使用)
+// 実況チャンネルのロゴ URL を取得。ニコニコ実況は東京基準のため常に東京キー局のロゴを使用
 const getChannelLogoUrl = (item: IJikkyoOption): string => {
     return `${Utils.api_base_url}/channels/${item.logo_id}/logo`;
 };
@@ -209,10 +222,11 @@ const isDefaultSelection = computed(() => {
     return defaultIds.every(id => selectedChannelIds.value.includes(id));
 });
 
-// 配列の一致判定
+// チャンネル ID リストの集合としての一致判定。順序に依存しない
 const areChannelIdsEqual = (a: string[], b: string[]): boolean => {
     if (a.length !== b.length) return false;
-    return a.every((val, index) => val === b[index]);
+    const aSet = new Set(a);
+    return b.every(val => aSet.has(val));
 };
 
 // チャンネル選択状態を同期
@@ -230,9 +244,9 @@ const syncChannels = () => {
 
 // チャンネルのチェック切り替え
 const toggleChannel = (channelId: string) => {
-    // 主要局リストにないフォールバック ID (自局 ID など) が含まれていれば除外する
+    // 主要局リストにないフォールバック ID や自局 ID が含まれていれば除外する
     selectedChannelIds.value = selectedChannelIds.value.filter(id =>
-        PRIMARY_JIKKYO_CHANNELS.some(item => item.id === id)
+        primaryChannels.value.some(item => item.id === id)
     );
     const index = selectedChannelIds.value.indexOf(channelId);
     if (index === -1) {
@@ -252,12 +266,14 @@ const clearAllChannels = () => {
     selectedChannelIds.value = [];
 };
 
-// モーダルを閉じたタイミングで反映 (開いたタイミングで勢い情報を更新)
+// モーダルを閉じたタイミングで反映。開いたタイミングで勢い情報を更新
 watch(() => playerStore.comment_settings_modal, (isOpen) => {
     if (isOpen) {
         selectedChannelIds.value = [...playerStore.sub_channel_ids];
-        channelsStore.update();
-        updateJikkyoStatuses();
+        if (props.playback_mode === 'Live') {
+            channelsStore.update();
+            updateJikkyoStatuses();
+        }
     } else {
         if (!areChannelIdsEqual(selectedChannelIds.value, playerStore.sub_channel_ids)) {
             syncChannels();
@@ -272,9 +288,9 @@ watch(() => playerStore.sub_channel_ids, (newSubChannelIds) => {
     }
 }, { deep: true });
 
-// 視聴中チャンネルが変わった際にデフォルト選択を再初期化
+// 視聴中チャンネルが実際に別のチャンネルに切り替わった場合のみデフォルト選択を再初期化
 watch(currentChannel, (newCurrent, oldCurrent) => {
-    if (newCurrent && (!oldCurrent || newCurrent.id !== oldCurrent.id)) {
+    if (newCurrent && oldCurrent && newCurrent.id !== oldCurrent.id) {
         // すでに同一のチャンネルのみが選択されている場合は二重同期・再取得をスキップ
         if (selectedChannelIds.value.length === 1 && selectedChannelIds.value[0] === newCurrent.id) {
             return;
