@@ -309,6 +309,11 @@ async def JikkyoWebSocketInfoAPI(
             pass
 
     # ニコニココメント送受信用 WebSocket API の情報を取得する
+    if jikkyo_id not in JikkyoClient.JIKKYO_CHANNEL_ID_MAP:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = 'Specified jikkyo_id was not found',
+        )
     jikkyo_client = JikkyoClient.fromJikkyoID(jikkyo_id)
     return await jikkyo_client.fetchWebSocketInfo(current_user)
 
