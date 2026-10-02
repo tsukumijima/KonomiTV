@@ -930,8 +930,6 @@ async def AdjustCommentsCutSections(
             comment.time -= time_shift
             adjusted_comments.append(comment)
             comment_index += 1
-    if comment_index < total_comments:
-        adjusted_comments.extend(comments[comment_index:])
 
     # タイミング調整後のコメントを再ソートする
     adjusted_comments.sort(key=lambda comment: comment.time)
