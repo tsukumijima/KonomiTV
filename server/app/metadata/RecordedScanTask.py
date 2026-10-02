@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar, Literal, cast
 
 import anyio
+import psutil
 from fastapi import HTTPException, status
 from tortoise import transactions
 from tortoise.exceptions import IntegrityError
@@ -1149,12 +1151,23 @@ class RecordedScanTask:
     async def watchRecordedFolders(self) -> None:
         """
         録画フォルダ以下のファイルシステム変更の監視を開始し、変更があれば随時メタデータを解析後、DB に永続化する
+
+        Args:
+            None
+
+        Returns:
+            None
         """
 
         logging.info('Starting file system watch of recording folders.')
 
-        # 監視対象のディレクトリを設定
-        watch_paths = [str(path) for path in self.recorded_folders]
+        # NFS とローカルの録画フォルダを分けて監視し、ローカルの変更通知は低遅延のまま維持する
+        # ポーリング間隔は watchfiles の API に合わせて秒からミリ秒に変換する
+        native_watch_paths, polling_watch_paths = await self.__getRecordingWatchPaths()
+        if not native_watch_paths and not polling_watch_paths:
+            logging.info('No recording folders to watch.')
+            return
+        poll_delay_ms = self.config.video.recorded_folders_polling_interval * 1000
 
         # スキャン対象から除外するフォルダ
         # 空文字列は全パスにマッチしてしまうため除外する
@@ -1168,49 +1181,19 @@ class RecordedScanTask:
         completion_check_task = asyncio.create_task(self.__checkRecordingCompletion())
 
         try:
-            # watchfiles によるファイル監視
-            async for changes in awatch(*watch_paths, recursive=True):
-                if not self._is_running:
-                    break
-
-                # 変更があったファイルごとに処理
-                for change_type, file_path_str in changes:
-                    if not self._is_running:
-                        break
-
-                    file_path = anyio.Path(file_path_str)
-                    # Mac の metadata ファイルをスキップ
-                    if file_path.name.startswith('._'):
-                        continue
-                    # 除外パターンのチェック（シンボリックリンク解決前）
-                    # 空文字列は全パスにマッチしてしまうため除外する
-                    original_path_str = str(file_path)
-                    original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
-                    if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
-                        continue
-                    # シンボリックリンクを含むパスは実体に解決して処理する
-                    canonical_path = await self.resolveRecordedPath(file_path)
-                    # 除外パターンのチェック（シンボリックリンク解決後）
-                    # 空文字列は全パスにマッチしてしまうため除外する
-                    canonical_path_str = str(canonical_path)
-                    canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
-                    if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
-                        continue
-                    if await canonical_path.is_dir():
-                        continue
-                    # 対象拡張子のファイル以外は無視
-                    if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
-                        continue
-
-                    try:
-                        # 追加 or 変更イベント
-                        if change_type == Change.added or change_type == Change.modified:
-                            await self.__handleFileChange(canonical_path, original_file_path=file_path)
-                        # 削除イベント
-                        elif change_type == Change.deleted:
-                            await self.__handleFileDeletion(canonical_path, original_file_path=file_path)
-                    except Exception as ex:
-                        logging.error(f'{file_path}: Error handling file change:', exc_info=ex)
+            # グループごとに watchfiles を起動するが、録画完了チェックは全グループで1つだけ共有する
+            # TaskGroup により、停止時や監視エラー時は他の監視タスクもキャンセルして確実に回収する
+            async with asyncio.TaskGroup() as watch_tasks:
+                if native_watch_paths:
+                    watch_tasks.create_task(self.__watchRecordingPaths(
+                        native_watch_paths, exclude_scan_paths, excluded_watch_paths=[],
+                        force_polling=None, poll_delay_ms=poll_delay_ms,
+                    ))
+                if polling_watch_paths:
+                    watch_tasks.create_task(self.__watchRecordingPaths(
+                        polling_watch_paths, exclude_scan_paths, excluded_watch_paths=native_watch_paths,
+                        force_polling=True, poll_delay_ms=poll_delay_ms,
+                    ))
 
         except asyncio.CancelledError:
             raise
@@ -1223,6 +1206,147 @@ class RecordedScanTask:
             except asyncio.CancelledError:
                 pass
             logging.info('File system watch of recording folders has been stopped.')
+
+
+    async def __getRecordingWatchPaths(self) -> tuple[list[str], list[str]]:
+        """
+        録画フォルダを通常の変更通知で監視するグループと NFS のポーリングで監視するグループに分ける
+
+        Args:
+            None
+
+        Returns:
+            tuple[list[str], list[str]]: 通常監視のパス一覧とポーリング監視のパス一覧
+        """
+
+        watch_paths = [str(path) for path in self.recorded_folders]
+
+        # 環境変数の解釈は watchfiles に任せ、既存の明示的な有効化・無効化を上書きしない
+        # Windows の SMB などは変更通知を利用できるため、NFS の自動判定は Linux のみで行う
+        if os.getenv('WATCHFILES_FORCE_POLLING') or not psutil.LINUX or not watch_paths:
+            return watch_paths, []
+
+        try:
+            # Docker の /host-rootfs 以下などの bind mount も含め、現在のマウント名前空間で判定する
+            # マウント情報の読み取りでイベントループをブロックしないよう、ワーカースレッドで取得する
+            partitions = await anyio.to_thread.run_sync(psutil.disk_partitions, True)
+        except OSError as ex:
+            logging.warning('Failed to detect NFS recording folders; using default file system watch.', exc_info=ex)
+            return watch_paths, []
+
+        # 同じマウントポイントに複数のエントリがある場合は最後のエントリを採用する
+        # 最も深いマウントポイントを優先し、NFS の下にローカル FS がマウントされている場合も区別する
+        mounted_filesystems = {anyio.Path(partition.mountpoint): partition.fstype for partition in partitions}
+        mount_points = sorted(mounted_filesystems, key=lambda path: len(path.parts), reverse=True)
+        native_watch_paths: list[str] = []
+        polling_watch_paths: list[str] = []
+
+        for folder in self.recorded_folders:
+            try:
+                # シンボリックリンクで指定された録画フォルダも、実体のファイルシステムで判定する
+                resolved_folder = await folder.resolve()
+            except (OSError, RuntimeError) as ex:
+                logging.warning(f'{folder}: Failed to resolve recording folder; using default file system watch.', exc_info=ex)
+                native_watch_paths.append(str(folder))
+                continue
+
+            # 文字列の前方一致では /mnt/hdd0 と /mnt/hdd01 を混同するため、パス要素で比較する
+            mount_point = next((path for path in mount_points if resolved_folder.is_relative_to(path)), None)
+            is_nfs = mount_point is not None and mounted_filesystems[mount_point] in ('nfs', 'nfs4')
+            # 監視ルート自体がローカル FS でも、再帰的に監視するサブマウントが NFS ならポーリングが必要
+            contains_nfs_submount = any(
+                filesystem in ('nfs', 'nfs4') and path.is_relative_to(resolved_folder)
+                for path, filesystem in mounted_filesystems.items()
+            )
+            if is_nfs or contains_nfs_submount:
+                polling_watch_paths.append(str(folder))
+                logging.info(f'{folder}: NFS filesystem detected; using polling for this recording folder.')
+            else:
+                native_watch_paths.append(str(folder))
+
+        return native_watch_paths, polling_watch_paths
+
+
+    async def __watchRecordingPaths(
+        self,
+        watch_paths: list[str],
+        exclude_scan_paths: list[str],
+        *,
+        excluded_watch_paths: list[str],
+        force_polling: bool | None,
+        poll_delay_ms: int,
+    ) -> None:
+        """
+        同じ監視方式の録画フォルダを監視し、追加・変更・削除イベントを既存のファイル処理へ渡す
+
+        Args:
+            watch_paths (list[str]): 監視対象の録画フォルダ
+            exclude_scan_paths (list[str]): 正規化済みの除外パターン
+            excluded_watch_paths (list[str]): 他の監視タスクが担当するルート。ポーリング側のみ通常監視ルートを指定する
+            force_polling (bool | None): NFS は True、それ以外は None とし watchfiles の既定動作を維持する
+            poll_delay_ms (int): ポーリング間隔（ミリ秒）。WATCHFILES_POLL_DELAY_MS があれば watchfiles が優先する
+
+        Returns:
+            None
+        """
+
+        # NFS の親ルートとローカル子マウントが重複しても、子マウントのイベントは通常監視だけが処理する
+        # 監視ルートは元パスとリンク解決後の両方を保持し、解決失敗時も元パスによる除外を維持する
+        excluded_paths = {anyio.Path(path) for path in excluded_watch_paths}
+        for path in list(excluded_paths):
+            excluded_paths.add(await self.resolveRecordedPath(path))
+
+        # どちらの監視方式でも同じイベント処理を使い、除外・リンク解決・録画状態管理の動作を揃える
+        async for changes in awatch(
+            *watch_paths, recursive=True, force_polling=force_polling, poll_delay_ms=poll_delay_ms,
+        ):
+            if not self._is_running:
+                break
+
+            # 変更があったファイルごとに処理
+            for change_type, file_path_str in changes:
+                if not self._is_running:
+                    break
+
+                file_path = anyio.Path(file_path_str)
+                # パス要素でルート自身と配下を除外し、似た名前の隣接フォルダは除外しない
+                if any(file_path.is_relative_to(path) for path in excluded_paths):
+                    continue
+                # Mac の metadata ファイルをスキップ
+                if file_path.name.startswith('._'):
+                    continue
+                # 除外パターンのチェック（シンボリックリンク解決前）
+                # 空文字列は全パスにマッチしてしまうため除外する
+                original_path_str = str(file_path)
+                original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
+                if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                    continue
+                # シンボリックリンクを含むパスは実体に解決して処理する
+                canonical_path = await self.resolveRecordedPath(file_path)
+                # 親・子ルートのどちらかがリンクでも、実体が通常監視の担当範囲なら二重処理を避ける
+                if any(canonical_path.is_relative_to(path) for path in excluded_paths):
+                    continue
+                # 除外パターンのチェック（シンボリックリンク解決後）
+                # 空文字列は全パスにマッチしてしまうため除外する
+                canonical_path_str = str(canonical_path)
+                canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
+                if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                    continue
+                if await canonical_path.is_dir():
+                    continue
+                # 対象拡張子のファイル以外は無視
+                if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
+                    continue
+
+                try:
+                    # 追加 or 変更イベント
+                    if change_type == Change.added or change_type == Change.modified:
+                        await self.__handleFileChange(canonical_path, original_file_path=file_path)
+                    # 削除イベント
+                    elif change_type == Change.deleted:
+                        await self.__handleFileDeletion(canonical_path, original_file_path=file_path)
+                except Exception as ex:
+                    logging.error(f'{file_path}: Error handling file change:', exc_info=ex)
 
 
     async def __handleFileChange(self, file_path: anyio.Path, original_file_path: anyio.Path | None = None) -> None:
