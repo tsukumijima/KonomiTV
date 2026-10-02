@@ -802,7 +802,9 @@ async def FetchJikkyoCommentsWithCache(
     cache_key = (video_id, jikkyo_client.jikkyo_id)
     current_time = time.monotonic()
 
-    # キャッシュ確認
+    task: asyncio.Task[schemas.JikkyoComments]
+
+    # キャッシュ確認および取得タスクの登録
     async with KAKOLOG_FETCH_LOCK:
         if cache_key in KAKOLOG_CACHE:
             cached_data, cached_at = KAKOLOG_CACHE[cache_key]
@@ -811,43 +813,32 @@ async def FetchJikkyoCommentsWithCache(
                 return cached_data.model_copy(deep=True)
             del KAKOLOG_CACHE[cache_key]
 
-        # 同一キーの取得タスクが実行中の場合はその完了を待機
+        # 同一キーの取得タスクが実行中の場合はそのタスクを待機対象とする
         if cache_key in KAKOLOG_IN_FLIGHT:
             task = KAKOLOG_IN_FLIGHT[cache_key]
         else:
-            task = None
+            # 取得タスクを登録して実行
+            async def fetch_and_cache() -> schemas.JikkyoComments:
+                comments = await jikkyo_client.fetchJikkyoComments(start_time, end_time)
+                if comments.is_success:
+                    async with KAKOLOG_FETCH_LOCK:
+                        now = time.monotonic()
+                        # 期限切れのエントリを破棄
+                        expired_keys = [k for k, (_, t) in KAKOLOG_CACHE.items() if now - t >= KAKOLOG_CACHE_TTL]
+                        for k in expired_keys:
+                            del KAKOLOG_CACHE[k]
+                        # 上限超過時は最古のエントリを破棄
+                        if len(KAKOLOG_CACHE) >= MAX_KAKOLOG_CACHE_SIZE:
+                            KAKOLOG_CACHE.popitem(last=False)
+                        KAKOLOG_CACHE[cache_key] = (comments.model_copy(deep=True), now)
+                return comments
 
-    if task is not None:
-        result = await task
-        return result.model_copy(deep=True)
+            task = asyncio.create_task(fetch_and_cache())
+            KAKOLOG_IN_FLIGHT[cache_key] = task
+            task.add_done_callback(lambda _: KAKOLOG_IN_FLIGHT.pop(cache_key, None))
 
-    # 取得タスクを登録して実行
-    async def fetch_and_cache() -> schemas.JikkyoComments:
-        comments = await jikkyo_client.fetchJikkyoComments(start_time, end_time)
-        if comments.is_success:
-            async with KAKOLOG_FETCH_LOCK:
-                now = time.monotonic()
-                # 期限切れのエントリを破棄
-                expired_keys = [k for k, (_, t) in KAKOLOG_CACHE.items() if now - t >= KAKOLOG_CACHE_TTL]
-                for k in expired_keys:
-                    del KAKOLOG_CACHE[k]
-                # 上限超過時は最古のエントリを破棄
-                if len(KAKOLOG_CACHE) >= MAX_KAKOLOG_CACHE_SIZE:
-                    KAKOLOG_CACHE.popitem(last=False)
-                KAKOLOG_CACHE[cache_key] = (comments.model_copy(deep=True), now)
-        return comments
-
-    fetch_task = asyncio.create_task(fetch_and_cache())
-    async with KAKOLOG_FETCH_LOCK:
-        KAKOLOG_IN_FLIGHT[cache_key] = fetch_task
-
-    try:
-        res = await fetch_task
-        return res.model_copy(deep=True)
-    finally:
-        async with KAKOLOG_FETCH_LOCK:
-            if KAKOLOG_IN_FLIGHT.get(cache_key) is fetch_task:
-                del KAKOLOG_IN_FLIGHT[cache_key]
+    result = await asyncio.shield(task)
+    return result.model_copy(deep=True)
 
 
 async def AdjustCommentsCutSections(
