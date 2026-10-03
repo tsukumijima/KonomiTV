@@ -35,6 +35,7 @@ class Channel(PydanticModel):
     channel_number: str
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']
     name: str
+    jikkyo_id: Annotated[str | None, Field(description='実況チャンネル ID。')] = None
     # terrestrial_regions: network_id から算出した地デジチャンネルの地域名のリスト (デバッグ用)
     # 広域放送局の場合は複数の地域名が含まれる
     # 地デジ以外のチャンネルまたは地域が特定できない場合は None
@@ -673,30 +674,76 @@ class DataBroadcastingInternetStatus(BaseModel):
 
 # ***** ニコニコ実況連携 *****
 
+class JikkyoStatus(BaseModel):
+    # 実況勢い
+    force: Annotated[int, Field(description='実況勢い。')]
+    # 累計視聴者数
+    viewers: Annotated[int, Field(description='累計視聴者数。')]
+    # 累計コメント数
+    comments: Annotated[int, Field(description='累計コメント数。')]
+
+class JikkyoPrimaryChannel(BaseModel):
+    # 実況チャンネル ID
+    id: Annotated[str, Field(description='実況チャンネル ID。')]
+    # 代表局名
+    name: Annotated[str, Field(description='代表局名。')]
+    # 放送種別
+    type: Annotated[Literal['地デジ', 'BS'], Field(description='放送種別。')]
+    # チャンネル番号
+    channel_number: Annotated[str, Field(description='チャンネル番号。')]
+    # ロゴ取得用チャンネル ID
+    logo_id: Annotated[str, Field(description='ロゴ取得用チャンネル ID。')]
+
 class JikkyoWebSocketInfo(BaseModel):
-    # 視聴セッション維持用 WebSocket API の URL (NX-Jikkyo)
+    # 視聴セッション維持用 WebSocket API の URL NX-Jikkyo
     watch_session_url: str | None
-    # 視聴セッション維持用 WebSocket API の URL (ニコニコ生放送)
+    # 視聴セッション維持用 WebSocket API の URL ニコニコ生放送
     nicolive_watch_session_url: str | None = None
-    # 視聴セッション維持用 WebSocket API のエラー情報 (ニコニコ生放送)
+    # 視聴セッション維持用 WebSocket API のエラー情報 ニコニコ生放送
     nicolive_watch_session_error: str | None = None
-    # コメント受信用 WebSocket API の URL (NX-Jikkyo)
+    # コメント受信用 WebSocket API の URL NX-Jikkyo
     comment_session_url: str | None
     # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
     is_nxjikkyo_exclusive: bool
 
-class JikkyoComment(BaseModel):
-    time: float
-    type: Literal['top', 'right', 'bottom']
-    size: Literal['big', 'medium', 'small']
-    color: str
-    author: str
-    text: str
-
 class JikkyoComments(BaseModel):
-    is_success: bool
-    comments: list[JikkyoComment]
-    detail: str
+    # 過去ログコメントの取得に成功したかどうか
+    is_success: Annotated[bool, Field(description='過去ログコメントの取得に成功したかどうか。')]
+    # 過去ログコメントのリスト
+    comments: Annotated[list[JikkyoComment], Field(description='過去ログコメントのリスト。')]
+    # エラーメッセージまたはステータス詳細
+    detail: Annotated[str, Field(description='エラーメッセージまたはステータス詳細。')]
+    # チャンネルごとの過去ログコメント数リスト
+    channel_counts: Annotated[list[JikkyoChannelCommentCount], Field(description='チャンネルごとの過去ログコメント数リスト。')] = []
+
+class JikkyoComment(BaseModel):
+    # コメントの再生位置
+    time: Annotated[float, Field(description='コメントの再生位置。')]
+    # コメントの表示位置
+    type: Annotated[Literal['top', 'right', 'bottom'], Field(description='コメントの表示位置。')]
+    # コメントのフォントサイズ
+    size: Annotated[Literal['big', 'medium', 'small'], Field(description='コメントのフォントサイズ。')]
+    # コメントの 16 進数カラーコード
+    color: Annotated[str, Field(description='コメントの 16 進数カラーコード。')]
+    # コメントの投稿者 ID
+    author: Annotated[str, Field(description='コメントの投稿者 ID。')]
+    # コメント本文
+    text: Annotated[str, Field(description='コメント本文。')]
+    # コメントが投稿された実況チャンネル ID
+    channel_id: Annotated[str | None, Field(description='コメントが投稿された実況チャンネル ID。')] = None
+
+class JikkyoChannelCommentCount(BaseModel):
+    # 実況チャンネル ID
+    channel_id: Annotated[str, Field(description='実況チャンネル ID。')]
+    # 実況チャンネル名
+    channel_name: Annotated[str, Field(description='実況チャンネル名。')]
+    # 過去ログコメント数
+    comment_count: Annotated[int, Field(description='過去ログコメント数。')]
+    # 過去ログコメントの取得に成功したかどうか
+    is_success: Annotated[bool, Field(description='過去ログコメントの取得に成功したかどうか。')] = True
+
+# 前方参照を明示的に解決する
+JikkyoComments.model_rebuild()
 
 class ThirdpartyAuthURL(BaseModel):
     authorization_url: str

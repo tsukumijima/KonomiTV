@@ -6,7 +6,7 @@ import type { IOfflineVideo } from '@/services/OfflineVideos';
 
 import { ITweetCapture } from '@/components/Watch/Panel/Twitter.vue';
 import { ICommentData } from '@/services/player/managers/LiveCommentManager';
-import { IRecordedProgram, IRecordedProgramDefault } from '@/services/Videos';
+import { IRecordedProgram, IRecordedProgramDefault, type IJikkyoChannelCommentCount } from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
 
 
@@ -45,6 +45,7 @@ export type PlayerEvents = {
     CommentReceived: {
         is_initial_comments: boolean;  // 初期コメントかどうか
         comments: ICommentData[];  // コメントデータのリスト
+        channel_counts?: IJikkyoChannelCommentCount[];  // チャンネルごとの過去ログコメント数
     }
     // ライブ視聴: LiveCommentManager からコメントを送信したことを通知する
     CommentSendCompleted: {
@@ -57,6 +58,11 @@ export type PlayerEvents = {
     // 録画再生時: UI コンポーネントからプレイヤーに指定秒数へのシークを要求する
     SeekRequest: {
         playback_position: number;  // シーク先の再生位置 (秒)
+    }
+    // 複数チャンネル同時取得でサブチャンネルが変更されたことを通知する
+    SubChannelChanged: {
+        sub_channel_id: string | null;  // 選択されたサブチャンネルの ID。後方互換用
+        sub_channel_ids: string[];  // 選択されたサブチャンネル ID のリスト
     }
 };
 
@@ -164,6 +170,18 @@ const usePlayerStore = defineStore('player', {
         // L字画面のクロップ設定のモーダルを表示するか
         lshaped_screen_crop_settings_modal: false,
 
+        // コメント設定のモーダルを表示するか
+        comment_settings_modal: false,
+
+        // 複数チャンネル同時取得で選択されている別チャンネルの ID
+        sub_channel_id: null as string | null,
+
+        // 複数チャンネル同時取得で選択されている別チャンネルの ID リスト
+        sub_channel_ids: [] as string[],
+
+        // 最後に選択されていたチャンネル ID リスト。トグル再有効化時の復元用
+        last_selected_channel_ids: [] as string[],
+
         // ライブ視聴: 現在のライブストリームのステータス
         // 既定で null (未視聴) とする
         live_stream_status: null as 'Offline' | 'Standby' | 'ONAir' | 'Idling' | 'Restart' | null,
@@ -250,6 +268,10 @@ const usePlayerStore = defineStore('player', {
             this.is_background_display = false;
             this.background_url = '';
             this.shortcut_key_modal = false;
+            this.comment_settings_modal = false;
+            this.sub_channel_id = null;
+            this.sub_channel_ids = [];
+            this.last_selected_channel_ids = [];
             this.live_stream_status = null;
             this.live_comment_init_failed_message = null;
             this.twitter_captures = [];

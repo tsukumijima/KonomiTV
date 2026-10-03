@@ -3,6 +3,7 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import functools
 import json
 import re
 from datetime import datetime
@@ -21,6 +22,15 @@ class JikkyoChannelStatus(TypedDict):
     force: int
     viewers: int
     comments: int
+
+
+class PrimaryJikkyoChannel(TypedDict):
+    """ 実況チャンネル設定モーダルに表示する主要局の定義 """
+    id: str              # 実況 ID
+    name: str            # 代表局名
+    type: str            # 放送種別
+    channel_number: str  # チャンネル番号
+    logo_id: str         # ロゴ取得用チャンネル ID
 
 
 class JikkyoClient:
@@ -70,6 +80,78 @@ class JikkyoClient:
         'jk333': None,
     }
 
+    # 実況チャンネル ID と代表チャンネル名の全件マッピング
+    # PRIMARY_JIKKYO_CHANNELS に含まれない局も含めた完全な対照表
+    JIKKYO_CHANNEL_NAMES: ClassVar[dict[str, str]] = {
+        'jk1': 'NHK総合',
+        'jk2': 'NHKEテレ',
+        'jk4': '日本テレビ',
+        'jk5': 'テレビ朝日',
+        'jk6': 'TBSテレビ',
+        'jk7': 'テレビ東京',
+        'jk8': 'フジテレビ',
+        'jk9': 'TOKYO MX',
+        'jk10': 'テレ玉',
+        'jk11': 'tvk',
+        'jk12': 'チバテレ',
+        'jk13': '群馬テレビ',
+        'jk14': 'とちぎテレビ',
+        'jk101': 'NHK BS',
+        'jk103': 'NHK BSプレミアム',
+        'jk141': 'BS日テレ',
+        'jk151': 'BS朝日',
+        'jk161': 'BS-TBS',
+        'jk171': 'BSテレ東',
+        'jk181': 'BSフジ',
+        'jk191': 'WOWOWプライム',
+        'jk192': 'WOWOWライブ',
+        'jk193': 'WOWOWシネマ',
+        'jk200': 'BSスカパー!',
+        'jk201': 'BS10スターチャンネル',
+        'jk211': 'BS11イレブン',
+        'jk222': 'BS12 トゥエルビ',
+        'jk236': 'BSアニマックス',
+        'jk252': 'WOWOWプラス',
+        'jk260': 'BS松竹東急',
+        'jk263': 'BSJapanext',
+        'jk265': 'BSよしもと',
+        'jk333': 'サンテレビ',
+    }
+
+    # 実況チャンネル設定モーダルに表示する主要局リスト
+    # 地デジおよび BS のリモコン順に並べた定義
+    # クライアント側は /api/niconico/jikkyo/channels エンドポイント経由でこのリストを取得する
+    PRIMARY_JIKKYO_CHANNELS: ClassVar[list[PrimaryJikkyoChannel]] = [
+        # 地デジ
+        PrimaryJikkyoChannel(id='jk1', name='NHK総合', type='地デジ', channel_number='011', logo_id='NID32736-SID1024'),
+        PrimaryJikkyoChannel(id='jk2', name='NHKEテレ', type='地デジ', channel_number='021', logo_id='NID32737-SID1032'),
+        PrimaryJikkyoChannel(id='jk11', name='tvk', type='地デジ', channel_number='031', logo_id='NID32375-SID24632'),
+        PrimaryJikkyoChannel(id='jk10', name='テレ玉', type='地デジ', channel_number='031', logo_id='NID32295-SID29752'),
+        PrimaryJikkyoChannel(id='jk12', name='チバテレ', type='地デジ', channel_number='031', logo_id='NID32327-SID27704'),
+        PrimaryJikkyoChannel(id='jk333', name='サンテレビ', type='地デジ', channel_number='031', logo_id='NID32086-SID43056'),
+        PrimaryJikkyoChannel(id='jk4', name='日本テレビ', type='地デジ', channel_number='041', logo_id='NID32738-SID1040'),
+        PrimaryJikkyoChannel(id='jk5', name='テレビ朝日', type='地デジ', channel_number='051', logo_id='NID32741-SID1064'),
+        PrimaryJikkyoChannel(id='jk6', name='TBSテレビ', type='地デジ', channel_number='061', logo_id='NID32739-SID1048'),
+        PrimaryJikkyoChannel(id='jk7', name='テレビ東京', type='地デジ', channel_number='071', logo_id='NID32742-SID1072'),
+        PrimaryJikkyoChannel(id='jk8', name='フジテレビ', type='地デジ', channel_number='081', logo_id='NID32740-SID1056'),
+        PrimaryJikkyoChannel(id='jk9', name='TOKYO MX', type='地デジ', channel_number='091', logo_id='NID32391-SID23608'),
+        # BS
+        PrimaryJikkyoChannel(id='jk101', name='NHK BS', type='BS', channel_number='101', logo_id='NID4-SID101'),
+        PrimaryJikkyoChannel(id='jk141', name='BS日テレ', type='BS', channel_number='141', logo_id='NID4-SID141'),
+        PrimaryJikkyoChannel(id='jk151', name='BS朝日', type='BS', channel_number='151', logo_id='NID4-SID151'),
+        PrimaryJikkyoChannel(id='jk161', name='BS-TBS', type='BS', channel_number='161', logo_id='NID4-SID161'),
+        PrimaryJikkyoChannel(id='jk171', name='BSテレ東', type='BS', channel_number='171', logo_id='NID4-SID171'),
+        PrimaryJikkyoChannel(id='jk181', name='BSフジ', type='BS', channel_number='181', logo_id='NID4-SID181'),
+        PrimaryJikkyoChannel(id='jk211', name='BS11イレブン', type='BS', channel_number='211', logo_id='NID4-SID211'),
+        PrimaryJikkyoChannel(id='jk222', name='BS12 トゥエルビ', type='BS', channel_number='222', logo_id='NID4-SID222'),
+    ]
+
+    # PRIMARY_JIKKYO_CHANNELS から自動生成する実況 ID → ロゴ用チャンネル ID のマッピング
+    # ChannelsRouter のロゴエイリアス解決に使用する
+    JIKKYO_LOGO_ID_MAP: ClassVar[dict[str, str]] = {
+        ch['id']: ch['logo_id'] for ch in PRIMARY_JIKKYO_CHANNELS
+    }
+
     # ニコニコの色指定と 16 進数カラーコードのマッピング
     COLOR_CODE_MAP: ClassVar[dict[str, str]] = {
         'white': '#FFEAEA',
@@ -108,20 +190,21 @@ class JikkyoClient:
     __jikkyo_channels_statuses: ClassVar[dict[str, JikkyoChannelStatus]] = {}
 
 
-    def __init__(self, network_id: int, service_id: int) -> None:
+    def __init__(self, network_id: int, service_id: int, *, jikkyo_id: str | None = None) -> None:
         """
         ニコニコ実況クライアントを初期化する
 
         Args:
             network_id (int): チャンネルのネットワーク ID
             service_id (int): チャンネルのサービス ID
+            jikkyo_id: 実況チャンネル ID を直接指定する場合に指定。指定時は NID や SID からの解決をスキップ
         """
 
         self.network_id: int = network_id
         self.service_id: int = service_id
 
-        # ネットワーク ID + サービス ID に対応する実況チャンネル ID (ex: jk101) を取得
-        self.jikkyo_id: str | None = self.__getJikkyoChannelID()
+        # jikkyo_id が明示的に指定された場合はそのまま使用し、NID/SID からの解決をスキップする
+        self.jikkyo_id: str | None = jikkyo_id if jikkyo_id is not None else self.__getJikkyoChannelID()
 
         # 実況チャンネル ID に対応するニコニコチャンネル ID を取得する
         # ニコニコチャンネル ID が存在しない実況チャンネルは NX-Jikkyo にのみ存在する
@@ -132,6 +215,79 @@ class JikkyoClient:
             self.nicochannel_id: str | None = None
 
 
+    @classmethod
+    def fromJikkyoID(cls, jikkyo_id: str) -> JikkyoClient:
+        """
+        実況チャンネル ID から直接インスタンスを生成する
+
+        Args:
+            jikkyo_id (str): 実況チャンネル ID。ex: jk1, jk101
+
+        Returns:
+            JikkyoClient: ニコニコ実況クライアントのインスタンス
+        """
+        return cls(network_id=0, service_id=0, jikkyo_id=jikkyo_id)
+
+
+    @classmethod
+    def getJikkyoChannelName(cls, jikkyo_id: str) -> str:
+        """
+        実況チャンネル ID から代表チャンネル名を取得する
+
+        Args:
+            jikkyo_id (str): 実況チャンネル ID。ex: jk1, jk101
+
+        Returns:
+            str: 代表チャンネル名。対応する名前がない場合は jikkyo_id をそのまま返す
+        """
+        return cls.JIKKYO_CHANNEL_NAMES.get(jikkyo_id, jikkyo_id)
+
+
+    @classmethod
+    @functools.lru_cache(maxsize=128)
+    def getJikkyoID(cls, network_id: int, service_id: int) -> str | None:
+        """
+        ネットワーク ID とサービス ID から実況チャンネル ID を取得する
+
+        Args:
+            network_id (int): チャンネルのネットワーク ID
+            service_id (int): チャンネルのサービス ID
+
+        Returns:
+            str | None: 実況チャンネル ID。対応する実況チャンネルが存在しない場合は None を返す
+        """
+
+        # ネットワーク ID + サービス ID に対応する実況チャンネル ID を特定する
+        for jikkyo_channel in cls.JIKKYO_CHANNELS:
+
+            def match() -> bool:
+                jikkyo_network_id = jikkyo_channel['network_id']
+                jikkyo_service_id = int(jikkyo_channel['service_id'], 0)
+
+                # NID と SID が一致する
+                if network_id == jikkyo_network_id and service_id == jikkyo_service_id:
+                    return True
+
+                # NID が地上波の ID 範囲で、かつ jikkyo_channels.json 記載の NID が 15 であれば
+                if 0x7880 <= network_id <= 0x7fef and jikkyo_network_id == 15:
+                    if service_id == jikkyo_service_id:
+                        return True
+                    # サブチャンネル用の判定
+                    if service_id - 1 == jikkyo_service_id:
+                        return True
+                    if service_id - 2 == jikkyo_service_id:
+                        return True
+
+                return False
+
+            if match() and jikkyo_channel['jikkyo_id'] != -1:
+                jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
+                if jikkyo_id in cls.JIKKYO_CHANNEL_ID_MAP:
+                    return jikkyo_id
+
+        return None
+
+
     def __getJikkyoChannelID(self) -> str | None:
         """
         ネットワーク ID + サービス ID に対応する実況チャンネル ID (ex: jk101) を取得する
@@ -140,60 +296,7 @@ class JikkyoClient:
         Returns:
             str | None: 実況チャンネル ID (対応するニコニコ実況チャンネルが存在しない場合は None を返す)
         """
-
-        # ネットワーク ID + サービス ID に対応する実況チャンネル ID を特定する
-        for jikkyo_channel in JikkyoClient.JIKKYO_CHANNELS:
-
-            # マッチ条件が複雑すぎるので、絞り込みのための関数を定義する
-            def match() -> bool:
-
-                # jikkyo_channels.json に定義されている NID と SID
-                jikkyo_network_id = jikkyo_channel['network_id']
-                jikkyo_service_id = int(jikkyo_channel['service_id'], 0)  # 16進数の文字列を数値に変換
-
-                # NID と SID が一致する
-                # BS・CS の場合はこれだけで OK
-                if self.network_id == jikkyo_network_id and self.service_id == jikkyo_service_id:
-                    return True
-
-                # NID が地上波の ID 範囲 (0x7880 ～ 0x7fef) で、かつ jikkyo_channels.json 記載の NID が 15（地上波）であれば
-                # jikkyo_channels.json 記載の地上波の NID はなぜか 15 で固定なので、地上波で絞り込めたら後はサービス ID のみで特定する
-                if 0x7880 <= self.network_id <= 0x7fef and jikkyo_network_id == 15:
-
-                    # サービス ID が一致する
-                    if self.service_id == jikkyo_service_id:
-                        return True
-
-                    # サブチャンネル用で、jikkyo_channels.json にはサブチャンネルは定義されていないため必要
-                    # 地上波の場合はサービス ID は別チャンネルと隣合わせにならないようになっているはず
-                    # 地上波のサブチャンネルはおそらく最大3つなのでこれでカバーしきれるはず
-
-                    # 1つ前のサービス ID なら一致する
-                    # たとえば SID が 1025 (NHK総合2・東京) の場合、1つ前の 1024 (NHK総合1・東京) であれば定義があるので一致する
-                    if self.service_id - 1 == jikkyo_service_id:
-                        return True
-
-                    # 2つ前のサービス ID なら一致する
-                    # たとえば SID が 1034 (NHKEテレ3東京) の場合、2つ前の 1032 (NHKEテレ1東京) であれば定義があるので一致する
-                    if self.service_id - 2 == jikkyo_service_id:
-                        return True
-
-                # ここまでの条件に一致しなかったら False を返す
-                # CATV・SKY・BS4K は実況チャンネル/コミュニティ自体が存在しない
-                return False
-
-            # 上記の条件に一致し、かつ実況チャンネル ID が存在する場合のみ
-            # -1 は対応するニコニコ実況チャンネルが存在しないことを示す
-            if match() and jikkyo_channel['jikkyo_id'] != -1:
-                jikkyo_id = 'jk' + str(jikkyo_channel['jikkyo_id'])
-
-                # さらに対照表に存在するかをチェックする
-                # jikkyo_channels.json には現在は存在しない実況チャンネルの ID (ex: jk256) が含まれているため
-                if jikkyo_id in JikkyoClient.JIKKYO_CHANNEL_ID_MAP:
-                    return jikkyo_id
-
-        # 実況チャンネル ID が取得できていなければ None を返す
-        return None
+        return self.getJikkyoID(self.network_id, self.service_id)
 
 
     async def getStatus(self) -> JikkyoChannelStatus | None:
@@ -212,6 +315,17 @@ class JikkyoClient:
 
         # このインスタンスに紐づく実況チャンネルのステータスを返す
         return self.__jikkyo_channels_statuses[self.jikkyo_id]
+
+
+    @classmethod
+    def getStatuses(cls) -> dict[str, JikkyoChannelStatus]:
+        """
+        全ての実況チャンネルの最新ステータス辞書を取得する (ステータス更新は updateStatuses() で行う)
+
+        Returns:
+            dict[str, JikkyoChannelStatus]: 実況チャンネル ID をキーとしたステータス辞書
+        """
+        return dict(cls.__jikkyo_channels_statuses)
 
 
     @classmethod
