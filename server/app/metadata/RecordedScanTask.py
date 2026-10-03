@@ -1162,12 +1162,13 @@ class RecordedScanTask:
         logging.info('Starting file system watch of recording folders.')
 
         # NFS とローカルの録画フォルダを分けて監視し、ローカルの変更通知は低遅延のまま維持する
-        # ポーリング間隔は watchfiles の API に合わせて秒からミリ秒に変換する
+        # ポーリング間隔は watchfiles の API に合わせて分から整数のミリ秒に変換する
+        # 小数の分も設定できるため、浮動小数点の誤差で間隔がずれないように丸める
         native_watch_paths, polling_watch_paths = await self.__getRecordingWatchPaths()
         if not native_watch_paths and not polling_watch_paths:
             logging.info('No recording folders to watch.')
             return
-        poll_delay_ms = self.config.video.recorded_folders_polling_interval * 1000
+        poll_delay_ms = round(self.config.video.recorded_folders_polling_interval * 60 * 1000)
 
         # スキャン対象から除外するフォルダ
         # 空文字列は全パスにマッチしてしまうため除外する

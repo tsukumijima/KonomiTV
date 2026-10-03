@@ -164,7 +164,7 @@ export const IServerSettingsDefault: IServerSettings = {
     video: {
         recorded_folders: [],
         exclude_scan_paths: [],
-        recorded_folders_polling_interval: 300,
+        recorded_folders_polling_interval: 5.0,
     },
     capture: {
         upload_folders: [],

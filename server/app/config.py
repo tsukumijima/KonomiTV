@@ -351,7 +351,7 @@ class _ServerSettingsTV(BaseModel):
 class _ServerSettingsVideo(BaseModel):
     recorded_folders: list[DirectoryPath] = []
     exclude_scan_paths: list[str] = []
-    recorded_folders_polling_interval: Annotated[int, Field(gt=0, strict=True)] = 300
+    recorded_folders_polling_interval: Annotated[float, Field(ge=0.1, strict=True, allow_inf_nan=False)] = 5.0
 
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
