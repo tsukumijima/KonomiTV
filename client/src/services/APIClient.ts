@@ -169,11 +169,11 @@ class APIClient {
             }
             const version_url = `${Utils.api_base_url}/version`;
 
-            // 確認用 API が正常に取得できたら、次の接続障害で再び復帰を試せるようにする
+            // KonomiTV API が正常な JSON を返したら、次の接続障害で再び復帰を試せるようにする
             if (!(result instanceof AxiosError)) {
-                if (request_url.pathname === new URL(version_url).pathname &&
-                    typeof result.data === 'object' && result.data !== null &&
-                    'version' in result.data && typeof result.data.version === 'string') {
+                const content_type = result.headers['content-type'];
+                if (typeof content_type === 'string' && content_type.split(';', 1)[0].trim() === 'application/json' &&
+                    typeof result.data === 'object' && result.data !== null) {
                     window.sessionStorage.removeItem(APIClient.reconnect_attempt_key);
                 }
                 return;
