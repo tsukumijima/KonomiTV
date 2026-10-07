@@ -33,6 +33,7 @@ export interface IChannel {
     channel_number: string;
     type: ChannelType;
     name: string;
+    jikkyo_id: string | null;
     // 地デジチャンネルの地域名のリスト (デバッグ用)
     // 広域放送局の場合は複数の地域名が含まれる
     // 地デジ以外のチャンネルまたは地域が特定できない場合は null
@@ -63,6 +64,7 @@ export const ILiveChannelDefault: ILiveChannel = {
     channel_number: '---',
     type: 'GR',
     name: '取得中…',
+    jikkyo_id: null,
     jikkyo_force: null,
     is_subchannel: false,
     is_radiochannel: false,

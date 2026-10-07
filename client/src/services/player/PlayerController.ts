@@ -8,6 +8,7 @@ import { Deinterlacer, probeDecoder, supportsDeinterlace, type DecoderProbe } fr
 import mpegts from 'mpegts.js';
 import { watch } from 'vue';
 
+import Message from '@/message';
 import APIClient from '@/services/APIClient';
 import OfflineVideos from '@/services/OfflineVideos';
 import CustomBufferController from '@/services/player/CustomBufferController';
@@ -23,7 +24,7 @@ import Videos, { type IJikkyoComments } from '@/services/Videos';
 import useChannelsStore from '@/stores/ChannelsStore';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore, { LiveStreamingQuality, LIVE_STREAMING_QUALITIES, VideoStreamingQuality, VIDEO_STREAMING_QUALITIES } from '@/stores/SettingsStore';
-import Utils, { dayjs, PlayerUtils } from '@/utils';
+import Utils, { dayjs, CommentUtils, PlayerUtils } from '@/utils';
 
 
 // デバイスのデコーダーが自動でのデインタレースに対応しているかを取得
@@ -124,11 +125,23 @@ class PlayerController {
     private destroying = false;
 
     // 破棄済みかどうか
-    private destroyed = false;
+    private destroyed: boolean = false;
 
     // ライブ再生開始時の一時ミュートを、保存済みミュートと区別するフラグ
     // 一時ミュートで発火した volumechange を、ユーザー操作として保存しないために使う
     private is_live_startup_temporary_muted = false;
+
+    // サブチャンネル変更イベントリスナー
+    private sub_channel_changed_listener: ((event: { sub_channel_id: string | null; sub_channel_ids: string[] }) => Promise<void>) | null = null;
+
+    // サブチャンネル変更リクエストの中断用コントローラー
+    private sub_channel_abort_controller: AbortController | null = null;
+
+    // 弾幕表示トグル変更イベントリスナー
+    private danmaku_toggle_change_listener: (() => void) | null = null;
+
+    // 実況チャンネル設定クリックリスナー
+    private setting_comment_click_listener: (() => void) | null = null;
 
 
     /**
@@ -346,6 +359,23 @@ class PlayerController {
         (window as any).mpegts = mpegts;
         (window as any).Hls = Hls;
         Object.assign(window, {mpeg2toh264: {Mpeg2TsPlayer, Deinterlacer}});
+
+        // 初期状態として自局の実況 ID を sub_channel_ids に設定
+        const current_channel_info = this.playback_mode === 'Live'
+            ? channels_store.channel.current
+            : player_store.recorded_program.channel;
+        const current_jikkyo_option = CommentUtils.findJikkyoOptionByChannel(current_channel_info);
+        if (current_jikkyo_option) {
+            player_store.sub_channel_ids = [current_jikkyo_option.id];
+            player_store.sub_channel_id = current_jikkyo_option.id;
+            player_store.last_selected_channel_ids = [current_jikkyo_option.id];
+        } else {
+            // 実況主要局リストに直接ない場合でも自局の実況 ID や自局 ID をフォールバックとして保持
+            const fallback_id = current_channel_info?.jikkyo_id ?? current_channel_info?.id ?? null;
+            player_store.sub_channel_ids = fallback_id ? [fallback_id] : [];
+            player_store.sub_channel_id = fallback_id;
+            player_store.last_selected_channel_ids = fallback_id ? [fallback_id] : [];
+        }
 
         // DPlayer を初期化
         this.player = new DPlayer({
@@ -635,7 +665,23 @@ class PlayerController {
                                 jikkyo_comments = empty_jikkyo_comments;
                             }
                         } else {
-                            jikkyo_comments = await Videos.fetchVideoJikkyoComments(player_store.recorded_program.id);
+                            // 未選択時は null を渡してメインチャンネルを確実に取得
+                            const sub_channel_ids = player_store.sub_channel_ids.length > 0 ? player_store.sub_channel_ids : null;
+                            if (this.sub_channel_abort_controller !== null) {
+                                this.sub_channel_abort_controller.abort();
+                            }
+                            this.sub_channel_abort_controller = new AbortController();
+                            const signal = this.sub_channel_abort_controller.signal;
+                            let result: IJikkyoComments | null = null;
+                            try {
+                                result = await Videos.fetchVideoJikkyoComments(player_store.recorded_program.id, sub_channel_ids, signal);
+                            } finally {
+                                if (this.sub_channel_abort_controller?.signal === signal) {
+                                    this.sub_channel_abort_controller = null;
+                                }
+                            }
+                            if (result === null || signal.aborted || (this.destroyed as boolean) === true) return;
+                            jikkyo_comments = result;
                         }
                         if (jikkyo_comments.is_success === false) {
                             // 取得に失敗した場合はコメントリストにエラーメッセージを表示する
@@ -663,6 +709,7 @@ class PlayerController {
                                     premium: null,
                                     my_post: false,
                                 })),
+                                channel_counts: jikkyo_comments.channel_counts,
                             });
                             options.success(jikkyo_comments.comments);
                         }
@@ -1143,6 +1190,124 @@ class PlayerController {
                 this.player.seek(event.playback_position);
                 this.player.play();
             });
+
+            // サブチャンネル変更時に過去ログコメントを再取得して反映
+            this.sub_channel_changed_listener = async (event: { sub_channel_id: string | null; sub_channel_ids: string[] }) => {
+                if (this.destroyed === true || this.player === null) return;
+                if (player_store.is_offline_playback === true) return;
+
+                // 進行中のリクエストがあれば中断
+                if (this.sub_channel_abort_controller !== null) {
+                    this.sub_channel_abort_controller.abort();
+                    this.sub_channel_abort_controller = null;
+                }
+
+                // 今回のリクエスト対象チャンネル ID リストを取得
+                const target_channel_ids = [...event.sub_channel_ids];
+
+                // 選択局が 0 局の全局解除の場合
+                if (target_channel_ids.length === 0) {
+                    player_store.video_comment_init_failed_message = null;
+                    if (this.player.danmaku) {
+                        this.player.danmaku.dan = [];
+                        this.player.danmaku.clear();
+                    }
+                    player_store.event_emitter.emit('CommentReceived', {
+                        is_initial_comments: true,
+                        comments: [],
+                        channel_counts: [],
+                    });
+                    return;
+                }
+
+                player_store.last_selected_channel_ids = [...target_channel_ids];
+
+                this.sub_channel_abort_controller = new AbortController();
+                const signal = this.sub_channel_abort_controller.signal;
+                let jikkyo_comments: IJikkyoComments | null = null;
+                try {
+                    jikkyo_comments = await Videos.fetchVideoJikkyoComments(
+                        player_store.recorded_program.id,
+                        target_channel_ids,
+                        signal,
+                    );
+                } finally {
+                    if (this.sub_channel_abort_controller?.signal === signal) {
+                        this.sub_channel_abort_controller = null;
+                    }
+                }
+                // リクエストが中断されたか非同期処理中にプレイヤーが破棄された場合は処理を中断
+                if (signal.aborted || jikkyo_comments === null || (this.destroyed as boolean) === true || this.player === null) return;
+
+                // 完了時点で選択中のチャンネル ID と一致しない古いリクエスト結果は破棄
+                if (target_channel_ids.length !== player_store.sub_channel_ids.length ||
+                    !target_channel_ids.every((id, idx) => id === player_store.sub_channel_ids[idx])) {
+                    return;
+                }
+
+                if (jikkyo_comments.is_success === false) {
+                    player_store.video_comment_init_failed_message = jikkyo_comments.detail;
+                    return;
+                }
+                // 取得成功時はエラーメッセージをクリア
+                player_store.video_comment_init_failed_message = null;
+
+                // 取得に失敗したチャンネルがあればスナックバーでエラー通知
+                const failed_channels = jikkyo_comments.channel_counts?.filter(c => c.is_success === false) ?? [];
+                if (failed_channels.length > 0) {
+                    const failed_names = failed_channels.map(c => c.channel_name).join('・');
+                    Message.warning(`${failed_names}の過去ログコメントを取得できませんでした。`);
+                }
+                const recording_start_time = player_store.recorded_program.recorded_video.recording_start_time!;
+                let count = 0;
+                player_store.event_emitter.emit('CommentReceived', {
+                    is_initial_comments: true,
+                    comments: jikkyo_comments.comments.map((comment) => ({
+                        id: count++,
+                        text: comment.text,
+                        time: Utils.apply28HourClock(dayjs(recording_start_time).add(comment.time, 'seconds').format('MM/DD HH:mm:ss')),
+                        playback_position: comment.time,
+                        user_id: comment.author,
+                        premium: null,
+                        my_post: false,
+                    })),
+                    channel_counts: jikkyo_comments.channel_counts,
+                });
+                // DPlayer の Danmaku オブジェクトのコメント配列を直接更新し、現在の再生位置で danIndex だけを再同期 (画面上のコメントは消去しない)
+                if (this.player.danmaku) {
+                    this.player.danmaku.dan = jikkyo_comments.comments.map((comment) => ({
+                        time: comment.time,
+                        type: comment.type,
+                        color: comment.color,
+                        author: comment.author,
+                        text: comment.text,
+                        size: comment.size,
+                    })).sort((a, b) => a.time - b.time);
+
+                    // clear() を呼ばずに danIndex のみ現在の再生位置に更新
+                    const current_time = this.player.video.currentTime;
+                    const next_index = this.player.danmaku.dan.findIndex((item) => item.time >= current_time);
+                    this.player.danmaku.danIndex = next_index === -1 ? this.player.danmaku.dan.length : next_index;
+                }
+            };
+            player_store.event_emitter.on('SubChannelChanged', this.sub_channel_changed_listener);
+        }
+
+        // コメントトグルが ON に切り替えられた際、0 局選択状態であれば前回の局選択を復元する
+        if (this.player.template.showDanmakuToggle) {
+            this.danmaku_toggle_change_listener = () => {
+                if (this.player?.template.showDanmakuToggle?.checked) {
+                    if (player_store.sub_channel_ids.length === 0 && player_store.last_selected_channel_ids.length > 0) {
+                        player_store.sub_channel_ids = [...player_store.last_selected_channel_ids];
+                        player_store.sub_channel_id = player_store.sub_channel_ids[0] ?? null;
+                        player_store.event_emitter.emit('SubChannelChanged', {
+                            sub_channel_id: player_store.sub_channel_id,
+                            sub_channel_ids: player_store.sub_channel_ids,
+                        });
+                    }
+                }
+            };
+            this.player.template.showDanmakuToggle.addEventListener('change', this.danmaku_toggle_change_listener);
         }
 
         // プレイヤー再起動ボタンを DPlayer の UI に追加する (再生が止まった際などに利用する想定)
@@ -1188,6 +1353,7 @@ class PlayerController {
                 console.log('\u001b[31m[PlayerController] Screen Wake Lock API: Screen Wake Lock acquired.');
             });
         }
+
 
         // 各 PlayerManager を初期化・登録
         // ライブ視聴とビデオ視聴で必要な PlayerManager が異なる
@@ -2006,6 +2172,29 @@ class PlayerController {
             });
         }
 
+        // 設定パネルに実況チャンネル設定ボタンを追加
+        this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
+            <div class="dplayer-setting-item dplayer-setting-comment">
+                <span class="dplayer-label">実況チャンネル設定</span>
+                <div class="dplayer-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
+                        <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
+                    </svg>
+                </div>
+            </div>
+        `);
+
+        // 実況チャンネル設定モーダルの表示ハンドラー
+        this.setting_comment_click_listener = () => {
+            assert(this.player !== null);
+            // 設定パネルを閉じる
+            this.player.setting.hide();
+            // 実況チャンネル設定モーダルを表示
+            player_store.comment_settings_modal = true;
+        };
+        this.player.template.settingOriginPanel.querySelector('.dplayer-setting-comment')!
+            .addEventListener('click', this.setting_comment_click_listener);
+
         // 設定パネルにL字画面のクロップ設定を表示するボタンを動的に追加する
         this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
             <div class="dplayer-setting-item dplayer-setting-lshaped-screen-crop">
@@ -2467,6 +2656,33 @@ class PlayerController {
         if (this.player_container_resize_observer !== null) {
             this.player_container_resize_observer.disconnect();
             this.player_container_resize_observer = null;
+        }
+
+        // サブチャンネル変更リクエストを中断
+        if (this.sub_channel_abort_controller !== null) {
+            this.sub_channel_abort_controller.abort();
+            this.sub_channel_abort_controller = null;
+        }
+
+        // サブチャンネル変更イベントリスナーを解除
+        if (this.sub_channel_changed_listener !== null) {
+            player_store.event_emitter.off('SubChannelChanged', this.sub_channel_changed_listener);
+            this.sub_channel_changed_listener = null;
+        }
+
+        // 弾幕表示トグル変更イベントリスナーを解除
+        if (this.player?.template.showDanmakuToggle && this.danmaku_toggle_change_listener !== null) {
+            this.player.template.showDanmakuToggle.removeEventListener('change', this.danmaku_toggle_change_listener);
+            this.danmaku_toggle_change_listener = null;
+        }
+
+        // 実況チャンネル設定クリックリスナーを解除
+        if (this.player?.template.settingOriginPanel && this.setting_comment_click_listener !== null) {
+            const button = this.player.template.settingOriginPanel.querySelector('.dplayer-setting-comment');
+            if (button) {
+                button.removeEventListener('click', this.setting_comment_click_listener);
+            }
+            this.setting_comment_click_listener = null;
         }
 
         // L字画面のクロップ設定で使うウォッチャーを破棄

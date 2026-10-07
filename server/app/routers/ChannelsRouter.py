@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
@@ -30,6 +31,22 @@ router = APIRouter(
     tags = ['Channels'],
     prefix = '/api/channels',
 )
+
+# 実況 ID および親局 NID と同梱ロゴファイル名との対応マッピング
+# 実況 ID からロゴ用チャンネル ID へのマッピング
+LOGO_ALIAS_MAPPING: dict[str, str] = {
+    **JikkyoClient.JIKKYO_LOGO_ID_MAP,
+    # 東京親局 NID および旧定義からのエイリアス
+    'NID32736-SID1032': 'NID32737-SID1032',
+    'NID32736-SID1040': 'NID32738-SID1040',
+    'NID32736-SID1048': 'NID32739-SID1048',
+    'NID32736-SID1056': 'NID32740-SID1056',
+    'NID32736-SID1064': 'NID32741-SID1064',
+    'NID32736-SID1072': 'NID32742-SID1072',
+    'NID32289-SID29752': 'NID32295-SID29752',
+    'NID32306-SID27704': 'NID32327-SID27704',
+    'NID32080-SID43056': 'NID32086-SID43056',
+}
 
 
 async def GetChannel(channel_id: Annotated[str, Path(description='チャンネル ID (id or display_channel_id) 。ex: NID32736-SID1024, gr011')]) -> Channel:
@@ -142,6 +159,7 @@ async def ChannelsAPI():
             'channel_number': channel.channel_number,
             'type': channel.type,
             'name': channel.name,
+            'jikkyo_id': channel.jikkyo_id,
             'jikkyo_force': channel.jikkyo_force,
             'is_subchannel': channel.is_subchannel,
             'is_radiochannel': channel.is_radiochannel,
@@ -472,7 +490,13 @@ async def ChannelLogoAPI(
 
     # ***** チャンネル情報を取得 *****
 
-    # チャンネル ID からチャンネル情報を取得する
+    # パストラバーサル防止のため安全なチャンネル ID 形式のみ許可
+    if not re.match(r'^[a-zA-Z0-9_-]+$', channel_id):
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = 'Invalid channel ID format',
+        )
+
     # "NID0-SID0" "gr000" はフロントエンド側のチャンネル情報のデフォルト値になっているため、特別にデフォルトのロゴ画像を返す
     # Depends だと GetChannel() が実行された時点で 422 エラーになるので、意図的に手動で GetChannel() を実行している
     if channel_id == 'NID0-SID0' or channel_id == 'gr000':
@@ -480,6 +504,21 @@ async def ChannelLogoAPI(
             'Cache-Control': CACHE_CONTROL,
             'ETag': GetETag(b'default'),
         })
+
+    # 同梱ロゴファイルが存在する場合はチャンネル情報の存在有無に関わらず直接返す
+    # 実況チャンネル設定モーダル等で地方局環境から東京キー局のロゴを取得するケースに対応するため
+    resolved_logo_id = LOGO_ALIAS_MAPPING.get(channel_id, channel_id)
+    logo_dir = anyio.Path(str(LOGO_DIR))
+    direct_logo_path = logo_dir / f'{resolved_logo_id}.png'
+    if await direct_logo_path.is_file():
+        etag = GetETag(f'{direct_logo_path}{VERSION}'.encode())
+        if request.headers.get('If-None-Match') == etag:
+            return Response(status_code=304)
+        return FileResponse(direct_logo_path, headers={
+            'Cache-Control': CACHE_CONTROL,
+            'ETag': etag,
+        })
+
     channel = await GetChannel(channel_id)
 
     # ***** 同梱のロゴを利用（存在する場合）*****

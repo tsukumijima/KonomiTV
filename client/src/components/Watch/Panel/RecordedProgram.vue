@@ -38,7 +38,7 @@
                 <div class="program-info__status">
                     <Icon icon="bi:chat-left-text-fill" height="12.5px" style="margin-bottom: -3px" />
                     <span class="ml-2">コメント数:</span>
-                    <span class="ml-2">{{comment_count ?? '--'}}</span>
+                    <span class="ml-2">{{formatted_comment_count}}</span>
                 </div>
                 <div class="program-info__buttons">
                     <div v-ripple class="program-info__button" @click="toggleMylist">
@@ -86,12 +86,14 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
+import type { IJikkyoChannelCommentCount } from '@/services/Videos';
+
 import OfflineVideoDownloadDialog from '@/components/Videos/Dialogs/OfflineVideoDownloadDialog.vue';
 import Message from '@/message';
 import OfflineVideos, { type IOfflineDownloadJob, type IOfflineVideo } from '@/services/OfflineVideos';
 import usePlayerStore from '@/stores/PlayerStore';
 import useSettingsStore from '@/stores/SettingsStore';
-import Utils, { ProgramUtils } from '@/utils';
+import Utils, { CommentUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'Panel-RecordedProgramTab',
@@ -106,6 +108,9 @@ export default defineComponent({
 
             // コメント数カウント
             comment_count: null as number | null,
+
+            // チャンネルごとの過去ログコメント数リスト
+            channel_comment_counts: [] as IJikkyoChannelCommentCount[],
 
             // オフライン保存ダイアログの表示状態
             showOfflineDownload: false,
@@ -122,6 +127,16 @@ export default defineComponent({
     },
     computed: {
         ...mapStores(usePlayerStore, useSettingsStore),
+
+        // 放送局別のコメント数フォーマット文字列
+        formatted_comment_count(): string {
+            return CommentUtils.formatChannelCommentCounts(
+                this.playerStore.sub_channel_ids,
+                this.channel_comment_counts,
+                this.playerStore.recorded_program.channel,
+                this.comment_count,
+            );
+        },
 
         // マイリストに追加されているかどうか
         isInMylist(): boolean {
@@ -199,10 +214,14 @@ export default defineComponent({
         },
     },
     async created() {
+        // 主要実況チャンネル一覧を取得 (キャッシュ済みの場合は即座に返る)
+        void CommentUtils.fetchPrimaryJikkyoChannels();
+
         // PlayerController 側からCommentReceived イベントで過去ログコメントを受け取り、コメント数を算出する
         this.playerStore.event_emitter.on('CommentReceived', (event) => {
             if (event.is_initial_comments === true) {  // 録画では初期コメントしか発生しない
                 this.comment_count = event.comments.length;
+                this.channel_comment_counts = event.channel_counts ?? [];
             }
         });
 
