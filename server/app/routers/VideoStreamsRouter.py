@@ -1,19 +1,24 @@
 
 import asyncio
+import hashlib
 import json
 import struct
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+import anyio
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
-from starlette.background import BackgroundTask
+from starlette.types import Receive, Scope, Send
 
 from app import logging
+from app.config import Config
 from app.constants import QUALITY
 from app.models.RecordedProgram import RecordedProgram
 from app.schemas import OfflineVideoStreamMetadata
+from app.streams.OfflineVideoDownload import OfflineVideoDownload
 from app.streams.StreamEncodingOptions import (
     SplitQualityAndEncodingOptions,
     StreamQualityWithOptions,
@@ -304,117 +309,227 @@ async def VideoHLSKeepAliveAPI(
     summary = '録画番組オフライン保存ストリーム API',
     response_class = StreamingResponse,
     responses = {
-        status.HTTP_200_OK: {
+        200: {
             'description': 'オフライン保存用のメタデータと HLS セグメントを格納したバイナリストリーム。',
             'content': {'application/octet-stream': {}},
         },
-        status.HTTP_409_CONFLICT: {
-            'description': '録画中のためオフライン保存を開始できない。',
-        },
+        409: {'description': '録画中、または再開元の録画・変換条件が一致しない。'},
+        410: {'description': '一時保存が期限切れ、削除済み、または変換が中断されたため再開できない。'},
+        507: {'description': 'サーバー側の一時保存容量が不足している。'},
     },
 )
 async def VideoOfflineStreamAPI(
+    request: Request,
     recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
     stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
     quality: Annotated[str, Path(description='映像の品質。ex: 720p-hevc-10bit-24fps')],
+    start_sequence: Annotated[int, Query(ge=0, description='保存済みセグメントの次の番号。')] = 0,
+    resume_token: Annotated[str | None, Query(max_length=64, description='前回の応答に含まれる再開用識別子。')] = None,
+    resumable: Annotated[bool, Query(description='変換結果をサーバーに一時保存して、通信切断後の再開を可能にする。')] = False,
+    download_id: Annotated[str | None, Query(pattern=r'^[0-9a-f]{32}$', description='通常保存の一時保存 ID。新規保存では省略時に生成する。')] = None,
 ) -> StreamingResponse:
     """
-    録画番組を指定画質で先頭から順にエンコードし、オフライン保存用の単一ストリームとして返す。<br>
-    応答は `KTVODLP` のヘッダーから始まる独自バイナリ形式で、長さ付き JSON メタデータ、長さ付き MPEG-TS セグメント、終端レコードの順に格納される。
+    録画番組を指定画質でエンコードし、オフライン保存用の単一ストリームとして返す。<br>
+    通常保存の再開では、同じエンコード結果の未保存セグメントだけを送信する。<br>
+    応答は KTVODLP ヘッダー、長さ付き JSON、長さ付き MPEG-TS セグメント、終端レコードの順に格納される。
+
+    Args:
+        request (Request): 順番待ちや一時保存の作成中に発生した切断を検出するリクエスト
+        recorded_program (RecordedProgram): 存在確認済みの録画番組と録画ファイル情報
+        stream_quality (StreamQualityWithOptions): 検証済みの画質と変換オプション
+        quality (str): 追加オプションを含む API 上の画質
+        start_sequence (int): 端末へ保存済みの連続セグメントの次の番号
+        resume_token (str | None): 再開元の録画ファイルと変換条件を照合する識別子
+        resumable (bool): 通信切断後も変換結果を一時保存し、再開できるようにするか
+        download_id (str | None): 一時保存の識別子。新規保存で省略した場合は生成する
+    Returns:
+        StreamingResponse: 指定位置以降のオフライン保存データを順次返す応答
     """
 
     # 追いかけ再生中のファイルは終端とハッシュが変化するため、録画完了後だけ保存を許可する
-    if recorded_program.recorded_video.status == 'Recording':
+    recorded_video = recorded_program.recorded_video
+    if recorded_video.status == 'Recording':
         logging.error(f'[VideoOfflineStreamAPI] Recording video cannot be saved for offline playback. [video_id: {recorded_program.id}]')
-        raise HTTPException(
-            status_code = status.HTTP_409_CONFLICT,
-            detail = 'Recording video cannot be saved for offline playback',
-        )
+        raise HTTPException(409, 'Recording video cannot be saved for offline playback')
+    assert stream_quality.quality != 'original'
 
-    # 待機中のリクエストは HTTP 応答を開始せず、クライアント側で Waiting と表示できる状態を維持する
-    await OFFLINE_VIDEO_STREAM_SEMAPHORE.acquire()
-    video_stream: VideoStream | None = None
+    # 実ファイルのサイズ・更新時刻も照合し、DB の部分ハッシュが古いままでも別データを継ぎ足さない
     try:
-        # 通常再生とは独立したセッションを作り、仮想プレイリスト生成によって全セグメント情報を初期化する
-        session_id = f'offline-{uuid.uuid4().hex}'
-        assert stream_quality.quality != 'original'
-        video_stream = VideoStream(
-            session_id,
-            recorded_program,
-            stream_quality.quality,
-            stream_quality.encoding_options,
-            is_new_session_allowed = True,
-        )
-        video_stream.getVirtualPlaylist()
+        file_stat = await anyio.Path(recorded_video.file_path).stat()
+    except FileNotFoundError as ex:
+        raise HTTPException(404, 'Recorded file was not found') from ex
+    current_token = hashlib.sha256(json.dumps([
+        1, recorded_video.file_hash, file_stat.st_size, file_stat.st_mtime_ns,
+        recorded_video.duration, recorded_video.video_frame_rate,
+        recorded_video.video_scan_type, recorded_video.video_resolution_width, recorded_video.video_resolution_height,
+        recorded_video.video_codec, recorded_video.has_video_stream_changes,
+        quality, Config().general.encoder, QUALITY[stream_quality.quality].model_dump(),
+        stream_quality.encoding_options.buildSuffix(),
+    ], sort_keys=True).encode('utf-8')).hexdigest()
+    if resume_token is not None and resume_token != current_token:
+        raise HTTPException(409, 'Offline source or encoding settings changed')
+    if start_sequence > 0 and (not resumable or resume_token is None or download_id is None):
+        raise HTTPException(409, 'Offline resume identity is missing')
 
-        # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する
-        metadata = OfflineVideoStreamMetadata(
-            video_id = recorded_program.id,
-            file_hash = recorded_program.recorded_video.file_hash,
-            quality = quality,
-            duration_seconds = recorded_program.recorded_video.duration,
-        ).model_dump_json().encode('utf-8')
-    except Exception:
+    cached_download: OfflineVideoDownload | None = None
+    video_stream: VideoStream | None = None
+    owns_encoder_slot = False
+    try:
+        if resumable and resume_token is not None:
+            if download_id is None:
+                raise HTTPException(422, 'Offline download ID is required')
+            # 再送にエンコーダーの空きを待つ必要はない。サーバー再起動後も完成済みの一時保存は読み出せる
+            cached_download = await OfflineVideoDownload.open(download_id, current_token, recorded_program.id, quality)
+            metadata = cached_download.manifest.metadata.model_copy(deep=True)
+            metadata.start_sequence = start_sequence
+            if start_sequence > metadata.segment_count:
+                raise HTTPException(422, 'Invalid offline start sequence')
+        else:
+            # 待機中のリクエストは HTTP 応答を開始せず、クライアント側で Waiting と表示できる状態を維持する
+            await OFFLINE_VIDEO_STREAM_SEMAPHORE.acquire()
+            owns_encoder_slot = True
+            # 順番待ち中に取り消された保存を、切断後に新規作成しない
+            if await request.is_disconnected():
+                raise HTTPException(499, 'Offline download request was disconnected')
+            # 通常再生とは独立したセッションを作り、仮想プレイリスト生成によって全セグメント情報を初期化する
+            video_stream = VideoStream(
+                f'offline-{uuid.uuid4().hex}', recorded_program, stream_quality.quality,
+                stream_quality.encoding_options, is_new_session_allowed=True,
+            )
+            video_stream.getVirtualPlaylist()
+            # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する
+            metadata = OfflineVideoStreamMetadata(
+                video_id=recorded_program.id, file_hash=recorded_video.file_hash, quality=quality,
+                duration_seconds=recorded_video.duration, resume_version=1 if resumable else None,
+                resume_token=current_token, start_sequence=0, segment_count=len(video_stream.segments),
+                download_id=(download_id or uuid.uuid4().hex) if resumable else None,
+            )
+            if resumable:
+                cached_download = await OfflineVideoDownload.create(video_stream, metadata, OFFLINE_VIDEO_STREAM_SEMAPHORE)
+                # 以降は生成タスクがセッションと変換枠を所有し、HTTP 切断では破棄しない
+                owns_encoder_slot = False
+                video_stream = None
+                # 作成待ちの間にキャンセルの DELETE が空振りした場合も、応答前の切断なら一時保存を回収する
+                if await request.is_disconnected():
+                    with anyio.CancelScope(shield=True):
+                        await OfflineVideoDownload.delete(cached_download.download_id, recorded_program.id, quality)
+                    raise HTTPException(499, 'Offline download request was disconnected')
+    except BaseException:
         # StreamingResponse を返す前の失敗ではジェネレーターの finally が動かないため、ここで実行枠を返す
-        if video_stream is not None:
-            await video_stream.destroy()
-        OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
+        if cached_download is not None:
+            cached_download.release()
+        try:
+            if video_stream is not None:
+                await video_stream.destroy()
+        finally:
+            if owns_encoder_slot:
+                OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
         raise
 
-    is_stream_cleaned_up = False
+    async def GenerateOfflineVideoStream() -> AsyncGenerator[bytes]:
+        """
+        従来と同じフレーミングで、初回は変換結果を順次送り、再開時は同じバイト列を再送する。
 
-    async def CleanupOfflineVideoStream() -> None:
-        """オフライン保存用ストリームと同時実行枠を解放する。"""
-        nonlocal is_stream_cleaned_up
-        # 応答本文の finally と StreamingResponse の終了処理から重複して呼ばれるため、最初の1回だけ解放する
-        if is_stream_cleaned_up is True:
-            return
-        is_stream_cleaned_up = True
-        await video_stream.destroy()
-        OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
-
-    async def GenerateOfflineVideoStream():
-        """オフライン保存用のバイナリストリームを生成する。"""
-
+        Args:
+            None
+        Returns:
+            AsyncGenerator[bytes]: ヘッダー、メタデータ、セグメント、終端レコードの順に返す非同期ジェネレーター
+        """
         # 長い1セグメントのエンコード中も10秒のセッションタイムアウトを迎えないよう、視聴画面と同じ周期で維持する
         async def KeepVideoStreamAlive() -> None:
-            """ダウンロード中の録画視聴セッションを維持する。"""
-            while True:
-                await asyncio.sleep(5)
-                video_stream.keepAlive()
+            """
+            ダウンロード中の録画視聴セッションを維持する。
 
-        keep_alive_task = asyncio.create_task(KeepVideoStreamAlive())
+            Args:
+                None
+            Returns:
+                None
+            """
+            while True:
+                if video_stream is not None:
+                    video_stream.keepAlive()
+                await asyncio.sleep(5)
+
+        keep_alive = asyncio.create_task(KeepVideoStreamAlive()) if video_stream is not None else None
         try:
+            encoded_metadata = metadata.model_dump_json().encode('utf-8')
             # 固定マジック値とメタデータ長により、任意のネットワーク分割位置から同じ規則で復元できる
             yield b'KTVODLP\n'
-            yield struct.pack('>I', len(metadata))
-            yield metadata
-
+            yield struct.pack('>I', len(encoded_metadata))
+            yield encoded_metadata
             # VideoStream が連続生成したセグメントを順番どおり読み、各データを独立して CacheStorage へ格納できる単位にする
-            for segment in video_stream.segments:
-                segment_data = await video_stream.getSegment(segment.sequence_index)
-                if segment_data is None or len(segment_data) == 0:
-                    logging.error(f'[VideoOfflineStreamAPI] Offline segment generation failed. [sequence: {segment.sequence_index}]')
-                    raise RuntimeError(f'Offline segment generation failed. [sequence: {segment.sequence_index}]')
-                duration_milliseconds = max(1, round(segment.duration_seconds * 1000))
-                yield struct.pack('>III', segment.sequence_index, duration_milliseconds, len(segment_data))
-                yield segment_data
-
+            for sequence in range(start_sequence, metadata.segment_count):
+                if cached_download is not None:
+                    segment, data = await cached_download.getSegment(sequence)
+                    duration = segment.duration_milliseconds
+                else:
+                    assert video_stream is not None
+                    data = await video_stream.getSegment(sequence)
+                    duration = max(1, round(video_stream.segments[sequence].duration_seconds * 1000))
+                if not data:
+                    logging.error(f'[VideoOfflineStreamAPI] Offline segment generation failed. [sequence: {sequence}]')
+                    raise RuntimeError(f'Offline segment generation failed. [sequence: {sequence}]')
+                yield struct.pack('>III', sequence, duration, len(data))
+                yield data
             # 終端レコードには件数を格納し、通信切断による末尾欠落をクライアント側で検出できるようにする
-            yield struct.pack('>II', 0xffffffff, len(video_stream.segments))
+            yield struct.pack('>II', 0xffffffff, metadata.segment_count)
         finally:
-            # 応答完了・切断・例外のすべてで維持タスクとエンコーダーを終了し、次の保存へ実行枠を返す
-            keep_alive_task.cancel()
-            await asyncio.gather(keep_alive_task, return_exceptions=True)
-            await CleanupOfflineVideoStream()
+            if keep_alive is not None:
+                keep_alive.cancel()
+                await asyncio.gather(keep_alive, return_exceptions=True)
 
-    return StreamingResponse(
-        GenerateOfflineVideoStream(),
-        media_type = 'application/octet-stream',
-        headers = {
-            'Cache-Control': 'no-store',
-            'X-Content-Type-Options': 'nosniff',
-        },
-        # クライアントが応答開始直後に切断し、ジェネレーター本体が一度も実行されない場合も必ず解放する
-        background = BackgroundTask(CleanupOfflineVideoStream),
+    stream_generator = GenerateOfflineVideoStream()
+
+    class OfflineStreamingResponse(StreamingResponse):
+        """送信エラーや応答開始前の切断でも、一時保存の読み取り権と応答ジェネレーターを解放する。"""
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            """
+            応答を送信し、送信エラーや切断が発生した場合も所有するリソースを解放する。
+
+            Args:
+                scope (Scope): ASGI のリクエスト情報
+                receive (Receive): リクエスト受信関数
+                send (Send): 応答送信関数
+            Returns:
+                None
+            """
+            try:
+                await super().__call__(scope, receive, send)
+            finally:
+                # 送信失敗時には BackgroundTask が呼ばれないため、応答全体の finally で確実に解放する
+                with anyio.CancelScope(shield=True):  # ASGI の切断通知によるキャンセル中も、解放処理自体は最後まで実行する
+                    try:
+                        await stream_generator.aclose()
+                    finally:
+                        if cached_download is not None:
+                            cached_download.release()
+                        elif video_stream is not None:
+                            try:
+                                await video_stream.destroy()
+                            finally:
+                                OFFLINE_VIDEO_STREAM_SEMAPHORE.release()
+
+    return OfflineStreamingResponse(
+        stream_generator, media_type='application/octet-stream',
+        headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'},
     )
+
+
+@router.delete('/{video_id}/{quality}/offline-stream', summary='録画番組オフライン一時保存削除 API', status_code=204)
+async def VideoOfflineStreamDeleteAPI(
+    recorded_program: Annotated[RecordedProgram, Depends(ValidateVideoID)],
+    quality: Annotated[str, Path(description='保存時の画質。')],
+    download_id: Annotated[str, Query(pattern=r'^[0-9a-f]{32}$', description='キャンセル・完了した通常保存の一時保存 ID。')],
+) -> None:
+    """
+    指定した一時保存の生成を停止し、サーバー側の一時データを削除する。
+
+    Args:
+        recorded_program (RecordedProgram): 存在確認済みの録画番組
+        quality (str): 一時保存を作成したときの API 上の画質
+        download_id (str): キャンセルまたは保存完了により削除する一時保存の識別子
+    Returns:
+        None
+    """
+    await OfflineVideoDownload.delete(download_id, recorded_program.id, quality)

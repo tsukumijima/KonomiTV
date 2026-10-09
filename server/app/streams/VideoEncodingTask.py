@@ -596,6 +596,8 @@ class VideoEncodingTask:
             for line in lines:
                 log(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line}')
 
+        # 一時保存では異常終了時の未完了バッファを公開しない
+        is_offline_eof_successful = False
         try:
             # 最大 MAX_RETRY_COUNT 回までリトライする
             while self._retry_count < self.MAX_RETRY_COUNT:
@@ -1050,6 +1052,8 @@ class VideoEncodingTask:
                 yield_packet_count = 0
                 # セグメント境界をランダムアクセスフレームに合わせるためのフラグ
                 is_split_pending = False
+                # 末尾だけ再分割が必要になった場合に使う、未公開バッファ内のキーフレーム位置・プレイリスト時刻・PAT/PMT の連番
+                last_random_access_frame: tuple[int, float, int, int] | None = None
 
                 # PTS/DTS の 33bit ラップアラウンドを展開して、DB に保存されている ffprobe の単調増加 DTS に合わせる
                 ## ffmpeg/ffprobe は 2^33 を超えた場合も内部的に単調増加の DTS として扱うため、
@@ -1064,6 +1068,7 @@ class VideoEncodingTask:
                 first_segment_playlist_start_seconds = current_segment.playlist_start_seconds
                 assert first_segment_source_start_dts is not None
 
+                is_eof = False
                 while True:
                     # エンコードタスクがキャンセルされた場合、処理を中断する
                     if self._is_cancelled is True:
@@ -1076,7 +1081,7 @@ class VideoEncodingTask:
                         break
 
                     # 同期バイトを探す
-                    isEOF = False
+                    is_eof = False
                     while True:
                         try:
                             # この時点で既にエンコーダープロセスが終了していたら処理中断
@@ -1086,12 +1091,12 @@ class VideoEncodingTask:
                             if sync_byte == ts.SYNC_BYTE:
                                 break
                             elif sync_byte == b'':
-                                isEOF = True
+                                is_eof = True
                                 break
                         except asyncio.IncompleteReadError:
-                            isEOF = True
+                            is_eof = True
                         break
-                    if isEOF:
+                    if is_eof:
                         break
 
                     # TS パケットを読み込む
@@ -1100,7 +1105,8 @@ class VideoEncodingTask:
                         if self._encoder_process is None:
                             break
                         packet = ts.SYNC_BYTE + await self._encoder_process.stdout.readexactly(ts.PACKET_SIZE - 1)
-                        last_read_time = current_time  # 正常に読み取れた場合はタイムアウトをリセット
+                        # GPU の初期化などで readexactly() が長く待った場合も、実際の受信時刻で更新する
+                        last_read_time = asyncio.get_running_loop().time()
                     except asyncio.IncompleteReadError:
                         break
 
@@ -1256,6 +1262,7 @@ class VideoEncodingTask:
                                     current_segment.encode_status = 'Encoding'
                                     encoded_segment = bytearray()
                                     is_split_pending = False
+                                    last_random_access_frame = None
                                     # セグメント切り替えのタイミングで、蓄積されたキーフレーム情報の保存を試みる
                                     ## バッチ閾値に達していなければ何もせずに返る
                                     await FlushCollectedSegmentMap()
@@ -1269,6 +1276,15 @@ class VideoEncodingTask:
                                         for packet in packetize_section(latest_pmt, False, False, cast(int, pmt_pid), 0, pmt_cc):
                                             encoded_segment += packet
                                             pmt_cc = (pmt_cc + 1) & 0x0F
+
+                                # 末尾の仮想セグメントに映像がない場合も、未公開の実映像をキーフレームから分け直せるよう保持する
+                                if (self.video_stream.is_encoding_restart_allowed is False and
+                                    has_random_access_frame and not is_should_finalize_now):
+                                    last_random_access_frame = (
+                                        len(encoded_segment),
+                                        first_segment_playlist_start_seconds + (current_timestamp_unwrapped - first_segment_source_start_dts) / ts.HZ,
+                                        pat_cc, pmt_cc,
+                                    )
 
                             # 現在の映像 PES をパケット化して、現在処理対象のセグメントに追加
                             for packet in packetize_pes(video, False, False, cast(int, video_pid), 0, video_cc):
@@ -1300,6 +1316,43 @@ class VideoEncodingTask:
                     # 最終セグメントの場合はループを抜ける
                     if current_sequence >= len(self.video_stream.segments):
                         break
+
+                # 一時保存の最終バッファは、末尾まで変換した正常な EOF だけを受け付ける
+                ## まだセグメントを公開していない PID 検出失敗は、下記の起動リトライで復旧できる
+                if (
+                    self.video_stream.is_encoding_restart_allowed is False and
+                    current_sequence < len(self.video_stream.segments) and not self._is_cancelled and
+                    (current_sequence > start_sequence or (video_pid is not None and audio_pid is not None))
+                ):
+                    if (not is_eof or current_sequence < len(self.video_stream.segments) - 2 or self._encoder_process is None or
+                        latest_pat is None or latest_pmt is None or pmt_pid is None or
+                        await asyncio.wait_for(self._encoder_process.wait(), 5) != 0):
+                        raise RuntimeError('Offline encoder did not finish successfully')
+                    # 映像 PES が最終境界に届かない録画では、未公開のバッファを最後のキーフレームで分け直す
+                    ## PAT/PMT だけのセグメントはプレイヤーが再生できないため、末尾にも実映像を入れて区間長を合わせる
+                    if current_sequence == len(self.video_stream.segments) - 2:
+                        if last_random_access_frame is None or last_random_access_frame[1] <= current_segment.playlist_start_seconds:
+                            raise RuntimeError('Offline final segment has no usable keyframe')
+                        frame_offset, frame_start_seconds, pat_cc, pmt_cc = last_random_access_frame
+                        final_segment = self.video_stream.segments[-1]
+                        final_data = bytearray(b''.join(packetize_section(latest_pat, False, False, 0, 0, pat_cc)))
+                        final_data += b''.join(packetize_section(latest_pmt, False, False, pmt_pid, 0, pmt_cc))
+                        final_data += encoded_segment[frame_offset:]
+                        # 先頭に追加した分も含め、PAT/PMT の連番を分割位置から振り直す
+                        ## PAT/PMT は上で payload 付きのパケットに再構築しているため、各パケットで連番を進める
+                        psi_counters = {0: pat_cc, pmt_pid: pmt_cc}
+                        for packet_offset in range(0, len(final_data), ts.PACKET_SIZE):
+                            pid = ts.pid(final_data[packet_offset:packet_offset + ts.HEADER_SIZE])
+                            if pid in psi_counters:
+                                final_data[packet_offset + 3] = (final_data[packet_offset + 3] & 0xF0) | psi_counters[pid]
+                                psi_counters[pid] = (psi_counters[pid] + 1) & 0x0F
+                        del encoded_segment[frame_offset:]
+                        final_segment.duration_seconds += final_segment.playlist_start_seconds - frame_start_seconds
+                        final_segment.playlist_start_seconds = frame_start_seconds
+                        current_segment.duration_seconds = frame_start_seconds - current_segment.playlist_start_seconds
+                        final_segment.encoded_segment_ts_future.set_result(bytes(final_data))
+                        final_segment.encode_status = 'Completed'
+                    is_offline_eof_successful = True
 
                 # エンコーダープロセスを終了
                 ## 下流側のプロセスから順に止めるのが重要
@@ -1379,6 +1432,9 @@ class VideoEncodingTask:
                 # この時点で video_pid と audio_pid が取得できていない場合、正常にエンコード済み TS が出力されていないと考えられるため、
                 # エンコーダー起動をリトライする
                 if video_pid is None or audio_pid is None:
+                    # 一時保存で公開済みのセグメントを、別プロセスの出力へ継ぎ足さない
+                    if self.video_stream.is_encoding_restart_allowed is False and current_sequence > start_sequence:
+                        raise RuntimeError('Offline encoding cannot restart after publishing a segment')
                     self._retry_count += 1
                     if self._retry_count < self.MAX_RETRY_COUNT:
                         logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
@@ -1527,9 +1583,13 @@ class VideoEncodingTask:
 
             # 最後のセグメントが完了していない場合は、現在のバッファを future にセット
             if current_segment is not None and not current_segment.encoded_segment_ts_future.done():
-                current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
+                final_data = bytes(encoded_segment) if self.video_stream.is_encoding_restart_allowed or is_offline_eof_successful else b''
+                current_segment.encoded_segment_ts_future.set_result(final_data)
                 current_segment.encode_status = 'Completed'
-                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
+                if final_data:
+                    logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
+                else:
+                    logging.error(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Final offline segment was not completed.')
 
             # エンコードタスクでのすべての処理を完了した
             self._is_finished = True

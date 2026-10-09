@@ -250,6 +250,15 @@ class OfflineVideoStreamMetadata(BaseModel):
     quality: str
     # 保存容量の見積もりとプレイリスト生成に使う録画時間
     duration_seconds: float
+    # 再開プロトコルのバージョン。分割規則・エンコード互換性を変えるときは更新する
+    resume_version: Literal[1] | None = None
+    # 録画の実ファイルと変換条件が再開前と同じかを確認するための識別子
+    resume_token: str
+    # この応答が返す最初のセグメント番号と、録画全体のセグメント数
+    start_sequence: int
+    segment_count: int
+    # 同じエンコード結果を参照する一時保存 ID。バックグラウンド保存では使わない
+    download_id: str | None = None
 
 # ***** シリーズ *****
 
