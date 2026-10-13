@@ -139,7 +139,7 @@ import { IProgram, ITimeTableProgram } from '@/services/Programs';
 import Reservations, { IReservation, IRecordSettings, IRecordSettingsDefault } from '@/services/Reservations';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useTimeTableStore, { CHANNEL_TYPE_DISPLAY_ORDER } from '@/stores/TimeTableStore';
-import Utils, { dayjs } from '@/utils';
+import Utils, { dayjs, dayjsOriginal } from '@/utils';
 
 
 // ストア
@@ -319,13 +319,33 @@ const formattedSelectedDate = computed(() => {
     return `${month}/${day} (${dayOfWeek})`;
 });
 
+/**
+ * JST の日付を、v-date-picker に渡す Date に変換する
+ * v-date-picker は Date をブラウザのタイムゾーンの暦で扱うため、JST の年月日をブラウザのタイムゾーンの同じ年月日の 00:00 に載せ替える
+ * 海外のブラウザでも、JST と同じ日付を選択済みとして表示させるため
+ * @param date JST の日時
+ * @returns ブラウザのタイムゾーンで同じ年月日の 00:00 を指す Date
+ */
+function toDatePickerDate(date: Dayjs): Date {
+    return dayjsOriginal(date.format('YYYY-MM-DD')).toDate();
+}
+
+/**
+ * v-date-picker から受け取った Date を、番組表の放送日の開始時刻 (JST の 04:00) に変換する
+ * v-date-picker はブラウザのタイムゾーンの 00:00 を返すため、ブラウザのタイムゾーンでの年月日を読み取って JST の日付として扱う
+ * @param value v-date-picker から受け取った Date
+ * @returns 選択された日付の JST 04:00
+ */
+function fromDatePickerDate(value: Date): Dayjs {
+    return dayjs(dayjsOriginal(value).format('YYYY-MM-DD[T04:00:00+09:00]'));
+}
+
 // v-date-picker 用の日付値 (v-date-picker は Date 型を要求するため、境界で変換)
 const selectedDateForPicker = computed({
-    get: () => timetableStore.selected_date.toDate(),
+    get: () => toDatePickerDate(timetableStore.selected_date),
     set: (value: Date) => {
         // v-date-picker は時刻を 00:00 にするので、4:00 に調整
-        const adjusted = dayjs(value).hour(4).minute(0).second(0).millisecond(0);
-        timetableStore.changeDate(adjusted);
+        timetableStore.changeDate(fromDatePickerDate(value));
     },
 });
 
@@ -354,14 +374,14 @@ const datePickerMinDate = computed(() => {
     // v-date-picker は Date 型を受け付ける
     // earliest を放送日ベースに変換してから startOf('day') を適用
     const earliestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.earliest);
-    return earliestBroadcastDate.startOf('day').toDate();
+    return toDatePickerDate(earliestBroadcastDate.startOf('day'));
 });
 const datePickerMaxDate = computed(() => {
     if (timetableStore.date_range === null) return undefined;
     // latest を放送日ベースに変換してから endOf('day') を適用
     // 例: latest が 2026-01-14T04:00:00 の場合、放送日は 1/13 なので 1/13 23:59:59 が最大日時
     const latestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.latest);
-    return latestBroadcastDate.endOf('day').toDate();
+    return dayjsOriginal(latestBroadcastDate.format('YYYY-MM-DD')).endOf('day').toDate();
 });
 
 /**
@@ -373,8 +393,8 @@ const datePickerMaxDate = computed(() => {
  */
 function isDateSelectable(date: unknown): boolean {
     if (timetableStore.date_range === null) return false;
-    // Vuetify の v-date-picker は Date オブジェクトを渡してくるが、dayjs() はそれを受け付ける
-    const targetDate = dayjs(date as Date);
+    // Vuetify の v-date-picker はブラウザのタイムゾーンの 00:00 を指す Date を渡してくるので、JST の同じ日付に変換する
+    const targetDate = fromDatePickerDate(date as Date);
     // date_range を放送日ベースに変換してから比較
     const earliestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.earliest);
     const latestBroadcastDate = timetableStore.getBroadcastDate(timetableStore.date_range.latest);
@@ -395,8 +415,7 @@ function onChannelTypeChange(value: ChannelTypePretty): void {
  */
 function onDatePickerChange(value: Date): void {
     isDateMenuOpen.value = false;
-    const adjusted = dayjs(value).hour(4).minute(0).second(0).millisecond(0);
-    timetableStore.changeDate(adjusted);
+    timetableStore.changeDate(fromDatePickerDate(value));
 }
 
 /**
