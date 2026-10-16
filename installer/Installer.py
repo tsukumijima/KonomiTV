@@ -752,6 +752,16 @@ def Installer(version: str) -> None:
                 )
                 text = text.replace(old_text, new_text)
 
+            # AMD GPU 向けの /dev/kfd が存在する場合、ROCm の OpenCL を Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト解除
+            ## VCEEncC が AMD AMF でエンコードする際の OpenCL フィルターは ROCm でしか動作せず、ROCm の動作には /dev/kfd が必要
+            ## /dev/kfd が存在しない環境でコメントアウトを解除するとコンテナが起動できないので、存在する場合のみ有効にする
+            elif Path('/dev/kfd').exists() is True:
+                # デフォルト (置換元) の config.yaml の記述
+                old_text = '      # - \'/dev/kfd:/dev/kfd\''
+                # 置換後の config.yaml の記述
+                new_text = '      - \'/dev/kfd:/dev/kfd\''
+                text = text.replace(old_text, new_text)
+
             # NVEncC が利用できそうな場合、NVIDIA GPU が Docker コンテナ内で使えるように docker-compose.yaml の当該記述をコメントアウト
             ## NVIDIA GPU が使える環境以外でコメントアウトすると
             ## 正攻法で YAML でコメントアウトする方法が思いつかなかったので、ゴリ押しで置換……
