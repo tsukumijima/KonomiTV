@@ -951,30 +951,47 @@ def Installer(version: str) -> None:
                 text = True,  # 出力をテキストとして取得する
             )
 
-            # VCEEncC が利用できない結果になった場合はドライバーがインストールされていない or 古い可能性が高いので、
-            # 適宜ドライバーをインストール/アップデートするように催促する
-            ## VCEEncC は AMDGPU-PRO Driver さえインストールされていれば動作する
+            # VCEEncC が利用できない結果になった場合は、VA-API ドライバーなどのユーザーモードドライバーがインストールされていないか、
+            # AMD GPU がカーネルドライバーで認識されていない可能性が高いので、適宜インストール方法を案内する
+            ## VCEEncC は、AMD AMF がインストールされていれば AMF を、なければ Mesa の VA-API ドライバーを自動的に選んで使う
+            ## カーネルドライバーは Linux に標準で含まれている amdgpu を使うため、AMDGPU-PRO Driver のインストールは必須ではない
             if result.returncode != 0:
-                ShowPanel([
-                    '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]',
-                    'AMD VCE の利用に必要な AMDGPU-PRO Driver がインストールされていないか、',
-                    'AMDGPU-PRO Driver のバージョンが古い可能性があります。',
-                    'AMDGPU-PRO Driver をインストール/最新バージョンに更新してください。',
-                ])
-                ShowPanel([
-                    'AMDGPU-PRO Driver のインストーラーは以下のコマンドでダウンロードできます。',
-                    'Ubuntu 24.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
-                    'Ubuntu 22.04 LTS: [cyan]curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb[/cyan]',
-                ], padding=(0, 2, 0, 2))
-                ShowPanel([
-                    'AMDGPU-PRO Driver は以下のコマンドでインストール/アップデートできます。',
-                    '事前に AMDGPU-PRO Driver のインストーラーをダウンロードしてから実行してください。',
-                    'インストール/アップデート完了後は、システムの再起動が必要です。',
-                    '[cyan]sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb && sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32[/cyan]',
-                ], padding=(0, 2, 0, 2))
-                ShowPanel([
-                    'VCEEncC のログ:\n' + result.stdout.strip(),
-                ], padding=(0, 2, 0, 2))
+
+                # Linux のみ
+                if platform_type == 'Linux':
+                    ShowPanel([
+                        '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]',
+                        'VCEEncC の利用に必要な VA-API ドライバーがインストールされていないか、',
+                        'AMD GPU が Linux 標準の amdgpu ドライバーで認識されていない可能性があります。',
+                    ])
+                    ShowPanel([
+                        'VA-API ドライバーと、OpenCL フィルターに使う Mesa の OpenCL (Rusticl) は以下のコマンドでインストールできます。',
+                        'インストール完了後は、システムの再起動が必要です。',
+                        'Ubuntu 24.04 LTS 以降:',
+                        '[cyan]sudo apt update && sudo apt install -y mesa-va-drivers mesa-opencl-icd vainfo clinfo[/cyan]',
+                        'Ubuntu 22.04 LTS の Mesa には Rusticl が含まれていないため、Readme.md に記載の Ubuntu 22.04 LTS 向けの手順を参照してください。',
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
+                        'RDNA 世代以降の AMD GPU では、AMD AMF を追加でインストールすると、VA-API よりも詳細な設定でエンコードできます。',
+                        'AMD AMF のインストール手順は Readme.md を参照してください。',
+                    ], padding=(0, 2, 0, 2))
+                    ShowPanel([
+                        'VCEEncC のログ:\n' + result.stdout.strip(),
+                    ], padding=(0, 2, 0, 2))
+
+                # Linux-Docker のみ
+                ## Linux-Docker では Docker イメージの中に AMF・VA-API のユーザーモードドライバーが含まれているため、
+                ## それでも動作しない場合は、ホスト側で AMD GPU が認識されていない可能性が高い
+                elif platform_type == 'Linux-Docker':
+                    ShowPanel([
+                        '[yellow]注意: この PC では VCEEncC が利用できない状態です。[/yellow]',
+                        'VCEEncC の動作に必要なライブラリは Docker イメージに含まれています。',
+                        'ホスト側で AMD GPU が Linux 標準の amdgpu ドライバーで認識されていない可能性があります。',
+                        '/dev/dri/ 以下に renderD128 などのデバイスファイルが存在するか確認してください。',
+                    ])
+                    ShowPanel([
+                        'VCEEncC のログ:\n' + result.stdout.strip(),
+                    ], padding=(0, 2, 0, 2))
 
         # エンコーダーに rkmppenc が選択されているとき
         elif encoder == 'rkmppenc':
