@@ -352,31 +352,91 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 #### Linux - VCEEncC
 
-**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/download/linux-drivers.html) のインストールが必要です。**  
+**VCEEncC は、Linux に標準で含まれている amdgpu ドライバーの上で動作します。**  
+AMDGPU-PRO Driver のインストールは必須ではありません。  
+VCEEncC は、AMD AMF (Advanced Media Framework) がインストールされていれば AMF を、インストールされていなければ Mesa の VA-API ドライバーを自動的に選んでエンコードします。  
+また、KonomiTV はインターレース解除などに OpenCL フィルターを使うため、エンコード用のドライバーとあわせて OpenCL のドライバーも必要です。
 
-> [!WARNING]  
-> **古いドライバーがインストールされている場合、VCEEncC が動作しない可能性があります。**  
-> KonomiTV をアップデートした後は、AMDGPU-PRO Driver も最新のドライバーにアップデートしてください。
+|  | AMD AMF | VA-API |
+|:--|:--|:--|
+| 対応 GPU | RDNA 世代 (Radeon RX 5000 シリーズ) 以降・Ryzen 5000 シリーズ以降の APU | GCN 世代以降の Radeon (Vega 世代などを含む) |
+| インストール | AMD が配布するパッケージが必要 | Ubuntu の apt パッケージのみ |
+| エンコード設定 | 詳細な設定に対応 | 基本的な設定のみ |
+| OpenCL フィルター | ROCm (AMD が配布) | Mesa の Rusticl |
 
-> [!WARNING]  
-> **VCEEncC を使うには AMDGPU-PRO ドライバーが必要です。**  
-> オープンソース版の AMDGPU ドライバーには AMD AMF (Advanced Media Framework) が含まれていないため、VCEEncC を利用できません。
+詳しくは [VCEEncC の公式ドキュメント](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md) もあわせてご確認ください。
+
+**Docker を使ってインストールする場合、AMF・VA-API・OpenCL のドライバーはすべて Docker イメージに含まれているため、ホスト側へのインストールは不要です。**  
+ホスト側で AMD GPU が認識されていれば (`/dev/dri/` 以下に `renderD128` などのデバイスファイルがあれば) 利用できます。  
+AMF でエンコードする際の OpenCL フィルター (ROCm) には `/dev/kfd` も必要なため、インストーラーは `/dev/kfd` が存在する環境で docker-compose.yaml の該当設定を自動的に有効にします。
+
+> [!NOTE]  
+> 以前のバージョンの KonomiTV を Docker でインストールしていた場合、docker-compose.yaml に `/dev/kfd` の設定が含まれていません。  
+> AMD GPU が搭載されている環境では、docker-compose.example.yaml を参考に、`devices:` の下に `- '/dev/kfd:/dev/kfd'` を追記してください。
+
+##### Ubuntu 24.04 LTS 以降
+
+まず、以下のコマンドを実行して、VA-API ドライバーと Mesa の OpenCL (Rusticl) をインストールしてください。  
+これだけで、AMF に対応していない GPU も含め、VA-API で VCEEncC を利用できます。
 
 ```bash
-# Ubuntu 24.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
+# VA-API ドライバーと Mesa の OpenCL (Rusticl) のインストール
+## Ubuntu 26.04 LTS 以降では、VA-API ドライバーは mesa-libgallium に統合されているため、mesa-va-drivers の代わりに mesa-libgallium をインストールする (通常はインストール済み)
+sudo apt update && sudo apt install -y mesa-va-drivers mesa-opencl-icd vainfo clinfo
+
+# GPU の認識状況の確認
+## vainfo で VAEntrypointEncSlice の行があるコーデックが、ハードウェアエンコードに使えるコーデック
+## clinfo で rusticl のプラットフォームに対象の Radeon が表示されれば、OpenCL フィルターを利用できる
+vainfo --display drm --device /dev/dri/renderD128
+RUSTICL_ENABLE=radeonsi clinfo -l
+```
+
+RDNA 世代以降の AMD GPU では、さらに AMF をインストールすると、より詳細な設定でエンコードできるようになります。  
+以下は、VCEEncC の作者が Ubuntu 24.04 で動作を確認している手順です。  
+最新の AMF ランタイムは Ubuntu 24.04 でエンコーダーの初期化に失敗することがあるため、AMF ランタイムだけを 6.4.4 (25.10) 系に差し替えています。
+
+```bash
+# AMD の All-Open スタックと、OpenCL フィルターに使う ROCm のインストール
+curl -LO https://repo.radeon.com/amdgpu-install/25.35.1/ubuntu/noble/amdgpu-install_7.2.1.70201-1_all.deb
+sudo apt install -y ./amdgpu-install_7.2.1.70201-1_all.deb
+sudo apt update && sudo amdgpu-install -y --opencl=rocr
+
+# AMF ランタイムを 6.4.4 (25.10) 系に差し替え
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amdgpu-pro-core/amdgpu-pro-core_25.10-2203192.24.04_all.deb
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/liba/libamdenc-amdgpu-pro/libamdenc-amdgpu-pro_25.10-2203192.24.04_amd64.deb
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_1.4.37-2203192.24.04_amd64.deb
+sudo apt remove --purge -y amf-amdgpu-pro libamdenc-amdgpu-pro
+sudo apt install -y --allow-downgrades \
+  ./amdgpu-pro-core_25.10-2203192.24.04_all.deb \
+  ./libamdenc-amdgpu-pro_25.10-2203192.24.04_amd64.deb \
+  ./amf-amdgpu-pro_1.4.37-2203192.24.04_amd64.deb
+sudo apt-mark hold amdgpu-pro-core libamdenc-amdgpu-pro amf-amdgpu-pro
+
+# 再起動
+sudo reboot
+```
+
+> [!NOTE]  
+> `clinfo` で `Number of platforms 0` と表示され、ROCm の OpenCL が認識されない場合は、[VCEEncC の公式ドキュメント](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md) に記載の手順で ROCm の OpenCL を登録してください。
+
+##### Ubuntu 22.04 LTS
+
+**Ubuntu 22.04 LTS の Mesa には Rusticl が含まれていないため、Ubuntu の apt パッケージだけでは OpenCL フィルターを利用できません。**  
+VCEEncC の作者が動作を確認している Linux 環境も Ubuntu 24.04 以降のみのため、Ubuntu 22.04 LTS では Docker を使ったインストールをおすすめします。
+
+Docker を使わずにインストールする場合は、以下のコマンドを実行して、AMF と ROCm の OpenCL を含む AMD のドライバーをインストールしてください。
+
+```bash
 # Ubuntu 22.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
 curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb
 
-# AMDGPU-PRO Driver のインストール
+# AMD のドライバー (AMF・ROCm の OpenCL を含む) のインストール
 sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb
 sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32
 
 # 再起動
 sudo reboot
 ```
-
-上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS 以降向け) 。
 
 #### Linux - rkmppenc
 
