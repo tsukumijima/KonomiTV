@@ -31,11 +31,16 @@ services:
     # ==================== ↓↓↓↓↓ ここからユーザー設定 ↓↓↓↓↓ ====================
 
     # QSVEncC / VCEEncC を利用する (Intel Graphics / AMD GPU にアクセスする) ために必要な設定
-    # VCEEncC (AMD GPU) を利用するには、別途 AMDGPU-PRO Driver のインストールが必要です。
+    # VCEEncC (AMD GPU) の動作に必要なライブラリは Docker イメージに含まれているため、AMDGPU-PRO Driver のインストールは不要です。
+    # ホスト側では、Linux に標準で含まれている amdgpu ドライバーで AMD GPU が認識されていれば利用できます。
     # GPU が1個も搭載されていない (/dev/dri/ 以下のデバイスファイルが存在しない) 特殊な環境では、
     # コメントアウトしてこの設定を無効にしないと、KonomiTV サーバーを起動できなくなります。
+    # /dev/kfd は、VCEEncC が AMD AMF でエンコードする際に、OpenCL フィルター (ROCm) を利用するために必要です。
+    # AMD GPU が搭載されている環境では、コメントアウトを解除してこの設定を有効にしてください。
+    # コメントアウトを解除してこの設定を有効にすると、/dev/kfd が存在しない環境では KonomiTV サーバーを起動できなくなります。
     devices:
       - '/dev/dri/:/dev/dri/'
+      # - '/dev/kfd:/dev/kfd'
 
     # NVEncC を利用する (NVIDIA GPU にアクセスする) ために必要な設定
     # NVEncC (NVIDIA GPU) を利用するには、別途 NVIDIA Graphics Driver と
