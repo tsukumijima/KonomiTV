@@ -371,8 +371,10 @@ VCEEncC は、[AMD AMF (Advanced Media Framework)](https://github.com/GPUOpen-Li
 > [!TIP]
 > **Docker を使ってインストールする場合、AMF / VA-API / OpenCL のドライバーはすべて Docker イメージに含まれているため、ホスト側へのインストールは不要です。**  
 > ホスト側で AMD GPU が認識されていれば (`/dev/dri/` 以下に `renderD128` などのデバイスファイルがあれば) 利用できます。  
-> AMF でエンコードする際の OpenCL フィルター (ROCm) には `/dev/kfd` も必要です。  
-> KonomiTV のインストーラー/アップデーターは、`/dev/kfd` が存在する環境であれば、自動的に docker-compose.yaml を修正してコンテナにマウントします。
+> 
+> なお、VCEEncC + AMF でのエンコード時に OpenCL (ROCm) フィルター（インターレース解除など）を利用するには、`/dev/kfd` にアクセスできる必要があります。  
+> KonomiTV のインストーラー/アップデーターは、`/dev/kfd` が存在する環境であれば、自動的に docker-compose.yaml を修正してコンテナにマウントします。  
+> インストーラー/アップデーターを使わずに運用している方は、docker-compose.example.yaml を参考に、`devices:` の下に `- '/dev/kfd:/dev/kfd'` を追記してください。
 
 > [!IMPORTANT]
 > **AMD の Linux ドライバやライブラリ周りのサポートが劣悪な影響で、VCEEncC は現状 Ubuntu 24.04 LTS 以降の環境でのみ動作確認されています。**  
