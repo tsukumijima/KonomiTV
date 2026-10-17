@@ -43,6 +43,7 @@ from app.routers import (
     VideoStreamsRouter,
 )
 from app.streams.LiveStream import LiveStream
+from app.streams.OfflineVideoDownload import OfflineVideoDownload
 from app.utils.edcb.EDCBTuner import EDCBTuner
 from app.utils.FastAPITaskUtil import repeat_every
 
@@ -269,6 +270,21 @@ async def UpdateChannelAndProgram():
 async def UpdateChannelJikkyoStatus():
     await Channel.updateJikkyoStatus()
 
+# 起動時と以降1時間ごとに、期限切れのオフライン一時保存を回収する
+@app.on_event('startup')
+@repeat_every(seconds=60 * 60, logger=logging.logger)
+async def CleanupOfflineDownloads() -> None:
+    """
+    期限切れまたは未完成のオフライン一時保存を回収する。
+
+    Args:
+        None
+    Returns:
+        None
+    """
+    await OfflineVideoDownload.cleanupExpired()
+
+
 # サーバーの終了時に実行する
 cleanup = False
 @app.on_event('shutdown')
@@ -279,6 +295,9 @@ async def Shutdown():
     if cleanup is True:
         return
     cleanup = True
+
+    # 完成した一時保存は残し、実行中の変換だけを停止する
+    await OfflineVideoDownload.shutdown()
 
     # 全てのライブストリームを終了する
     for live_stream in LiveStream.getAllLiveStreams():

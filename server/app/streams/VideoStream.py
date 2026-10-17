@@ -147,6 +147,9 @@ class VideoStream:
             instance.recorded_program = recorded_program
             instance.quality = quality
             instance.encoding_options = encoding_options
+            # 一時保存では単一の変換結果を使い続けるため、途中シークによるエンコーダー再起動を禁止する
+            ## OfflineVideoDownload が開始前に False を設定し、getSegment() と終了時の検証で参照する
+            instance.is_encoding_restart_allowed = True
 
             # HLS セグメントの基準長 (秒)
             ## 録画ファイルのフレームレートから算出し、プレイリスト生成とオンデマンド探索で共通利用する
@@ -257,6 +260,7 @@ class VideoStream:
         self.recorded_program: RecordedProgram
         self.quality: QUALITY_TYPES
         self.encoding_options: StreamEncodingOptions
+        self.is_encoding_restart_allowed: bool
         self._segment_duration_seconds: float
         self._segments: list[VideoStreamSegment]
         self._segment_map_by_sequence: dict[int, SegmentMapEntry]
@@ -353,6 +357,9 @@ class VideoStream:
 
         def OnVideoEncodingTaskDone(done_task: asyncio.Task[None]) -> None:
             self._detached_video_encoding_task_refs.discard(done_task)
+            # 一時保存での異常終了も、参照を外す前に回収して原因をログへ残す
+            if not done_task.cancelled() and (exception := done_task.exception()) is not None:
+                logging.error(f'{self.log_prefix} Encoding task failed:', exc_info=exception)
             # 現在実行中の VideoEncodingTask のタスクが終了待機を打ち切ったタスクだった場合は、その参照を None にする
             if self._video_encoding_task_ref == done_task:
                 self._video_encoding_task_ref = None
@@ -812,6 +819,8 @@ class VideoStream:
 
                 # ロック待ちの間に他のリクエストがすでにエンコードを開始している可能性があるため再確認する
                 if segment.encode_status == 'Pending':
+                    if self.is_encoding_restart_allowed is False and segment_sequence > 0:
+                        raise RuntimeError('Offline encoding was interrupted; cached segments cannot be regenerated')
                     # シークでは旧エンコーダーが同じ録画ファイルを読み続けていると、未キャッシュ区間の探索と I/O が競合する
                     ## そのため source position 解決より前に旧タスクへキャンセルを投げ、探索が録画ファイルを読みやすい状態へ寄せる
                     if self._video_encoding_task_ref is not None:
