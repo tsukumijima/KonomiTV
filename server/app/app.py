@@ -8,7 +8,7 @@ import tortoise.contrib.fastapi
 import tortoise.log
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import logging
@@ -122,7 +122,25 @@ app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 # ルート以下のルーティング (同期ファイル I/O を伴うため同期関数として実装している)
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
-def Root(file: str):
+def Root(file: str, return_to: str = '/') -> Response:
+    """
+    静的ファイルと SPA の画面を配信し、再認証後は元の画面に戻す。
+
+    Args:
+        file: ルート以下のパス
+        return_to: 再認証後に戻る同一オリジンの画面のパス
+
+    Returns:
+        静的ファイル、エラーレスポンス、または画面へ戻るリダイレクト
+    """
+
+    # Service Worker の対象外の URL を経由し、前段の認証を通過してから元の画面に戻る
+    if file == 'api/reconnect':
+        # 外部サイトへの転送と API への再転送を防ぎ、不正な復帰先はトップページに戻す
+        if (not return_to.startswith('/') or return_to.startswith(('//', '/api')) or '\\' in return_to or
+            any(ord(char) < 32 or ord(char) == 127 for char in return_to)):
+            return_to = '/'
+        return RedirectResponse(return_to, status_code = status.HTTP_303_SEE_OTHER, headers = {'Cache-Control': 'no-store'})
 
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142
