@@ -4,7 +4,7 @@ import json
 from typing import Annotated, Any, cast
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from fastapi.security.utils import get_authorization_scheme_param
 from jose import jwt
 
@@ -13,6 +13,7 @@ from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, NICONICO_OAUTH_CLIE
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentUser
 from app.utils import Interlaced
+from app.utils.JikkyoClient import JikkyoClient
 from app.utils.OAuthCallbackResponse import OAuthCallbackResponse
 
 
@@ -253,3 +254,66 @@ async def NiconicoAccountLogoutAPI(
     current_user.niconico_access_token = None
     current_user.niconico_refresh_token = None
     await current_user.save()
+
+
+@router.get(
+    '/jikkyo/statuses',
+    summary = 'ニコニコ実況ステータス一覧 API',
+    response_description = '全ての実況チャンネルの最新ステータス情報 (実況勢いなど)。',
+    response_model = dict[str, schemas.JikkyoStatus],
+)
+async def JikkyoStatusesAPI():
+    """
+    全ての実況チャンネルの最新ステータス情報 (実況勢いなど) を取得する。
+    """
+
+    return JikkyoClient.getStatuses()
+
+
+@router.get(
+    '/jikkyo/channels',
+    summary = 'ニコニコ実況主要チャンネル一覧 API',
+    response_description = '実況チャンネル設定モーダルに表示する主要局のリスト。',
+    response_model = list[schemas.JikkyoPrimaryChannel],
+)
+async def JikkyoPrimaryChannelsAPI():
+    """
+    実況チャンネル設定モーダルに表示する主要局のリストを取得する。<br>
+    サーバー側の JikkyoClient.PRIMARY_JIKKYO_CHANNELS が信頼できる唯一のソースであり、クライアント側はこの API から取得する。
+    """
+
+    return JikkyoClient.PRIMARY_JIKKYO_CHANNELS
+
+
+@router.get(
+    '/jikkyo/{jikkyo_id}/session',
+    summary = '実況チャンネル WebSocket 接続情報 API',
+    response_description = '指定された実況チャンネル ID に対応する、ニコニコ実況コメント送受信用 WebSocket API の情報。',
+    response_model = schemas.JikkyoWebSocketInfo,
+)
+async def JikkyoWebSocketInfoAPI(
+    request: Request,
+    jikkyo_id: Annotated[str, Path(description='実況チャンネル ID。jk1, jk9 など')],
+):
+    """
+    指定された実況チャンネル ID に対応する、ニコニコ実況コメント送受信用 WebSocket API の情報を取得する。
+    """
+
+    # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
+    current_user = None
+    if request.headers.get('Authorization') is not None:
+        _, user_access_token = get_authorization_scheme_param(request.headers.get('Authorization'))
+        try:
+            current_user = await GetCurrentUser(token=user_access_token)
+        except HTTPException:
+            pass
+
+    # ニコニココメント送受信用 WebSocket API の情報を取得する
+    if jikkyo_id not in JikkyoClient.JIKKYO_CHANNEL_ID_MAP:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = 'Specified jikkyo_id was not found',
+        )
+    jikkyo_client = JikkyoClient.fromJikkyoID(jikkyo_id)
+    return await jikkyo_client.fetchWebSocketInfo(current_user)
+
