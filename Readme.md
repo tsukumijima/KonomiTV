@@ -289,7 +289,7 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 #### Windows
 
 - QSVEncC：[Intel Graphics Driver](https://www.intel.co.jp/content/www/jp/ja/support/articles/000005629/graphics/processor-graphics.html)
-- NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx)
+- NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) (452.39 以降)
 - VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support/download/drivers.html) (Adrenalin Edition 25.10.2 以降)
 
 それぞれのハードウェアエンコーダーを使用するには、対応した GPU ドライバーのインストールが必要です。  
@@ -347,10 +347,15 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 **NVEncC では、[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) のインストールが必要です。**  
 基本的にはすでにインストールされていると思います。個人的には `ubuntu-drivers` コマンドを使って apt でインストールするのがおすすめです。  
+NVEncC 自体は、NVIDIA Graphics Driver 450.51 以降であれば動作します。  
 [NVEncC の公式ドキュメント](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 **Docker で KonomiTV をインストールする際は、さらに NVIDIA Container Toolkit のインストールが必要です。**  
 インストール手順は [NVIDIA の公式ドキュメント](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) をご確認ください。
+
+> [!IMPORTANT]  
+> **Docker を使ってインストールする場合、ホスト側に nvidia-driver-570 以上のドライバーがインストールされている必要があります。**  
+> KonomiTV の Docker イメージは、RTX 5090 などの Blackwell 世代 GPU をサポートする最低バージョンである CUDA 12.8 をベースにしているためです。
 
 #### Linux - VCEEncC
 
