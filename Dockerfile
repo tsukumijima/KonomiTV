@@ -54,8 +54,8 @@ RUN yarn build
 ## NVEncC の動作には CUDA ライブラリが必要なため、CUDA 付きのイメージを使う
 ## RTX 5090 (Blackwell) 世代をサポートする最低バージョンである CUDA 12.8.0 を指定している
 ## cuda:x.x.x-runtime 系イメージだと NVEncC で使わない余計なライブラリが付属して重いので、base イメージを使う
-## VCEEncC の作者が動作確認している Linux 環境は Ubuntu 24.04 以降のみで、
-## VA-API 利用時の OpenCL に使う Mesa の Rusticl も Ubuntu 24.04 以降の mesa-opencl-icd にしか含まれないため、Ubuntu 24.04 を使う
+## OS イメージは、VCEEncC 公式に動作確認されている Linux 環境が Ubuntu 24.04 以降のみであること、
+## また VA-API 向け OpenCL ドライバー Rusticl が Ubuntu 24.04 以降の mesa-opencl-icd にしか含まれないことを鑑み、Ubuntu 24.04 を指定している
 FROM nvidia/cuda:12.8.0-base-ubuntu24.04
 
 # タイムゾーンを東京に設定
@@ -70,7 +70,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ## NVEncC: runtime 版には含まれているが base 版には含まれていない cuda-nvrtc-12-8, libnpp-12-8 をインストールする
 ## VCEEncC: AMF と VA-API の両方のユーザーモードドライバーを入れておき、VCEEncC の --backend auto (既定) に GPU ごとに選ばせる
 ##  - AMF (RDNA 世代以降): AMD 配布の AMF ランタイム (amf-amdgpu-pro, libamdenc-amdgpu-pro) と、AMF が内部で使う Mesa の Vulkan ドライバー (RADV)
-##    AMF ランタイムは、VCEEncC の作者が Ubuntu 24.04 + RADV 環境での初期化失敗の回避策として動作確認している 6.4.4 (25.10) 系に固定する
+##    AMF ランタイムは、VCEEncC 公式に Ubuntu 24.04 + RADV 環境での初期化失敗の回避策として動作確認されている 6.4.4 (25.10) 系に固定する
 ##    AMF 利用時の OpenCL は提供元が AMD の実装しか選ばれないため、OpenCL には ROCm を使う (ROCm の動作にはホストの /dev/kfd が必要)
 ##  - VA-API (Vega などの AMF 非対応の GCN 世代も含む): Mesa の VA-API ドライバー (radeonsi) と、Mesa の OpenCL 実装 (Rusticl)
 ##    VA-API 利用時の OpenCL は ROCm を優先し、ROCm で GPU が見つからなければ Rusticl が使われる
