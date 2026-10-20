@@ -407,6 +407,23 @@ jobs:
           # ダウンロードした QSVEncC.elf にパッチを当て、QSVEncC に静的リンクされているディスパッチャーが /usr/lib* を優先的に探索するのを防ぎ、
           # 同梱した自前ビルドの libmfx-gen.so / libmfxhw64.so が優先的に探索されるようにする
           perl -0pi -e 's#/usr/lib/x86_64-linux-gnu#/bundle/disabled/path/001#g; s#/usr/lib64#/bad/path9#g; s#/usr/lib#/bad/lib#g' thirdparty/QSVEncC/QSVEncC.elf
+          # QSVEncC.elf の qsvVPLDriverCompatible() を、常に true を返すように書き換える
+          ## QSVEncC 8.32 以降のLinux版は、 --backend auto (既定)のときに /usr/lib*, /usr/local/lib* のハードコーディングされたパスに iHD_drv_video.so が存在するかを確認し、
+          ## その有無によってQSVとVA-APIのどちらを使用するかを決定するようになった。
+          ## 同梱の libva には自前ビルドの iHD_drv_video.so が必ず存在して読み込まれているため、常に true を返すようにパッチする。
+          ## シンボルが見つからない・関数の先頭が想定と異なる場合はビルドを失敗させる。
+          SYMBOL_ADDRESS=$(nm thirdparty/QSVEncC/QSVEncC.elf | awk '$3 == "_Z22qsvVPLDriverCompatiblev" { print $1 }')
+          if [ "$(echo "${SYMBOL_ADDRESS}" | grep -c .)" != 1 ]; then echo 'qsvVPLDriverCompatible() was not found in QSVEncC.elf'; exit 1; fi
+          SYMBOL_OFFSET=''
+          while read -r TYPE OFFSET VADDR PADDR FILESIZE _; do
+            if [ "${TYPE}" = 'LOAD' ] && [ $((16#${SYMBOL_ADDRESS})) -ge $((VADDR)) ] && [ $((16#${SYMBOL_ADDRESS})) -lt $((VADDR + FILESIZE)) ]; then
+              SYMBOL_OFFSET=$((16#${SYMBOL_ADDRESS} - VADDR + OFFSET))
+            fi
+          done < <(readelf -lW thirdparty/QSVEncC/QSVEncC.elf)
+          if [ -z "${SYMBOL_OFFSET}" ]; then echo 'Failed to resolve the file offset of qsvVPLDriverCompatible()'; exit 1; fi
+          if [ "$(od -An -tx1 -j "${SYMBOL_OFFSET}" -N 4 thirdparty/QSVEncC/QSVEncC.elf | tr -d ' \n')" != 'f30f1efa' ]; then echo 'Unexpected prologue of qsvVPLDriverCompatible()'; exit 1; fi
+          ## 先頭の endbr64 の直後を mov eax, 1 / ret に書き換える
+          printf '\xb8\x01\x00\x00\x00\xc3' | dd of=thirdparty/QSVEncC/QSVEncC.elf bs=1 seek=$((SYMBOL_OFFSET + 4)) conv=notrunc status=none
           chmod a+x thirdparty/QSVEncC/QSVEncC.elf
           patchelf --set-rpath '$ORIGIN:$ORIGIN/../Library' thirdparty/QSVEncC/QSVEncC.elf
           curl -fSL -o thirdparty/QSVEncC/License.txt https://raw.githubusercontent.com/rigaya/QSVEnc/master/license.txt
