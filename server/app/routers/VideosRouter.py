@@ -2,6 +2,8 @@
 import asyncio
 import json
 import pathlib
+import time
+from collections import OrderedDict
 from datetime import datetime
 from email.utils import parsedate
 from typing import Annotated, Any, Literal
@@ -21,12 +23,14 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from starlette.datastructures import Headers
 from tortoise import connections
+from tortoise.expressions import Q
 
 from app import logging, schemas
 from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
+from app.models.Channel import Channel
 from app.models.RecordedProgram import RecordedProgram
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
@@ -96,6 +100,10 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
     # channel のデータを構築 (channel_id が存在する場合のみ)
     channel_dict: dict[str, Any] | None = None
     if row['ch_id'] is not None:
+        ch_jikkyo_id: str | None = JikkyoClient.getJikkyoID(row['ch_network_id'], row['ch_service_id'])
+        # 地デジで NID と SID から特定できない場合、全国共通のリモコンキー ID 2 のみフォールバック
+        if ch_jikkyo_id is None and row['type'] == 'GR' and row['remocon_id'] == 2:
+            ch_jikkyo_id = 'jk2'
         channel_dict = {
             'id': row['ch_id'],
             'display_channel_id': row['display_channel_id'],
@@ -106,6 +114,7 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
             'channel_number': row['channel_number'],
             'type': row['type'],
             'name': row['ch_name'],
+            'jikkyo_id': ch_jikkyo_id,
             'jikkyo_force': row['jikkyo_force'],
             'is_subchannel': bool(row['is_subchannel']),
             'is_radiochannel': bool(row['is_radiochannel']),
@@ -756,6 +765,168 @@ async def VideoDownloadAPI(
     )
 
 
+# 過去ログコメントのインメモリキャッシュ。キーは録画IDと実況ID、値はコメントと保存時刻
+KAKOLOG_CACHE: OrderedDict[tuple[int, str], tuple[schemas.JikkyoComments, float]] = OrderedDict()
+MAX_KAKOLOG_CACHE_SIZE = 20
+KAKOLOG_CACHE_TTL = 1800.0  # キャッシュ有効期限 30分
+KAKOLOG_FETCH_LOCK = asyncio.Lock()
+# 取得中タスクのマップ。同一キーへの同時リクエスト重複を防止する
+KAKOLOG_IN_FLIGHT: dict[tuple[int, str], asyncio.Task[schemas.JikkyoComments]] = {}
+
+
+async def FetchJikkyoCommentsWithCache(
+    video_id: int,
+    jikkyo_client: JikkyoClient,
+    start_time: datetime,
+    end_time: datetime,
+) -> schemas.JikkyoComments:
+    """
+    キャッシュを考慮してニコニコ実況の過去ログコメントを取得する
+
+    Args:
+        video_id (int): 録画番組の ID
+        jikkyo_client (JikkyoClient): 実況クライアントのインスタンス
+        start_time (datetime): 録画開始時刻
+        end_time (datetime): 録画終了時刻
+
+    Returns:
+        schemas.JikkyoComments: 過去ログコメント
+    """
+    if jikkyo_client.jikkyo_id is None:
+        return schemas.JikkyoComments(
+            is_success = False,
+            comments = [],
+            detail = 'このチャンネルはニコニコ実況に対応していません。',
+        )
+
+    cache_key = (video_id, jikkyo_client.jikkyo_id)
+    current_time = time.monotonic()
+
+    task: asyncio.Task[schemas.JikkyoComments]
+
+    # キャッシュ確認および取得タスクの登録
+    async with KAKOLOG_FETCH_LOCK:
+        if cache_key in KAKOLOG_CACHE:
+            cached_data, cached_at = KAKOLOG_CACHE[cache_key]
+            if current_time - cached_at < KAKOLOG_CACHE_TTL:
+                KAKOLOG_CACHE.move_to_end(cache_key)
+                return cached_data.model_copy(deep=True)
+            del KAKOLOG_CACHE[cache_key]
+
+        # 同一キーの取得タスクが実行中の場合はそのタスクを待機対象とする
+        if cache_key in KAKOLOG_IN_FLIGHT:
+            task = KAKOLOG_IN_FLIGHT[cache_key]
+        else:
+            # 取得タスクを登録して実行
+            async def fetch_and_cache() -> schemas.JikkyoComments:
+                comments = await jikkyo_client.fetchJikkyoComments(start_time, end_time)
+                if comments.is_success:
+                    async with KAKOLOG_FETCH_LOCK:
+                        now = time.monotonic()
+                        # 期限切れのエントリを破棄
+                        expired_keys = [k for k, (_, t) in KAKOLOG_CACHE.items() if now - t >= KAKOLOG_CACHE_TTL]
+                        for k in expired_keys:
+                            del KAKOLOG_CACHE[k]
+                        # 上限超過時は最古のエントリを破棄
+                        if len(KAKOLOG_CACHE) >= MAX_KAKOLOG_CACHE_SIZE:
+                            KAKOLOG_CACHE.popitem(last=False)
+                        KAKOLOG_CACHE[cache_key] = (comments.model_copy(deep=True), now)
+                return comments
+
+            task = asyncio.create_task(fetch_and_cache())
+            KAKOLOG_IN_FLIGHT[cache_key] = task
+            task.add_done_callback(lambda _: KAKOLOG_IN_FLIGHT.pop(cache_key, None))
+
+    result = await asyncio.shield(task)
+    return result.model_copy(deep=True)
+
+
+async def AdjustCommentsCutSections(
+    video_file_path: str,
+    comments: list[schemas.JikkyoComment],
+) -> list[schemas.JikkyoComment]:
+    """
+    PSI/SI 書庫からカット編集情報を抽出し過去ログコメントのタイミングを調節する
+
+    Args:
+        video_file_path (str): 録画ファイルのパス
+        comments (list[schemas.JikkyoComment]): タイミング調整前のコメントリスト
+
+    Returns:
+        list[schemas.JikkyoComment]: タイミング調整後のコメントリスト
+    """
+
+    def ExtractTOTTimeList() -> list[tuple[float, float, datetime, datetime]]:
+        tot_time_list: list[tuple[float, float, datetime, datetime]] = []
+        psc_path = pathlib.Path(video_file_path).with_suffix('.psc')
+        try:
+            with open(psc_path, 'rb') as f:
+                def callback(time_sec: float, pid: int, section: bytes) -> bool:
+                    tot = TimeOffsetSection(section)
+                    tot_jst_time = tot.JST_time
+                    if tot_jst_time is None:
+                        return False
+                    back = tot_time_list[-1] if len(tot_time_list) > 0 else None
+                    if ((back is not None and (time_sec < back[1] or tot_jst_time < back[3])) or
+                        (back is None and time_sec > 60)):
+                        return False
+                    if (back is None or
+                        abs((time_sec - back[0]) - (tot_jst_time - back[2]).total_seconds()) > 5):
+                        tot_time_list.append((time_sec, time_sec, tot_jst_time, tot_jst_time))
+                    else:
+                        tot_time_list[-1] = (back[0], time_sec, back[2], tot_jst_time)
+                    return True
+
+                if not TSInfoAnalyzer.readPSIData(f, [0x14], callback):
+                    logging.warning(f'{psc_path}: File contents may be invalid.')
+                    tot_time_list.clear()
+        except Exception:
+            tot_time_list.clear()
+        return tot_time_list
+
+    tot_time_list = await asyncio.to_thread(ExtractTOTTimeList)
+    if len(tot_time_list) < 2:
+        return comments
+
+    # TOT 時刻を開始時刻からの相対秒数に変換する
+    offset_list: list[tuple[float, float]] = []
+    first_sec = tot_time_list[0][0]
+    first_tot_time = tot_time_list[0][2]
+    for tot_time in tot_time_list:
+        offset_list.append(((tot_time[2] - first_tot_time).total_seconds() + first_sec,
+                            (tot_time[3] - first_tot_time).total_seconds() + first_sec))
+
+    # 分割部分の時刻をずらして結合する
+    cut_list: list[tuple[float, float, float]] = []
+    shift_sec = tot_time_list[0][0]
+    for i in range(len(tot_time_list) - 1):
+        next_shift_sec = (tot_time_list[i + 1][0] - tot_time_list[i][1]) / 2
+        cut_list.append((tot_time_list[i][0] - shift_sec, offset_list[i][0] - shift_sec, offset_list[i][1] + next_shift_sec))
+        shift_sec = next_shift_sec
+    cut_list.append((tot_time_list[-1][0] - shift_sec, offset_list[-1][0] - shift_sec, offset_list[-1][1] + 60))
+
+    # カット判定ループのためコメントは再生時間昇順に並んでいる必要がある
+    comments.sort(key=lambda comment: comment.time)
+
+    # リスト先頭削除による高負荷を防ぐため新しいリストを構築して線形時間で処理
+    adjusted_comments: list[schemas.JikkyoComment] = []
+    comment_index = 0
+    total_comments = len(comments)
+    for cut in cut_list:
+        while comment_index < total_comments and comments[comment_index].time < cut[1]:
+            comment_index += 1
+        time_shift = cut[1] - cut[0]
+        while comment_index < total_comments and comments[comment_index].time < cut[2]:
+            comment = comments[comment_index]
+            comment.time -= time_shift
+            adjusted_comments.append(comment)
+            comment_index += 1
+
+    # タイミング調整後のコメントを再ソートする
+    adjusted_comments.sort(key=lambda comment: comment.time)
+    return adjusted_comments
+
+
 @router.get(
     '/{video_id}/jikkyo',
     summary = '録画番組過去ログコメント API',
@@ -764,89 +935,187 @@ async def VideoDownloadAPI(
 )
 async def VideoJikkyoCommentsAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+    sub_channel_id: Annotated[str | None, Query(description='追加で過去ログコメントを取得する別チャンネルの ID。後方互換用')] = None,
+    sub_channel_ids: Annotated[list[str] | None, Query(description='取得対象のチャンネル ID リスト。指定時は指定されたチャンネルのみが取得されます。')] = None,
 ):
     """
     指定された録画番組の放送中に投稿されたニコニコ実況の過去ログコメントを取得する。<br>
     ニコニコ実況 過去ログ API をラップし、DPlayer が受け付けるコメント形式に変換して返す。
     """
 
-    # チャンネル情報と録画開始時刻/録画終了時刻の情報がある場合のみ
+    # チャンネル情報と録画開始時刻および終了時刻の情報がある場合のみ
     if ((recorded_program.channel is not None) and
         (recorded_program.recorded_video.recording_start_time is not None) and
         (recorded_program.recorded_video.recording_end_time is not None)):
 
-        # ニコニコ実況 過去ログ API から一致する過去ログコメントを取得して返す
-        jikkyo_client = JikkyoClient(recorded_program.channel.network_id, recorded_program.channel.service_id)
-        jikkyo_comments = await jikkyo_client.fetchJikkyoComments(
-            recorded_program.recorded_video.recording_start_time,
-            recorded_program.recorded_video.recording_end_time,
+        # メインチャンネルの実況クライアントを生成
+        if recorded_program.channel.jikkyo_id is not None:
+            main_client = JikkyoClient.fromJikkyoID(recorded_program.channel.jikkyo_id)
+        else:
+            main_client = JikkyoClient(recorded_program.channel.network_id, recorded_program.channel.service_id)
+
+        # メインチャンネルに関連する識別子候補のセット
+        main_identifiers: set[str] = {
+            recorded_program.channel.id,
+            recorded_program.channel.display_channel_id,
+            f'jk{recorded_program.channel.service_id}',
+        }
+        if main_client.jikkyo_id is not None:
+            main_identifiers.add(main_client.jikkyo_id if main_client.jikkyo_id.startswith('jk') else f'jk{main_client.jikkyo_id}')
+
+        main_channel_id = main_client.jikkyo_id if main_client.jikkyo_id is not None else recorded_program.channel.id
+        main_channel_name = JikkyoClient.getJikkyoChannelName(main_channel_id) if main_client.jikkyo_id is not None else recorded_program.channel.name
+
+        # 指定された全対象チャンネル ID。カンマ区切り形式にも対応しつつ最大20局に制限
+        target_channel_ids: list[str] | None = None
+        if sub_channel_ids is not None:
+            flat_ids: list[str] = []
+            for item in sub_channel_ids:
+                flat_ids.extend([s.strip() for s in item.split(',') if s.strip()])
+            target_channel_ids = flat_ids[:20]
+
+        # メインチャンネルを含めるかどうかの判定。未指定ならデフォルトで含める
+        should_include_main = True
+        if target_channel_ids is not None:
+            should_include_main = any(tid in main_identifiers for tid in target_channel_ids)
+
+        # 追加で指定されたチャンネル ID。メインチャンネル以外
+        target_sub_ids: list[str] = []
+        if target_channel_ids is not None:
+            target_sub_ids = [tid for tid in dict.fromkeys(target_channel_ids) if tid not in main_identifiers]
+        elif sub_channel_id is not None and sub_channel_id not in main_identifiers:
+            target_sub_ids = [sub_channel_id]
+
+        # 取得対象の実況チャンネル一覧
+        targets: list[tuple[str, JikkyoClient, str]] = []
+        fetched_jikkyo_ids: set[str] = set()
+
+        if should_include_main:
+            targets.append((main_channel_id, main_client, main_channel_name))
+            if main_client.jikkyo_id is not None:
+                fetched_jikkyo_ids.add(main_client.jikkyo_id)
+
+        # 実況 ID 以外のチャンネル ID を事前に一括取得して N+1 クエリを解消
+        non_jk_target_ids = [tid for tid in target_sub_ids if not (tid.startswith('jk') and tid[2:].isdigit())]
+        channels_by_id: dict[str, Channel] = {}
+        if non_jk_target_ids:
+            channels = await Channel.filter(Q(id__in=non_jk_target_ids) | Q(display_channel_id__in=non_jk_target_ids)).all()
+            for ch in channels:
+                channels_by_id[ch.id] = ch
+                channels_by_id[ch.display_channel_id] = ch
+
+        for target_id in target_sub_ids:
+            sub_jikkyo_client: JikkyoClient | None = None
+            sub_channel_name: str = target_id
+            if target_id.startswith('jk') and target_id[2:].isdigit():
+                sub_jikkyo_client = JikkyoClient.fromJikkyoID(target_id)
+                sub_channel_name = JikkyoClient.getJikkyoChannelName(target_id)
+            else:
+                sub_channel = channels_by_id.get(target_id)
+                if sub_channel is not None:
+                    if sub_channel.jikkyo_id is not None:
+                        sub_jikkyo_client = JikkyoClient.fromJikkyoID(sub_channel.jikkyo_id)
+                    else:
+                        sub_jikkyo_client = JikkyoClient(sub_channel.network_id, sub_channel.service_id)
+                    sub_channel_name = sub_channel.name
+
+            if sub_jikkyo_client is not None:
+                if sub_jikkyo_client.jikkyo_id is not None and sub_jikkyo_client.jikkyo_id in fetched_jikkyo_ids:
+                    continue
+                if sub_jikkyo_client.jikkyo_id is not None:
+                    fetched_jikkyo_ids.add(sub_jikkyo_client.jikkyo_id)
+                target_key = sub_jikkyo_client.jikkyo_id if sub_jikkyo_client.jikkyo_id is not None else target_id
+                targets.append((target_key, sub_jikkyo_client, sub_channel_name))
+
+        # 対象チャンネルが 0 局の場合。全局解除された場合など
+        if len(targets) == 0:
+            return schemas.JikkyoComments(
+                is_success = True,
+                comments = [],
+                detail = '過去ログコメントの表示は無効化されています。',
+                channel_counts = [],
+            )
+
+        # 全対象チャンネルの過去ログコメントを並行取得
+        fetch_tasks = [
+            FetchJikkyoCommentsWithCache(
+                recorded_program.recorded_video.id,
+                client,
+                recorded_program.recorded_video.recording_start_time,
+                recorded_program.recorded_video.recording_end_time,
+            )
+            for _, client, _ in targets
+        ]
+        results: list[schemas.JikkyoComments] = await asyncio.gather(*fetch_tasks)
+
+        # 取得結果を集約
+        merged_comments: list[schemas.JikkyoComment] = []
+        channel_counts: list[schemas.JikkyoChannelCommentCount] = []
+        failed_channel_names: list[str] = []
+        last_error_detail = '指定されたチャンネルの過去ログコメントを取得できませんでした。'
+
+        for (ch_id, _, ch_name), result in zip(targets, results):
+            if result.is_success:
+                for comment in result.comments:
+                    comment.channel_id = ch_id
+                merged_comments.extend(result.comments)
+                channel_counts.append(schemas.JikkyoChannelCommentCount(
+                    channel_id = ch_id,
+                    channel_name = ch_name,
+                    comment_count = len(result.comments),
+                    is_success = True,
+                ))
+            else:
+                failed_channel_names.append(ch_name)
+                channel_counts.append(schemas.JikkyoChannelCommentCount(
+                    channel_id = ch_id,
+                    channel_name = ch_name,
+                    comment_count = 0,
+                    is_success = False,
+                ))
+                last_error_detail = result.detail
+
+        # 全局取得失敗の場合
+        has_any_success = any(c.is_success for c in channel_counts)
+        if not has_any_success:
+            return schemas.JikkyoComments(
+                is_success = False,
+                comments = [],
+                detail = last_error_detail,
+                channel_counts = channel_counts,
+            )
+
+        # 複数チャンネルのコメントを再生時間昇順にソート
+        if merged_comments:
+            merged_comments.sort(key=lambda comment: comment.time)
+
+        # カット編集情報を抽出して過去ログコメントのタイミングを調節する
+        if recorded_program.recorded_video.container_format != 'MPEG-TS' and merged_comments:
+            merged_comments = await AdjustCommentsCutSections(
+                recorded_program.recorded_video.file_path,
+                merged_comments,
+            )
+
+        # カット編集等による除外を反映し実際のコメント数を再集計
+        actual_counts: dict[str, int] = {}
+        for comment in merged_comments:
+            if comment.channel_id:
+                actual_counts[comment.channel_id] = actual_counts.get(comment.channel_id, 0) + 1
+        for count_info in channel_counts:
+            if count_info.is_success:
+                count_info.comment_count = actual_counts.get(count_info.channel_id, 0)
+
+        # 失敗した局がある場合は detail に失敗情報を記載
+        detail = '過去ログコメントを取得しました。'
+        if failed_channel_names:
+            detail = f'{", ".join(failed_channel_names)}の過去ログコメントを取得できませんでした。'
+
+        return schemas.JikkyoComments(
+            is_success = True,
+            comments = merged_comments,
+            detail = detail,
+            channel_counts = channel_counts,
         )
-
-        if recorded_program.recorded_video.container_format != 'MPEG-TS' and jikkyo_comments.comments:
-            # PSI/SI の書庫があればそこから動画のカット編集情報を抽出して過去ログコメントのタイミングを調節する
-            # TODO: コメントリストの時刻などは調節前のほうが望ましいので schemas.JikkyoComment に項目を追加すべき
-            def ExtractTOTTimeList() -> list[tuple[float, float, datetime, datetime]]:
-                tot_time_list: list[tuple[float, float, datetime, datetime]] = []
-                psc_path = pathlib.Path(recorded_program.recorded_video.file_path).with_suffix('.psc')
-                try:
-                    with open(psc_path, 'rb') as f:
-                        def callback(time_sec: float, pid: int, section: bytes) -> bool:
-                            tot = TimeOffsetSection(section)
-                            tot_jst_time = tot.JST_time
-                            if tot_jst_time is None:
-                                return False
-                            back = tot_time_list[-1] if len(tot_time_list) > 0 else None
-                            if ((back is not None and (time_sec < back[1] or tot_jst_time < back[3])) or
-                                (back is None and time_sec > 60)):
-                                # 時刻の巻き戻り、または間隔が空きすぎている
-                                return False
-                            if (back is None or
-                                abs((time_sec - back[0]) - (tot_jst_time - back[2]).total_seconds()) > 5):
-                                # PCR と TOT の増分量に差があるので分割する
-                                tot_time_list.append((time_sec, time_sec, tot_jst_time, tot_jst_time))
-                            else:
-                                tot_time_list[-1] = (back[0], time_sec, back[2], tot_jst_time)
-                            return True
-                        # TOT を取り出す
-                        if not TSInfoAnalyzer.readPSIData(f, [0x14], callback):
-                            logging.warning(f'{psc_path}: File contents may be invalid.')
-                            tot_time_list.clear()
-                except Exception:
-                    tot_time_list.clear()
-                return tot_time_list
-
-            tot_time_list = await asyncio.to_thread(ExtractTOTTimeList)
-
-            if len(tot_time_list) >= 2:
-                # TOT 時刻を開始時刻からの相対秒数に変換する
-                offset_list: list[tuple[float, float]] = []
-                first_sec = tot_time_list[0][0]
-                first_tot_time = tot_time_list[0][2]
-                for tot_time in tot_time_list:
-                    offset_list.append(((tot_time[2] - first_tot_time).total_seconds() + first_sec, \
-                                        (tot_time[3] - first_tot_time).total_seconds() + first_sec))
-
-                # 分割部分の時刻をずらして結合する
-                cut_list: list[tuple[float, float, float]] = []
-                shift_sec = tot_time_list[0][0]
-                for i in range(len(tot_time_list) - 1):
-                    next_shift_sec = (tot_time_list[i + 1][0] - tot_time_list[i][1]) / 2
-                    cut_list.append((tot_time_list[i][0] - shift_sec, offset_list[i][0] - shift_sec, offset_list[i][1] + next_shift_sec))
-                    shift_sec = next_shift_sec
-                cut_list.append((tot_time_list[-1][0] - shift_sec, offset_list[-1][0] - shift_sec, offset_list[-1][1] + 60))
-
-                comment_index = 0
-                comments = jikkyo_comments.comments
-                for cut in cut_list:
-                    while comment_index < len(comments) and comments[comment_index].time < cut[1]:
-                        # 範囲外なので消す
-                        comments.pop(comment_index)
-                    while comment_index < len(comments) and comments[comment_index].time < cut[2]:
-                        # タイミングをずらす
-                        comments[comment_index].time -= cut[1] - cut[0]
-                        comment_index += 1
-
-        return jikkyo_comments
 
     # それ以外の場合はエラーを返す
     return schemas.JikkyoComments(

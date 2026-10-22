@@ -19,6 +19,7 @@
         </main>
         <KeyboardShortcutList :playback_mode="playback_mode" />
         <LShapedScreenCropSettings />
+        <CommentSettings :playback_mode="playback_mode" />
     </div>
 </template>
 <script lang="ts">
@@ -26,6 +27,7 @@
 import { mapStores } from 'pinia';
 import { defineComponent, PropType } from 'vue';
 
+import CommentSettings from '@/components/Watch/CommentSettings.vue';
 import WatchHeader from '@/components/Watch/Header.vue';
 import KeyboardShortcutList from '@/components/Watch/KeyboardShortcutList.vue';
 import LShapedScreenCropSettings from '@/components/Watch/LShapedScreenCropSettings.vue';
@@ -40,6 +42,7 @@ import Utils from '@/utils';
 export default defineComponent({
     name: 'Watch',
     components: {
+        CommentSettings,
         KeyboardShortcutList,
         LShapedScreenCropSettings,
         WatchHeader,
