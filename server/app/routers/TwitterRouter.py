@@ -2,7 +2,7 @@
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-import httpx
+import httpx2 as httpx
 from fastapi import (
     APIRouter,
     Body,
@@ -573,7 +573,7 @@ async def TwitterVideoProxyAPI(
         if key.lower() in allowed_request_headers:
             proxy_headers[key] = value
 
-    # httpx クライアントを作成し、ストリーミングモードでリクエストを送信
+    # httpx2 クライアントを作成し、ストリーミングモードでリクエストを送信
     ## メモリ効率のためにレスポンスボディを一括で読み込まず、チャンク単位でストリーミング転送する
     client = httpx.AsyncClient(follow_redirects=True, timeout=30.0)
     try:

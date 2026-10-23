@@ -4,7 +4,7 @@ import socket
 import time
 from typing import Annotated
 
-import httpx
+import httpx2 as httpx
 from fastapi import APIRouter, Form, HTTPException, Path, Query, Request, status
 from fastapi.responses import StreamingResponse
 from ping3 import ping

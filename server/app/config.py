@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
-import httpx
+import httpx2 as httpx
 import psutil
 import ruamel.yaml
 import ruamel.yaml.scalarstring

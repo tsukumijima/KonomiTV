@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 from typing import Any, ClassVar, Literal, NotRequired, TypedDict, cast
 
-import httpx
+import httpx2 as httpx
 from bs4 import BeautifulSoup
 
 from app import logging, schemas

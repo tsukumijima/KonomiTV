@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 import anyio
-import httpx
+import httpx2 as httpx
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse, Response
 from fastapi.security.utils import get_authorization_scheme_param

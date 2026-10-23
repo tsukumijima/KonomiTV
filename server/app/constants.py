@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-import httpx
+import httpx2 as httpx
 from cryptography.fernet import Fernet
 from passlib.context import CryptContext
 from pydantic import BaseModel, PositiveInt
@@ -419,8 +419,8 @@ API_REQUEST_HEADERS: dict[str, str] = {
     'User-Agent': f'KonomiTV/{VERSION}',
 }
 
-# KonomiTV で利用する httpx.AsyncClient の設定
-## httpx.AsyncClient 自体は一度使ったら再利用できないので、httpx.AsyncClient を返す関数にしている
+# KonomiTV で利用する httpx2.AsyncClient の設定
+## httpx2.AsyncClient 自体は一度使ったら再利用できないので、httpx2.AsyncClient を返す関数にしている
 HTTPX_CLIENT = lambda: httpx.AsyncClient(
     # KonomiTV の User-Agent を指定
     headers = API_REQUEST_HEADERS,

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, cast
 
-import httpx
+import httpx2 as httpx
 from tortoise import fields
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel

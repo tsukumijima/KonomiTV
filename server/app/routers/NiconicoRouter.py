@@ -3,7 +3,7 @@ import base64
 import json
 from typing import Annotated, Any, cast
 
-import httpx
+import httpx2 as httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security.utils import get_authorization_scheme_param
 from jose import jwt

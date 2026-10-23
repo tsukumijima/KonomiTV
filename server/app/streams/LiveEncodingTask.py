@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, cast
 import aiofiles
 import aiohttp
 import anyio
-import httpx
+import httpx2 as httpx
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
 

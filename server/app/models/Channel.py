@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-import httpx
+import httpx2 as httpx
 from tortoise import fields, transactions
 from tortoise.exceptions import IntegrityError, OperationalError
 from tortoise.fields import Field as TortoiseField

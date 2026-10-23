@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 import ariblib.constants
-import httpx
+import httpx2 as httpx
 from tortoise import Tortoise, connections, exceptions, fields, transactions
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel

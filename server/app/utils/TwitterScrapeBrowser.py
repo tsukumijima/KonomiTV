@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Annotated, Any, ClassVar, Literal, TypedDict, cast
 
 import anyio
-import httpx
+import httpx2 as httpx
 import psutil
 from fastapi import UploadFile
 from pydantic import BaseModel, Field
