@@ -1,5 +1,7 @@
 
+import json
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi.responses import HTMLResponse
 
@@ -34,6 +36,33 @@ class OAuthCallbackResponse(HTMLResponse):
 
     def render(self, content: Any = None) -> bytes:
 
+        # JavaScript へ渡す値は全体を JSON 化し、文字列置換によるスクリプト注入を防ぐ
+        ## 以前は '$detail$' のように生の値を <script> 内へ直接埋め込んでいたため、detail や redirect_to に
+        ## 引用符やバッククオートを含めるとスクリプトを注入できる状態だった
+        ## JSON 文字列内でも </script> は HTML パーサーに終了タグとして扱われるため、山括弧も Unicode エスケープする
+        callback_data_json = (
+            json.dumps(
+                {
+                    'status': self.status_code,
+                    'detail': self.detail,
+                },
+                ensure_ascii=False,
+                separators=(',', ':'),
+            )
+            .replace('<', '\\u003C')
+            .replace('>', '\\u003E')
+            .replace('&', '\\u0026')
+        )
+        redirect_to_json = (
+            json.dumps(self.redirect_to, ensure_ascii=False).replace('<', '\\u003C').replace('>', '\\u003E')
+        )
+
+        # ポップアップへ postMessage する際の送信先オリジンをリダイレクト先 URL から導出する
+        ## 以前は '*' を指定しており、任意のオリジンへコールバック情報を渡しうる状態だった
+        redirect_url = urlsplit(self.redirect_to)
+        target_origin = f'{redirect_url.scheme}://{redirect_url.netloc}'
+        target_origin_json = json.dumps(target_origin)
+
         # ブラウザに返す HTML のテンプレート
         html = """
         <!DOCTYPE html>
@@ -47,14 +76,14 @@ class OAuthCallbackResponse(HTMLResponse):
                     // (PC) ポップアップ経由で OAuth 連携を行った場合
                     if (window.opener) {
                         window.opener.postMessage({
-                            'KonomiTV-OAuthPopup': {
-                                'status': $status$,
-                                'detail': '$detail$',
-                            }
-                        }, '*');
+                            'KonomiTV-OAuthPopup': $callback_data$
+                        }, $target_origin$);
                     // (スマホ・タブレット) リダイレクト経由で OAuth 連携を行った場合
                     } else {
-                        location.href = `$redirect_to$#status=$status$&detail=${encodeURIComponent('$detail$')}`;
+                        const callbackData = $callback_data$;
+                        const redirectURL = new URL($redirect_to$);
+                        redirectURL.hash = new URLSearchParams(callbackData).toString();
+                        location.href = redirectURL.toString();
                     }
                 };
             </script>
@@ -64,11 +93,10 @@ class OAuthCallbackResponse(HTMLResponse):
         </html>
         """
 
-        # ステータスコードと詳細メッセージを置換して入れる
-        ## f-string も format() も中括弧のエスケープが必要で面倒なので、自前でやる
-        html = html.replace('$status$', str(self.status_code))
-        html = html.replace('$detail$', self.detail)
-        html = html.replace('$redirect_to$', self.redirect_to)
+        # JSON 化したコールバック情報と送信先をテンプレートへ埋め込む
+        html = html.replace('$callback_data$', callback_data_json)
+        html = html.replace('$target_origin$', target_origin_json)
+        html = html.replace('$redirect_to$', redirect_to_json)
 
         # バイト列で返す必要があるらしい
         return html.encode('utf-8')
