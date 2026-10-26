@@ -294,7 +294,14 @@ class PlayerController {
                 const history = settings_store.settings.watched_history.find(
                     history => history.video_id === player_store.recorded_program.id
                 );
-                if (history) {
+                // URL で再生位置 (録画ファイルの先頭からの秒数) が指定されたときは、視聴履歴より優先してその位置から再生を開始する
+                // キャプチャの「この場面から再生」などから使う
+                const url_params = new URLSearchParams(window.location.search);
+                const playback_position = Number(url_params.get('playback_position'));
+                if (url_params.has('playback_position') && Number.isFinite(playback_position)) {
+                    seek_seconds = Math.max(0, playback_position);
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (URL Playback Position)`);
+                } else if (history) {
                     seek_seconds = history.last_playback_position;
                     console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
                 } else {
