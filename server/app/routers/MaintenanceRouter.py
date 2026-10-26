@@ -45,6 +45,8 @@ router = APIRouter(
 # 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
 batch_scan_task: asyncio.Task[None] | None = None
 background_analysis_task: asyncio.Task[None] | None = None
+# バックグラウンド解析タスクの進捗 (BackgroundAnalysisStatusAPI が参照する)
+background_analysis_status = schemas.MaintenanceTaskStatus()
 
 
 async def GetCurrentAdminUserOrLocal(
@@ -179,7 +181,7 @@ async def UpdateDatabaseAPI():
 
 
 @router.post(
-    '/run-batch-scan',
+    '/batch-scan/run',
     summary = '録画フォルダ一括スキャン API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -218,8 +220,23 @@ async def BatchScanAPI():
         )
 
 
+@router.get(
+    '/batch-scan/status',
+    summary = '録画フォルダ一括スキャン進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def BatchScanStatusAPI():
+    """
+    録画フォルダの一括スキャンの進捗を取得する。<br>
+    サーバーの起動時に自動で実行される一括スキャンの進捗も取得できる。<br>
+    total_count は登録済みの録画ファイルの件数を元にした目安で、新しく見つかった録画ファイルの分だけ途中で増えることがある。
+    """
+
+    return RecordedScanTask().batch_scan_status
+
+
 @router.post(
-    '/run-background-analysis',
+    '/background-analysis/run',
     summary = 'バックグラウンド解析タスク手動実行 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -233,7 +250,7 @@ async def BackgroundAnalysisAPI():
     global background_analysis_task
 
     async def BackgroundAnalysis():
-        global background_analysis_task
+        global background_analysis_task, background_analysis_status
         logging.info('Manual background analysis has started.')
 
         # CM 区間情報やサムネイルが未生成の録画ファイルを取得
@@ -246,11 +263,13 @@ async def BackgroundAnalysisAPI():
             'duration',
             'cm_sections',
         )
+        background_analysis_status = schemas.MaintenanceTaskStatus(is_running=True, total_count=len(video_rows))
 
         # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
         ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
         ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
         for video_row in video_rows:
+            background_analysis_status.processed_count += 1
             file_path = anyio.Path(video_row['file_path'])
             try:
                 if not await file_path.is_file():
@@ -294,6 +313,7 @@ async def BackgroundAnalysisAPI():
 
         # すべての録画ファイルのバックグラウンド解析が完了した
         logging.info('Manual background analysis has finished processing all recorded files.')
+        background_analysis_status.is_running = False
         background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
@@ -308,6 +328,19 @@ async def BackgroundAnalysisAPI():
             status_code = status.HTTP_429_TOO_MANY_REQUESTS,
             detail = 'Background analysis task is already running',
         )
+
+
+@router.get(
+    '/background-analysis/status',
+    summary = 'バックグラウンド解析タスク進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def BackgroundAnalysisStatusAPI():
+    """
+    バックグラウンド解析タスクの進捗を取得する。
+    """
+
+    return background_analysis_status
 
 
 @router.post(
