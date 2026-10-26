@@ -320,6 +320,11 @@ class BlueskyAccount(PydanticModel):
 # モデルに関連しない API リクエストの構造を表す Pydantic モデル
 ## リクエストボティの JSON 構造と一致する
 
+# ***** 録画ファイル *****
+
+class VideoThumbnailUpdateRequest(BaseModel):
+    capture_id: Annotated[int, Field(gt=0)]
+
 # ***** 録画予約 *****
 
 # 録画予約を追加する
