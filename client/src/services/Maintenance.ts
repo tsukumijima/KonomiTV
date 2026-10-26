@@ -6,6 +6,14 @@ import APIClient from '@/services/APIClient';
 import Utils from '@/utils';
 
 
+/** 録画フォルダの一括スキャンやバックグラウンド解析タスクの進捗を表すインターフェース */
+export interface IMaintenanceTaskStatus {
+    is_running: boolean;
+    processed_count: number;
+    total_count: number;
+}
+
+
 class Maintenance {
 
     /**
@@ -94,7 +102,7 @@ class Maintenance {
     static async runBatchScan(): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post('/maintenance/run-batch-scan', undefined, {
+        const response = await APIClient.post('/maintenance/batch-scan/run', undefined, {
             // 最大1日以上かかるのでタイムアウトを1日に設定
             timeout: 24 * 60 * 60 * 1000,
         });
@@ -117,13 +125,32 @@ class Maintenance {
 
 
     /**
+     * 録画フォルダの一括スキャンの進捗を取得する (サーバーの起動時に自動で実行される一括スキャンを含む)
+     * @returns 進捗 (取得できなかった場合は null)
+     */
+    static async fetchBatchScanStatus(): Promise<IMaintenanceTaskStatus | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IMaintenanceTaskStatus>('/maintenance/batch-scan/status');
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画フォルダの一括スキャンの進捗を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * バックグラウンド解析タスクを開始する
      * @returns タスクの実行に成功した場合は true、失敗した場合は false
      */
     static async startBackgroundAnalysis(): Promise<boolean> {
 
         // API リクエストを実行
-        const response = await APIClient.post('/maintenance/run-background-analysis', undefined, {
+        const response = await APIClient.post('/maintenance/background-analysis/run', undefined, {
             // 最大1日以上かかるのでタイムアウトを1日に設定
             timeout: 24 * 60 * 60 * 1000,
         });
@@ -142,6 +169,25 @@ class Maintenance {
         }
 
         return true;
+    }
+
+
+    /**
+     * バックグラウンド解析タスクの進捗を取得する
+     * @returns 進捗 (取得できなかった場合は null)
+     */
+    static async fetchBackgroundAnalysisStatus(): Promise<IMaintenanceTaskStatus | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IMaintenanceTaskStatus>('/maintenance/background-analysis/status');
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'バックグラウンド解析タスクの進捗を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
     }
 
 
