@@ -17,7 +17,6 @@ export interface ICaptures {
 export interface ICapture {
     id: number;
     file_hash: string;
-    image_url: string;
     file_size: number;
     captured_at: string;
     broadcast_at: string | null;
@@ -78,8 +77,6 @@ export interface ICapturePrograms {
 export interface ICaptureProgramAlbum extends ICaptureProgram {
     capture_count: number;
     cover_capture: ICapture;
-    first_captured_at: string;
-    last_captured_at: string;
 }
 
 /** キャプチャのタグ */
@@ -106,7 +103,7 @@ export interface ICaptureDetail extends ICapture {
 /** キャプチャの実ファイルの場所 */
 export interface ICaptureFile {
     file_name: string;
-    file_path: string | null;
+    file_path: string;
     status: 'Available' | 'Missing' | 'Invalid';
 }
 
@@ -386,12 +383,12 @@ class Captures {
 
     /**
      * キャプチャの画像の URL を返す
-     * API が返す image_url はホストを含まない (/api から始まる) ので、API のベース URL と組み合わせる
+     * 画像は長期間キャッシュされるので、内容が変わったら URL も変わるよう、内容のハッシュを URL に付加する
      * @param capture キャプチャ
      * @returns 画像の URL
      */
     static getImageURL(capture: ICapture): string {
-        return Utils.api_base_url.replace(/\/api$/, '') + capture.image_url;
+        return `${Utils.api_base_url}/captures/${capture.id}/image?hash=${capture.file_hash}`;
     }
 
 
