@@ -260,8 +260,8 @@
             <div class="settings__item">
                 <div class="settings__item-heading">ネットワーク上の録画フォルダの確認間隔 (分)</div>
                 <div class="settings__item-label">
-                    NFS など、録画ファイルの追加・変更をリアルタイムに検知できないネットワークフォルダで使用します。デフォルトは 5 (分) です。<br>
-                    短くすると録画一覧への反映が早くなりますが、保存先への負荷が増えます。<br>
+                    Linux で NFS や SMB (CIFS) などのネットワーク上にある録画フォルダは、ファイルの追加・変更を OS の変更通知で検知できません。そのため、この間隔で定期的にフォルダを確認します。デフォルトは 5 (分) です。<br>
+                    間隔を短くすると録画一覧への反映が早くなりますが、保存先への負荷が増加します。<br>
                 </div>
                 <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
                     :min="0.5" :max="60" :step="0.5"
