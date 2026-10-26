@@ -87,7 +87,7 @@ class DriveIOLimiter:
 
         Args:
             path (anyio.Path): 対象ファイルパス
-            network_concurrency (int): ネットワークドライブで同時に実行できる数 (録画ファイルの解析は 1)
+            network_concurrency (int): ネットワークドライブで同時に実行できる数 (録画ファイルの解析は 1、キャプチャの読み込みは 4)
 
         Returns:
             asyncio.Semaphore: 対応する HDD 用の Semaphore
