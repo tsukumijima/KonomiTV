@@ -1,7 +1,7 @@
 
 import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
-import { CommentUtils } from '@/utils';
+import Utils, { CommentUtils } from '@/utils';
 
 /** ソート順序を表す型 */
 export type SortOrder = 'desc' | 'asc';
@@ -53,6 +53,7 @@ export interface IThumbnailImageInfo {
     format: 'WebP';
     width: number;
     height: number;
+    revision: number;
 }
 
 /** サムネイルタイル情報を表すインターフェース */
@@ -323,6 +324,19 @@ class Videos {
         }
 
         return true;
+    }
+
+
+    /**
+     * 録画番組の代表サムネイルの URL を返す
+     * 代表サムネイルは30日間キャッシュされるので、サムネイルを作り直すたびに単調増加する revision の値を URL に付加する
+     * @param program 録画番組
+     * @returns 代表サムネイルの URL
+     */
+    static getThumbnailURL(program: IRecordedProgram): string {
+        const revision = program.recorded_video.thumbnail_info?.representative.revision;
+        const query = revision !== undefined ? `?revision=${revision}` : '';
+        return `${Utils.api_base_url}/videos/${program.id}/thumbnail${query}`;
     }
 
 
