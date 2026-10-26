@@ -857,18 +857,18 @@ class TwitterGraphQLAPIEndpointInfo(BaseModel):
     def path(self) -> str:
         return f'/i/api/graphql/{self.query_id}/{self.endpoint}'
 
+# ***** ユーザー *****
+
+class UserAccessToken(BaseModel):
+    access_token: str
+    token_type: str
+
 # ***** メンテナンス *****
 
 class MaintenanceTaskStatus(BaseModel):
     is_running: bool = False
     processed_count: int = 0
     total_count: int = 0
-
-# ***** ユーザー *****
-
-class UserAccessToken(BaseModel):
-    access_token: str
-    token_type: str
 
 # ***** バージョン情報 *****
 
