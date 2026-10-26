@@ -715,6 +715,9 @@ class RecordedScanTask:
                 if recorded_program.recorded_video.status == 'Recorded':
                     if file_path not in self._background_tasks:
                         task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                        # 待機しない通常スキャンでも例外を回収する (ERROR ログは解析タスク内で出力する)
+                        ## exception() で回収済みでも、API が await すれば同じ例外を受け取れる
+                        task.add_done_callback(lambda completed: completed.exception() if not completed.cancelled() else None)
                         self._background_tasks[file_path] = task
 
                 # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
@@ -723,6 +726,9 @@ class RecordedScanTask:
                     await self._background_tasks[file_path]
 
             except Exception as ex:
+                # 完了を待つ API には失敗を伝え、成功レスポンスが返るのは解析完了時だけにする
+                if wait_background_analysis is True:
+                    raise
                 logging.error(f'{file_path}: Error processing file inside lock:', exc_info=ex)
             finally:
                 # 不要になったロックを管理辞書から削除 (ロックが解放された後に行う)
@@ -1015,6 +1021,8 @@ class RecordedScanTask:
 
         except Exception as ex:
             logging.error(f'{file_path}: Error in background analysis task:', exc_info=ex)
+            # 通常スキャンではタスクのコールバックが回収し、完了を待つ API には失敗を伝える
+            raise
         finally:
             # 完了したタスクを管理対象から削除
             self._background_tasks.pop(file_path, None)
