@@ -405,6 +405,29 @@
                 <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
                 <span class="ml-2">バックグラウンド解析タスクを再実行</span>
             </v-btn>
+            <div class="settings__item">
+                <div class="settings__item-heading">キャプチャフォルダの一括スキャンを手動実行</div>
+                <div class="settings__item-label">
+                    キャプチャの保存先フォルダ内の画像は、通常 KonomiTV サーバーの起動時に自動的にスキャンされます。<br>
+                    キャプチャが KonomiTV に正しく反映されていない場合にのみ実行してみてください。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。</strong><br>
+                </div>
+            </div>
+            <div v-if="capture_scan_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>キャプチャフォルダをスキャンしています...</span>
+                    <span>{{ formatTaskProgress(capture_scan_status) }}</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
+                    :indeterminate="capture_scan_status.total_count === 0" :model-value="getTaskProgressPercent(capture_scan_status)" />
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                :disabled="capture_scan_status.is_running" @click="runCaptureScan()">
+                <Icon icon="fluent:image-multiple-20-regular" height="20px" />
+                <span class="ml-2">キャプチャフォルダの一括スキャンを手動実行</span>
+            </v-btn>
         </div>
         <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
             <div class="settings__item">
@@ -565,26 +588,29 @@ async function updateDatabase() {
     Message.success('データベースを更新しました。');
 }
 
-// 録画フォルダの一括スキャンとバックグラウンド解析タスクの進捗
+// 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャンの進捗
 // サーバーの起動時に自動で走る一括スキャンも、この画面を開いた時点で実行中なら進捗を出す
 const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
 const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
+const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
 let task_status_timer: number | null = null;
 
-// 進捗を取得し、どちらかが実行中なら1秒後にもう一度取得する
+// 進捗を取得し、どれかが実行中なら1秒後にもう一度取得する
 async function updateTaskStatuses() {
     task_status_timer = null;
-    const [batch_scan, background_analysis] = await Promise.all([
+    const [batch_scan, background_analysis, capture_scan] = await Promise.all([
         Maintenance.fetchBatchScanStatus(),
         Maintenance.fetchBackgroundAnalysisStatus(),
+        Maintenance.fetchCaptureScanStatus(),
     ]);
     // 取得に失敗したら (エラーはサービス側で表示済み)、エラーを出し続けないよう取得を止める
-    if (batch_scan === null || background_analysis === null) {
+    if (batch_scan === null || background_analysis === null || capture_scan === null) {
         return;
     }
     batch_scan_status.value = batch_scan;
     background_analysis_status.value = background_analysis;
-    if (batch_scan.is_running === true || background_analysis.is_running === true) {
+    capture_scan_status.value = capture_scan;
+    if (batch_scan.is_running === true || background_analysis.is_running === true || capture_scan.is_running === true) {
         task_status_timer = window.setTimeout(updateTaskStatuses, 1000);
     }
 }
@@ -644,6 +670,26 @@ async function startBackgroundAnalysis() {
         Message.success(
             'バックグラウンド解析タスクの実行が完了しました。\n' +
             'すべての録画番組のメタデータ解析/サムネイル生成が完了しているはずです。'
+        );
+    }
+}
+
+// キャプチャフォルダの一括スキャンを実行する関数
+async function runCaptureScan() {
+    Message.info(
+        'キャプチャフォルダの一括スキャンを開始しています...\n' +
+        '大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。'
+    );
+    capture_scan_status.value = {is_running: true, processed_count: 0, total_count: 0};
+    const result = Maintenance.runCaptureScan();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (await result === true) {
+        Message.success(
+            'キャプチャフォルダの一括スキャンが完了しました。\n' +
+            'すべてのキャプチャがデータベースに同期されているはずです。'
         );
     }
 }

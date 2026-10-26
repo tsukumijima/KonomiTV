@@ -6,7 +6,7 @@ import APIClient from '@/services/APIClient';
 import Utils from '@/utils';
 
 
-/** 録画フォルダの一括スキャンやバックグラウンド解析タスクの進捗を表すインターフェース */
+/** 録画フォルダ・キャプチャフォルダの一括スキャンやバックグラウンド解析タスクの進捗を表すインターフェース */
 export interface IMaintenanceTaskStatus {
     is_running: boolean;
     processed_count: number;
@@ -184,6 +184,54 @@ class Maintenance {
         // エラー処理
         if (response.type === 'error') {
             APIClient.showGenericError(response, 'バックグラウンド解析タスクの進捗を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * キャプチャフォルダの一括スキャンを開始する
+     * @returns タスクの実行に成功した場合は true、失敗した場合は false
+     */
+    static async runCaptureScan(): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post('/maintenance/capture-scan/run', undefined, {
+            // 最大1日以上かかるのでタイムアウトを1日に設定
+            timeout: 24 * 60 * 60 * 1000,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                case 'Batch scan of capture folders is already running':
+                    APIClient.showGenericError(response, 'キャプチャフォルダの一括スキャンは既に実行中です。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, 'キャプチャフォルダの一括スキャンを開始できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * キャプチャフォルダの一括スキャンの進捗を取得する (サーバーの起動時に自動で実行される一括スキャンを含む)
+     * @returns 進捗 (取得できなかった場合は null)
+     */
+    static async fetchCaptureScanStatus(): Promise<IMaintenanceTaskStatus | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IMaintenanceTaskStatus>('/maintenance/capture-scan/status');
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'キャプチャフォルダの一括スキャンの進捗を取得できませんでした。');
             return null;
         }
 
