@@ -192,6 +192,7 @@ class ThumbnailImageInfo(TypedDict):
     format: Literal['WebP']
     width: int
     height: int
+    revision: int
 
 class ThumbnailTileInfo(TypedDict):
     format: Literal['WebP']

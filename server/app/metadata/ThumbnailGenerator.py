@@ -385,6 +385,12 @@ class ThumbnailGenerator:
                 await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
 
         if not success:
+            # 代表サムネイルはタイルより先に保存しているので、タイルの生成に失敗した場合も revision を進めておく
+            db_recorded_video = await RecordedVideo.get_or_none(file_path=str(self.file_path))
+            if db_recorded_video is not None and db_recorded_video.thumbnail_info is not None:
+                representative = db_recorded_video.thumbnail_info['representative']
+                representative['revision'] += 1
+                await db_recorded_video.save(update_fields=['thumbnail_info'])
             # 生成できなかったことを呼び出し元へ伝え、API とバックグラウンド処理がそれぞれ失敗を扱う
             raise RuntimeError('Thumbnail generation failed. The recording could not be decoded or thumbnail images could not be saved.')
 
@@ -1293,6 +1299,11 @@ class ThumbnailGenerator:
         tile_width, tile_height = self.TILE_SCALE
         scoring_width, scoring_height = self.SCORING_SCALE
 
+        # 代表サムネイルを作り直したので revision の値を増やす (初回は 1 スタート)
+        revision = 1
+        if db_recorded_video.thumbnail_info is not None:
+            revision = db_recorded_video.thumbnail_info['representative']['revision'] + 1
+
         # サムネイル情報を DB に保存
         db_recorded_video.thumbnail_info = schemas.ThumbnailInfo(
             version = self.THUMBNAIL_INFO_VERSION,
@@ -1300,6 +1311,7 @@ class ThumbnailGenerator:
                 format = 'WebP',
                 width = scoring_width,
                 height = scoring_height,
+                revision = revision,
             ),
             tile = schemas.ThumbnailTileInfo(
                 format = 'WebP',
