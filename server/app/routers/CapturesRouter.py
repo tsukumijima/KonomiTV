@@ -155,9 +155,8 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
     captures: list[schemas.Capture] = []
     for row in rows:
 
-        # 画像の URL には内容のハッシュを付け、内容が変わったら URL も変わるようにする
+        # 内容のハッシュは16進数の文字列で返す (クライアントは画像の URL に付け、内容が変わったら URL も変わるようにする)
         file_hash = bytes(row['file_hash']).hex()
-        image_url = f'/api/captures/{row["id"]}/image?hash={file_hash}'
 
         # ログインしていない場合、いいねとタグの状態は分からないので None にする
         is_favorite: bool | None = None
@@ -169,7 +168,6 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
         captures.append(schemas.Capture.model_validate({
             **row,
             'file_hash': file_hash,
-            'image_url': image_url,
             'is_favorite': is_favorite,
             'tag_ids': tag_ids,
         }))
@@ -503,7 +501,7 @@ async def SerializePrograms(ids: list[int]) -> list[schemas.CaptureProgram]:
 
 async def GetProgramAlbum(program: schemas.CaptureProgram, user: User | None) -> schemas.CaptureProgramAlbum:
     """
-    放送回のアルバム (利用できるキャプチャの枚数・撮影期間・代表のキャプチャ) を作る
+    放送回のアルバム (利用できるキャプチャの枚数と代表のキャプチャ) を作る
 
     Args:
         program (schemas.CaptureProgram): 放送回の番組情報
@@ -515,12 +513,9 @@ async def GetProgramAlbum(program: schemas.CaptureProgram, user: User | None) ->
 
     conn = connections.get('default')
 
-    # 利用できるキャプチャの枚数と、最初と最後の撮影日時を取得する
+    # 利用できるキャプチャの枚数を取得する
     stats_rows = await conn.execute_query_dict(f"""
-        SELECT
-            COUNT(*) AS count,
-            MIN(captured_at) AS first,
-            MAX(captured_at) AS last
+        SELECT COUNT(*) AS count
         FROM captures c
         WHERE c.capture_program_id = ? AND {CAPTURE_AVAILABLE_CONDITION}
     """, [program.id])
@@ -550,8 +545,6 @@ async def GetProgramAlbum(program: schemas.CaptureProgram, user: User | None) ->
     return schemas.CaptureProgramAlbum(
         **program.model_dump(),
         capture_count = stats['count'],
-        first_captured_at = stats['first'],
-        last_captured_at = stats['last'],
         cover_capture = cover_capture,
     )
 
@@ -1245,8 +1238,7 @@ async def CaptureAPI(
     user: Annotated[User | None, Depends(GetOptionalCurrentUser)],
 ):
     """
-    指定されたキャプチャの詳細を取得する。<br>
-    保存場所のフルパスは、管理者アカウントでログインしている場合だけ返す。
+    指定されたキャプチャの詳細を取得する。
     """
 
     # 本人のいいねとタグの状態を含むので、共有のキャッシュに入れさせない
@@ -1267,16 +1259,12 @@ async def CaptureAPI(
         if len(programs) > 0:
             program = programs[0]
 
-    # 保存場所の一覧 (フルパスは管理者だけに返す)
-    is_admin = user is not None and user.is_admin
+    # 保存場所の一覧
     files: list[schemas.CaptureFile] = []
     for file in await CaptureFile.filter(capture_id=capture_id):
-        file_path: str | None = None
-        if is_admin is True:
-            file_path = file.file_path
         files.append(schemas.CaptureFile.model_validate({
             'file_name': file.file_name,
-            'file_path': file_path,
+            'file_path': file.file_path,
             'status': file.status,
         }))
 

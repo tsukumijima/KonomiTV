@@ -688,7 +688,6 @@ class Captures(BaseModel):
 class Capture(BaseModel):
     id: int
     file_hash: str
-    image_url: str
     file_size: int
     captured_at: datetime
     broadcast_at: datetime | None
@@ -737,8 +736,6 @@ class CapturePrograms(BaseModel):
 class CaptureProgramAlbum(CaptureProgram):
     capture_count: int
     cover_capture: Capture
-    first_captured_at: datetime
-    last_captured_at: datetime
 
 class CaptureTag(BaseModel):
     id: int
@@ -757,7 +754,7 @@ class CaptureDetail(Capture):
 
 class CaptureFile(BaseModel):
     file_name: str
-    file_path: str | None
+    file_path: str
     status: Literal['Available', 'Missing', 'Invalid']
 
 # ***** データ放送 *****
