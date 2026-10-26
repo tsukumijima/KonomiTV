@@ -341,6 +341,27 @@ class Videos {
 
 
     /**
+     * キャプチャの画像を、録画番組の代表サムネイルにする
+     * @param video_id 録画番組の ID
+     * @param capture_id 代表サムネイルにするキャプチャの ID (その録画番組と同じ番組で撮ったもの)
+     * @returns 設定に成功した場合は true
+     */
+    static async updateThumbnailFromCapture(video_id: number, capture_id: number): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.put(`/videos/${video_id}/thumbnail`, { capture_id });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画番組のサムネイルを変更できませんでした。');
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
      * 録画番組のサムネイルを再生成する
      * @param video_id 録画番組の ID
      * @returns サムネイルの再生成に成功した場合は true
