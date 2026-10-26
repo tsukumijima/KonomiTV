@@ -1177,7 +1177,7 @@ class RecordedScanTask:
 
         logging.info('Starting file system watch of recording folders.')
 
-        # NFS とローカルの録画フォルダを分けて監視し、ローカルの変更通知は低遅延のまま維持する
+        # Linux でネットワーク上のファイルシステムにある録画フォルダはポーリングで、それ以外の録画フォルダは OS の変更通知で分けて監視し、変更通知の低遅延を維持する
         # ポーリング間隔は watchfiles の API に合わせて分から整数のミリ秒に変換する
         # 小数の分も設定できるため、浮動小数点の誤差で間隔がずれないように丸める
         native_watch_paths, polling_watch_paths = await self.__getRecordingWatchPaths()
@@ -1227,7 +1227,7 @@ class RecordedScanTask:
 
     async def __getRecordingWatchPaths(self) -> tuple[list[str], list[str]]:
         """
-        録画フォルダを通常の変更通知で監視するグループと NFS のポーリングで監視するグループに分ける
+        録画フォルダを、OS の変更通知で監視するグループと、Linux でネットワーク上のファイルシステム (NFS・SMB など) にあるためポーリングで監視するグループに分ける
 
         Args:
             None
@@ -1239,7 +1239,8 @@ class RecordedScanTask:
         watch_paths = [str(path) for path in self.recorded_folders]
 
         # 環境変数の解釈は watchfiles に任せ、既存の明示的な有効化・無効化を上書きしない
-        # Windows の SMB などは変更通知を利用できるため、NFS の自動判定は Linux のみで行う
+        # Linux の NFS や SMB (CIFS) などのマウントでは、別のマシンからのファイルの変更が inotify に届かない
+        # Windows は SMB 越しでも変更通知を利用できるため、ネットワーク上のファイルシステムの自動判定は Linux のみで行う
         if os.getenv('WATCHFILES_FORCE_POLLING') or not psutil.LINUX or not watch_paths:
             return watch_paths, []
 
@@ -1248,11 +1249,11 @@ class RecordedScanTask:
             # マウント情報の読み取りでイベントループをブロックしないよう、ワーカースレッドで取得する
             partitions = await anyio.to_thread.run_sync(psutil.disk_partitions, True)
         except OSError as ex:
-            logging.warning('Failed to detect NFS recording folders; using default file system watch.', exc_info=ex)
+            logging.warning('Failed to detect network filesystem recording folders; using default file system watch.', exc_info=ex)
             return watch_paths, []
 
         # 同じマウントポイントに複数のエントリがある場合は最後のエントリを採用する
-        # 最も深いマウントポイントを優先し、NFS の下にローカル FS がマウントされている場合も区別する
+        # 最も深いマウントポイントを優先し、ネットワーク上のファイルシステムの下にローカル FS がマウントされている場合も区別する
         mounted_filesystems = {anyio.Path(partition.mountpoint): partition.fstype for partition in partitions}
         mount_points = sorted(mounted_filesystems, key=lambda path: len(path.parts), reverse=True)
         native_watch_paths: list[str] = []
@@ -1269,15 +1270,15 @@ class RecordedScanTask:
 
             # 文字列の前方一致では /mnt/hdd0 と /mnt/hdd01 を混同するため、パス要素で比較する
             mount_point = next((path for path in mount_points if resolved_folder.is_relative_to(path)), None)
-            is_nfs = mount_point is not None and mounted_filesystems[mount_point] in ('nfs', 'nfs4')
-            # 監視ルート自体がローカル FS でも、再帰的に監視するサブマウントが NFS ならポーリングが必要
-            contains_nfs_submount = any(
-                filesystem in ('nfs', 'nfs4') and path.is_relative_to(resolved_folder)
+            is_network_filesystem = mount_point is not None and mounted_filesystems[mount_point].lower() in DriveIOLimiter.NETWORK_FILESYSTEMS
+            # 監視ルート自体がローカル FS でも、再帰的に監視するサブマウントがネットワーク上のファイルシステムならポーリングが必要
+            contains_network_submount = any(
+                filesystem.lower() in DriveIOLimiter.NETWORK_FILESYSTEMS and path.is_relative_to(resolved_folder)
                 for path, filesystem in mounted_filesystems.items()
             )
-            if is_nfs or contains_nfs_submount:
+            if is_network_filesystem or contains_network_submount:
                 polling_watch_paths.append(str(folder))
-                logging.info(f'{folder}: NFS filesystem detected; using polling for this recording folder.')
+                logging.info(f'{folder}: Network filesystem detected; using polling for this recording folder.')
             else:
                 native_watch_paths.append(str(folder))
 
@@ -1300,14 +1301,14 @@ class RecordedScanTask:
             watch_paths (list[str]): 監視対象の録画フォルダ
             exclude_scan_paths (list[str]): 正規化済みの除外パターン
             excluded_watch_paths (list[str]): 他の監視タスクが担当するルート。ポーリング側のみ通常監視ルートを指定する
-            force_polling (bool | None): NFS は True、それ以外は None とし watchfiles の既定動作を維持する
+            force_polling (bool | None): Linux でネットワーク上のファイルシステムにあるフォルダは True、それ以外は None とし watchfiles の既定動作を維持する
             poll_delay_ms (int): ポーリング間隔（ミリ秒）。WATCHFILES_POLL_DELAY_MS があれば watchfiles が優先する
 
         Returns:
             None
         """
 
-        # NFS の親ルートとローカル子マウントが重複しても、子マウントのイベントは通常監視だけが処理する
+        # ポーリングで監視するネットワーク上の親ルートとローカル子マウントが重複しても、子マウントのイベントは通常監視だけが処理する
         # 監視ルートは元パスとリンク解決後の両方を保持し、解決失敗時も元パスによる除外を維持する
         excluded_paths = {anyio.Path(path) for path in excluded_watch_paths}
         for path in list(excluded_paths):
