@@ -372,6 +372,14 @@ class ReservationConditionUpdateRequest(BaseModel):
     # 録画設定
     record_settings: RecordSettings
 
+# ***** キャプチャ *****
+
+class CaptureTagRequest(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=255, pattern=r'\S')]
+
+class CaptureIDsRequest(BaseModel):
+    capture_ids: list[int]
+
 # ***** ユーザー *****
 
 class UserCreateRequest(BaseModel):
@@ -664,6 +672,88 @@ class RecordSettingsGlobalDefaults(BaseModel):
     data_broadcasting_recording_mode: Literal['Enable', 'Disable']
     # 録画後動作のグローバルデフォルト
     post_recording_mode: Literal['Nothing', 'Standby', 'StandbyAndReboot', 'Suspend', 'SuspendAndReboot', 'Shutdown']
+
+# ***** キャプチャ *****
+
+class Captures(BaseModel):
+    captures: list[Capture]
+    programs: list[CaptureProgram]
+    next_cursor: str | None
+
+class Capture(BaseModel):
+    id: int
+    file_hash: str
+    image_url: str
+    file_size: int
+    captured_at: datetime
+    broadcast_at: datetime | None
+    image_width: int
+    image_height: int
+    metadata_status: Literal['Parsed', 'NoMetadata', 'Invalid']
+    playback_position: float | None
+    caption_text: str | None
+    is_caption_composited: bool
+    is_comment_composited: bool
+    capture_program_id: int | None
+    is_favorite: bool | None
+    tag_ids: list[int] | None
+
+class CaptureProgram(BaseModel):
+    id: int
+    network_id: int
+    service_id: int
+    event_id: int
+    start_time: datetime
+    end_time: datetime
+    duration: float
+    title: str
+    description: str
+    channel: CaptureChannel | None
+    recorded_program_ids: list[int]
+
+class CaptureChannel(BaseModel):
+    id: str
+    display_channel_id: str
+    name: str
+    type: str
+
+class CaptureSections(BaseModel):
+    sections: list[CaptureSection]
+    total: int
+
+class CaptureSection(BaseModel):
+    date: str
+    count: int
+
+class CapturePrograms(BaseModel):
+    programs: list[CaptureProgramAlbum]
+    next_cursor: str | None
+
+class CaptureProgramAlbum(CaptureProgram):
+    capture_count: int
+    cover_capture: Capture
+    first_captured_at: datetime
+    last_captured_at: datetime
+
+class CaptureTag(BaseModel):
+    id: int
+    name: str
+    capture_count: int
+    created_at: datetime
+    updated_at: datetime
+
+class CaptureDeleteResult(BaseModel):
+    deleted_capture_ids: list[int]
+    failed_capture_ids: list[int]
+
+class CaptureDetail(Capture):
+    program: CaptureProgram | None
+    files: list[CaptureFile]
+
+class CaptureFile(BaseModel):
+    file_name: str
+    file_path: str | None
+    status: Literal['Available', 'Missing', 'Invalid']
 
 # ***** データ放送 *****
 

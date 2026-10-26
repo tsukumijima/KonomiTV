@@ -138,6 +138,26 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
     return current_user
 
 
+async def GetOptionalCurrentUser(
+    token: Annotated[str | None, Depends(OAuth2PasswordBearer(tokenUrl='users/token', auto_error=False))],
+) -> User | None:
+    """
+    アクセストークンが送られてきた場合だけ、現在ログイン中のユーザーを取得する
+    ログインしなくても使える API で、ログインしている場合だけ本人の情報を取得するために使う
+    不正なトークンの場合は、GetCurrentUser() と同じくエラーにする
+
+    Args:
+        token (str | None): JWT エンコードされたアクセストークン (送られてこなかった場合は None)
+
+    Returns:
+        User | None: 現在ログイン中のユーザー (アクセストークンが送られてこなかった場合は None)
+    """
+
+    if token is None:
+        return None
+    return await GetCurrentUser(token)
+
+
 async def GetCurrentAdminUser(current_user: Annotated[User, Depends(GetCurrentUser)]) -> User:
     """ 現在ログイン中の管理者ユーザーを取得する """
 

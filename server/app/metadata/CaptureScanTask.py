@@ -258,6 +258,20 @@ class CaptureScanTask:
         # start() で作り、stop() で止める、起動時のスキャンと監視の親タスク
         self.task: asyncio.Task[None] | None = None
 
+        # 絞り込みなしの日付ごとの件数のキャッシュ (CaptureSectionsAPI が参照する)
+        ## 集計の途中で DB が変わった場合に古い集計を書き戻さないよう、invalidateSections() のたびに世代番号を進める
+        self.sections_generation = 0
+        self.sections_cache: dict[tuple[str, int], schemas.CaptureSections] = {}
+
+
+    def invalidateSections(self) -> None:
+        """
+        DB の変更をコミットした直後に呼び、日付ごとの件数のキャッシュを捨てる
+        """
+
+        self.sections_generation += 1
+        self.sections_cache.clear()
+
 
     def getPathLock(self, path: str) -> asyncio.Lock:
         """
@@ -347,6 +361,7 @@ class CaptureScanTask:
                         status = restored_status,
                         missing_since = None,
                     )
+                self.invalidateSections()
 
             if existing_file.capture_id is None:
                 return None
@@ -456,6 +471,7 @@ class CaptureScanTask:
                 if has_other_files is False:
                     await Capture.filter(id=existing_file.capture_id).update(detached_since=datetime.now(JST))
 
+        self.invalidateSections()
         return capture
 
 
@@ -539,13 +555,15 @@ class CaptureScanTask:
                 # すべての保存先を最後まで走査できたときだけ、1週間たったものを削除する
                 if is_all_folders is True and len(roots) > 0 and is_complete is True:
                     expired_before = (datetime.now(JST) - timedelta(days=7)).isoformat(' ')
-                    await connections.get('default').execute_query("""
+                    removed_count, _ = await connections.get('default').execute_query("""
                         DELETE FROM captures
                         WHERE detached_since < ? AND NOT EXISTS (
                             SELECT 1 FROM capture_files f
                             WHERE f.capture_id = captures.id
                         )
                     """, [expired_before])
+                    if removed_count > 0:
+                        self.invalidateSections()
 
             except asyncio.CancelledError:
                 raise
@@ -682,6 +700,7 @@ class CaptureScanTask:
                             is_moved = True
 
                     if is_moved is True:
+                        self.invalidateSections()
                         return True
 
             return False
@@ -816,6 +835,8 @@ class CaptureScanTask:
                         # 場所が1つも残っていないキャプチャも一緒に削除する
                         if capture is not None and not await CaptureFile.filter(capture_id=capture.id).exists():
                             await capture.delete()
+
+                self.invalidateSections()
 
         return True
 
@@ -986,5 +1007,7 @@ class CaptureScanTask:
                 if current_ids != {file.id for file in files}:
                     return False
                 await Capture.filter(id=capture_id).delete()
+
+            self.invalidateSections()
 
         return True
