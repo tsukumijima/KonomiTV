@@ -202,11 +202,14 @@ async def BatchScanAPI():
         logging.info('Manual batch scan of recording folders has started.')
 
         # 一括スキャンを実行
-        await RecordedScanTask().runBatchScan()
+        ## 起動時の自動スキャンの実行中に呼ばれた場合も runBatchScan() が 429 で失敗するので、失敗したときも None に戻す
+        try:
+            await RecordedScanTask().runBatchScan()
+        finally:
+            batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
 
         # 一括スキャンが完了した
         logging.info('Manual batch scan of recording folders has finished.')
-        batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
     ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
