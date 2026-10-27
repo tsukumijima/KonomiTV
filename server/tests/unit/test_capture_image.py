@@ -1,5 +1,8 @@
 
+import io
 from datetime import datetime
+
+from PIL import Image
 
 from app.constants import JST
 from app.metadata.CaptureScanTask import ReadCaptureImage
@@ -105,3 +108,18 @@ def test_read_capture_without_metadata_named_in_twelve_hour_notation() -> None:
 
     assert info.metadata_status == 'NoMetadata'
     assert info.captured_at == modified_at
+
+
+def test_read_capture_tiny_jpeg() -> None:
+    """
+    保存先に置かれたアイコンのような、縦か横が 8px 未満の JPEG も読める
+    """
+
+    # 縦横とも 8px 未満の JPEG と、横だけが 8px 未満の JPEG を作る
+    for image_width, image_height in [(5, 5), (7, 100)]:
+        buffer = io.BytesIO()
+        Image.new('RGB', (image_width, image_height)).save(buffer, 'JPEG')
+        modified_at = datetime(2024, 3, 1, 12, 0, tzinfo=JST)
+        info = ReadCaptureImage(buffer.getvalue(), 'icon.jpg', modified_at)
+
+        assert (info.image_width, info.image_height) == (image_width, image_height)

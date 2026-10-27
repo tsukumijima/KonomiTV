@@ -179,8 +179,9 @@ def ReadCaptureImage(data: bytes, filename: str, modified_at: datetime) -> Captu
         width, height = image.size
         # JPEG の verify() は圧縮されたデータを展開せず、途中で切れた画像も通すため、実際に展開して検査する
         ## 1/8 の大きさで展開しても圧縮されたデータは最後まで読むので、途中で切れていれば OSError になる
+        ## 縦か横が 8px 未満の画像では、draft() に 0 を渡すと Pillow の内部で 0 除算になるため、1px 以上にする
         if image.format == 'JPEG':
-            image.draft('RGB', (width // 8, height // 8))
+            image.draft('RGB', (max(1, width // 8), max(1, height // 8)))
             image.load()
         # PNG の verify() はチャンクの CRC まで検査する (PNG の getexif() は内部で読み込みを進めるため、先に verify() を済ませる)
         else:
