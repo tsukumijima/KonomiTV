@@ -380,6 +380,10 @@ KonomiTV が向き合う失敗には、性質のまったく違う2種類があ�
 - 解析のテストの入力は、実際の録画やキャプチャから作る。番組情報は書き換えない (8単位符号のデコードなど、実データの癖を確認することが目的のため)。数秒の TS は視聴する価値がないのでそのまま置いてよく、長い TS は映像を差し替えて、1件あたり数 MB に収める
 - テストは開発者の手元の録画フォルダに頼らず、リポジトリだけで誰でも回せる形にする (将来 CI でも回すため)
 - EDCB は Docker で立てない (開発機の EDCB-Wine と共存できず、CI でも重いため)。Twitter と Bluesky は実際のアカウントが必要なので、テストしないか簡単なモックにする
+- テストは `server/` で `uv run task test` で実行する (スナップショットの更新は `uv run task update-snapshots`)。単体テストは `server/tests/unit/` に、E2E は `server/tests/e2e/` に置き、全体が1〜2分以内に終わるようにする
+- テストの実行中は環境変数 `KONOMITV_TEST` (pytest-env が設定する) により、DB・設定・サムネイル・ログの名前に `.test` が付き (`database.test.sqlite`・`config.test.yaml` など)、実際に使っているものと分かれる。録画フォルダとキャプチャの保存先は一時フォルダを使う
+- E2E はサーバーの起動処理ごと動かし、放送のバックエンドには `server/tests/MockMirakurun.py` の偽の Mirakurun を使う
+- テスト用のファイルは `server/tests/fixtures/` に置き、元の録画・キャプチャと作り方を同じ場所の `Readme.md` に記録する。録画は `server/misc/FixtureTSFileConverter.py` で作る
 
 ## コーディング規約
 
