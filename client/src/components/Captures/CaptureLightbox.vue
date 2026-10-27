@@ -333,7 +333,14 @@ const move = async (delta: 1 | -1) => {
     const current = props.capture;
     const target = delta === 1 ? nextCapture : prevCapture;
     if (target.value === undefined) {
-        target.value = await props.navigate(current, delta);
+        const fetched = await props.navigate(current, delta);
+        // 隣を取得している間に閉じたり別のキャプチャを開いたりしたら、今の表示の隣として持たずに、位置だけを戻して送るのをやめる
+        if (props.capture?.id !== current.id) {
+            isFollowingFinger.value = false;
+            dragX.value = 0;
+            return;
+        }
+        target.value = fetched;
     }
     const neighbor = target.value;
     if (neighbor === null || neighbor === undefined) {
