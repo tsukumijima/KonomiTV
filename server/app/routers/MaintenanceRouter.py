@@ -60,10 +60,12 @@ async def GetCurrentAdminUserOrLocal(
     KonomiTV の Windows サービスからサーバーをシャットダウンするために必要
     """
 
-    # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 である場合、Windows サービスプロセスからのアクセスと見なす
+    # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 で、かつ Akebi HTTPS Server を経由していない場合、Windows サービスプロセスからのアクセスと見なす
     ## 通常アクセス時の Host ヘッダーは 192-168-1-11.local.konomi.tv:7000 のような形式になる
+    ## Host ヘッダーは外部からも自由に指定できるため、Akebi が中継したリクエストに必ず付ける X-Forwarded-For ヘッダーの有無で、
+    ## Akebi を経由した外部からのアクセスではなく、同じ PC から 127.0.0.77:7010 に直接アクセスされたことを確認する
     valid_host = f'127.0.0.77:{Config().server.port + 10}'
-    if request.headers.get('host', '').strip() == valid_host:
+    if request.headers.get('host', '').strip() == valid_host and 'x-forwarded-for' not in request.headers:
         return None
 
     # それ以外である場合、管理者ユーザーでログインしているかを確認する
