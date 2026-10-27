@@ -41,7 +41,12 @@
                 </div>
             </div>
 
-            <div v-if="!isLoading && captures.length === 0" class="capture-empty">
+            <div v-if="isLoadFailed" class="capture-empty">
+                <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
+                <div class="capture-empty__message">キャプチャを読み込めませんでした。</div>
+                <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+            </div>
+            <div v-else-if="!isLoading && captures.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:image-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">この番組のキャプチャはまだありません。</div>
                 <div class="capture-empty__sub">この番組を見ながらキャプチャを撮ると、<br class="d-sm-none">ここに集まります。</div>
@@ -90,6 +95,8 @@ const selection = useCaptureSelection();
 const program = ref<ICaptureProgram | null>(null);
 const captures = ref<ICapture[]>([]);
 const isLoading = ref(true);
+// 読み込みに失敗したか (0件と区別して、読み込めなかったことを伝えるため)
+const isLoadFailed = ref(false);
 const order = ref<CaptureSortOrder>('PlaybackPosition');
 const openedCapture = ref<ICapture | null>(null);
 
@@ -119,7 +126,9 @@ const load = async () => {
     isLoading.value = true;
     const result = await Captures.fetchAllCaptures({ order: order.value, filter: filter.value });
     isLoading.value = false;
+    isLoadFailed.value = result === null;
     if (result === null) {
+        captures.value = [];
         return;
     }
     captures.value = result.captures;

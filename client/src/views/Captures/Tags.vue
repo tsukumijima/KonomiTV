@@ -26,7 +26,12 @@
                 </v-btn>
             </div>
 
-            <div v-if="!isLoading && tags.length === 0" class="capture-empty">
+            <div v-if="isLoadFailed" class="capture-empty">
+                <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
+                <div class="capture-empty__message">タグの一覧を読み込めませんでした。</div>
+                <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+            </div>
+            <div v-else-if="!isLoading && tags.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:tag-multiple-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグはまだありません。</div>
                 <div class="capture-empty__sub">キャプチャを開いてタグのボタンを押すか、<br class="d-sm-none">上の入力欄から作れます。<br>1枚に何個でも付けられます。</div>
@@ -116,6 +121,8 @@ import useUserStore from '@/stores/UserStore';
 const userStore = useUserStore();
 const tags = ref<ICaptureTag[]>([]);
 const isLoading = ref(true);
+// 読み込みに失敗したか (0件と区別して、読み込めなかったことを伝えるため)
+const isLoadFailed = ref(false);
 const isLoggedIn = ref(false);
 const newTagName = ref('');
 const renamingTag = ref<ICaptureTag | null>(null);
@@ -123,7 +130,9 @@ const renameInput = ref('');
 const deletingTag = ref<ICaptureTag | null>(null);
 
 const load = async () => {
-    tags.value = (await Captures.fetchTags()) ?? [];
+    const result = await Captures.fetchTags();
+    isLoadFailed.value = result === null;
+    tags.value = result ?? [];
 };
 
 const createTag = async () => {
