@@ -669,9 +669,13 @@ const deleteCapture = async () => {
     }
     Message.success('キャプチャを削除しました。');
     // 削除したら次のキャプチャへ送り、なければ閉じる
+    // 削除の応答を待つ間に閉じたり別のキャプチャを開いたりしたときは、一覧への通知だけにして、今の表示はそのまま保つ
     const neighbor = (await props.navigate(current, 1)) ?? (await props.navigate(current, -1));
-    lastShownCapture = null;
     emit('deleted', [current.id]);
+    if (props.capture?.id !== current.id) {
+        return;
+    }
+    lastShownCapture = null;
     emit('update:capture', neighbor);
 };
 
