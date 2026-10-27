@@ -1757,6 +1757,21 @@ class RecordedScanTask:
                         except OSError as ex:
                             logging.warning(f'{file_path}: Failed to scan added folder.', exc_info=ex)
                     continue
+
+                # OS の変更通知でフォルダが削除されたときは、配下にあった録画ファイルを削除イベントとして処理する
+                ## フォルダごとゴミ箱へ移したり録画フォルダの外へ移したりすると、フォルダ自体の通知だけが届き、配下のファイルの通知は届かない
+                ## 削除されたパスがフォルダだったかはもう分からないので、録画ファイルの拡張子でないパスの削除を、フォルダの削除の候補として扱う
+                ## ポーリングの監視では配下のファイルの通知も届くので、フォルダの通知は読み飛ばす
+                if (change_type == Change.deleted and
+                    force_polling is not True and
+                    canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS):
+                    child_file_paths = await RecordedVideo.filter(
+                        file_path__startswith = canonical_path_str.rstrip(os.sep) + os.sep,
+                    ).values_list('file_path', flat=True)
+                    for child_file_path in child_file_paths:
+                        if await self.isFileExists(anyio.Path(str(child_file_path))) is False:
+                            queued_changes.append((Change.deleted, str(child_file_path)))
+                    continue
                 # 対象拡張子のファイル以外は無視
                 if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
                     continue

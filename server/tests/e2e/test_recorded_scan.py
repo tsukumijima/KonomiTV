@@ -304,36 +304,42 @@ async def test_recorded_file_copied__waits_for_original_to_be_removed(client: ht
     await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
 
 
-async def test_recorded_file_copied__original_folder_moved_outside(
+async def test_recorded_file_copied__original_removed_without_notification(
     client: httpx.AsyncClient,
     recorded_folder: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    付け替えを保留している間に、元のファイルをフォルダごと録画フォルダの外へ移すと (中のファイルの削除イベントが届かない)、
+    付け替えを保留している間に、元のファイルの削除イベントが届かずに消えても (通知があふれたときなど)、
     保留の見回りで元のファイルがなくなったことに気づき、同じ ID のまま付け替わる
     """
 
     # 見回りの間隔を短くする
     monkeypatch.setattr(RecordedScanTask, 'PENDING_MOVE_CHECK_INTERVAL_SECONDS', 1)
 
+    # 監視していないフォルダを録画フォルダに加えて一括スキャンし、そのフォルダの録画を登録する
+    ## このフォルダのファイルを消しても削除イベントは届かない
     await WaitForStartupScan(client)
     recorded_at = datetime(2019, 8, 12, 20, 45, tzinfo=JST)
-    original_folder = recorded_folder / 'outside-original'
-    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', original_folder, recorded_at)
+    unwatched_folder = RECORDED_FOLDER.parent / 'unwatched'
+    monkeypatch.setattr(RecordedScanTask(), 'recorded_folders', [anyio.Path(recorded_folder), anyio.Path(unwatched_folder)])
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', unwatched_folder, recorded_at)
+    response = await client.post('/api/maintenance/batch-scan/run')
+    assert response.status_code == 204, response.text
     original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
-    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'outside-destination', recorded_at)
+
+    # 監視している録画フォルダへ同じ中身のファイルを置くと、付け替えを保留する
+    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'unwatched-destination', recorded_at)
     async def IsPending() -> bool:
         return copied_path in RecordedScanTask().pending_moves
     await WaitUntil(IsPending)
 
-    # 元のファイルをフォルダごと録画フォルダの外へ移す
-    moved_out_folder = RECORDED_FOLDER.parent / 'outside-original'
-    original_folder.rename(moved_out_folder)
+    # 元のファイルを消すと、削除イベントは届かないが、見回りで同じ ID のまま付け替わる
+    original_path.unlink()
     moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
     assert moved_program['id'] == original_program['id']
 
-    shutil.rmtree(moved_out_folder)
+    unwatched_folder.rmdir()
     copied_path.unlink()
     await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
 
@@ -428,3 +434,23 @@ async def test_recorded_folder_setting_changed__relinks_from_old_drive(
     original_path.unlink()
     copied_path.unlink()
     await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
+
+
+async def test_recorded_folder_moved_outside__hides_records(client: httpx.AsyncClient, recorded_folder: Path) -> None:
+    """
+    録画ファイルの入ったフォルダごと録画フォルダの外へ移すと (ゴミ箱へ移したときなど、配下のファイルの通知が届かない)、
+    中の録画番組が一覧から隠れる
+    """
+
+    await WaitForStartupScan(client)
+    folder = recorded_folder / 'trash'
+    recorded_path = PlaceRecording('terrestrial-tsreplace-h264.ts', folder, datetime(2019, 8, 17, 20, 45, tzinfo=JST))
+    await WaitUntil(lambda: GetRecordedProgramByPath(client, recorded_path))
+
+    # フォルダごと録画フォルダの外へ移すと、中の録画番組が一覧から隠れる
+    moved_out_folder = RECORDED_FOLDER.parent / 'trash'
+    folder.rename(moved_out_folder)
+    await WaitUntil(lambda: IsRecordedProgramGone(client, recorded_path))
+
+    (moved_out_folder / recorded_path.name).unlink()
+    moved_out_folder.rmdir()
