@@ -66,9 +66,9 @@
             </div>
         </div>
 
-        <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="load" />
+        <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="onDeleted" />
         <CaptureLightbox :capture="openedCapture" :program-hint="program" :navigate="navigate"
-            @update:capture="openedCapture = $event" @updated="onUpdated([$event])" @deleted="load" />
+            @update:capture="openedCapture = $event" @updated="onUpdated([$event])" @deleted="onDeleted" />
     </CapturePage>
 </template>
 <script lang="ts" setup>
@@ -198,6 +198,12 @@ watch(() => route.fullPath, () => {
 const navigate = async (capture: ICapture, delta: 1 | -1) => {
     const index = captures.value.findIndex(item => item.id === capture.id);
     return captures.value[index + delta] ?? null;
+};
+// 削除したキャプチャは、取り直しを待たずに一覧から外す (取り直しの間に1枚表示が削除したキャプチャを隣として拾わないため)
+const onDeleted = (deletedIds: number[]) => {
+    const ids = new Set(deletedIds);
+    captures.value = captures.value.filter(capture => !ids.has(capture.id));
+    void load();
 };
 const onUpdated = (updated: ICapture[]) => {
     const byId = new Map(updated.map(capture => [capture.id, capture]));
