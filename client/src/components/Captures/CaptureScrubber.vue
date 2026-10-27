@@ -251,6 +251,7 @@ const onThumbPointerUp = () => {
     right: 0;
     width: 0;
     z-index: 5;
+    user-select: none;
     @include smartphone-horizontal {
         top: 12px;
         bottom: 12px;
