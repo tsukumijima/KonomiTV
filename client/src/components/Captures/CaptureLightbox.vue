@@ -725,6 +725,10 @@ const onKeyDown = (event: KeyboardEvent) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
         return;
     }
+    // Ctrl・Command・Alt と一緒に押したキーは、ページ内検索 (Ctrl+F) などのブラウザのショートカットとしてブラウザに任せる
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+    }
     switch (event.key) {
         case 'ArrowLeft': void move(-1); break;
         case 'ArrowRight': void move(1); break;
