@@ -425,6 +425,8 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
         await loadDay(date);
         for (let retry = 0; retry < 50 && !loadedDays.value.has(date); retry++) {
             await new Promise(resolve => setTimeout(resolve, 100));
+            // 待っている日は画面に見えていないと読み込まずに外されるので、空きができ次第この日の読み込みを始めるよう呼び直す
+            void loadDay(date);
         }
         return loadedDays.value.get(date) ?? [];
     };
