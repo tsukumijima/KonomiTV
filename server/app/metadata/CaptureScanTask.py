@@ -927,6 +927,9 @@ class CaptureScanTask:
             if len(local_roots) == 0:
                 return
 
+            # 消えたファイルを確定するために始めた一括スキャンのタスク (終わるまで参照を持っておく)
+            scan_tasks: set[asyncio.Task[None]] = set()
+
             while True:
                 try:
                     async for changes in awatch(*local_roots, force_polling=False):
@@ -937,9 +940,12 @@ class CaptureScanTask:
                                 await self.processFile(NormalizeCapturePath(path))
 
                         # 消えたファイルは、通信エラーと見分けるため、一括スキャンで全体を列挙してから確定する
+                        ## 百万枚規模では一括スキャンに数分以上かかるので、別のタスクで実行し、その間も追加・変更された画像を登録し続ける
                         has_deleted = any(change == Change.deleted for change, _ in changes)
                         if has_deleted is True and not self.scan_lock.locked():
-                            await self.runBatchScan(local_roots)
+                            scan_task = asyncio.create_task(self.runBatchScan(local_roots))
+                            scan_tasks.add(scan_task)
+                            scan_task.add_done_callback(scan_tasks.discard)
 
                 except OSError as ex:
                     logging.warning('Capture watcher failed; retrying.', exc_info=ex)
