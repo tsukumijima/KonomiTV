@@ -35,9 +35,11 @@ class CaptureExif(BaseModel):
 
     captured_at: Annotated[datetime, Field(validation_alias=AliasChoices('captured_at', 'capture_time'))]
     captured_playback_position: Annotated[float, Field(allow_inf_nan=False)]
-    network_id: int
-    service_id: int
-    event_id: int
+    # ARIB の番組の ID はどれも16ビットなので、範囲外の値は壊れたメタデータとして扱う (DB の整数に収まらない値も弾く)
+    ## 番組情報のない録画などで撮ったキャプチャは、分からない ID を -1 にして書き込むので、-1 も受け付ける (番組とは結び付けない)
+    network_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
+    service_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
+    event_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
     start_time: datetime
     end_time: datetime
     duration: Annotated[float, Field(allow_inf_nan=False)]
