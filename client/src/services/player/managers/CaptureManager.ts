@@ -241,10 +241,16 @@ class CaptureManager implements PlayerManager {
         // ライブ視聴: 現在進行形で放送されているので、番組開始時刻からの経過時間 (現在時刻 - 番組開始時刻) を設定する
         if (this.playback_mode === 'Live') {
             capture_exif_data.captured_playback_position = dayjs().diff(dayjs(capture_exif_data.start_time), 'second', true);
-        // ビデオ視聴: 動画の現在の再生位置から、録画開始マージンを引いた値を設定する
-        // これで (録画開始マージンが取得できていない場合以外は) ライブ視聴時と比較可能な値になる
+        // ビデオ視聴: 動画の現在の再生位置から、番組の開始時刻に対する録画の開始の早さ (録画開始マージン) を引いた値を設定する
+        // これで (録画の開始時刻が取得できていない場合以外は) ライブ視聴時と比較可能な値になる
+        // 番組の途中から録画した場合は録画開始マージンが 0 に丸められているので、番組の開始時刻と録画の開始時刻の差から求める
         } else {
-            capture_exif_data.captured_playback_position = this.player.video.currentTime - player_store.recorded_program.recording_start_margin;
+            const recorded_program = player_store.recorded_program;
+            let recording_start_offset = recorded_program.recording_start_margin;
+            if (recorded_program.recorded_video.recording_start_time !== null) {
+                recording_start_offset = (dayjs(recorded_program.start_time).valueOf() - dayjs(recorded_program.recorded_video.recording_start_time).valueOf()) / 1000;
+            }
+            capture_exif_data.captured_playback_position = this.player.video.currentTime - recording_start_offset;
         }
 
         return capture_exif_data;
