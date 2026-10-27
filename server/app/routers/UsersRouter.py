@@ -267,10 +267,14 @@ async def UserCreateAPI(
             detail = 'Specified username is not permitted',
         )
 
+    # パスワードをハッシュ化する
+    ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+    hashed_password = await asyncio.to_thread(PASSWORD_CONTEXT.hash, user_create_request.password)
+
     # 新しいユーザーアカウントのモデルを作成・保存
     current_user = await User.create(
         name = user_create_request.username,  # ユーザー名
-        password = PASSWORD_CONTEXT.hash(user_create_request.password),  # ハッシュ化されたパスワード
+        password = hashed_password,  # ハッシュ化されたパスワード
         is_admin = False if await User.all().count() > 0 else True,  # 他のユーザーアカウントがまだ作成されていないなら、特別に管理者権限を付与
         client_settings = {},  # クライアント側の設定（ひとまず空の辞書を設定）
     )
@@ -315,7 +319,8 @@ async def UserAccessTokenAPI(
         )
 
     # 指定されたパスワードのハッシュが DB にあるものと一致しない
-    if not PASSWORD_CONTEXT.verify(form_data.password, current_user.password):
+    ## bcrypt の照合は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+    if not await asyncio.to_thread(PASSWORD_CONTEXT.verify, form_data.password, current_user.password):
         logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
@@ -521,7 +526,8 @@ async def UserUpdateAPI(
 
     # パスワードを更新（存在する場合）
     if user_update_request.password is not None:
-        current_user.password = PASSWORD_CONTEXT.hash(user_update_request.password)  # ハッシュ化されたパスワード
+        ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+        current_user.password = await asyncio.to_thread(PASSWORD_CONTEXT.hash, user_update_request.password)  # ハッシュ化されたパスワード
 
     # レコードを保存する
     await current_user.save()
