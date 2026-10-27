@@ -164,6 +164,9 @@ class Maintenance {
                 case 'Background analysis task is already running':
                     APIClient.showGenericError(response, 'バックグラウンド解析タスクは既に実行中です。');
                     break;
+                case 'Background analysis failed for some recorded files':
+                    APIClient.showGenericError(response, '一部の録画番組のバックグラウンド解析に失敗しました。KonomiTV サーバーのログで失敗した録画番組と原因を確認してください。');
+                    break;
                 default:
                     APIClient.showGenericError(response, 'バックグラウンド解析タスクを開始できませんでした。');
                     break;
