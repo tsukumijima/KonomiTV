@@ -391,6 +391,7 @@ class ThumbnailGenerator:
         if not success:
             # 代表サムネイルはタイルより先に保存しているので、タイルの生成に失敗した場合も revision を進めておく
             ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、DB の上で今の値に1を足す
+            ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画の revision も一緒に進める
             await connections.get('default').execute_query("""
                 UPDATE recorded_videos
                 SET thumbnail_info = json_set(
@@ -398,8 +399,8 @@ class ThumbnailGenerator:
                     '$.representative.revision',
                     json_extract(thumbnail_info, '$.representative.revision') + 1
                 )
-                WHERE file_path = ? AND thumbnail_info IS NOT NULL
-            """, [str(self.file_path)])
+                WHERE file_hash = ? AND thumbnail_info IS NOT NULL
+            """, [self.file_hash])
             # 生成できなかったことを呼び出し元へ伝え、API とバックグラウンド処理がそれぞれ失敗を扱う
             raise RuntimeError('Thumbnail generation failed. The recording could not be decoded or thumbnail images could not be saved.')
 
@@ -1389,6 +1390,7 @@ class ThumbnailGenerator:
         # 代表サムネイルを作り直したので、revision を今の値に1を足した値にして書き込む
         ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値から進める
         ## 読み込んでから書き込むまでの間に RecordedScanTask がメタデータを保存し直していても巻き戻さないよう、サムネイル情報の列だけを書き込む
+        ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画にも同じサムネイル情報を書き込み、revision を進める
         await connections.get('default').execute_query("""
             UPDATE recorded_videos
             SET thumbnail_info = json_set(
@@ -1396,8 +1398,8 @@ class ThumbnailGenerator:
                 '$.representative.revision',
                 COALESCE(json_extract(thumbnail_info, '$.representative.revision'), 0) + 1
             )
-            WHERE id = ?
-        """, [json.dumps(thumbnail_info, ensure_ascii=False), db_recorded_video.id])
+            WHERE file_hash = ?
+        """, [json.dumps(thumbnail_info, ensure_ascii=False), self.file_hash])
 
 
     async def migrateFromLegacyTile(self) -> bool:

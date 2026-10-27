@@ -1012,6 +1012,7 @@ async def VideoThumbnailUpdateAPI(
 
     # 代表サムネイルを差し替えたので revision を進める
     ## 差し替えやサムネイルの自動生成が重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値に1を足す
+    ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画の revision も一緒に進める
     recorded_video = recorded_program.recorded_video
     await connections.get('default').execute_query("""
         UPDATE recorded_videos
@@ -1020,8 +1021,8 @@ async def VideoThumbnailUpdateAPI(
             '$.representative.revision',
             json_extract(thumbnail_info, '$.representative.revision') + 1
         )
-        WHERE id = ?
-    """, [recorded_video.id])
+        WHERE file_hash = ? AND thumbnail_info IS NOT NULL
+    """, [recorded_video.file_hash])
     await recorded_video.refresh_from_db(fields=['thumbnail_info'])
     return recorded_video.thumbnail_info
 
