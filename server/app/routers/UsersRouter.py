@@ -30,6 +30,7 @@ from app.constants import (
     JST,
     JWT_SECRET_KEY,
     PASSWORD_CONTEXT,
+    PASSWORD_DUMMY_HASH,
 )
 from app.models.AccountLink import AccountLink
 from app.models.BlueskyAccount import BlueskyAccount
@@ -309,22 +310,22 @@ async def UserAccessTokenAPI(
     # ユーザーを取得
     current_user = await User.filter(name=form_data.username).get_or_none()
 
-    # 指定されたユーザーが存在しない
-    if not current_user:
-        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect username. [username: {form_data.username}]')
-        raise HTTPException(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = 'Incorrect username',
-            headers = {'WWW-Authenticate': 'Bearer'},
-        )
-
-    # 指定されたパスワードのハッシュが DB にあるものと一致しない
+    # 指定されたパスワードを照合する
+    ## ユーザーが存在しない場合もダミーのハッシュと照合して同じだけ時間をかけ、応答時間からユーザー名の有無を推測されないようにする
     ## bcrypt の照合は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
-    if not await asyncio.to_thread(PASSWORD_CONTEXT.verify, form_data.password, current_user.password):
-        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
+    password_hash = current_user.password if current_user is not None else PASSWORD_DUMMY_HASH
+    is_password_valid = await asyncio.to_thread(PASSWORD_CONTEXT.verify, form_data.password, password_hash)
+
+    # 指定されたユーザーが存在しないか、パスワードのハッシュが DB にあるものと一致しない
+    ## どちらなのかを返すとユーザー名の有無が分かってしまうため、どちらの場合も同じエラーを返す (ログにはどちらだったかを残す)
+    if current_user is None or is_password_valid is False:
+        if current_user is None:
+            logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect username. [username: {form_data.username}]')
+        else:
+            logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = 'Incorrect password',
+            detail = 'Incorrect username or password',
             headers = {'WWW-Authenticate': 'Bearer'},
         )
 

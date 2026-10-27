@@ -412,6 +412,9 @@ PASSWORD_CONTEXT = CryptContext(
     schemes = ['bcrypt'],
     deprecated = 'auto',
 )
+# 存在しないユーザー名でログインされたときに照合する、ダミーのパスワードハッシュ
+## ユーザーが存在しない場合も同じ設定のハッシュと照合して同じだけ時間をかけ、応答時間からユーザー名の有無を推測されないようにする
+PASSWORD_DUMMY_HASH = PASSWORD_CONTEXT.hash(secrets.token_urlsafe(32))
 
 # 外部 API に送信するリクエストヘッダー
 ## KonomiTV の User-Agent を指定
