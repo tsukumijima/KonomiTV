@@ -706,7 +706,16 @@ class TSInformation:
 
     @staticmethod
     def calculateIsSubchannel(type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> bool:
-        """ チャンネルがサブチャンネルかどうかを算出する """
+        """
+        チャンネルがサブチャンネルかどうかを算出する
+
+        Args:
+            type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネル種別
+            service_id (int): サービス ID
+
+        Returns:
+            bool: サブチャンネルかどうか
+        """
 
         # 地デジ: サービス ID に 0x0187 を AND 演算（ビットマスク）した時に 0 でない場合
         ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
