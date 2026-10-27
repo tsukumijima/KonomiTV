@@ -61,6 +61,10 @@ router = APIRouter(
 # キャプチャの一覧の並び順
 CaptureOrder = Literal['CapturedAtDesc', 'CapturedAtAsc', 'BroadcastAtDesc', 'BroadcastAtAsc', 'PlaybackPosition']
 
+# アップロードできるキャプチャ画像の最大サイズ (50MiB)
+## 4K の PNG でも数十 MB に収まるため、これを超えるファイルは受け付けない
+CAPTURE_UPLOAD_MAX_SIZE = 50 * 1024 * 1024
+
 # 利用できる場所 (status が Available の実体ファイル) が1つ以上あるキャプチャだけに絞る条件
 ## キャプチャの一覧・日付ごとの件数・放送回のアルバム・タグの件数で共通して使う
 CAPTURE_AVAILABLE_CONDITION = """
@@ -715,7 +719,15 @@ async def CaptureUploadAPI(
     同じ内容のキャプチャが既に保存されている場合は、保存せずにそのキャプチャを返す。
     """
 
-    data = await image.read()
+    # アップロードされた画像を読み込む
+    ## 上限を超える巨大なファイルをメモリに載せないよう、上限より 1 バイトだけ多く読み込み、上限を超えていたらエラーにする
+    data = await image.read(CAPTURE_UPLOAD_MAX_SIZE + 1)
+    if len(data) > CAPTURE_UPLOAD_MAX_SIZE:
+        logging.error('[CapturesRouter][CaptureUploadAPI] Too large image file was uploaded.')
+        raise HTTPException(
+            status_code = status.HTTP_413_CONTENT_TOO_LARGE,
+            detail = 'Image file is too large',
+        )
 
     # 保存するファイルの更新日時 (手元のファイルをアップロードした場合は、元のファイルの更新日時を引き継ぐ)
     modified_at = datetime.now(JST)
