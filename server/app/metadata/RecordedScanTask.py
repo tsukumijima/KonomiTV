@@ -1017,7 +1017,40 @@ class RecordedScanTask:
             # この時点では CM 区間情報は未解析なので、明示的に未解析を表す None を設定する (デフォルトで None だが念のため)
             # 「解析したが CM 区間がなかった/検出に失敗した」場合、CMSectionsDetector 側で [] が設定される
             db_recorded_video.cm_sections = None
-            await db_recorded_video.save()
+            if existing_db_recorded_video is None:
+                await db_recorded_video.save()
+            else:
+                # 既存のレコードは、ここで設定した列だけを書き込む
+                ## サムネイル情報は ThumbnailGenerator が DB の上で revision を進めながら書き込むので、読み込んだときの古い値で巻き戻さないため
+                await db_recorded_video.save(update_fields=[
+                    'status',
+                    'file_path',
+                    'file_hash',
+                    'file_size',
+                    'file_created_at',
+                    'file_modified_at',
+                    'recording_start_time',
+                    'recording_end_time',
+                    'duration',
+                    'container_format',
+                    'video_codec',
+                    'video_codec_profile',
+                    'video_scan_type',
+                    'video_frame_rate',
+                    'video_resolution_width',
+                    'video_resolution_height',
+                    'has_video_stream_changes',
+                    'primary_audio_codec',
+                    'primary_audio_channel',
+                    'primary_audio_sampling_rate',
+                    'secondary_audio_codec',
+                    'secondary_audio_channel',
+                    'secondary_audio_sampling_rate',
+                    'key_frames',
+                    'segment_map',
+                    'cm_sections',
+                    'updated_at',
+                ])
 
 
     async def __runBackgroundAnalysis(self, recorded_program: schemas.RecordedProgram) -> None:
