@@ -766,13 +766,16 @@ class RecordedScanTask:
 
                 analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
 
-                # まだ録画済みとして登録されていないファイルは、重い解析の前に、同じ中身の録画済みのレコードと照合する
+                # まだ録画済みとして登録されていないファイルと、録画済みとして登録されたあとに中身が変わったファイルは、
+                # 重い解析の前に、同じ中身の録画済みのレコードと照合する
                 ## 移動や名前の変更であれば、レコードのパスを付け替えるだけで、マイリストや視聴履歴が参照する ID とサムネイル・CM 区間をそのまま使い続けられる
                 ## ドライブをまたぐ移動では、コピー中に録画中として登録されたレコードが同じパスにあるので、それも照合の対象にする
+                ## コピーが15秒以上止まると、途中までの中身が録画済みとして登録されるので、コピーを再開して中身が変わった録画済みのレコードも照合の対象にする
+                ## (ここまで来た録画済みのレコードは、サイズか更新日時が変わっている)
                 ## 付け替えるか、付け替えを保留するかは、この照合の結果だけで決める (削除イベントの側は Missing にするだけ)
                 if (force_update is False and
                     (existing_recorded_video_summary is None or
-                     existing_recorded_video_summary.status in ('Recording', 'Missing'))):
+                     existing_recorded_video_summary.status in ('Recording', 'Recorded', 'Missing'))):
 
                     # 前回の照合で付け替えを保留していれば、その情報を取り出す
                     ## 照合の結果が変わっていれば、保留を続けるときにだけ記録し直す
@@ -826,6 +829,16 @@ class RecordedScanTask:
                             if is_same_content is False:
                                 continue
 
+                            # 同じパスにコピー中に作られた録画済みのレコードがあれば、途中までの中身で始めたバックグラウンド解析を取り消して終わるのを待つ
+                            ## サムネイル生成と CM 区間検出は、保存先のレコードをファイルパスで探すため、付け替えたあとのレコードへ途中までの中身の結果を書き込んでしまう
+                            if (existing_recorded_video_summary is not None and
+                                existing_recorded_video_summary.status == 'Recorded'):
+                                running_task = self._background_tasks.pop(file_path, None)
+                                if running_task is not None:
+                                    logging.info(f'{file_path}: Cancelling background analysis task for outdated file content.')
+                                    running_task.cancel()
+                                    await asyncio.wait([running_task])
+
                             # 移動元のレコードを新しいパスへ付け替え、同じパスにコピー中に作られたレコードがあれば削除する
                             ## 照合の間に別の処理が同じレコードを付け替えたり削除したりしていれば、更新件数が0件になるので候補を選び直す
                             async with transactions.in_transaction():
@@ -877,13 +890,19 @@ class RecordedScanTask:
                             if is_same_content is False:
                                 continue
 
-                            # 同じパスにコピー中に作られた録画中のレコードがあれば、元のレコードと同じ中身なので削除する
+                            # 同じパスにコピー中に作られた録画中か録画済みのレコードがあれば、元のレコードと同じ中身になったので削除する
+                            ## 途中までの中身で始めたバックグラウンド解析があれば、取り消して終わるのを待つ
                             if (existing_recorded_video_summary is not None and
-                                existing_recorded_video_summary.status == 'Recording'):
+                                existing_recorded_video_summary.status in ('Recording', 'Recorded')):
+                                running_task = self._background_tasks.pop(file_path, None)
+                                if running_task is not None:
+                                    logging.info(f'{file_path}: Cancelling background analysis task for outdated file content.')
+                                    running_task.cancel()
+                                    await asyncio.wait([running_task])
                                 async with transactions.in_transaction():
                                     deleted_count = await RecordedVideo.filter(
                                         id = existing_recorded_video_summary.id,
-                                        status = 'Recording',
+                                        status = existing_recorded_video_summary.status,
                                     ).delete()
                                     if deleted_count > 0:
                                         await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()

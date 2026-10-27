@@ -344,6 +344,52 @@ async def test_recorded_file_copied__original_removed_without_notification(
     await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
 
 
+async def test_recorded_file_copied__copy_paused_halfway(
+    client: httpx.AsyncClient,
+    recorded_folder: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    別の場所へのコピーが途中で止まり、途中までの中身が録画済みとして登録されても、
+    コピーを再開して書き終えると付け替えを保留し、元のファイルを消すと同じ ID のまま付け替わる
+    """
+
+    # 書き込みが止まってから録画の完了とみなすまでの時間を短くする
+    monkeypatch.setattr(RecordedScanTask, 'RECORDING_COMPLETE_SECONDS', 2)
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 18, 20, 45, tzinfo=JST)
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'pause-original', recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+
+    # 録画フォルダの中へ直接、中身の8割まで書いて止めると、途中までの中身が別の録画番組として登録される
+    content = (FIXTURES_DIR / 'recorded' / 'terrestrial-tsreplace-h264.ts').read_bytes()
+    copied_folder = recorded_folder / 'pause-destination'
+    copied_folder.mkdir()
+    await asyncio.sleep(0.5)
+    copied_path = copied_folder / 'terrestrial-tsreplace-h264.ts'
+    copied_path.write_bytes(content[:len(content) * 8 // 10])
+    partial_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert partial_program['id'] != original_program['id']
+
+    # コピーを再開して書き終え、更新日時を元に戻すと、途中の録画番組は消えて付け替えを保留する
+    with copied_path.open('ab') as file:
+        file.write(content[len(content) * 8 // 10:])
+    os.utime(copied_path, (recorded_at.timestamp(), recorded_at.timestamp()))
+    async def IsPending() -> bool:
+        return copied_path in RecordedScanTask().pending_moves
+    await WaitUntil(IsPending)
+    assert await GetRecordedProgramByPath(client, copied_path) is None
+
+    # 元のファイルを消すと、同じ ID のまま付け替わる
+    original_path.unlink()
+    moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert moved_program['id'] == original_program['id']
+
+    copied_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
+
+
 async def test_recorded_file_copied__original_deleted_by_api(
     client: httpx.AsyncClient,
     recorded_folder: Path,
