@@ -555,9 +555,15 @@ class CaptureScanTask:
                     results.append(await self.scanRoot(root))
 
                 # 別の保存先へ移動した画像の照合を全保存先で終えてから、消えたファイルと期限を確定する
+                ## 期限による削除は、すべての保存先を最後まで走査できたときだけ行う
+                ## 読めなかった保存先へ移した画像は移動として照合できていないので、移す前の場所を削除すると、いいねやタグごと消えてしまうため
+                can_delete_expired = is_all_folders
+                for result in results:
+                    if result.is_complete is False:
+                        can_delete_expired = False
                 is_complete = True
                 for result in results:
-                    if await self.reconcileRoot(result) is False:
+                    if await self.reconcileRoot(result, can_delete_expired) is False:
                         is_complete = False
 
                 # 上書きでどの場所にも置かれていなくなったキャプチャは、どの保存先にも属さないので、
@@ -799,12 +805,13 @@ class CaptureScanTask:
         )
 
 
-    async def reconcileRoot(self, result: CaptureRootScanResult) -> bool:
+    async def reconcileRoot(self, result: CaptureRootScanResult, can_delete_expired: bool) -> bool:
         """
         最後まで正常に走査できた保存先について、消えたファイルを Missing にし、1週間たった行を削除する
 
         Args:
             result (CaptureRootScanResult): 走査と移動の照合を終えた保存先の情報
+            can_delete_expired (bool): 期限による削除を行ってよいか (すべての保存先を最後まで走査できたときだけ True)
 
         Returns:
             bool: 消えたファイルを確定した場合は True (走査が不完全なときは False)
@@ -821,7 +828,7 @@ class CaptureScanTask:
         for snapshot in result.unseen.values():
             if snapshot['status'] != 'Missing':
                 newly_missing_count += 1
-        is_deletion_allowed = True
+        is_deletion_allowed = can_delete_expired
         if result.found_count == 0 and len(result.unseen) > 0:
             is_deletion_allowed = False
         if result.original_count > 0 and newly_missing_count / result.original_count > 0.2:
