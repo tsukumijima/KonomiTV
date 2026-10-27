@@ -18,6 +18,7 @@ from fastapi import HTTPException, status
 from PIL import Image, UnidentifiedImageError
 from pydantic import AliasChoices, BaseModel, Field, ValidationError, field_validator
 from tortoise import connections, transactions
+from tortoise.exceptions import IntegrityError, OperationalError
 from watchfiles import Change, awatch
 
 from app import logging, schemas
@@ -495,7 +496,10 @@ class CaptureScanTask:
             try:
                 await self.registerFile(path)
                 return True
-            except Exception as ex:
+            # 読み込みや DB の一時的な失敗 (読んでいる間の書き換えを含む) は、1件の失敗として次のファイルへ進む
+            ## 画像として読めないファイルは registerFile() の中で Invalid として登録しているので、ここに来るのは外の世界の失敗だけにする
+            ## AttributeError や TypeError のような実装側の誤りは、全件で同じく起きるので受け止めずに呼び出し元へ伝える
+            except (OSError, OperationalError, IntegrityError) as ex:
                 logging.warning(f'Cannot index capture: {path}', exc_info=ex)
                 return False
 
@@ -566,9 +570,9 @@ class CaptureScanTask:
                     if removed_count > 0:
                         self.invalidateSections()
 
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
+            # DB の一時的な失敗は記録して、次の一括スキャンに任せる
+            ## 実装側の誤りは受け止めずに呼び出し元へ伝え、手動の一括スキャンの API は失敗を返す
+            except (OSError, OperationalError, IntegrityError) as ex:
                 logging.error('Capture batch scan failed.', exc_info=ex)
             finally:
                 self.batch_scan_status.is_running = False
@@ -753,7 +757,9 @@ class CaptureScanTask:
                         if await self.processFile(path) is False:
                             is_complete = False
 
-                    except Exception as ex:
+                    # 移動の照合の読み込みや DB の一時的な失敗は、この保存先の走査を不完全として扱い、消えたファイルの確定を見送る
+                    ## 実装側の誤りは受け止めずに一括スキャンの呼び出し元へ伝える
+                    except (OSError, OperationalError, IntegrityError) as ex:
                         is_complete = False
                         logging.warning(f'Cannot inspect capture: {path}', exc_info=ex)
 
