@@ -39,8 +39,9 @@ export interface ICaptureProgram {
     service_id: number;
     event_id: number;
     start_time: string;
-    end_time: string;
-    duration: number;
+    // 放送時間未定の番組で撮ったキャプチャだけで作った放送回は、終了時刻と番組長が不明なので null になる
+    end_time: string | null;
+    duration: number | null;
     title: string;
     description: string;
     channel: ICaptureChannel | null;

@@ -39,8 +39,13 @@ const onLogoError = (event: Event) => {
     }
 };
 
-const formatBroadcast = (start: string, end: string) =>
-    Utils.apply28HourClock(`${dayjs(start).format('YYYY/MM/DD (dd) HH:mm')} ～ ${dayjs(end).format('HH:mm')}`);
+// 終了時刻が不明な放送回は、ほかの画面の番組情報 (ProgramUtils.getProgramTime()) と同じく放送時間未定と表示する
+const formatBroadcast = (start: string, end: string | null) => {
+    if (end === null) {
+        return Utils.apply28HourClock(`${dayjs(start).format('YYYY/MM/DD (dd) HH:mm')} ～ --:-- (放送時間未定)`);
+    }
+    return Utils.apply28HourClock(`${dayjs(start).format('YYYY/MM/DD (dd) HH:mm')} ～ ${dayjs(end).format('HH:mm')}`);
+};
 
 </script>
 <style lang="scss" scoped>
