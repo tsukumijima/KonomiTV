@@ -975,6 +975,10 @@ class CaptureScanTask:
             bool: すべての実体ファイルと DB の行を削除できた場合は True
         """
 
+        # 削除の前に照合する中身のハッシュを取得する (キャプチャがなければ、消すものがないので削除できたものとして扱う)
+        capture = await Capture.get_or_none(id=capture_id)
+        if capture is None:
+            return True
         files = await CaptureFile.filter(capture_id=capture_id).order_by('file_path')
         async with AsyncExitStack() as stack:
 
@@ -993,6 +997,14 @@ class CaptureScanTask:
                         datetime.fromtimestamp(file_stat.st_mtime, JST) != file.file_modified_at
                     )
                     if is_replaced is True:
+                        return False
+
+                    # 移動の照合はファイル名・サイズ・更新日時だけで行うため、同じ属性の別の画像に付け替わっていることがある
+                    ## 取り消せない削除の前に中身のハッシュを照合し、別の画像なら読んだ内容で登録し直して、削除を中断する
+                    data = await anyio.Path(file.file_path).read_bytes()
+                    digest = await asyncio.to_thread(lambda: hashlib.sha256(data).digest())
+                    if digest != bytes(capture.file_hash):
+                        await self.registerFile(file.file_path, data=data, force=True)
                         return False
                     await anyio.Path(file.file_path).unlink()
                 except FileNotFoundError:
