@@ -25,6 +25,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ValidationError
 from tortoise import connections
 from tortoise.exceptions import IntegrityError
@@ -760,9 +761,10 @@ async def CaptureUploadAPI(
 
     # 画像が JPEG または PNG かをチェック
     ## 万が一悪意ある攻撃者から危険なファイルを送り込まれないように
+    ## 受け止めるのは画像として読めないことを示す例外だけにし (registerFile() と同じ)、実装側の誤りはそのまま 500 として伝える
     try:
         await asyncio.to_thread(ReadCaptureImage, data, filename, modified_at)
-    except Exception as ex:
+    except (UnidentifiedImageError, SyntaxError, ValueError, Image.DecompressionBombError, OSError) as ex:
         logging.error('[CapturesRouter][CaptureUploadAPI] Invalid image file was uploaded.')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
