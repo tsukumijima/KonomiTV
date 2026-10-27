@@ -1013,35 +1013,45 @@ class CaptureScanTask:
                     # 待っている間に別の一括スキャンが始まったときは、変化のあとに始まったその一括スキャンに任せる
                     pass
 
-            while True:
-                try:
-                    async for changes in awatch(*local_roots, force_polling=False):
+            async def WatchRoot(root: str) -> None:
+                """
+                保存先を1つ監視する
+                保存先が見えなくなったときは、この保存先だけを再試行し、ほかの保存先の監視を続ける
+                """
 
-                        # 追加・変更された画像を登録する
-                        for change, path in changes:
-                            if change != Change.deleted and Path(path).suffix.lower() in self.CAPTURE_EXTENSIONS:
-                                await self.processFile(NormalizeCapturePath(path))
+                nonlocal waiting_scan_task
+                while True:
+                    try:
+                        async for changes in awatch(root, force_polling=False):
 
-                        # 消えたファイルは、通信エラーと見分けるため、一括スキャンで全体を列挙してから確定する
-                        ## フォルダごと移してきた画像は、フォルダの追加しか通知されないので、これも一括スキャンで登録する
-                        ## 百万枚規模では一括スキャンに数分以上かかるので、別のタスクで実行し、その間も追加・変更された画像を登録し続ける
-                        needs_scan = False
-                        for change, path in changes:
-                            if change == Change.deleted:
-                                needs_scan = True
-                                break
-                            if change == Change.added and Path(path).suffix.lower() not in self.CAPTURE_EXTENSIONS:
-                                if await anyio.Path(path).is_dir():
+                            # 追加・変更された画像を登録する
+                            for change, path in changes:
+                                if change != Change.deleted and Path(path).suffix.lower() in self.CAPTURE_EXTENSIONS:
+                                    await self.processFile(NormalizeCapturePath(path))
+
+                            # 消えたファイルは、通信エラーと見分けるため、一括スキャンで全体を列挙してから確定する
+                            ## フォルダごと移してきた画像は、フォルダの追加しか通知されないので、これも一括スキャンで登録する
+                            ## 百万枚規模では一括スキャンに数分以上かかるので、別のタスクで実行し、その間も追加・変更された画像を登録し続ける
+                            needs_scan = False
+                            for change, path in changes:
+                                if change == Change.deleted:
                                     needs_scan = True
                                     break
-                        if needs_scan is True and waiting_scan_task is None:
-                            waiting_scan_task = asyncio.create_task(ScanAfterCurrent())
-                            scan_tasks.add(waiting_scan_task)
-                            waiting_scan_task.add_done_callback(scan_tasks.discard)
+                                if change == Change.added and Path(path).suffix.lower() not in self.CAPTURE_EXTENSIONS:
+                                    if await anyio.Path(path).is_dir():
+                                        needs_scan = True
+                                        break
+                            if needs_scan is True and waiting_scan_task is None:
+                                waiting_scan_task = asyncio.create_task(ScanAfterCurrent())
+                                scan_tasks.add(waiting_scan_task)
+                                waiting_scan_task.add_done_callback(scan_tasks.discard)
 
-                except OSError as ex:
-                    logging.warning('Capture watcher failed; retrying.', exc_info=ex)
-                    await asyncio.sleep(5)
+                    except OSError as ex:
+                        logging.warning(f'{root}: Capture watcher failed; retrying.', exc_info=ex)
+                        await asyncio.sleep(5)
+
+            # 保存先ごとに監視する (まとめて監視すると、1つの保存先が見えないだけで、すべての保存先の監視が止まるため)
+            await asyncio.gather(*(WatchRoot(root) for root in local_roots))
 
         async def Poll() -> None:
             """
