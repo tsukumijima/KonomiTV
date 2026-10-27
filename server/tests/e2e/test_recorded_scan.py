@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import anyio
 import httpx2 as httpx
 import pytest
 
@@ -395,3 +396,35 @@ async def test_recorded_file_moved_to_coarser_filesystem__keeps_same_record(clie
 
     moved_path.unlink()
     await WaitUntil(lambda: IsRecordedProgramGone(client, moved_path))
+
+
+async def test_recorded_folder_setting_changed__relinks_from_old_drive(
+    client: httpx.AsyncClient,
+    recorded_folder: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    録画フォルダの設定を新しいドライブへ書き換え、古いドライブをつないだまま残しても、
+    新しいドライブへ写した同じ中身の録画ファイルへ、同じ ID の録画番組のまま付け替わる
+    """
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 16, 20, 45, tzinfo=JST)
+    old_drive = recorded_folder / 'old-drive'
+    new_drive = recorded_folder / 'new-drive'
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', old_drive, recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+
+    # 録画フォルダの設定を新しいドライブだけにしたのと同じく、録画フォルダの一覧を差し替えてから、同じ中身のファイルを写す
+    new_drive.mkdir()
+    monkeypatch.setattr(RecordedScanTask(), 'recorded_folders', [anyio.Path(new_drive)])
+    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', new_drive, recorded_at)
+
+    # 古いドライブのファイルが見えていても、録画フォルダの外にあるので、同じ ID のまま新しいドライブへ付け替わる
+    moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert moved_program['id'] == original_program['id']
+    assert original_path.exists() is True
+
+    original_path.unlink()
+    copied_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))

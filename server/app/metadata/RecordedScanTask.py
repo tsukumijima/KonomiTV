@@ -806,6 +806,11 @@ class RecordedScanTask:
                                 continue
                             if candidate_row['file_path'] == file_path_str:
                                 continue
+                            # 録画フォルダの設定を新しいドライブへ書き換えて、古いドライブをつないだまま残したときは、
+                            # 元のファイルが見えていても録画フォルダの外にあるので、付け替えられるレコードに入れる
+                            if await self.__isInRecordedFolders(candidate_row['file_path']) is False:
+                                relinkable_rows.append(candidate_row)
+                                continue
                             try:
                                 await anyio.Path(candidate_row['file_path']).stat()
                                 holdable_rows.append(candidate_row)
@@ -1054,6 +1059,28 @@ class RecordedScanTask:
         except (OSError, RuntimeError) as ex:
             logging.warning(f'{file_path}: Failed to resolve symlink. Using original path:', exc_info=ex)
             return file_path
+
+
+    async def __isInRecordedFolders(self, file_path_str: str) -> bool:
+        """
+        録画ファイルのパスが、いずれかの録画フォルダの中にあるかを返す
+        録画フォルダ自体がシンボリックリンクの場合もあるので、録画フォルダの元のパスと実体のパスの両方で比べる
+
+        Args:
+            file_path_str (str): DB に保存されている録画ファイルのパス
+
+        Returns:
+            bool: いずれかの録画フォルダの中にあれば True
+        """
+
+        file_path = anyio.Path(file_path_str)
+        for folder in self.recorded_folders:
+            if file_path.is_relative_to(folder) or file_path.is_relative_to(await self.resolveRecordedPath(folder)):
+                return True
+
+        # 録画フォルダの中のシンボリックリンクから参照されている実体は、実体のパスが録画フォルダの外にあっても、録画フォルダの中の録画として扱う
+        async with self._symlink_path_map_lock:
+            return file_path_str in self._symlink_path_map.values()
 
 
     @staticmethod
