@@ -15,6 +15,9 @@
                 <!-- 付けられるタグの一覧 (押すたびに付け外しする) -->
                 <div class="capture-tag-dialog__list">
                     <div v-if="isLoading" class="capture-tag-dialog__empty">タグを読み込んでいます...</div>
+                    <div v-else-if="isLoadFailed" class="capture-tag-dialog__empty">
+                        タグの一覧を読み込めませんでした。<br>KonomiTV サーバーが動いているかを確認してから、もう一度開いてください。
+                    </div>
                     <div v-else-if="tags.length === 0" class="capture-tag-dialog__empty">
                         タグはまだありません。<br>下の入力欄から、新しいタグを追加できます。
                     </div>
@@ -62,6 +65,8 @@ const emit = defineEmits<{
 
 const tags = ref<ICaptureTag[]>([]);
 const isLoading = ref(false);
+// タグの一覧を読み込めなかったか (0件と区別して、読み込めなかったことを伝えるため)
+const isLoadFailed = ref(false);
 const isBusy = ref(false);
 const newTagName = ref('');
 
@@ -75,7 +80,9 @@ watch(() => props.show, async (show) => {
     workingCaptures.value = props.captures.map(capture => ({ ...capture, tag_ids: [...(capture.tag_ids ?? [])] }));
     newTagName.value = '';
     isLoading.value = true;
-    tags.value = (await Captures.fetchTags()) ?? [];
+    const result = await Captures.fetchTags();
+    isLoadFailed.value = result === null;
+    tags.value = result ?? [];
     isLoading.value = false;
 });
 
