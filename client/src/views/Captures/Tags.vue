@@ -54,6 +54,7 @@
                                 <template #prepend><Icon icon="fluent:rename-20-regular" width="20px" /></template>
                                 <v-list-item-title class="ml-3">名前を変更</v-list-item-title>
                             </v-list-item>
+                            <v-divider></v-divider>
                             <v-list-item class="text-error" @click="deletingTag = tag">
                                 <template #prepend><Icon icon="fluent:delete-20-regular" width="20px" /></template>
                                 <v-list-item-title class="ml-3">タグを削除</v-list-item-title>
