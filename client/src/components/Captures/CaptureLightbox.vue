@@ -738,7 +738,12 @@ onMounted(() => window.addEventListener('popstate', onPopState));
 onBeforeUnmount(() => window.removeEventListener('popstate', onPopState));
 
 // 1枚表示から別の画面へ移るときは、積んだ履歴をその画面で置き換える (戻ると一覧に帰るようにする)
+// 番組のキャプチャの一覧から同じ番組を開いたときのように、移る先が今の画面と同じなら、普通に閉じて積んだ履歴を戻す
 const leaveTo = (path: string) => {
+    if (router.resolve(path).fullPath === router.currentRoute.value.fullPath) {
+        close();
+        return;
+    }
     hasHistoryEntry = false;
     close();
     void router.replace(path);
