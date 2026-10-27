@@ -740,13 +740,18 @@ class PlayerController {
                     // かつデコーダーが自動でデインタレースしてくれない環境では、Picture-in-Picture するとインタレ未解除の映像が
                     // ミニプレイヤーで表示されると思われるが、技術的に改善が難しいのと、ミニプレイヤーならジャギ気にならんやろと言うことで当面仕様とする
                     deinterlace: is_yadif_enabled,
-                    deinterlacer: is_yadif_enabled === true ? (video: HTMLVideoElement) => new Deinterlacer(video, {
-                        // 常に MPEG-2 60i 映像を 60fps でぬるぬる再生する
-                        doubleRate: true,
-                        // 24fps モードがオンの場合のみ、実写区間では 60fps でぬるぬる描画しつつ、
-                        // 映画・アニメなど 24fps で制作された映像を自動検出し、余分なフレームを間引いて本来の動きに近づける
-                        film: this.playback_mode === 'Live' ? this.quality_profile.tv_24fps_mode : this.quality_profile.video_24fps_mode,
-                    }) : undefined,
+                    deinterlacer: is_yadif_enabled === true ? (video: HTMLVideoElement) => {
+                        // PinP 内の画質切り替えでも、最初のフレーム通知は閉じられない元画面の Document で登録する
+                        const document_pip_manager = this.player_managers.find((manager) => manager instanceof DocumentPiPManager);
+                        document_pip_manager?.prepareVideoElement(video);
+                        return new Deinterlacer(video, {
+                            // 常に MPEG-2 60i 映像を 60fps でぬるぬる再生する
+                            doubleRate: true,
+                            // 24fps モードがオンの場合のみ、実写区間では 60fps でぬるぬる描画しつつ、
+                            // 映画・アニメなど 24fps で制作された映像を自動検出し、余分なフレームを間引いて本来の動きに近づける
+                            film: this.playback_mode === 'Live' ? this.quality_profile.tv_24fps_mode : this.quality_profile.video_24fps_mode,
+                        });
+                    } : undefined,
                 },
                 // mpegts.js
                 mpegts: {
