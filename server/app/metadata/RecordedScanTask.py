@@ -6,7 +6,7 @@ import concurrent.futures
 import os
 import pathlib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import ClassVar, Literal, cast
 
 import anyio
@@ -404,7 +404,9 @@ class RecordedScanTask:
                     await asyncio.sleep(0)
 
         # DB に存在する全ての RecordedVideo レコードのハッシュを取得
+        ## ハッシュを取得した時刻も保持し、これより後に書き込まれたサムネイルを削除の対象から外すために使う
         logging.info('Gathering all recorded video hashes...')
+        hashes_gathered_at = datetime.now(tz=JST)
         db_recorded_video_hashes = set(
             cast(list[str], await RecordedVideo.all().values_list('file_hash', flat=True))
         )
@@ -432,6 +434,13 @@ class RecordedScanTask:
 
                     # DB に存在しないハッシュのファイルを削除
                     if file_hash not in db_recorded_video_hashes:
+                        # ハッシュを取得した後に書き込まれたサムネイルは、その後に DB に保存された録画のものなので残す
+                        ## サムネイルは録画のメタデータを DB に保存してから生成されるため、ハッシュの一覧を取った後に書き込まれたものは、一覧の後に保存された録画のサムネイルにあたる
+                        ## ファイルの更新日時は OS やファイルシステムによって現在時刻より粗い精度で記録されるため (FAT 系では2秒単位)、1分前までさかのぼって比べる
+                        thumbnail_stat = await thumbnail_path.stat()
+                        thumbnail_modified_at = datetime.fromtimestamp(thumbnail_stat.st_mtime, tz=JST)
+                        if thumbnail_modified_at >= hashes_gathered_at - timedelta(minutes=1):
+                            continue
                         await thumbnail_path.unlink()
                         logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
                 except Exception as ex:
