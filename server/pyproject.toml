@@ -47,8 +47,13 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "asgi-lifespan>=2.1.0",
     "pyright>=1.1.403,<2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.1",
+    "pytest-env>=1.8.1",
     "ruff>=0.9.1,<1.0.0",
+    "syrupy>=6.1.1",
 ]
 
 [tool.taskipy.tasks]
@@ -56,6 +61,8 @@ serve = "python KonomiTV.py"
 dev = "python KonomiTV.py --reload"
 lint = "ruff check --fix . ; pyright"
 typecheck = "pyright"
+test = "pytest"
+update-snapshots = "pytest --snapshot-update"
 update-thirdparty = "python -m misc.UpdateThirdparty latest"
 
 [tool.uv]
@@ -68,6 +75,22 @@ default-groups = ["dev"]
 tortoise_orm = "app.constants.DATABASE_CONFIG"
 location = "./app/migrations/"
 src_folder = "./"
+
+[tool.pytest.ini_options]
+# テストを実行するディレクトリを指定
+testpaths = ["tests"]
+# async def で定義されたテストを自動的にイベントループで実行する
+asyncio_mode = "auto"
+# テスト全体で1つのイベントループを共有し、Tortoise ORM の接続とイベントループを一致させる
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+# テスト完了後に一時ディレクトリを即座に削除する
+tmp_path_retention_policy = "none"
+
+# テストの実行時に設定する環境変数
+## KONOMITV_TEST が 1 のとき、書き込みが発生するファイルとフォルダの名前に .test が付き、実際に使っている DB・設定・サムネイル・ログと分かれる
+[tool.pytest_env]
+KONOMITV_TEST = "1"
 
 [tool.ruff]
 # インデントの幅を4スペースに設定
@@ -109,7 +132,7 @@ typeCheckingMode = "strict"
 # プロジェクトルートを指定
 pythonPlatform = "All"
 # インクルードするパッケージパス
-include = ["app/"]
+include = ["app/", "tests/"]
 # 除外するパス
 exclude = [
     "**/__pycache__",
