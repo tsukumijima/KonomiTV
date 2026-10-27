@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import math
 import pathlib
 import random
@@ -19,7 +20,7 @@ import cv2
 import numpy as np
 import typer
 from numpy.typing import NDArray
-from tortoise import Tortoise
+from tortoise import Tortoise, connections
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
@@ -389,11 +390,16 @@ class ThumbnailGenerator:
 
         if not success:
             # 代表サムネイルはタイルより先に保存しているので、タイルの生成に失敗した場合も revision を進めておく
-            db_recorded_video = await RecordedVideo.get_or_none(file_path=str(self.file_path))
-            if db_recorded_video is not None and db_recorded_video.thumbnail_info is not None:
-                representative = db_recorded_video.thumbnail_info['representative']
-                representative['revision'] += 1
-                await db_recorded_video.save(update_fields=['thumbnail_info'])
+            ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、DB の上で今の値に1を足す
+            await connections.get('default').execute_query("""
+                UPDATE recorded_videos
+                SET thumbnail_info = json_set(
+                    thumbnail_info,
+                    '$.representative.revision',
+                    json_extract(thumbnail_info, '$.representative.revision') + 1
+                )
+                WHERE file_path = ? AND thumbnail_info IS NOT NULL
+            """, [str(self.file_path)])
             # 生成できなかったことを呼び出し元へ伝え、API とバックグラウンド処理がそれぞれ失敗を扱う
             raise RuntimeError('Thumbnail generation failed. The recording could not be decoded or thumbnail images could not be saved.')
 
@@ -1340,19 +1346,15 @@ class ThumbnailGenerator:
         tile_width, tile_height = self.TILE_SCALE
         scoring_width, scoring_height = self.SCORING_SCALE
 
-        # 代表サムネイルを作り直したので revision の値を増やす (初回は 1 スタート)
-        revision = 1
-        if db_recorded_video.thumbnail_info is not None:
-            revision = db_recorded_video.thumbnail_info['representative']['revision'] + 1
-
-        # サムネイル情報を DB に保存
-        db_recorded_video.thumbnail_info = schemas.ThumbnailInfo(
+        # サムネイル情報を DB に保存する
+        ## revision は下の UPDATE で今の値に1を足した値に置き換える (初回は 1 スタート)
+        thumbnail_info = schemas.ThumbnailInfo(
             version = self.THUMBNAIL_INFO_VERSION,
             representative = schemas.ThumbnailImageInfo(
                 format = 'WebP',
                 width = scoring_width,
                 height = scoring_height,
-                revision = revision,
+                revision = 1,
             ),
             tile = schemas.ThumbnailTileInfo(
                 format = 'WebP',
@@ -1366,8 +1368,18 @@ class ThumbnailGenerator:
                 interval_sec = self.tile_interval_sec,
             ),
         )
-        # 読み込んでから書き込むまでの間に RecordedScanTask がメタデータを保存し直していても巻き戻さないよう、サムネイル情報の列だけを書き込む
-        await db_recorded_video.save(update_fields=['thumbnail_info'])
+        # 代表サムネイルを作り直したので、revision を今の値に1を足した値にして書き込む
+        ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値から進める
+        ## 読み込んでから書き込むまでの間に RecordedScanTask がメタデータを保存し直していても巻き戻さないよう、サムネイル情報の列だけを書き込む
+        await connections.get('default').execute_query("""
+            UPDATE recorded_videos
+            SET thumbnail_info = json_set(
+                ?,
+                '$.representative.revision',
+                COALESCE(json_extract(thumbnail_info, '$.representative.revision'), 0) + 1
+            )
+            WHERE id = ?
+        """, [json.dumps(thumbnail_info, ensure_ascii=False), db_recorded_video.id])
 
 
     async def migrateFromLegacyTile(self) -> bool:

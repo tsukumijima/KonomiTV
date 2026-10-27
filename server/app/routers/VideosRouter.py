@@ -1006,12 +1006,19 @@ async def VideoThumbnailUpdateAPI(
         )
 
     # 代表サムネイルを差し替えたので revision を進める
+    ## 差し替えやサムネイルの自動生成が重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値に1を足す
     recorded_video = recorded_program.recorded_video
-    representative = thumbnail_info['representative']
-    representative['revision'] += 1
-    recorded_video.thumbnail_info = thumbnail_info
-    await recorded_video.save(update_fields=['thumbnail_info'])
-    return thumbnail_info
+    await connections.get('default').execute_query("""
+        UPDATE recorded_videos
+        SET thumbnail_info = json_set(
+            thumbnail_info,
+            '$.representative.revision',
+            json_extract(thumbnail_info, '$.representative.revision') + 1
+        )
+        WHERE id = ?
+    """, [recorded_video.id])
+    await recorded_video.refresh_from_db(fields=['thumbnail_info'])
+    return recorded_video.thumbnail_info
 
 
 @router.get(
