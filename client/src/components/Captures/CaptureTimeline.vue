@@ -79,8 +79,11 @@ const baseOffset = ref(0);  // 要素の上端に当たる、タイムライン�
 // 日付ごとの件数と、読み込んだ日のキャプチャ
 const sections = shallowRef<ITimelineSection[]>([]);
 const loadedDays = shallowRef(new Map<string, ICapture[]>());
-// 読み込み中の日 (絞り込みを変えたあとの読み込みを、変える前の読み込みと分けるため、世代と日付の組で持つ)
-const loadingDays = new Set<string>();
+// 日の読み込みの結果 (Queued は、同時に読み込める数の上限で順番待ちになったことを表す)
+type DayLoadResult = 'Loaded' | 'Queued' | 'Failed';
+// 読み込み中の日と、その読み込みの完了 (同じ日を待つ呼び出しで完了を共有する)
+// 絞り込みを変えたあとの読み込みを、変える前の読み込みと分けるため、世代と日付の組で持つ
+const loadingDays = new Map<string, Promise<DayLoadResult>>();
 const programs = new Map<number, ICaptureProgram>();
 let generation = 0;  // 絞り込みが変わるたびに増やし、古い読み込みの結果を捨てる
 
@@ -209,49 +212,57 @@ const visibleTiles = (section: ITimelineSection) => {
 // 1日分のキャプチャを読み込む (同時に読み込むのは2日まで)
 let activeLoads = 0;
 const pendingDays: string[] = [];
-const loadDay = async (date: string) => {
+const loadDay = (date: string): Promise<DayLoadResult> => {
+    if (loadedDays.value.has(date)) {
+        return Promise.resolve('Loaded');
+    }
     const myGeneration = generation;
     const loadingKey = `${myGeneration}:${date}`;
-    if (loadedDays.value.has(date) || loadingDays.has(loadingKey)) {
-        return;
+    const loading = loadingDays.get(loadingKey);
+    if (loading !== undefined) {
+        return loading;
     }
     if (activeLoads >= 2) {
         if (!pendingDays.includes(date)) {
             pendingDays.push(date);
         }
-        return;
+        return Promise.resolve('Queued');
     }
-    loadingDays.add(loadingKey);
-    activeLoads++;
-    try {
-        const result = await Captures.fetchAllCaptures({
-            order: props.axis === 'CapturedAt' ? 'CapturedAtDesc' : 'BroadcastAtDesc',
-            date,
-            day_start_hour: props.dayStartHour,
-            filter: props.filter,
-        });
-        if (myGeneration !== generation || result === null) {
-            return;
-        }
-        for (const program of result.programs) {
-            programs.set(program.id, program);
-        }
-        const next = new Map(loadedDays.value);
-        next.set(date, result.captures);
-        loadedDays.value = next;
-    } finally {
-        loadingDays.delete(loadingKey);
-        activeLoads--;
-        // 待っている日のうち、まだ見えている日から読み込む
-        const visible = new Set(visibleSections.value.map(section => section.date));
-        while (pendingDays.length > 0) {
-            const nextDate = pendingDays.shift()!;
-            if (visible.has(nextDate)) {
-                void loadDay(nextDate);
-                break;
+    const promise = (async (): Promise<DayLoadResult> => {
+        activeLoads++;
+        try {
+            const result = await Captures.fetchAllCaptures({
+                order: props.axis === 'CapturedAt' ? 'CapturedAtDesc' : 'BroadcastAtDesc',
+                date,
+                day_start_hour: props.dayStartHour,
+                filter: props.filter,
+            });
+            if (myGeneration !== generation || result === null) {
+                return 'Failed';
+            }
+            for (const program of result.programs) {
+                programs.set(program.id, program);
+            }
+            const next = new Map(loadedDays.value);
+            next.set(date, result.captures);
+            loadedDays.value = next;
+            return 'Loaded';
+        } finally {
+            loadingDays.delete(loadingKey);
+            activeLoads--;
+            // 待っている日のうち、まだ見えている日から読み込む
+            const visible = new Set(visibleSections.value.map(section => section.date));
+            while (pendingDays.length > 0) {
+                const nextDate = pendingDays.shift()!;
+                if (visible.has(nextDate)) {
+                    void loadDay(nextDate);
+                    break;
+                }
             }
         }
-    }
+    })();
+    loadingDays.set(loadingKey, promise);
+    return promise;
 };
 
 // 取り直している日付ごとの件数 (拡大表示の前後の移動で、取り直し終わるのを待つため)
@@ -420,13 +431,13 @@ const formatDate = (date: string) => {
 const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture | null> => {
 
     // 日の読み込みを始め、読み終わったその日のキャプチャを返す
-    // 同時に読み込める数の上限で待たされた場合に備え、読み終わるまで少し待つ
+    // 読み込みに時間がかかっても終わるまで待ち、読み込み中を0件と取り違えて端に着いたと判定するのを防ぐ
     const waitForDay = async (date: string) => {
-        await loadDay(date);
-        for (let retry = 0; retry < 50 && !loadedDays.value.has(date); retry++) {
+        // 順番待ちになった日は、画面に見えていないと読み込まずに外されるので、空きができ次第この日の読み込みを始めるよう呼び直す
+        let result = await loadDay(date);
+        while (result === 'Queued') {
             await new Promise(resolve => setTimeout(resolve, 100));
-            // 待っている日は画面に見えていないと読み込まずに外されるので、空きができ次第この日の読み込みを始めるよう呼び直す
-            void loadDay(date);
+            result = await loadDay(date);
         }
         return loadedDays.value.get(date) ?? [];
     };
