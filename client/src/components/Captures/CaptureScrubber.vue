@@ -116,6 +116,11 @@ const isThumbVisible = ref(false);
 const isDragging = ref(false);
 const dragLabelY = ref(0);
 let hideTimer: number | null = null;
+onBeforeUnmount(() => {
+    if (hideTimer !== null) {
+        window.clearTimeout(hideTimer);
+    }
+});
 const scrollableHeight = computed(() => Math.max(props.contentHeight - props.viewportHeight, 1));
 const thumbY = computed(() => {
     const ratio = Math.min(Math.max(props.scrollOffset / scrollableHeight.value, 0), 1);
@@ -137,6 +142,11 @@ watch(() => props.scrollOffset, () => {
 });
 let dragOffset = 0;
 const onThumbPointerDown = (event: PointerEvent) => {
+    // 掴み直したときは、前に離したときにつまみを隠すタイマーを止める
+    if (hideTimer !== null) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
+    }
     isDragging.value = true;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     dragOffset = event.clientY - ((railRef.value?.getBoundingClientRect().top ?? 0) + thumbY.value);
@@ -154,6 +164,9 @@ const onThumbPointerMove = (event: PointerEvent) => {
 };
 const onThumbPointerUp = () => {
     isDragging.value = false;
+    if (hideTimer !== null) {
+        window.clearTimeout(hideTimer);
+    }
     hideTimer = window.setTimeout(() => {
         isThumbVisible.value = false;
     }, 1500);
