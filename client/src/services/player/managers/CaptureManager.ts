@@ -203,6 +203,15 @@ class CaptureManager implements PlayerManager {
         // ライブ視聴: 現在視聴中のチャンネル情報・番組情報を EXIF メタデータに設定
         let capture_exif_data: ICaptureExifData;
         if (this.playback_mode === 'Live') {
+            // 放送時間未定の番組は duration が Infinity で、end_time には便宜上 start_time と同じ時刻が入っているため、どちらも null にする
+            // Infinity は JSON にできないので、そのまま書き込むと JSON.stringify() で null になってしまう
+            const program_present = channels_store.channel.current.program_present;
+            let end_time: string | null = program_present?.end_time ?? '2000-01-01T00:00:00+09:00';
+            let duration: number | null = program_present?.duration ?? 0;
+            if (duration === Infinity) {
+                end_time = null;
+                duration = null;
+            }
             capture_exif_data = {
                 captured_at: captured_at,
                 captured_playback_position: -1,  // 後の処理で設定するが、ここでは実装上の都合で -1 を入れておく
@@ -212,8 +221,8 @@ class CaptureManager implements PlayerManager {
                 title: channels_store.channel.current.program_present?.title ?? '放送休止',
                 description: channels_store.channel.current.program_present?.description ?? '',
                 start_time: channels_store.channel.current.program_present?.start_time ?? '2000-01-01T00:00:00+09:00',
-                end_time: channels_store.channel.current.program_present?.end_time ?? '2000-01-01T00:00:00+09:00',
-                duration: channels_store.channel.current.program_present?.duration ?? 0,
+                end_time: end_time,
+                duration: duration,
                 caption_text: caption_text,
                 is_caption_composited: false,  // 字幕が合成されているか (実際の状態に合わせて CaptureCompositor 側で上書きされる)
                 is_comment_composited: false,  // コメントが合成されているか (実際の状態に合わせて CaptureCompositor 側で上書きされる)
