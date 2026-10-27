@@ -366,3 +366,32 @@ async def test_recorded_file_copied__original_deleted_by_api(
 
     copied_path.unlink()
     await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
+
+
+async def test_recorded_file_moved_to_coarser_filesystem__keeps_same_record(client: httpx.AsyncClient, recorded_folder: Path) -> None:
+    """
+    移動先のファイルシステムの精度に丸められて更新日時が少しずれても (exFAT・NTFS・SMB へ移したときなど)、
+    同じ中身であれば同じ ID の録画番組のまま付け替わり、更新日時は移動先の値になる
+    """
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 15, 20, 45, tzinfo=JST)
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'coarse-original', recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+
+    # 更新日時を1秒ずらして同じ中身のファイルを置き、元のファイルを消す
+    moved_at = datetime(2019, 8, 15, 20, 45, 1, tzinfo=JST)
+    moved_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'coarse-destination', moved_at)
+    async def IsPending() -> bool:
+        return moved_path in RecordedScanTask().pending_moves
+    await WaitUntil(IsPending)
+    original_path.unlink()
+
+    # 同じ ID のまま付け替わり、更新日時は移動先の値になる
+    moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, moved_path))
+    assert moved_program['id'] == original_program['id']
+    recorded_video = await RecordedVideo.get(id=moved_program['recorded_video']['id'])
+    assert recorded_video.file_modified_at == moved_at
+
+    moved_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, moved_path))

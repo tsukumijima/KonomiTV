@@ -783,14 +783,16 @@ class RecordedScanTask:
                     while is_reselecting is True:
                         is_reselecting = False
 
-                        # サイズと更新日時が同じ、録画済みか Missing のレコードを候補にする
+                        # サイズが同じで、更新日時が前後2秒の範囲にある、録画済みか Missing のレコードを候補にする
                         ## ファイル名は照合に使わないので、名前の変更も拾える
-                        ## 作成日時は移動で変わる (Linux では名前の変更で更新され、ドライブをまたぐ移動ではファイルが作り直される) ため照合に使わず、
-                        ## 付け替えるときに新しい値で更新する
+                        ## 更新日時は、移しても保たれるが、移動先のファイルシステムが記録できる精度に丸められる (NTFS は 100 ナノ秒、exFAT は 10 ミリ秒、FAT32 は2秒)
+                        ## 作成日時は移動で変わる (Linux では名前の変更で更新され、ドライブをまたぐ移動ではファイルが作り直される) ため照合に使わない
+                        ## 中身が同じかはハッシュで決め、付け替えるときに作成日時と更新日時を新しい値で更新する
                         candidate_rows = await RecordedVideo.filter(
                             status__in = ['Recorded', 'Missing'],
                             file_size = file_size,
-                            file_modified_at = file_modified_at,
+                            file_modified_at__gte = file_modified_at - timedelta(seconds=2),
+                            file_modified_at__lte = file_modified_at + timedelta(seconds=2),
                         ).values('id', 'status', 'file_path', 'file_hash')
 
                         # 候補を、付け替えられるレコードと、元のファイルが見えるので付け替えを保留するレコードに分ける
@@ -830,6 +832,7 @@ class RecordedScanTask:
                                     status = 'Recorded',
                                     file_path = file_path_str,
                                     file_created_at = file_created_at,
+                                    file_modified_at = file_modified_at,
                                     missing_since = None,
                                 )
                                 if updated_count > 0 and (
