@@ -10,14 +10,21 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal, TypedDict, cast
+from typing import Annotated, Any, ClassVar, Literal, TypedDict, cast
 from weakref import WeakValueDictionary
 
 import anyio
 import psutil
 from fastapi import HTTPException, status
 from PIL import Image, UnidentifiedImageError
-from pydantic import AliasChoices, BaseModel, Field, ValidationError, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from tortoise import connections, transactions
 from tortoise.exceptions import IntegrityError, OperationalError
 from watchfiles import Change, awatch
@@ -66,6 +73,32 @@ class CaptureExif(BaseModel):
         if value.tzinfo is None:
             return value.replace(tzinfo=JST)
         return value.astimezone(JST)
+
+    @model_validator(mode='before')
+    @classmethod
+    def fillPlaybackPositionOfLiveCapture(cls, data: Any) -> Any:
+        """
+        2022年10月までの KonomiTV が書き込んだ、再生位置のない番組情報に再生位置を補う
+        当時の KonomiTV はライブ視聴のキャプチャだけを撮っていたので、現在のライブ視聴のキャプチャと同じく、
+        番組の開始時刻から撮影日時までの秒数を再生位置にする
+
+        Args:
+            data (Any): XPComment の JSON を読み込んだ値
+
+        Returns:
+            Any: 再生位置を補った値
+        """
+
+        # 撮影日時を capture_time のキーで書き込んだ形式で、再生位置がないときだけ補う
+        ## 日時が読めないときはそのまま返し、フィールドの検証で壊れたメタデータとして扱う
+        if isinstance(data, dict) and 'capture_time' in data and 'captured_playback_position' not in data:
+            try:
+                captured_at = datetime.fromisoformat(data['capture_time'])
+                start_time = datetime.fromisoformat(data['start_time'])
+                data = {**data, 'captured_playback_position': (captured_at - start_time).total_seconds()}
+            except (KeyError, TypeError, ValueError):
+                pass
+        return data
 
 
 @dataclass(slots=True)

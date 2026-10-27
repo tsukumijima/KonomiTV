@@ -47,5 +47,6 @@ uv run python -m misc.FixtureTSFileConverter <元の録画ファイル> tests/fi
 | ファイル | 内容 |
 |---|---|
 | `Capture_20190629-092455.png` | 番組情報も EXIF もない PNG |
+| `Capture_20221003-224010.jpg` | 2022年10月までの KonomiTV が書き込んだ、撮影日時を `capture_time` のキーで持ち、再生位置のない形式の番組情報 |
 | `Capture_20221219-001337.jpg` | 2022年12月の KonomiTV が書き込んだ、字幕・コメントの合成の有無を含む形式の番組情報 |
 | `Capture_20260826-044039.jpg` | 2026年の KonomiTV が XPComment に番組情報を書き込んだキャプチャ |

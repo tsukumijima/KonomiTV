@@ -46,6 +46,25 @@ def test_read_capture_written_by_older_version() -> None:
     assert info.metadata.is_comment_composited is False
 
 
+def test_read_capture_without_playback_position_written_by_live_only_version() -> None:
+    """
+    2022年10月までの KonomiTV が書き込んだ、再生位置のない番組情報も読み取り、
+    ライブ視聴のキャプチャとして、番組の開始時刻から撮影日時までの秒数を再生位置にする
+    """
+
+    data = (CAPTURES_DIR / 'Capture_20221003-224010.jpg').read_bytes()
+    info = ReadCaptureImage(data, 'Capture_20221003-224010.jpg', datetime(2030, 1, 1, tzinfo=JST))
+
+    assert info.metadata_status == 'Parsed'
+    assert info.captured_at == datetime(2022, 10, 3, 22, 40, 10, tzinfo=JST)
+    assert info.metadata is not None
+    assert (info.metadata.network_id, info.metadata.service_id, info.metadata.event_id) == (32391, 23608, 43641)
+    assert info.metadata.title == '[新]新米錬金術師の店舗経営 #1'
+    assert info.metadata.start_time == datetime(2022, 10, 3, 22, 30, tzinfo=JST)
+    # 22:30:00 に始まった番組を 22:40:10 に撮ったので、再生位置は10分10秒
+    assert info.metadata.captured_playback_position == 610.0
+
+
 def test_read_capture_without_metadata_uses_file_modified_time() -> None:
     """
     番組情報も EXIF もない PNG は、ファイル名の時刻と近ければ、ファイルの更新日時を撮影日時にする
