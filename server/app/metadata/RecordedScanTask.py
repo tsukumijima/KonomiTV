@@ -1595,9 +1595,12 @@ class RecordedScanTask:
                 break
 
             # 変更があったファイルごとに処理
-            for change_type, file_path_str in changes:
+            ## 追加されたフォルダの配下のファイルは、処理の途中でこの一覧の末尾に加える
+            queued_changes: list[tuple[Change, str]] = list(changes)
+            while len(queued_changes) > 0:
                 if not self._is_running:
                     break
+                change_type, file_path_str = queued_changes.pop(0)
 
                 file_path = anyio.Path(file_path_str)
                 # パス要素でルート自身と配下を除外し、似た名前の隣接フォルダは除外しない
@@ -1623,7 +1626,19 @@ class RecordedScanTask:
                 canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
                 if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
                     continue
+
+                # OS の変更通知でフォルダが追加されたときは、配下の録画ファイルを追加イベントとして処理する
+                ## フォルダごと名前を変えたり録画フォルダの中へ移したりすると、フォルダ自体の通知だけが届き、配下のファイルの通知は届かない
+                ## 新しく作ったフォルダにすぐファイルを置いたときも、フォルダの監視が始まる前のファイルの通知は届かない
+                ## ポーリングの監視では配下のファイルの通知も届くので、フォルダの通知は読み飛ばす
                 if await canonical_path.is_dir():
+                    if change_type == Change.added and force_polling is not True:
+                        try:
+                            async for child_path in file_path.rglob('*'):
+                                if child_path.suffix.lower() in self.SCAN_TARGET_EXTENSIONS:
+                                    queued_changes.append((Change.added, str(child_path)))
+                        except OSError as ex:
+                            logging.warning(f'{file_path}: Failed to scan added folder.', exc_info=ex)
                     continue
                 # 対象拡張子のファイル以外は無視
                 if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:

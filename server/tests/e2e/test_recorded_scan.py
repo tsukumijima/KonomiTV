@@ -14,7 +14,7 @@ import httpx2 as httpx
 from app.constants import JST, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.models.RecordedVideo import RecordedVideo
-from tests.conftest import FIXTURES_DIR
+from tests.conftest import FIXTURES_DIR, RECORDED_FOLDER
 
 
 async def WaitUntil(condition: Callable[[], Awaitable[Any]], timeout: float = 30.0) -> Any:
@@ -39,24 +39,30 @@ async def WaitUntil(condition: Callable[[], Awaitable[Any]], timeout: float = 30
         await asyncio.sleep(0.2)
 
 
-def PlaceRecording(file_name: str, recorded_folder: Path) -> Path:
+def PlaceRecording(
+    file_name: str,
+    recorded_folder: Path,
+    recorded_at: datetime = datetime(2019, 8, 9, 20, 45, tzinfo=JST),
+) -> Path:
     """
     テスト用の録画ファイルを、録画が終わった状態で録画フォルダへ置く
     コピーの途中を録画中として検知されないよう、録画フォルダの外で写してから名前の変更で一度に置く
     更新日時は、録画が終わってから時間が経った録画と同じく放送日に戻す
+    同じ録画ファイルを複数のテストで使うときは、テストごとに更新日時を変えて、そのテストで置いたファイルのレコードとだけ照合されるようにする
 
     Args:
         file_name (str): tests/fixtures/recorded/ 以下のファイル名
-        recorded_folder (Path): 録画フォルダのパス
+        recorded_folder (Path): 置き先のフォルダのパス (録画フォルダかその中のフォルダ。なければ作る)
+        recorded_at (datetime): 置いたファイルの更新日時
 
     Returns:
         Path: 録画フォルダに置いたファイルのパス
     """
 
-    staging_path = recorded_folder.parent / file_name
+    staging_path = RECORDED_FOLDER.parent / file_name
     shutil.copyfile(FIXTURES_DIR / 'recorded' / file_name, staging_path)
-    recorded_at = datetime(2019, 8, 9, 20, 45, tzinfo=JST).timestamp()
-    os.utime(staging_path, (recorded_at, recorded_at))
+    os.utime(staging_path, (recorded_at.timestamp(), recorded_at.timestamp()))
+    recorded_folder.mkdir(parents=True, exist_ok=True)
     recorded_path = recorded_folder / file_name
     staging_path.rename(recorded_path)
     return recorded_path
@@ -75,6 +81,41 @@ async def WaitForStartupScan(client: httpx.AsyncClient) -> None:
         assert response.status_code == 200, response.text
         return response.json()['is_running'] is False
     await WaitUntil(IsStartupScanFinished)
+
+
+async def GetRecordedProgramByPath(client: httpx.AsyncClient, file_path: Path) -> dict[str, Any] | None:
+    """
+    録画番組の一覧から、録画ファイルのパスが一致する録画番組を探す
+
+    Args:
+        client (httpx.AsyncClient): テスト用のサーバーにつないだクライアント
+        file_path (Path): 録画ファイルのパス
+
+    Returns:
+        dict[str, Any] | None: 録画番組 (一覧にないときは None)
+    """
+
+    response = await client.get('/api/videos')
+    assert response.status_code == 200, response.text
+    for recorded_program in response.json()['recorded_programs']:
+        if recorded_program['recorded_video']['file_path'] == str(file_path):
+            return recorded_program
+    return None
+
+
+async def IsRecordedProgramGone(client: httpx.AsyncClient, file_path: Path) -> bool:
+    """
+    録画ファイルのパスが一致する録画番組が、録画番組の一覧から消えたかを返す
+
+    Args:
+        client (httpx.AsyncClient): テスト用のサーバーにつないだクライアント
+        file_path (Path): 録画ファイルのパス
+
+    Returns:
+        bool: 一覧から消えていれば True
+    """
+
+    return await GetRecordedProgramByPath(client, file_path) is None
 
 
 # =====================================================================================
@@ -168,3 +209,31 @@ async def test_manual_batch_scan__recording_is_registered_analyzed_and_hidden_wh
     recorded_video = await RecordedVideo.get(id=recorded_program['recorded_video']['id'])
     assert recorded_video.status == 'Missing'
     assert recorded_video.missing_since is not None
+
+
+# -------------------------------------------------------------------------------------
+# 録画ファイルの移動・名前の変更・コピーで、同じ録画番組のレコードを使い続けるフロー
+# (録画フォルダの監視 → GET /api/videos → DELETE /api/videos/{id}) - 正常系
+# -------------------------------------------------------------------------------------
+
+
+async def test_recorded_folder_renamed__keeps_same_record(client: httpx.AsyncClient, recorded_folder: Path) -> None:
+    """
+    録画フォルダの中で録画ファイルの入ったフォルダごと名前を変えると (配下のファイルの通知が届かない)、
+    同じ ID の録画番組のまま新しいパスに付け替わる
+    """
+
+    await WaitForStartupScan(client)
+    folder = recorded_folder / 'folder-rename'
+    recorded_path = PlaceRecording('terrestrial-tsreplace-h264.ts', folder, datetime(2019, 8, 14, 20, 45, tzinfo=JST))
+    recorded_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, recorded_path))
+
+    # フォルダごと名前を変えると、同じ ID のまま新しいパスに付け替わる
+    renamed_folder = recorded_folder / 'folder-renamed'
+    folder.rename(renamed_folder)
+    renamed_path = renamed_folder / recorded_path.name
+    renamed_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, renamed_path))
+    assert renamed_program['id'] == recorded_program['id']
+
+    renamed_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, renamed_path))
