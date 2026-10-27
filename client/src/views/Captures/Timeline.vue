@@ -2,7 +2,7 @@
     <CapturePage :crumbs="crumbs" :with-scrubber="true">
         <CaptureHeader :title="title" :total="total" :active-tab="activeTab" :show-timeline-controls="true" :show-back-button="mode === 'Tag'"
             :axis="axis" :filter="typeFilter"
-            @update:axis="updateAxis" @update:filter="updateTypeFilter" @uploaded="timelineRef?.reload()" />
+            @update:axis="updateAxis" @update:filter="updateTypeFilter" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
 
         <!-- いいねとタグはログインが必要 -->
         <div v-if="needsLogin" class="capture-empty">

@@ -133,6 +133,7 @@ const emit = defineEmits<{
     (event: 'update:axis', axis: CaptureTimelineAxis): void;
     (event: 'update:filter', filter: ICaptureFilter): void;
     (event: 'uploaded', captures: ICapture[]): void;
+    (event: 'scanned'): void;
 }>();
 
 const tabs = [
@@ -215,7 +216,12 @@ const onFilesSelected = async () => {
 const scanStatus = ref<IMaintenanceTaskStatus | null>(null);
 let scanTimer: number | null = null;
 const refreshScanStatus = async () => {
+    const wasRunning = scanStatus.value?.is_running === true;
     scanStatus.value = await Maintenance.fetchCaptureScanStatus();
+    // 走っていた索引作りが終わったら、新しく登録されたキャプチャを一覧に読み直させる
+    if (wasRunning === true && scanStatus.value !== null && scanStatus.value.is_running === false) {
+        emit('scanned');
+    }
     // 取得に失敗したら (エラーはサービス側で表示済み)、エラーを出し続けないよう取得を止める
     if (scanStatus.value === null && scanTimer !== null) {
         window.clearInterval(scanTimer);
