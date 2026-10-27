@@ -29,8 +29,9 @@ from app.constants import (
     ACCOUNT_ICON_DIR,
     JST,
     JWT_SECRET_KEY,
-    PASSWORD_CONTEXT,
     PASSWORD_DUMMY_HASH,
+    PASSWORD_HASH,
+    PASSWORD_MAX_BYTES,
 )
 from app.models.AccountLink import AccountLink
 from app.models.BlueskyAccount import BlueskyAccount
@@ -43,6 +44,21 @@ router = APIRouter(
     tags = ['Users'],
     prefix = '/api/users',
 )
+
+
+def TruncatePassword(password: str) -> bytes:
+    """
+    パスワードを、bcrypt がハッシュ化に使う先頭のバイト数に切り捨てる
+    bcrypt 4 系と passlib が黙って切り捨てていたのと同じ位置で切り捨て、これまでに登録したパスワードでも同じ結果にする
+
+    Args:
+        password (str): パスワード
+
+    Returns:
+        bytes: UTF-8 で先頭 72 バイトまでに切り捨てたパスワード
+    """
+
+    return password.encode('utf-8')[:PASSWORD_MAX_BYTES]
 
 
 def GenerateAccessToken(user_id: int) -> str:
@@ -270,7 +286,7 @@ async def UserCreateAPI(
 
     # パスワードをハッシュ化する
     ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
-    hashed_password = await asyncio.to_thread(PASSWORD_CONTEXT.hash, user_create_request.password)
+    hashed_password = await asyncio.to_thread(PASSWORD_HASH.hash, TruncatePassword(user_create_request.password))
 
     # 新しいユーザーアカウントのモデルを作成・保存
     current_user = await User.create(
@@ -314,7 +330,7 @@ async def UserAccessTokenAPI(
     ## ユーザーが存在しない場合もダミーのハッシュと照合して同じだけ時間をかけ、応答時間からユーザー名の有無を推測されないようにする
     ## bcrypt の照合は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
     password_hash = current_user.password if current_user is not None else PASSWORD_DUMMY_HASH
-    is_password_valid = await asyncio.to_thread(PASSWORD_CONTEXT.verify, form_data.password, password_hash)
+    is_password_valid = await asyncio.to_thread(PASSWORD_HASH.verify, TruncatePassword(form_data.password), password_hash)
 
     # 指定されたユーザーが存在しないか、パスワードのハッシュが DB にあるものと一致しない
     ## どちらなのかを返すとユーザー名の有無が分かってしまうため、どちらの場合も同じエラーを返す (ログにはどちらだったかを残す)
@@ -528,7 +544,7 @@ async def UserUpdateAPI(
     # パスワードを更新（存在する場合）
     if user_update_request.password is not None:
         ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
-        current_user.password = await asyncio.to_thread(PASSWORD_CONTEXT.hash, user_update_request.password)  # ハッシュ化されたパスワード
+        current_user.password = await asyncio.to_thread(PASSWORD_HASH.hash, TruncatePassword(user_update_request.password))  # ハッシュ化されたパスワード
 
     # レコードを保存する
     await current_user.save()
