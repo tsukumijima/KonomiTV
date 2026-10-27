@@ -4,7 +4,7 @@
         { name: 'キャプチャ', path: '/captures/' },
         { name: '番組', path: '/captures/programs/', disabled: true },
     ]">
-        <CaptureHeader title="番組" active-tab="Programs" @scanned="reset" />
+        <CaptureHeader title="番組" active-tab="Programs" @scanned="reset" @uploaded="reset" />
         <div class="capture-programs__toolbar">
             <v-text-field v-model="queryInput" class="capture-programs__search" color="primary" bg-color="background-lighten-1"
                 variant="solo" density="comfortable" hide-details flat clearable placeholder="番組名・チャンネル名で絞り込む"
