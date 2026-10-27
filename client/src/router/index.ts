@@ -70,6 +70,55 @@ const router = createRouter({
             component: () => import('@/views/Reservations/Reservations.vue'),
         },
         {
+            path: '/captures/',
+            name: 'Captures',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Timeline' },
+        },
+        {
+            path: '/captures/favorites/',
+            name: 'Captures Favorites',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Favorites' },
+        },
+        {
+            path: '/captures/search',
+            name: 'Captures Search',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Search' },
+        },
+        {
+            path: '/captures/tags/',
+            name: 'Captures Tags',
+            component: () => import('@/views/Captures/Tags.vue'),
+        },
+        {
+            path: '/captures/tags/:tag_id',
+            name: 'Captures Tag',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Tag' },
+        },
+        {
+            path: '/captures/programs/',
+            name: 'Captures Programs',
+            component: () => import('@/views/Captures/Programs.vue'),
+        },
+        {
+            path: '/captures/programs/:capture_program_id',
+            name: 'Captures Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
+            path: '/captures/recorded/:video_id',
+            name: 'Captures Recorded Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
+            path: '/captures/broadcast',
+            name: 'Captures Broadcast Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
             path: '/mylist/',
             name: 'Mylist',
             component: () => import('@/views/Mylist.vue'),
@@ -185,6 +234,8 @@ router.beforeResolve((to, from, next) => {
     const no_transition_routes = [
         '/tv/watch/',
         '/videos/watch/',
+        // キャプチャの画面の中で絞り込みや時間の軸を切り替えるときは、画面全体の切り替えの演出を省く
+        '/captures/',
     ];
     if (document.startViewTransition && !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
         document.startViewTransition(() => {
