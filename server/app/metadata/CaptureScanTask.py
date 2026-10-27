@@ -1027,10 +1027,16 @@ class CaptureScanTask:
                     logging.warning(f'Cannot delete capture: {file.file_path}', exc_info=ex)
                     return False
 
-            # 削除の途中で場所が追加されていたら、DB の行は残す
+            # 削除の途中で場所が追加されたり、移動の照合で別のパスへ付け替えられたりしていたら、DB の行は残す
+            ## 付け替えられた場所は古いパスの削除が FileNotFoundError で飛ばされ、移動先の画像が残っているため、ID とパスの組で照合する
             async with transactions.in_transaction():
-                current_ids = set(await CaptureFile.filter(capture_id=capture_id).values_list('id', flat=True))
-                if current_ids != {file.id for file in files}:
+                current_files: set[tuple[int, str]] = set()
+                for current_file in await CaptureFile.filter(capture_id=capture_id).values('id', 'file_path'):
+                    current_files.add((current_file['id'], current_file['file_path']))
+                deleted_files: set[tuple[int, str]] = set()
+                for file in files:
+                    deleted_files.add((file.id, file.file_path))
+                if current_files != deleted_files:
                     return False
                 await Capture.filter(id=capture_id).delete()
 
