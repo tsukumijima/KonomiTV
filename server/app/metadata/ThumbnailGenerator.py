@@ -1799,8 +1799,9 @@ class ThumbnailGenerator:
         )
 
         # 各クラスタの占有率を計算
+        ## cv2.kmeans() が返すラベルは型の上では小数を含みうるため、np.bincount() に渡す前に整数の配列に変換する (実際には int32 の配列)
         total_pixels = len(labels)
-        ratios = np.bincount(labels.flatten()) / total_pixels
+        ratios = np.bincount(labels.flatten().astype(np.int64)) / total_pixels
 
         # 主要な色の評価
         ## 1. 最大の占有率が大きすぎる場合は単調な画像とみなしスコアを下げる
