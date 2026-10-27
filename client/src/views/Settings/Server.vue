@@ -596,14 +596,17 @@ const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, proc
 let task_status_timer: number | null = null;
 // この画面を離れたか (離れたあとに返ってきた進捗で、次の取得を予約しないため)
 let is_unmounted = false;
+// 前回の進捗の取得に失敗したか (失敗が続く間は、エラーの通知を最初の1回にとどめて取り直すため)
+let is_task_status_failed = false;
 
 // 進捗を取得し、どれかが実行中なら1秒後にもう一度取得する
 async function updateTaskStatuses() {
     task_status_timer = null;
+    const show_error = is_task_status_failed === false;
     const [batch_scan, background_analysis, capture_scan] = await Promise.all([
-        Maintenance.fetchBatchScanStatus(),
-        Maintenance.fetchBackgroundAnalysisStatus(),
-        Maintenance.fetchCaptureScanStatus(),
+        Maintenance.fetchBatchScanStatus(show_error),
+        Maintenance.fetchBackgroundAnalysisStatus(show_error),
+        Maintenance.fetchCaptureScanStatus(show_error),
     ]);
     if (is_unmounted === true) {
         return;
@@ -618,13 +621,20 @@ async function updateTaskStatuses() {
     if (capture_scan !== null) {
         capture_scan_status.value = capture_scan;
     }
-    // 取得に失敗したら (エラーはサービス側で表示済み)、エラーを出し続けないよう取得を止める
-    // 手動で実行したタスクは、完了したときにもう一度取得するので、ボタンが無効のまま残ることはない
-    if (batch_scan === null || background_analysis === null || capture_scan === null) {
-        return;
-    }
-    if (batch_scan.is_running === true || background_analysis.is_running === true || capture_scan.is_running === true) {
-        task_status_timer = window.setTimeout(updateTaskStatuses, 1000);
+    is_task_status_failed = batch_scan === null || background_analysis === null || capture_scan === null;
+    // 最後に分かった進捗でどれかが実行中なら、完了するまで取り続ける
+    // 取得に失敗したときは、サーバーの復旧を待つよう5秒の間隔を空けて取り直す (起動時に自動で始まったタスクも、完了したらボタンを戻すため)
+    const is_running = (
+        batch_scan_status.value.is_running === true ||
+        background_analysis_status.value.is_running === true ||
+        capture_scan_status.value.is_running === true
+    );
+    if (is_running === true) {
+        let interval = 1000;
+        if (is_task_status_failed === true) {
+            interval = 5000;
+        }
+        task_status_timer = window.setTimeout(updateTaskStatuses, interval);
     }
 }
 
@@ -661,7 +671,7 @@ async function runBatchScan() {
         await updateTaskStatuses();
     }
     const is_succeeded = await result;
-    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
@@ -686,7 +696,7 @@ async function startBackgroundAnalysis() {
         await updateTaskStatuses();
     }
     const is_succeeded = await result;
-    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
@@ -711,7 +721,7 @@ async function runCaptureScan() {
         await updateTaskStatuses();
     }
     const is_succeeded = await result;
-    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
