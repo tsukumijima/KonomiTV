@@ -737,6 +737,15 @@ async def CaptureUploadAPI(
             detail = 'Specified filename is invalid',
         )
 
+    # キャプチャは JPEG か PNG の画像なので、拡張子が .jpg / .jpeg / .png 以外のファイル名はエラーにする
+    ## JPEG は末尾に任意のデータを付けても画像として読めるため、中身の検査だけでは .bat のような実行できるファイルとしても保存できてしまう
+    if filename.lower().endswith(('.jpg', '.jpeg', '.png')) is False:
+        logging.error('[CapturesRouter][CaptureUploadAPI] Filename with unsupported extension was specified.')
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail = 'Please upload JPEG or PNG image',
+        )
+
     # 画像が JPEG または PNG かをチェック
     ## 万が一悪意ある攻撃者から危険なファイルを送り込まれないように
     try:
