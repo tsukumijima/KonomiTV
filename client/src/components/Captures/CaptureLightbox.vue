@@ -286,7 +286,8 @@ const resolveNeighbors = async (capture: ICapture) => {
 // 本人のタグの名前を出すため、ログインしていればタグの一覧を持っておく
 watch(() => props.capture !== null, async (isOpen) => {
     if (isOpen && userStore.is_logged_in) {
-        tags.value = (await Captures.fetchTags()) ?? [];
+        // 読み込めなかったときは (エラーはサービス側で表示済み)、タグが付いていないように見せないよう、前に読めた一覧を使い続ける
+        tags.value = (await Captures.fetchTags()) ?? tags.value;
     }
 }, { immediate: true });
 
