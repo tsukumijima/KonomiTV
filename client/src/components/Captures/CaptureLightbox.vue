@@ -159,7 +159,7 @@ const props = defineProps<{
     // 一覧側が持っている番組の情報 (詳細の取得を待たずに番組名を出すため)
     programHint?: ICaptureProgram | null;
     // 前後のキャプチャを返す関数 (一覧によって前後のたどり方が違うので、一覧側から渡す)
-    navigate: (capture: ICapture, delta: 1 | -1) => Promise<ICapture | null>;
+    navigate: (capture: ICapture, delta: 1 | -1) => Promise<ICapture | null | undefined>;
 }>();
 
 const emit = defineEmits<{
@@ -276,7 +276,8 @@ const resolveNeighbors = async (capture: ICapture) => {
             continue;
         }
         const neighbor = await props.navigate(capture, delta);
-        if (props.capture?.id === capture.id) {
+        // 読み込めず分からなかった隣 (undefined) は持たずにおき、送るときに読み直す
+        if (props.capture?.id === capture.id && neighbor !== undefined) {
             target.value = neighbor;
         }
     }
@@ -670,7 +671,7 @@ const deleteCapture = async () => {
     Message.success('キャプチャを削除しました。');
     // 削除したら次のキャプチャへ送り、なければ閉じる
     // 削除の応答を待つ間に閉じたり別のキャプチャを開いたりしたときは、一覧への通知だけにして、今の表示はそのまま保つ
-    const neighbor = (await props.navigate(current, 1)) ?? (await props.navigate(current, -1));
+    const neighbor = (await props.navigate(current, 1)) ?? (await props.navigate(current, -1)) ?? null;
     emit('deleted', [current.id]);
     if (props.capture?.id !== current.id) {
         return;

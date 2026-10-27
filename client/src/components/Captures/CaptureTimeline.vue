@@ -426,9 +426,9 @@ const formatDate = (date: string) => {
  * 削除やいいねの取り消しで一覧から外れたキャプチャからも、並びの上で隣にあるキャプチャへ送れる
  * @param capture 今のキャプチャ
  * @param delta 1 なら次 (古い方)、-1 なら前 (新しい方)
- * @returns 隣のキャプチャ (端なら null)
+ * @returns 隣のキャプチャ (端なら null、隣の日を読み込めず分からないときは undefined)
  */
-const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture | null> => {
+const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture | null | undefined> => {
 
     // 日の読み込みを始め、読み終わったその日のキャプチャを返す
     // 読み込みに時間がかかっても終わるまで待ち、読み込み中を0件と取り違えて端に着いたと判定するのを防ぐ
@@ -439,6 +439,10 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
             await new Promise(resolve => setTimeout(resolve, 100));
             result = await loadDay(date);
         }
+        // 読み込めなかった日は、端に着いたのではなく分からないだけなので、次に送るときに読み直せるよう undefined を返す
+        if (result === 'Failed') {
+            return undefined;
+        }
         return loadedDays.value.get(date) ?? [];
     };
 
@@ -448,6 +452,9 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
             return null;
         }
         const captures = await waitForDay(section.date);
+        if (captures === undefined) {
+            return undefined;
+        }
         return (delta === 1 ? captures[0] : captures[captures.length - 1]) ?? null;
     };
 
@@ -475,6 +482,9 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
 
     // 今のキャプチャの隣を返す
     const captures = await waitForDay(date);
+    if (captures === undefined) {
+        return undefined;
+    }
     const position = captures.findIndex(item => item.id === capture.id);
     if (position !== -1) {
         if (captures[position + delta] !== undefined) {
