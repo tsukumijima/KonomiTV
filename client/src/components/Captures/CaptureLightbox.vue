@@ -150,6 +150,7 @@ import Message from '@/message';
 import Captures, { ICapture, ICaptureDetail, ICaptureProgram, ICaptureTag } from '@/services/Captures';
 import Videos from '@/services/Videos';
 import useUserStore from '@/stores/UserStore';
+import { dayjs } from '@/utils';
 
 
 const props = defineProps<{
@@ -707,8 +708,13 @@ const playRecording = async () => {
         if (props.capture?.id !== current.id) {
             return;
         }
-        const margin = video?.recording_start_margin ?? 0;
-        query = `?playback_position=${Math.max(0, margin + current.playback_position)}`;
+        // 番組の途中から録画した場合は録画開始のマージンが 0 に丸められているので、番組の開始時刻と録画の開始時刻の差から求める
+        // 差がマイナスなら、録画が始まるまでの分だけ録画ファイル上の位置が手前になる
+        let offset = video?.recording_start_margin ?? 0;
+        if (video !== null && video.recorded_video.recording_start_time !== null) {
+            offset = (dayjs(video.start_time).valueOf() - dayjs(video.recorded_video.recording_start_time).valueOf()) / 1000;
+        }
+        query = `?playback_position=${Math.max(0, offset + current.playback_position)}`;
     }
     leaveTo(`/videos/watch/${videoId}${query}`);
 };
