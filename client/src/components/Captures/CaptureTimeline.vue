@@ -314,11 +314,12 @@ const reload = async () => {
 };
 // 絞り込みや並べ方が変わったときは、先頭から見直す
 // 削除やスキャンの完了で読み直すときは、見ている場所を保つよう、要素の範囲をずらした位置はそのまま使う
-watch(() => [props.filter, props.axis, props.dayStartHour], () => {
+// 1枚表示を閉じて同じ URL へ戻ると、絞り込みは同じ値の新しいオブジェクトになるので、値を比べて変わったときだけ先頭へ戻す
+watch(() => JSON.stringify([props.filter, props.axis, props.dayStartHour]), () => {
     baseOffset.value = 0;
     window.scrollTo({ top: 0 });
     void reload();
-}, { deep: true });
+});
 
 // スクロールと画面の大きさの変化を追う
 let frame: number | null = null;
