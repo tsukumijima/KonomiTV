@@ -1035,17 +1035,18 @@ class CaptureScanTask:
 
         async def Poll() -> None:
             """
-            ネットワークドライブの保存先を、設定した間隔で一括スキャンする (間隔が 0 の場合は何もしない)
+            ネットワークドライブの保存先があるとき、設定した間隔で保存先フォルダ全体を一括スキャンする (間隔が 0 の場合は何もしない)
             """
 
             interval = Config().capture.upload_folders_polling_interval
             if len(network_roots) == 0 or interval == 0:
                 return
 
+            # ローカルの保存先と併用していても、すべての保存先を走査した一括スキャンにして、期限による削除まで行う
             while True:
                 await asyncio.sleep(interval * 60)
                 if not self.scan_lock.locked():
-                    await self.runBatchScan(network_roots)
+                    await self.runBatchScan()
 
         async with asyncio.TaskGroup() as group:
             group.create_task(Watch())
