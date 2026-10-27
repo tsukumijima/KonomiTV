@@ -157,11 +157,16 @@ const renameTag = async () => {
     if (renamingTag.value === null || renameInput.value.trim() === '') {
         return;
     }
-    const tag = await Captures.renameTag(renamingTag.value.id, renameInput.value.trim());
-    renamingTag.value = null;
-    if (tag !== null) {
-        await load();
+    // 名前を変えられなかったとき (同じ名前のタグがあるときなど) は、入力した名前を直せるよう、ダイアログを開いたままにする
+    const target = renamingTag.value;
+    const tag = await Captures.renameTag(target.id, renameInput.value.trim());
+    if (tag === null) {
+        return;
     }
+    if (renamingTag.value?.id === target.id) {
+        renamingTag.value = null;
+    }
+    await load();
 };
 const deleteTag = async () => {
     if (deletingTag.value === null) {
