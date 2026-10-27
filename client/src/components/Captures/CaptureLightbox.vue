@@ -697,13 +697,18 @@ const playRecording = async () => {
     if (program.value === null || props.capture === null) {
         return;
     }
+    // 押したときのキャプチャと録画 (録画の情報を待つ間に隣へ送られたり閉じられたりしたら、録画へは移らずに終える)
+    const current = props.capture;
     const videoId = program.value.recorded_program_ids[0];
     // キャプチャの再生位置は番組開始からの秒数なので、録画開始のマージンを足して録画ファイル上の位置にしてから渡す
     let query = '';
-    if (props.capture.playback_position !== null) {
+    if (current.playback_position !== null) {
         const video = await Videos.fetchVideo(videoId);
+        if (props.capture?.id !== current.id) {
+            return;
+        }
         const margin = video?.recording_start_margin ?? 0;
-        query = `?playback_position=${Math.max(0, margin + props.capture.playback_position)}`;
+        query = `?playback_position=${Math.max(0, margin + current.playback_position)}`;
     }
     leaveTo(`/videos/watch/${videoId}${query}`);
 };
