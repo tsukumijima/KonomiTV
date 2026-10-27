@@ -318,9 +318,16 @@ class CaptureScanTask:
         起動時の一括スキャンと、保存先フォルダの監視を同時に実行する
         """
 
-        async with asyncio.TaskGroup() as group:
-            group.create_task(self.runBatchScan())
-            group.create_task(self.watchFolders())
+        # 実装側の誤りで止まったときは、監視も一緒に止まったことが分かるよう、例外の内容をログに残してから送出する
+        ## 例外はこのタスクの中に残るだけで、ほかにはどこにも表示されないため
+        try:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(self.runBatchScan())
+                group.create_task(self.watchFolders())
+        except* Exception as ex_group:
+            for ex in ex_group.exceptions:
+                logging.error('Capture scan task stopped unexpectedly:', exc_info=ex)
+            raise
 
 
     async def registerFile(self, path: str, *, data: bytes | None = None, force: bool = False) -> Capture | None:
