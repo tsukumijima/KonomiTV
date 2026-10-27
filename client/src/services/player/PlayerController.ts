@@ -289,6 +289,8 @@ class PlayerController {
         // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
         // seek_seconds はこの後 DPlayer を初期化した後の初回シーク時に参照される
         let seek_seconds = options.seek_seconds;
+        // URL で指定された再生位置から再生を始めるか (視聴履歴からの再開と区別し、続きからの通知を視聴履歴のときだけ出すため)
+        let is_url_playback_position = false;
         if (seek_seconds === null) {
             if (this.playback_mode === 'Video') {
                 const history = settings_store.settings.watched_history.find(
@@ -300,6 +302,7 @@ class PlayerController {
                 const playback_position = Number(url_params.get('playback_position'));
                 if (url_params.has('playback_position') && Number.isFinite(playback_position)) {
                     seek_seconds = Math.max(0, playback_position);
+                    is_url_playback_position = true;
                     console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (URL Playback Position)`);
                 } else if (history) {
                     seek_seconds = history.last_playback_position;
@@ -1026,8 +1029,8 @@ class PlayerController {
                 this.player.bar.set('played', seek_seconds / player_store.recorded_program.recorded_video.duration, 'width');
 
                 // 視聴履歴から再生を再開する場合のみ通知を表示
-                // そうでない場合は seek() 実行後に表示される通知を即座に非表示にする
-                if (seek_seconds > player_store.recorded_program.recording_start_margin + 2) {
+                // そうでない場合 (URL で指定された再生位置から始める場合を含む) は seek() 実行後に表示される通知を即座に非表示にする
+                if (seek_seconds > player_store.recorded_program.recording_start_margin + 2 && is_url_playback_position === false) {
                     this.player.notice('前回視聴した続きから再生します');
                 } else {
                     this.player.hideNotice();
