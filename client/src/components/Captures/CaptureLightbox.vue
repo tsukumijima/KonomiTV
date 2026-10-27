@@ -735,6 +735,13 @@ const playRecording = async () => {
 let hasHistoryEntry = false;
 const onPopState = () => {
     if (hasHistoryEntry) {
+        // タグや削除の確認のダイアログが上に重なっているときは、写真アプリと同じく一番上のダイアログだけを閉じ、1枚表示の履歴を積み直す
+        if (isTagDialogOpen.value || isDeleteConfirmOpen.value) {
+            isTagDialogOpen.value = false;
+            isDeleteConfirmOpen.value = false;
+            window.history.pushState({ ...window.history.state }, '');
+            return;
+        }
         hasHistoryEntry = false;
         emit('update:capture', null);
     }
@@ -807,6 +814,8 @@ watch(() => props.capture !== null, (isOpen) => {
         lastShownCapture = null;
         dragX.value = 0;
         dismissY.value = 0;
+        isTagDialogOpen.value = false;
+        isDeleteConfirmOpen.value = false;
     }
 }, { immediate: true });
 onBeforeUnmount(() => {
