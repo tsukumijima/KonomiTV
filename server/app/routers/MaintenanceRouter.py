@@ -376,9 +376,17 @@ async def CaptureScanAPI():
         # 一括スキャンを実行
         ## 起動時の自動スキャンの実行中に呼ばれた場合も runBatchScan() が 429 で失敗するので、失敗したときも None に戻す
         try:
-            await CaptureScanTask().runBatchScan()
+            is_complete = await CaptureScanTask().runBatchScan()
         finally:
             capture_scan_task = None  # 再度新しいタスクを作成できるように None にする
+
+        # 読めなかった保存先や、途中で失敗した処理があったときは、完了したと伝えずに失敗を返す
+        if is_complete is False:
+            logging.warning('Manual batch scan of capture folders could not scan some folders completely.')
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = 'Some capture folders could not be scanned completely',
+            )
 
         # 一括スキャンが完了した
         logging.info('Manual batch scan of capture folders has finished.')

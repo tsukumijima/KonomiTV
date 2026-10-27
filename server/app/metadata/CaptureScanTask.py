@@ -504,7 +504,7 @@ class CaptureScanTask:
                 return False
 
 
-    async def runBatchScan(self, folders: list[str] | None = None) -> None:
+    async def runBatchScan(self, folders: list[str] | None = None) -> bool:
         """
         保存先フォルダ以下の一括スキャンと DB への同期を実行する
         - 追加・変更があった画像だけを解析して DB に登録する
@@ -513,6 +513,9 @@ class CaptureScanTask:
 
         Args:
             folders (list[str] | None): 対象の保存先 (省略時は設定されたすべての保存先)
+
+        Returns:
+            bool: すべての保存先を最後まで走査できた場合は True (読めなかったフォルダや、途中で失敗した処理があった場合は False)
         """
 
         # 既に一括スキャンを実行中の場合は HTTPException を発生させる
@@ -574,8 +577,11 @@ class CaptureScanTask:
             ## 実装側の誤りは受け止めずに呼び出し元へ伝え、手動の一括スキャンの API は失敗を返す
             except (OSError, OperationalError, IntegrityError) as ex:
                 logging.error('Capture batch scan failed.', exc_info=ex)
+                return False
             finally:
                 self.batch_scan_status.is_running = False
+
+            return is_complete
 
 
     async def scanRoot(self, root: str) -> CaptureRootScanResult:
@@ -936,7 +942,7 @@ class CaptureScanTask:
                 return
 
             # 消えたファイルを確定するために始めた一括スキャンのタスク (終わるまで参照を持っておく)
-            scan_tasks: set[asyncio.Task[None]] = set()
+            scan_tasks: set[asyncio.Task[bool]] = set()
 
             while True:
                 try:
