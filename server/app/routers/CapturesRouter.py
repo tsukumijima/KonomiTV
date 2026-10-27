@@ -784,8 +784,16 @@ async def CaptureUploadAPI(
                         datetime.fromtimestamp(stat.st_ctime, JST) == existing_file.file_created_at and
                         datetime.fromtimestamp(stat.st_mtime, JST) == existing_file.file_modified_at
                     )
-                    if is_unchanged is True:
-                        return (await SerializeCaptures(await GetCaptureRows([existing_capture.id]), user))[0]
+                    if is_unchanged is False:
+                        continue
+                    # 移動の照合で、同じ名前・サイズ・更新日時の別の画像に場所が付け替わっていることがあるので、中身のハッシュも照合する
+                    ## 別の画像だったら読んだ内容で登録し直し、ほかの場所を試す (どこにもなければ、このあとで保存する)
+                    existing_data = await anyio.Path(existing_file.file_path).read_bytes()
+                    existing_digest = await asyncio.to_thread(lambda: hashlib.sha256(existing_data).digest())
+                    if existing_digest != bytes(existing_capture.file_hash):
+                        await scanner.registerFile(existing_file.file_path, data=existing_data, force=True)
+                        continue
+                    return (await SerializeCaptures(await GetCaptureRows([existing_capture.id]), user))[0]
             except OSError:
                 continue
 
