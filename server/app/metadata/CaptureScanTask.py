@@ -536,8 +536,9 @@ class CaptureScanTask:
 
                 # 進捗の総数には、録画の一括スキャンと同じく登録済みのファイル数を使う
                 ## 新しく見つかったファイルの分は、処理した件数が総数を超えた時点で総数を増やして合わせる
+                ## 保存先がドライブのルート (F:\ や /) のときも区切りが二重にならないよう、末尾の区切りを os.path.join() で1つにそろえる
                 for root in roots:
-                    registered_count = await CaptureFile.filter(file_path__startswith=root + os.sep).count()
+                    registered_count = await CaptureFile.filter(file_path__startswith=os.path.join(root, '')).count()
                     self.batch_scan_status.total_count += registered_count
 
                 # 保存先を1つずつ走査する
@@ -588,7 +589,8 @@ class CaptureScanTask:
         scan_started_at = datetime.now(JST)
 
         # この保存先に登録済みの場所を取得する (メモリを抑えるため、照合に使う列だけを取得する)
-        rows = await CaptureFile.filter(file_path__startswith=root + os.sep).values(
+        ## 保存先がドライブのルート (F:\ や /) のときも区切りが二重にならないよう、末尾の区切りを os.path.join() で1つにそろえる
+        rows = await CaptureFile.filter(file_path__startswith=os.path.join(root, '')).values(
             'id',
             'file_path',
             'file_name',
