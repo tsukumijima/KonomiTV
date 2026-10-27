@@ -1,8 +1,8 @@
 <template>
-    <div ref="rootRef" class="capture-timeline" :style="{ height: `${totalHeight}px` }">
+    <div ref="rootRef" class="capture-timeline" :style="{ height: `${domHeight}px` }">
         <!-- 見えている日の、見えている行のタイルだけを描画する -->
         <template v-for="section in visibleSections" :key="section.date">
-            <div class="capture-timeline__header" :style="{ top: `${section.top}px` }">
+            <div class="capture-timeline__header" :style="{ top: `${section.top - baseOffset}px` }">
                 <div v-ripple class="capture-timeline__header-check"
                     :class="{'capture-timeline__header-check--visible': selection.isSelecting.value}"
                     @click="toggleDay(section)">
@@ -67,10 +67,14 @@ const emit = defineEmits<{
 // 見出しの高さ・タイルの間隔・タイルの最小の幅 (px)
 const HEADER_HEIGHT = 48;
 const SECTION_GAP = 14;
+// ブラウザが扱える要素の高さには上限 (Chrome では約 3,355 万 px) があり、百万枚規模ではそれを超える
+// そのため要素の高さはこの値までにとどめ、要素の上端に当たるタイムラインの位置 (baseOffset) をずらしながら、その範囲だけを描画する
+const MAX_DOM_HEIGHT = 8_000_000;
 const rootRef = ref<HTMLElement | null>(null);
 const containerWidth = ref(0);
 const viewportHeight = ref(window.innerHeight);
 const scrollOffset = ref(0);  // タイムラインの先頭から見た、画面の上端の位置
+const baseOffset = ref(0);  // 要素の上端に当たる、タイムラインの先頭からの位置
 
 // 日付ごとの件数と、読み込んだ日のキャプチャ
 const sections = shallowRef<ITimelineSection[]>([]);
@@ -107,7 +111,22 @@ const totalHeight = computed(() => {
     const last = sections.value[sections.value.length - 1];
     return last ? last.top + last.height : 0;
 });
+const domHeight = computed(() => Math.min(totalHeight.value, MAX_DOM_HEIGHT));
 watch(grid, layout);
+
+// 全体の高さが変わったら (絞り込みや画面の幅の変更)、要素の範囲がタイムラインの外へはみ出さないようにずらす位置を収める
+watch(totalHeight, (height) => {
+    baseOffset.value = Math.min(baseOffset.value, Math.max(height - MAX_DOM_HEIGHT, 0));
+});
+
+/**
+ * タイムラインの位置が要素の範囲の真ん中に来るよう、要素の上端に当たる位置を決める
+ * @param contentY タイムラインの先頭からの位置
+ * @returns 要素の上端に当たる位置
+ */
+const centerBaseOffset = (contentY: number) => {
+    return Math.min(Math.max(contentY - MAX_DOM_HEIGHT / 2, 0), Math.max(totalHeight.value - MAX_DOM_HEIGHT, 0));
+};
 
 // 位置から日を引く二分探索
 const findSectionIndex = (y: number) => {
@@ -176,7 +195,7 @@ const visibleTiles = (section: ITimelineSection) => {
                 key: capture ? `c${capture.id}` : `${section.date}-${index}`,
                 capture,
                 style: {
-                    top: `${section.top + HEADER_HEIGHT + row * rowHeight}px`,
+                    top: `${section.top + HEADER_HEIGHT + row * rowHeight - baseOffset.value}px`,
                     left: `${column * (tileWidth + gap)}px`,
                     width: `${tileWidth}px`,
                     height: `${tileHeight}px`,
@@ -239,6 +258,7 @@ const loadDay = async (date: string) => {
 const reload = async () => {
     generation++;
     const myGeneration = generation;
+    baseOffset.value = 0;
     loadedDays.value = new Map();
     pendingDays.length = 0;
     const result = await Captures.fetchSections({ axis: props.axis, day_start_hour: props.dayStartHour, filter: props.filter });
@@ -262,7 +282,33 @@ const updateViewport = () => {
     if (rootRef.value === null) {
         return;
     }
-    scrollOffset.value = -rootRef.value.getBoundingClientRect().top;
+    const domScrollOffset = -rootRef.value.getBoundingClientRect().top;
+    let contentY = baseOffset.value + domScrollOffset;
+
+    // ページの先頭や末尾まで一気にスクロールしたとき (Home・End キーや、スマホで画面の上端をタップしたとき) は、タイムラインの先頭や末尾を出す
+    const isAtPageTop = window.scrollY <= 0;
+    const isAtPageBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
+    // 要素の範囲の端の4分の1まで来たら、今の位置が範囲の真ん中に来るようにずらし、同じ量だけページのスクロールを戻す
+    // 描画する位置も同じ量だけずれるので見た目は動かず、そのままスクロールを続けられる (ずらすのは数百万 px スクロールするごとに1回だけ)
+    const edgeMargin = MAX_DOM_HEIGHT / 4;
+    const isNearTop = domScrollOffset < edgeMargin && baseOffset.value > 0;
+    const isNearBottom = domScrollOffset > domHeight.value - edgeMargin && baseOffset.value + domHeight.value < totalHeight.value;
+    if (isAtPageTop && baseOffset.value > 0) {
+        baseOffset.value = 0;
+        contentY = domScrollOffset;
+    } else if (isAtPageBottom && isNearBottom) {
+        baseOffset.value = totalHeight.value - domHeight.value;
+        contentY = baseOffset.value + domScrollOffset;
+    } else if (isNearTop || isNearBottom) {
+        const nextBaseOffset = centerBaseOffset(contentY);
+        const delta = nextBaseOffset - baseOffset.value;
+        if (delta !== 0) {
+            baseOffset.value = nextBaseOffset;
+            window.scrollBy({ top: -delta, behavior: 'instant' });
+        }
+    }
+
+    scrollOffset.value = contentY;
     viewportHeight.value = window.innerHeight;
 };
 const onScroll = () => {
@@ -315,8 +361,12 @@ const scrollToContentY = (y: number) => {
         return;
     }
     const rootTop = rootRef.value.getBoundingClientRect().top + window.scrollY;
+    // 移る先が要素の範囲の真ん中に来るよう、先に要素の上端に当たる位置をずらしてから、ページをスクロールする
+    baseOffset.value = centerBaseOffset(y);
     // 固定ヘッダーの下に日の見出しが来るよう、少しだけ手前に合わせる
-    window.scrollTo({ top: Math.max(0, rootTop + y - 72) });
+    window.scrollTo({ top: Math.max(0, rootTop + y - baseOffset.value - 72) });
+    // ずらしたあとのページのスクロール位置が前と同じでもスクロールのイベントは届かないので、描画する範囲を取り直す
+    onScroll();
 };
 
 // 日の見出しの「この日をすべて選択」
