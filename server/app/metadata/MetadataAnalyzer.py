@@ -269,10 +269,10 @@ class MetadataAnalyzer:
         video_resolution_width: int | None = None
         video_resolution_height: int | None = None
         has_video_stream_changes: bool = False
-        primary_audio_codec: Literal['AAC-LC'] | None = None
+        primary_audio_codec: Literal['AAC-LC', 'HE-AAC'] | None = None
         primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         primary_audio_sampling_rate: int | None = None
-        secondary_audio_codec: Literal['AAC-LC'] | None = None
+        secondary_audio_codec: Literal['AAC-LC', 'HE-AAC'] | None = None
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
@@ -404,8 +404,11 @@ class MetadataAnalyzer:
                     prof = audio_stream.profile
                     if prof is None or 'LC' in prof:
                         primary_audio_codec = 'AAC-LC'
+                    elif prof == 'HE-AAC':
+                        # ワンセグの AAC+SBR は HE-AAC として報告される (再生時は AAC-LC に変換するので再生できる)
+                        primary_audio_codec = 'HE-AAC'
                 if primary_audio_codec is None:
-                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    # AAC-LC・HE-AAC 以外のフォーマットは当面 KonomiTV で再生できない
                     logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
                 ## チャンネル数
@@ -432,8 +435,11 @@ class MetadataAnalyzer:
                     prof = audio_stream.profile
                     if prof is None or 'LC' in prof:
                         secondary_audio_codec = 'AAC-LC'
+                    elif prof == 'HE-AAC':
+                        # ワンセグの AAC+SBR は HE-AAC として報告される (再生時は AAC-LC に変換するので再生できる)
+                        secondary_audio_codec = 'HE-AAC'
                 if secondary_audio_codec is None:
-                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    # AAC-LC・HE-AAC 以外のフォーマットは当面 KonomiTV で再生できない
                     logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
                 ## チャンネル数
