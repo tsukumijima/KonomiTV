@@ -704,6 +704,7 @@ class RecordedScanTask:
                             )
                             existing_recorded_video_summary.status = 'Recorded'
                             logging.info(f'{file_path}: Restored record for reappeared file.')
+                            await self.__restartBackgroundAnalysis(file_path, file_path, existing_recorded_video_summary.id)
                         # logging.debug(f'{file_path}: File metadata unchanged, skipping...')
                         return
 
@@ -796,6 +797,11 @@ class RecordedScanTask:
 
                         self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
                         logging.info(f'{file_path}: Moved record from {candidate_row["file_path"]}.')
+                        await self.__restartBackgroundAnalysis(
+                            anyio.Path(candidate_row['file_path']),
+                            file_path,
+                            candidate_row['id'],
+                        )
                         return
 
                 # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
@@ -1250,6 +1256,57 @@ class RecordedScanTask:
             ## 中身が変わって解析をやり直した場合は新しいタスクが同じパスで登録されているので、自分自身が登録されているときだけ削除する
             if self._background_tasks.get(file_path) is asyncio.current_task():
                 self._background_tasks.pop(file_path, None)
+
+
+    async def __restartBackgroundAnalysis(
+        self,
+        old_file_path: anyio.Path,
+        new_file_path: anyio.Path,
+        recorded_video_id: int,
+    ) -> None:
+        """
+        見つからなくなっていた録画のレコードを録画済みに戻したあと、終わっていないバックグラウンド解析をやり直す
+        別のパスへ付け替えたときは、サムネイル生成と CM 区間検出は保存先のレコードをファイルパスで探すため、古いパスで走っていた解析を取り消す
+        同じパスに戻ったときは、見えなくなっている間に解析が失敗している場合があるため、走っている解析がなければやり直す
+
+        Args:
+            old_file_path (anyio.Path): 見つからなくなる前の録画ファイルのパス (同じパスに戻ったときは new_file_path と同じ)
+            new_file_path (anyio.Path): 戻ってきた録画ファイルのパス
+            recorded_video_id (int): 録画済みに戻した RecordedVideo の ID
+        """
+
+        # 同じパスで解析が走っていれば、その解析が今のレコードへ結果を保存するので、そのまま任せる
+        if old_file_path == new_file_path and new_file_path in self._background_tasks:
+            return
+
+        # 古いパスで走っているバックグラウンド解析を取り消し、終わるのを待つ
+        if old_file_path != new_file_path:
+            running_task = self._background_tasks.pop(old_file_path, None)
+            if running_task is not None:
+                logging.info(f'{old_file_path}: Cancelling background analysis task for moved file.')
+                running_task.cancel()
+                await asyncio.wait([running_task])
+
+        # サムネイルと CM 区間の両方がそろっていれば、やり直す必要はない
+        db_recorded_video = await RecordedVideo.get_or_none(id=recorded_video_id)
+        if db_recorded_video is None or db_recorded_video.status != 'Recorded':
+            return
+        if db_recorded_video.thumbnail_info is not None and db_recorded_video.cm_sections is not None:
+            return
+
+        # 新しいパスの録画番組情報で、バックグラウンド解析をやり直す
+        db_recorded_program = await RecordedProgram.all() \
+            .select_related('recorded_video') \
+            .select_related('channel') \
+            .get_or_none(id=db_recorded_video.recorded_program_id)
+        if db_recorded_program is None:
+            return
+        recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
+        logging.info(f'{new_file_path}: Restarting background analysis task for restored file.')
+        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+        # 待機しない通常スキャンでも例外を回収する (ERROR ログは解析タスク内で出力する)
+        task.add_done_callback(lambda completed: completed.exception() if not completed.cancelled() else None)
+        self._background_tasks[new_file_path] = task
 
 
     async def __migrateKeyFramesToSegmentMap(self) -> None:
@@ -1800,6 +1857,7 @@ class RecordedScanTask:
                                 self._file_locks.pop(moved_file_path, None)
                         if is_moved is True:
                             logging.info(f'{file_path}: Moved record to {moved_file_path}.')
+                            await self.__restartBackgroundAnalysis(file_path, moved_file_path, db_recorded_video.id)
                             return
 
                 # 見つからなくなった録画済みのレコードは、すぐには削除せず Missing にする
