@@ -774,8 +774,14 @@ onMounted(() => window.addEventListener('keydown', onKeyDown));
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
 
 // 開いている間はページのスクロールを止める
+// App.vue の html の overflow-y の指定より優先されるよう、Vuetify のダイアログと同じクラスを付ける
+// 先に付けておくと、上に重ねたタグのダイアログは html を対象から外すので、ダイアログを閉じてもクラスが残る
 watch(() => props.capture !== null, (isOpen) => {
-    document.documentElement.style.overflow = isOpen ? 'hidden' : '';
+    if (isOpen) {
+        document.documentElement.classList.add('v-overlay-scroll-blocked');
+    } else {
+        document.documentElement.classList.remove('v-overlay-scroll-blocked');
+    }
     if (isOpen && !hasHistoryEntry) {
         window.history.pushState({ ...window.history.state }, '');
         hasHistoryEntry = true;
@@ -792,7 +798,7 @@ watch(() => props.capture !== null, (isOpen) => {
     }
 }, { immediate: true });
 onBeforeUnmount(() => {
-    document.documentElement.style.overflow = '';
+    document.documentElement.classList.remove('v-overlay-scroll-blocked');
 });
 
 </script>
