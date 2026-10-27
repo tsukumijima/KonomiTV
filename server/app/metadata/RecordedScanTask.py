@@ -237,265 +237,268 @@ class RecordedScanTask:
         logging.info('Batch scan of recording folders has been started.')
         self.batch_scan_status = schemas.MaintenanceTaskStatus(is_running=True)
 
-        # 現在登録されている全ての RecordedVideo レコードの情報をキャッシュ
-        ## すべての情報をキャッシュすると key_frames フィールドのデータ量が大きすぎてメモリとディスク I/O を大量に食うため、
-        ## 必要最低限の情報のみをキャッシュする
-        logging.info('Gathering all recorded video records...')
-        all_video_rows = await RecordedVideo.all().values(
-            'id',
-            'file_path',
-            'created_at',
-            'recorded_program_id',
-            'status',
-            'file_created_at',
-            'file_modified_at',
-            'file_size',
-            'file_hash',
-        )
-        videos_by_path: dict[str, list[RecordedVideoSummary]] = {}
-        videos_to_keep: list[RecordedVideoSummary] = []  # 保持するレコードのリスト
-        for index, row in enumerate(all_video_rows, start=1):
-            recorded_video_summary = RecordedVideoSummary(
-                id = row['id'],
-                file_path = row['file_path'],
-                created_at = row['created_at'],
-                recorded_program_id = row['recorded_program_id'],
-                status = row['status'],
-                file_created_at = row['file_created_at'],
-                file_modified_at = row['file_modified_at'],
-                file_size = row['file_size'],
-                file_hash = row['file_hash'],
-            )
-            if recorded_video_summary.file_path not in videos_by_path:
-                videos_by_path[recorded_video_summary.file_path] = []
-            videos_by_path[recorded_video_summary.file_path].append(recorded_video_summary)
-            if index % 100 == 0:
-                # 起動時にイベントループが他のタスクを処理できるよう定期的に制御を返す
-                await asyncio.sleep(0)
-
-        # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
-        ## 重複削除処理をトランザクション配下で実行
-        logging.info('Checking for duplicate recorded video records...')
-        duplicates_found = False
-        total_deleted_count = 0
-        async with transactions.in_transaction():
-            for index, (file_path, videos) in enumerate(videos_by_path.items(), start=1):
-                if len(videos) > 1:
-                    duplicates_found = True
-                    logging.warning(f'{file_path}: Found {len(videos)} duplicate records. Keeping the latest one.')
-                    # created_at でソートして最新のレコードを特定
-                    videos.sort(key=lambda v: v.created_at, reverse=True)
-                    latest_video = videos[0]
-                    videos_to_keep.append(latest_video)  # 最新のものを保持リストに追加
-                    # 最新以外のレコードを削除
-                    for video_to_delete in videos[1:]:
-                        try:
-                            # RecordedProgram を削除 (CASCADE により RecordedVideo も削除される)
-                            await RecordedProgram.filter(id=video_to_delete.recorded_program_id).delete()
-                            logging.info(
-                                f'{file_path}: Deleted duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}] '
-                                f'[kept recorded_program_id: {latest_video.recorded_program_id}]'
-                            )
-                        except Exception as ex_del:
-                            logging.error(
-                                f'{file_path}: Failed to delete duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}]',
-                                exc_info=ex_del,
-                            )
-                    # 削除対象のレコード数をカウント
-                    deleted_count = len(videos) - 1  # -1 は最新のレコードを除いた数
-                    total_deleted_count += deleted_count
-                else:
-                    # 重複がない場合も保持リストに追加
-                    videos_to_keep.append(videos[0])
-                if index % 50 == 0:
-                    # 重複チェックがイベントループを占有し続けないよう適宜制御を返す
-                    await asyncio.sleep(0)
-        if duplicates_found:
-            logging.info(f'Duplicate record cleanup finished. Total {total_deleted_count} duplicate records were deleted.')
-        else:
-            logging.info('No duplicate records found.')
-
-        # 旧 key_frames が残っている録画は、再生開始位置キャッシュへ変換して DB サイズを抑える
-        await self.__migrateKeyFramesToSegmentMap()
-
-        # 現在登録されている全ての RecordedVideo レコードをキャッシュ
-        ## 重複削除処理で保持すると判断されたレコードのみを使う
-        existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] = {}
-        for video in videos_to_keep:
-            # 既存レコードのファイルパスもシンボリックリンクを解決して正規化する
-            canonical_path = await self.resolveRecordedPath(anyio.Path(video.file_path))
-            video.file_path = str(canonical_path)
-            existing_db_recorded_videos[anyio.Path(video.file_path)] = video
-
-        # スキャン対象から除外するフォルダ
-        # 空文字列は全パスにマッチしてしまうため除外する
-        exclude_scan_paths = [
-            self.__normalizePathForPrefixMatch(pattern)
-            for pattern in self.config.video.exclude_scan_paths
-            if type(pattern) is str and pattern.strip() != ''
-        ]
-
-        # 進捗の総数には、登録済みの録画ファイルの件数を使う
-        ## 全ファイルを先に数えると最初の1件の処理が遅れるため、走査の前には数えない
-        ## 新しく見つかったファイルの分は、処理した件数が総数を超えた時点で総数を増やして合わせる
-        self.batch_scan_status.total_count = len(existing_db_recorded_videos)
-
-        # 各録画フォルダをスキャン
-        logging.info('Scanning recorded folders...')
-        processed_canonical_paths: set[str] = set()
-        for folder in self.recorded_folders:
-            async for file_path in folder.rglob('*'):
-                try:
-                    # Mac の metadata ファイルをスキップ
-                    if file_path.name.startswith('._'):
-                        continue
-                    # 除外パターンのチェック（シンボリックリンク解決前）
-                    original_path_str = str(file_path)
-                    original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
-                    if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
-                        continue
-                    # シンボリックリンクを含むパスは実体に解決して処理する
-                    canonical_path = await self.resolveRecordedPath(file_path)
-                    canonical_path_str = str(canonical_path)
-                    # 除外パターンのチェック（シンボリックリンク解決後）
-                    # 空文字列は全パスにマッチしてしまうため除外する
-                    canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
-                    if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
-                        continue
-                    # シンボリックリンクのマッピングを更新する
-                    await self.__updateSymlinkMapping(original_path_str, canonical_path_str)
-                    if await canonical_path.is_dir():
-                        continue
-                    # 対象拡張子のファイル以外をスキップ
-                    if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
-                        continue
-                    # 録画ファイルが確実に存在することを確認する
-                    ## 環境次第では、稀に glob で取得したファイルが既に存在しなくなっているケースがある
-                    if not await self.isFileExists(canonical_path):
-                        continue
-                    if canonical_path_str in processed_canonical_paths:
-                        continue
-                    processed_canonical_paths.add(canonical_path_str)
-                    self.batch_scan_status.processed_count += 1
-                    self.batch_scan_status.total_count = max(self.batch_scan_status.total_count, self.batch_scan_status.processed_count)
-
-                    # 見つかったファイルを処理
-                    await self.processRecordedFile(
-                        file_path = canonical_path,
-                        original_path = file_path,
-                        existing_db_recorded_videos = existing_db_recorded_videos,
-                    )
-                except Exception as ex:
-                    logging.error(f'{file_path}: Failed to process recorded file:', exc_info=ex)
-
-        # 存在しない録画ファイルに対応するレコードを一括削除
-        ## トランザクション配下に入れることでパフォーマンスが向上する
-        logging.info('Deleting records for non-existent files...')
-        async with transactions.in_transaction():
-            for index, (file_path, existing_recorded_video_summary) in enumerate(existing_db_recorded_videos.items(), start=1):
-                # ファイルの存在確認を非同期に行う
-                if not await self.isFileExists(file_path):
-                    # RecordedVideo の親テーブルである RecordedProgram を削除すると、
-                    # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
-                    await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
-                    logging.info(f'{file_path}: Deleted record for non-existent file.')
-                if index % 50 == 0:
-                    # 既存レコードの走査がイベントループを占有し続けないよう適宜制御を返す
-                    await asyncio.sleep(0)
-
-        # DB に存在する全ての RecordedVideo レコードのハッシュを取得
-        ## ハッシュを取得した時刻も保持し、これより後に書き込まれたサムネイルを削除の対象から外すために使う
-        logging.info('Gathering all recorded video hashes...')
-        hashes_gathered_at = datetime.now(tz=JST)
-        db_recorded_video_hashes = set(
-            cast(list[str], await RecordedVideo.all().values_list('file_hash', flat=True))
-        )
-
-        # サムネイルフォルダ内の全ファイルをスキャンし、不要なサムネイルファイルを削除
-        logging.info('Deleting orphaned thumbnail files...')
-        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
-        if await thumbnails_dir.is_dir():
-            async for thumbnail_path in thumbnails_dir.glob('*'):
-                try:
-                    # .git から始まるファイルは無視
-                    if thumbnail_path.name.startswith('.git'):
-                        continue
-                    # ディレクトリは無視
-                    if await thumbnail_path.is_dir():
-                        continue
-
-                    # ファイル名からハッシュを抽出
-                    ## ファイル名は "{hash}.webp" または "{hash}_tile.webp" の形式
-                    file_name = thumbnail_path.stem
-                    if file_name.endswith('_tile'):
-                        file_hash = file_name[:-5]  # "_tile" を除去
-                    else:
-                        file_hash = file_name
-
-                    # DB に存在しないハッシュのファイルを削除
-                    if file_hash not in db_recorded_video_hashes:
-                        # ハッシュを取得した後に書き込まれたサムネイルは、その後に DB に保存された録画のものなので残す
-                        ## サムネイルは録画のメタデータを DB に保存してから生成されるため、ハッシュの一覧を取った後に書き込まれたものは、一覧の後に保存された録画のサムネイルにあたる
-                        ## ファイルの更新日時は OS やファイルシステムによって現在時刻より粗い精度で記録されるため (FAT 系では2秒単位)、1分前までさかのぼって比べる
-                        thumbnail_stat = await thumbnail_path.stat()
-                        thumbnail_modified_at = datetime.fromtimestamp(thumbnail_stat.st_mtime, tz=JST)
-                        if thumbnail_modified_at >= hashes_gathered_at - timedelta(minutes=1):
-                            continue
-                        await thumbnail_path.unlink()
-                        logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
-                except Exception as ex:
-                    logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
-
-        # かつてのバグで RecordedVideo.file_hash が衝突している録画ファイルのメタデータを再解析する
-        ## トランザクション配下に入れることでパフォーマンスが向上する
-        ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
-        ## ref: https://github.com/tsukumijima/KonomiTV/commit/92e8630f41b6440ebd10defa5fdde1489ac7376a
-        async with transactions.in_transaction():
-            collision_video_rows = await RecordedVideo.filter(
-                file_hash__in=list(self.KNOWN_COLLISION_FILE_HASHES),
-            ).values(
-                'status',
+        # 例外やキャンセルで途中で終わった場合も実行中の状態を解除し、次の一括スキャンを実行できるようにする
+        try:
+            # 現在登録されている全ての RecordedVideo レコードの情報をキャッシュ
+            ## すべての情報をキャッシュすると key_frames フィールドのデータ量が大きすぎてメモリとディスク I/O を大量に食うため、
+            ## 必要最低限の情報のみをキャッシュする
+            logging.info('Gathering all recorded video records...')
+            all_video_rows = await RecordedVideo.all().values(
+                'id',
                 'file_path',
+                'created_at',
+                'recorded_program_id',
+                'status',
+                'file_created_at',
+                'file_modified_at',
+                'file_size',
                 'file_hash',
             )
-            processed_collision_paths: set[str] = set()
-            if len(collision_video_rows) > 0:
-                logging.info(f'Found {len(collision_video_rows)} videos affected by known hash collisions. Reanalyzing...')
-                for collision_video_row in collision_video_rows:
-                    file_path_str = collision_video_row['file_path']
-                    # 既に処理済みのファイルはスキップ
-                    if file_path_str in processed_collision_paths:
-                        continue
-                    # 録画中のファイルは今後の解析に任せる
-                    if collision_video_row['status'] == 'Recording':
-                        continue
-                    file_path = anyio.Path(file_path_str)
-                    # ファイルが存在しない場合はスキップ
-                    if not await self.isFileExists(file_path):
-                        continue
-                    try:
-                        # メタデータ再解析を実行
-                        logging.info(f'{file_path}: Reanalyzing due to known hash collision ({collision_video_row["file_hash"]}).')
-                        await self.processRecordedFile(
-                            file_path = file_path,
-                            force_update = True,
-                        )
-                        # 処理済みファイルに追加
-                        processed_collision_paths.add(file_path_str)
-                        logging.info(f'{file_path}: Reanalysis completed.')
-                    except Exception as ex:
-                        logging.error(f'{file_path}: Failed to reanalyze known hash collision file:', exc_info=ex)
+            videos_by_path: dict[str, list[RecordedVideoSummary]] = {}
+            videos_to_keep: list[RecordedVideoSummary] = []  # 保持するレコードのリスト
+            for index, row in enumerate(all_video_rows, start=1):
+                recorded_video_summary = RecordedVideoSummary(
+                    id = row['id'],
+                    file_path = row['file_path'],
+                    created_at = row['created_at'],
+                    recorded_program_id = row['recorded_program_id'],
+                    status = row['status'],
+                    file_created_at = row['file_created_at'],
+                    file_modified_at = row['file_modified_at'],
+                    file_size = row['file_size'],
+                    file_hash = row['file_hash'],
+                )
+                if recorded_video_summary.file_path not in videos_by_path:
+                    videos_by_path[recorded_video_summary.file_path] = []
+                videos_by_path[recorded_video_summary.file_path].append(recorded_video_summary)
+                if index % 100 == 0:
+                    # 起動時にイベントループが他のタスクを処理できるよう定期的に制御を返す
+                    await asyncio.sleep(0)
 
-        # メタデータ解析に失敗した録画ファイルの数をログ出力
-        analysis_failed_count = await RecordedVideo.filter(status='AnalysisFailed').count()
-        if analysis_failed_count > 0:
-            logging.warning(
-                f'Batch scan completed with files in AnalysisFailed status. '
-                f'count: {analysis_failed_count}. '
-                f'Re-run metadata analysis after checking source files.',
+            # 同一ファイルパスに対応するレコードが複数存在する場合、最新のものを保持して残りを削除する
+            ## 重複削除処理をトランザクション配下で実行
+            logging.info('Checking for duplicate recorded video records...')
+            duplicates_found = False
+            total_deleted_count = 0
+            async with transactions.in_transaction():
+                for index, (file_path, videos) in enumerate(videos_by_path.items(), start=1):
+                    if len(videos) > 1:
+                        duplicates_found = True
+                        logging.warning(f'{file_path}: Found {len(videos)} duplicate records. Keeping the latest one.')
+                        # created_at でソートして最新のレコードを特定
+                        videos.sort(key=lambda v: v.created_at, reverse=True)
+                        latest_video = videos[0]
+                        videos_to_keep.append(latest_video)  # 最新のものを保持リストに追加
+                        # 最新以外のレコードを削除
+                        for video_to_delete in videos[1:]:
+                            try:
+                                # RecordedProgram を削除 (CASCADE により RecordedVideo も削除される)
+                                await RecordedProgram.filter(id=video_to_delete.recorded_program_id).delete()
+                                logging.info(
+                                    f'{file_path}: Deleted duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}] '
+                                    f'[kept recorded_program_id: {latest_video.recorded_program_id}]'
+                                )
+                            except Exception as ex_del:
+                                logging.error(
+                                    f'{file_path}: Failed to delete duplicate record. [deleted recorded_program_id: {video_to_delete.recorded_program_id}]',
+                                    exc_info=ex_del,
+                                )
+                        # 削除対象のレコード数をカウント
+                        deleted_count = len(videos) - 1  # -1 は最新のレコードを除いた数
+                        total_deleted_count += deleted_count
+                    else:
+                        # 重複がない場合も保持リストに追加
+                        videos_to_keep.append(videos[0])
+                    if index % 50 == 0:
+                        # 重複チェックがイベントループを占有し続けないよう適宜制御を返す
+                        await asyncio.sleep(0)
+            if duplicates_found:
+                logging.info(f'Duplicate record cleanup finished. Total {total_deleted_count} duplicate records were deleted.')
+            else:
+                logging.info('No duplicate records found.')
+
+            # 旧 key_frames が残っている録画は、再生開始位置キャッシュへ変換して DB サイズを抑える
+            await self.__migrateKeyFramesToSegmentMap()
+
+            # 現在登録されている全ての RecordedVideo レコードをキャッシュ
+            ## 重複削除処理で保持すると判断されたレコードのみを使う
+            existing_db_recorded_videos: dict[anyio.Path, RecordedVideoSummary] = {}
+            for video in videos_to_keep:
+                # 既存レコードのファイルパスもシンボリックリンクを解決して正規化する
+                canonical_path = await self.resolveRecordedPath(anyio.Path(video.file_path))
+                video.file_path = str(canonical_path)
+                existing_db_recorded_videos[anyio.Path(video.file_path)] = video
+
+            # スキャン対象から除外するフォルダ
+            # 空文字列は全パスにマッチしてしまうため除外する
+            exclude_scan_paths = [
+                self.__normalizePathForPrefixMatch(pattern)
+                for pattern in self.config.video.exclude_scan_paths
+                if type(pattern) is str and pattern.strip() != ''
+            ]
+
+            # 進捗の総数には、登録済みの録画ファイルの件数を使う
+            ## 全ファイルを先に数えると最初の1件の処理が遅れるため、走査の前には数えない
+            ## 新しく見つかったファイルの分は、処理した件数が総数を超えた時点で総数を増やして合わせる
+            self.batch_scan_status.total_count = len(existing_db_recorded_videos)
+
+            # 各録画フォルダをスキャン
+            logging.info('Scanning recorded folders...')
+            processed_canonical_paths: set[str] = set()
+            for folder in self.recorded_folders:
+                async for file_path in folder.rglob('*'):
+                    try:
+                        # Mac の metadata ファイルをスキップ
+                        if file_path.name.startswith('._'):
+                            continue
+                        # 除外パターンのチェック（シンボリックリンク解決前）
+                        original_path_str = str(file_path)
+                        original_path_for_match = self.__normalizePathForPrefixMatch(original_path_str)
+                        if any(original_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                            continue
+                        # シンボリックリンクを含むパスは実体に解決して処理する
+                        canonical_path = await self.resolveRecordedPath(file_path)
+                        canonical_path_str = str(canonical_path)
+                        # 除外パターンのチェック（シンボリックリンク解決後）
+                        # 空文字列は全パスにマッチしてしまうため除外する
+                        canonical_path_for_match = self.__normalizePathForPrefixMatch(canonical_path_str)
+                        if any(canonical_path_for_match.startswith(pattern) for pattern in exclude_scan_paths) is True:
+                            continue
+                        # シンボリックリンクのマッピングを更新する
+                        await self.__updateSymlinkMapping(original_path_str, canonical_path_str)
+                        if await canonical_path.is_dir():
+                            continue
+                        # 対象拡張子のファイル以外をスキップ
+                        if canonical_path.suffix.lower() not in self.SCAN_TARGET_EXTENSIONS:
+                            continue
+                        # 録画ファイルが確実に存在することを確認する
+                        ## 環境次第では、稀に glob で取得したファイルが既に存在しなくなっているケースがある
+                        if not await self.isFileExists(canonical_path):
+                            continue
+                        if canonical_path_str in processed_canonical_paths:
+                            continue
+                        processed_canonical_paths.add(canonical_path_str)
+                        self.batch_scan_status.processed_count += 1
+                        self.batch_scan_status.total_count = max(self.batch_scan_status.total_count, self.batch_scan_status.processed_count)
+
+                        # 見つかったファイルを処理
+                        await self.processRecordedFile(
+                            file_path = canonical_path,
+                            original_path = file_path,
+                            existing_db_recorded_videos = existing_db_recorded_videos,
+                        )
+                    except Exception as ex:
+                        logging.error(f'{file_path}: Failed to process recorded file:', exc_info=ex)
+
+            # 存在しない録画ファイルに対応するレコードを一括削除
+            ## トランザクション配下に入れることでパフォーマンスが向上する
+            logging.info('Deleting records for non-existent files...')
+            async with transactions.in_transaction():
+                for index, (file_path, existing_recorded_video_summary) in enumerate(existing_db_recorded_videos.items(), start=1):
+                    # ファイルの存在確認を非同期に行う
+                    if not await self.isFileExists(file_path):
+                        # RecordedVideo の親テーブルである RecordedProgram を削除すると、
+                        # CASCADE 制約により RecordedVideo も同時に削除される (Channel は親テーブルにあたるため削除されない)
+                        await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
+                        logging.info(f'{file_path}: Deleted record for non-existent file.')
+                    if index % 50 == 0:
+                        # 既存レコードの走査がイベントループを占有し続けないよう適宜制御を返す
+                        await asyncio.sleep(0)
+
+            # DB に存在する全ての RecordedVideo レコードのハッシュを取得
+            ## ハッシュを取得した時刻も保持し、これより後に書き込まれたサムネイルを削除の対象から外すために使う
+            logging.info('Gathering all recorded video hashes...')
+            hashes_gathered_at = datetime.now(tz=JST)
+            db_recorded_video_hashes = set(
+                cast(list[str], await RecordedVideo.all().values_list('file_hash', flat=True))
             )
-        logging.info('Batch scan of recording folders has been completed.')
-        self.batch_scan_status.is_running = False
+
+            # サムネイルフォルダ内の全ファイルをスキャンし、不要なサムネイルファイルを削除
+            logging.info('Deleting orphaned thumbnail files...')
+            thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+            if await thumbnails_dir.is_dir():
+                async for thumbnail_path in thumbnails_dir.glob('*'):
+                    try:
+                        # .git から始まるファイルは無視
+                        if thumbnail_path.name.startswith('.git'):
+                            continue
+                        # ディレクトリは無視
+                        if await thumbnail_path.is_dir():
+                            continue
+
+                        # ファイル名からハッシュを抽出
+                        ## ファイル名は "{hash}.webp" または "{hash}_tile.webp" の形式
+                        file_name = thumbnail_path.stem
+                        if file_name.endswith('_tile'):
+                            file_hash = file_name[:-5]  # "_tile" を除去
+                        else:
+                            file_hash = file_name
+
+                        # DB に存在しないハッシュのファイルを削除
+                        if file_hash not in db_recorded_video_hashes:
+                            # ハッシュを取得した後に書き込まれたサムネイルは、その後に DB に保存された録画のものなので残す
+                            ## サムネイルは録画のメタデータを DB に保存してから生成されるため、ハッシュの一覧を取った後に書き込まれたものは、一覧の後に保存された録画のサムネイルにあたる
+                            ## ファイルの更新日時は OS やファイルシステムによって現在時刻より粗い精度で記録されるため (FAT 系では2秒単位)、1分前までさかのぼって比べる
+                            thumbnail_stat = await thumbnail_path.stat()
+                            thumbnail_modified_at = datetime.fromtimestamp(thumbnail_stat.st_mtime, tz=JST)
+                            if thumbnail_modified_at >= hashes_gathered_at - timedelta(minutes=1):
+                                continue
+                            await thumbnail_path.unlink()
+                            logging.info(f'{thumbnail_path.name}: Deleted orphaned thumbnail file.')
+                    except Exception as ex:
+                        logging.error(f'{thumbnail_path}: Error deleting orphaned thumbnail file:', exc_info=ex)
+
+            # かつてのバグで RecordedVideo.file_hash が衝突している録画ファイルのメタデータを再解析する
+            ## トランザクション配下に入れることでパフォーマンスが向上する
+            ## メモリ使用量を抑えるため、key_frames などの大きなフィールドは取得せず、必要最低限のフィールドのみを取得する
+            ## ref: https://github.com/tsukumijima/KonomiTV/commit/92e8630f41b6440ebd10defa5fdde1489ac7376a
+            async with transactions.in_transaction():
+                collision_video_rows = await RecordedVideo.filter(
+                    file_hash__in=list(self.KNOWN_COLLISION_FILE_HASHES),
+                ).values(
+                    'status',
+                    'file_path',
+                    'file_hash',
+                )
+                processed_collision_paths: set[str] = set()
+                if len(collision_video_rows) > 0:
+                    logging.info(f'Found {len(collision_video_rows)} videos affected by known hash collisions. Reanalyzing...')
+                    for collision_video_row in collision_video_rows:
+                        file_path_str = collision_video_row['file_path']
+                        # 既に処理済みのファイルはスキップ
+                        if file_path_str in processed_collision_paths:
+                            continue
+                        # 録画中のファイルは今後の解析に任せる
+                        if collision_video_row['status'] == 'Recording':
+                            continue
+                        file_path = anyio.Path(file_path_str)
+                        # ファイルが存在しない場合はスキップ
+                        if not await self.isFileExists(file_path):
+                            continue
+                        try:
+                            # メタデータ再解析を実行
+                            logging.info(f'{file_path}: Reanalyzing due to known hash collision ({collision_video_row["file_hash"]}).')
+                            await self.processRecordedFile(
+                                file_path = file_path,
+                                force_update = True,
+                            )
+                            # 処理済みファイルに追加
+                            processed_collision_paths.add(file_path_str)
+                            logging.info(f'{file_path}: Reanalysis completed.')
+                        except Exception as ex:
+                            logging.error(f'{file_path}: Failed to reanalyze known hash collision file:', exc_info=ex)
+
+            # メタデータ解析に失敗した録画ファイルの数をログ出力
+            analysis_failed_count = await RecordedVideo.filter(status='AnalysisFailed').count()
+            if analysis_failed_count > 0:
+                logging.warning(
+                    f'Batch scan completed with files in AnalysisFailed status. '
+                    f'count: {analysis_failed_count}. '
+                    f'Re-run metadata analysis after checking source files.',
+                )
+            logging.info('Batch scan of recording folders has been completed.')
+        finally:
+            self.batch_scan_status.is_running = False
 
 
     async def processRecordedFile(
