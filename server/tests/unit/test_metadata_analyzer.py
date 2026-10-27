@@ -54,3 +54,15 @@ def test_analyze_recording_with_aac_frames_misaligned_to_pes(snapshot_json: Snap
     assert result['recorded_video']['primary_audio_channel'] == 'Stereo'
     assert result['recorded_video']['primary_audio_sampling_rate'] == 48000
     assert result == snapshot_json
+
+
+def test_analyze_recording_read_within_recording_start_margin() -> None:
+    """
+    番組情報を読む位置 (ファイル全体の 20%) が録画開始マージン (前の番組の終わり) に入る録画データでも、
+    前の番組ではなく、録画開始から1分以内に始まる録画対象の番組を選ぶ
+    このファイルは、番組の開始の約10秒前から録画を始めた録画の先頭の約4秒だけを切り出してあり、全体が前の番組の時間に入る
+    """
+
+    result = AnalyzeRecording('terrestrial-recording-start-margin.ts')
+    assert result['title'] == 'あおほし'
+    assert result['start_time'] == '2025-06-10T02:00:00+09:00'

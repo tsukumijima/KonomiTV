@@ -550,32 +550,36 @@ class MetadataAnalyzer:
                     )
                     break
 
-            # TS ファイルに含まれる番組情報・チャンネル情報を解析する
+            # TS ファイルに含まれる録画開始時刻と録画終了時刻を解析する
+            ## TSInfoAnalyzer.analyze() は、EIT を読んだ位置が録画開始マージン (前の番組) だったときに次の番組を選ぶ判定で
+            ## 録画開始時刻を参照するため、番組情報より先に解析しておく
             analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset, preferred_service_id=preferred_service_id)
+            recording_time = analyzer.analyzeRecordingTime()
+            if recording_time is not None:
+                recorded_video.recording_start_time = recording_time[0]
+                recorded_video.recording_end_time = recording_time[1]
+
+            # TS ファイルに含まれる番組情報・チャンネル情報を解析する
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
-                # 取得成功時は録画開始時刻と録画終了時刻も解析する
-                recording_time = analyzer.analyzeRecordingTime()
-                if recording_time is not None:
-                    recorded_video.recording_start_time = recording_time[0]
-                    recorded_video.recording_end_time = recording_time[1]
             else:
                 # 取得失敗時、最終更新日時が現在時刻から30秒以内ならまだ録画中の可能性が高いので、None を返し DB には保存しない
                 if (now - recorded_video.file_modified_at).total_seconds() < 30:
                     logging.warning(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis failed. (still recording?)')
                     return None
         else:
-            # 何らかのメタ情報から番組情報・チャンネル情報を解析する
+            # 何らかのメタ情報から録画開始時刻と録画終了時刻を解析する (番組情報より先に解析する理由は MPEG-TS の場合と同じ)
             analyzer = TSInfoAnalyzer(recorded_video)
+            recording_time = analyzer.analyzeRecordingTime()
+            if recording_time is not None:
+                recorded_video.recording_start_time = recording_time[0]
+                recorded_video.recording_end_time = recording_time[1]
+
+            # 何らかのメタ情報から番組情報・チャンネル情報を解析する
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')
-                # 取得成功時は録画開始時刻と録画終了時刻も解析する
-                recording_time = analyzer.analyzeRecordingTime()
-                if recording_time is not None:
-                    recorded_video.recording_start_time = recording_time[0]
-                    recorded_video.recording_end_time = recording_time[1]
 
         # MPEG-TS 形式ではなくメタ情報も存在しなければ番組情報は取得できないので、ファイル名などから最低限の情報を設定する
         # MPEG-TS 形式だが TS ファイルからチャンネル情報・番組情報を取得できなかった場合も同様
