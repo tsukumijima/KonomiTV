@@ -260,68 +260,73 @@ async def BackgroundAnalysisAPI():
         global background_analysis_task, background_analysis_status
         logging.info('Manual background analysis has started.')
 
-        # CM 区間情報やサムネイルが未生成の録画ファイルを取得
-        ## 再生開始位置はオンデマンドで解決できるため、重い key_frames は取得しない
-        video_rows = await RecordedVideo.filter(status='Recorded').values(
-            'id',
-            'recorded_program_id',
-            'file_path',
-            'file_hash',
-            'duration',
-            'cm_sections',
-        )
-        background_analysis_status = schemas.MaintenanceTaskStatus(is_running=True, total_count=len(video_rows))
+        # 録画ファイルを取得する前から実行中にして、ボタンを無効にする
+        ## 例外で途中で終わった場合も実行中の状態とタスクの参照を解除し、次の解析を実行できるようにする
+        background_analysis_status = schemas.MaintenanceTaskStatus(is_running=True)
+        try:
+            # CM 区間情報やサムネイルが未生成の録画ファイルを取得
+            ## 再生開始位置はオンデマンドで解決できるため、重い key_frames は取得しない
+            video_rows = await RecordedVideo.filter(status='Recorded').values(
+                'id',
+                'recorded_program_id',
+                'file_path',
+                'file_hash',
+                'duration',
+                'cm_sections',
+            )
+            background_analysis_status.total_count = len(video_rows)
 
-        # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
-        ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
-        ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
-        for video_row in video_rows:
-            background_analysis_status.processed_count += 1
-            file_path = anyio.Path(video_row['file_path'])
-            try:
-                if not await file_path.is_file():
-                    logging.warning(f'{file_path}: File not found. Skipping...')
+            # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
+            ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
+            ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
+            for video_row in video_rows:
+                background_analysis_status.processed_count += 1
+                file_path = anyio.Path(video_row['file_path'])
+                try:
+                    if not await file_path.is_file():
+                        logging.warning(f'{file_path}: File not found. Skipping...')
+                        continue
+
+                    # CM 区間検出とサムネイル生成を同時に実行
+                    tasks: list[Coroutine[Any, Any, None]] = []
+
+                    # CM 区間情報が未解析の場合、タスクに追加
+                    ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
+                    ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
+                    if video_row['cm_sections'] is None:
+                        tasks.append(CMSectionsDetector(
+                            file_path = anyio.Path(video_row['file_path']),
+                            duration_sec = video_row['duration'],
+                        ).detectAndSave())
+
+                    # サムネイルが未生成の場合、タスクに追加
+                    # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
+                    thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}_tile.webp'
+                    thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}.webp'
+                    if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
+                        # 録画番組情報を取得
+                        db_recorded_program = await RecordedProgram.all() \
+                            .select_related('recorded_video') \
+                            .select_related('channel') \
+                            .get_or_none(id=video_row['recorded_program_id'])
+                        if db_recorded_program is not None:
+                            # RecordedProgram モデルを schemas.RecordedProgram に変換
+                            recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
+                            tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
+
+                    # タスクが存在する場合、同時実行
+                    if tasks:
+                        await asyncio.gather(*tasks)
+
+                except Exception as ex:
+                    logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
                     continue
 
-                # CM 区間検出とサムネイル生成を同時に実行
-                tasks: list[Coroutine[Any, Any, None]] = []
-
-                # CM 区間情報が未解析の場合、タスクに追加
-                ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
-                ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
-                if video_row['cm_sections'] is None:
-                    tasks.append(CMSectionsDetector(
-                        file_path = anyio.Path(video_row['file_path']),
-                        duration_sec = video_row['duration'],
-                    ).detectAndSave())
-
-                # サムネイルが未生成の場合、タスクに追加
-                # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
-                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}_tile.webp'
-                thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}.webp'
-                if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
-                    # 録画番組情報を取得
-                    db_recorded_program = await RecordedProgram.all() \
-                        .select_related('recorded_video') \
-                        .select_related('channel') \
-                        .get_or_none(id=video_row['recorded_program_id'])
-                    if db_recorded_program is not None:
-                        # RecordedProgram モデルを schemas.RecordedProgram に変換
-                        recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
-                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
-
-                # タスクが存在する場合、同時実行
-                if tasks:
-                    await asyncio.gather(*tasks)
-
-            except Exception as ex:
-                logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
-                continue
-
-        # すべての録画ファイルのバックグラウンド解析が完了した
-        logging.info('Manual background analysis has finished processing all recorded files.')
-        background_analysis_status.is_running = False
-        background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
+            # すべての録画ファイルのバックグラウンド解析が完了した
+            logging.info('Manual background analysis has finished processing all recorded files.')
+        finally:
+            background_analysis_status.is_running = False
+            background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
     ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
