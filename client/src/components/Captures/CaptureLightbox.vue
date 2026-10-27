@@ -657,7 +657,14 @@ const openTagDialog = () => {
 };
 const onTagsUpdated = async (captures: ICapture[]) => {
     if (captures[0] !== undefined) {
-        emit('updated', captures[0]);
+        // 応答を待つ間に隣のキャプチャへ送られても、戻ったときに新しいタグで出るよう、隣として覚えているキャプチャも差し替える
+        const updated = captures[0];
+        for (const neighbor of [prevCapture, nextCapture]) {
+            if (neighbor.value?.id === updated.id) {
+                neighbor.value = updated;
+            }
+        }
+        emit('updated', updated);
     }
     tags.value = (await Captures.fetchTags()) ?? tags.value;
 };
