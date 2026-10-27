@@ -122,9 +122,17 @@ const filter = computed<ICaptureFilter>(() => {
 // 字幕のあるキャプチャが1枚でもあれば、タイルの下にセリフを出す (絵コンテのように場面を追えるように)
 const hasCaptions = computed(() => captures.value.some(capture => capture.caption_text));
 
+// 読み込みごとに増やす番号 (並べ替えを続けて変えたときに、最新の読み込みの応答だけを反映するため)
+let loadGeneration = 0;
+
 const load = async () => {
+    loadGeneration++;
+    const myGeneration = loadGeneration;
     isLoading.value = true;
     const result = await Captures.fetchAllCaptures({ order: order.value, filter: filter.value });
+    if (myGeneration !== loadGeneration) {
+        return;
+    }
     isLoading.value = false;
     isLoadFailed.value = result === null;
     if (result === null) {
@@ -133,14 +141,16 @@ const load = async () => {
     }
     captures.value = result.captures;
     // 番組の情報は、ID で来たときは番組の API から、それ以外はキャプチャが参照する番組から取る
+    let nextProgram: ICaptureProgram | null = result.programs[0] ?? null;
     if (route.params.capture_program_id !== undefined) {
-        program.value = (await Captures.fetchProgram(Number(route.params.capture_program_id))) ?? result.programs[0] ?? null;
-    } else {
-        program.value = result.programs[0] ?? null;
+        nextProgram = (await Captures.fetchProgram(Number(route.params.capture_program_id))) ?? nextProgram;
     }
     // キャプチャがまだ無い番組でも見出しに番組名や局ロゴを出せるよう、入口に応じて番組の情報を補う
-    if (program.value === null) {
-        program.value = await fetchFallbackProgram();
+    if (nextProgram === null) {
+        nextProgram = await fetchFallbackProgram();
+    }
+    if (myGeneration === loadGeneration) {
+        program.value = nextProgram;
     }
 };
 
