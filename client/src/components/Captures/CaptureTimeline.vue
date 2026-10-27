@@ -359,7 +359,8 @@ const labelAt = (y: number) => {
     if (sections.value.length === 0) {
         return '';
     }
-    const date = dayjs(sections.value[findSectionIndex(y)].date);
+    // 日付だけの文字列はブラウザのタイムゾーンの0時として解釈されるので、日本時間の0時として解釈させる
+    const date = dayjs(`${sections.value[findSectionIndex(y)].date}T00:00:00+09:00`);
     return date.format('YYYY年M月');
 };
 const scrollToContentY = (y: number) => {
@@ -403,7 +404,8 @@ const onToggle = (capture: ICapture, shiftKey: boolean) => {
 };
 
 const formatDate = (date: string) => {
-    const value = dayjs(date);
+    // 日付だけの文字列はブラウザのタイムゾーンの0時として解釈されるので、日本時間の0時として解釈させる
+    const value = dayjs(`${date}T00:00:00+09:00`);
     return value.year() === dayjs().year() ? value.format('M月D日 (dd)') : value.format('YYYY年M月D日 (dd)');
 };
 
