@@ -78,6 +78,9 @@ const queryInput = ref(String(route.query.query ?? ''));
 const isLoadFailed = ref(false);
 const recordedFilter = ref<boolean | null>(route.query.has_recorded_program === 'true' ? true : route.query.has_recorded_program === 'false' ? false : null);
 let generation = 0;
+// 戻る操作でこの一覧へ戻ったときの、離れたときのスクロール位置
+// 続きのページは下端の目印が見えるまで読み込まないので、この位置が画面に入るところまで続けて読み込み、Vue Router が位置を戻せる高さにする
+let restoringScrollTop: number | null = window.history.state?.scroll?.top ?? null;
 
 // 次のページを読み込む (下端の目印が見えたら呼ばれる)
 const loadMore = async () => {
@@ -123,12 +126,23 @@ const applyQuery = () => {
 watch(recordedFilter, (value) => {
     void router.replace({ query: { ...route.query, has_recorded_program: value === null ? undefined : String(value) } });
 });
-watch(() => [route.query.query, route.query.has_recorded_program], reset);
+watch(() => [route.query.query, route.query.has_recorded_program], () => {
+    restoringScrollTop = null;
+    reset();
+});
 
 const sentinelRef = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 const checkSentinel = () => {
-    if (sentinelRef.value !== null && sentinelRef.value.getBoundingClientRect().top < window.innerHeight + 400) {
+    if (sentinelRef.value === null) {
+        return;
+    }
+    const sentinelTop = sentinelRef.value.getBoundingClientRect().top;
+    // 戻る操作で戻ったときは、離れたときの位置が画面に入る高さになるまで続けて読み込む
+    if (restoringScrollTop !== null && window.scrollY + sentinelTop >= restoringScrollTop + window.innerHeight) {
+        restoringScrollTop = null;
+    }
+    if (sentinelTop < window.innerHeight + 400 || restoringScrollTop !== null) {
         void loadMore();
     }
 };
