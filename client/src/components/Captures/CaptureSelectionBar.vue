@@ -119,7 +119,8 @@ const openTagDialog = () => {
     }
 };
 const onTagsUpdated = (captures: ICapture[]) => {
-    props.selection.setMany(captures, true);
+    // 応答を待つ間に選択が変わっても、選択から外したキャプチャを選び直さないよう、まだ選ばれているキャプチャの分だけ差し替える
+    props.selection.setMany(captures.filter(capture => props.selection.isSelected(capture)), true);
     emit('updated', captures);
 };
 
