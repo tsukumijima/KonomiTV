@@ -994,15 +994,33 @@ class ThumbnailGenerator:
 
         start_time_scoring = time.time()
 
+        def LoadFaceCascade(path: pathlib.Path) -> cv2.CascadeClassifier:
+            """
+            同梱の顔検出器を読み込む
+
+            Args:
+                path (pathlib.Path): 顔検出器の XML ファイルのパス
+
+            Returns:
+                cv2.CascadeClassifier: 読み込んだ顔検出器
+            """
+
+            cascade = cv2.CascadeClassifier(str(path))
+            # CascadeClassifier は読めないファイルを渡されても例外を出さずに空の検出器を返すので、読み込めたかを確認する
+            ## 同梱のファイルの入れ忘れやパスの誤りは実装側の誤りなので、何が読めなかったかを示して止める
+            if cascade.empty():
+                raise RuntimeError(f'Face detection cascade file could not be loaded: {path}')
+            return cascade
+
         # 顔検出器のロード (必要な場合のみ)
         face_cascade = None
         auxiliary_face_cascade = None
         if self.face_detection_mode == 'Human':
-            face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+            face_cascade = LoadFaceCascade(self.HUMAN_FACE_CASCADE_PATH)
         elif self.face_detection_mode == 'Anime':
-            face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
+            face_cascade = LoadFaceCascade(self.ANIME_FACE_CASCADE_PATH)
             # アニメ顔検出時は精度向上のため、実写顔検出器を併用
-            auxiliary_face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+            auxiliary_face_cascade = LoadFaceCascade(self.HUMAN_FACE_CASCADE_PATH)
 
         # 候補区間内のフレームを収集してスコアリング
         # (index, score, found_face) のリスト
