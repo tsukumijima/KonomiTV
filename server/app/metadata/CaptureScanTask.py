@@ -103,7 +103,8 @@ class CaptureRootScanResult:
 
     unseen: dict[str, CaptureFileSnapshot]
     started_at: datetime
-    original_count: int
+    original_count: int  # 走査を始めた時点で Missing でなかった場所の数
+    found_count: int  # 走査で見つかった画像の数
     is_complete: bool
 
 
@@ -624,7 +625,12 @@ class CaptureScanTask:
             signature = (snapshot['file_name'], snapshot['file_size'], snapshot['file_modified_at'])
             paths_by_signature.setdefault(signature, []).append(snapshot['file_path'])
 
-        original_count = len(unseen)
+        # 消えたファイルの割合は、すでに Missing の場所を除いて数える
+        original_count = 0
+        for snapshot in snapshots:
+            if snapshot['status'] != 'Missing':
+                original_count += 1
+        found_count = 0
         is_complete = True
 
         async def MoveCaptureFile(path: str, size: int, created_at: datetime, modified_at: datetime) -> bool:
@@ -728,6 +734,7 @@ class CaptureScanTask:
                 is_complete = False
                 logging.warning(f'Cannot list capture folder: {folder}', exc_info=ex)
                 continue
+            found_count += len(files)
 
             # 子フォルダは更新日時の古い順に積み、新しいフォルダから先に取り出す
             for directory, _ in sorted(directories, key=lambda item: item[1]):
@@ -787,6 +794,7 @@ class CaptureScanTask:
             unseen = unseen,
             started_at = scan_started_at,
             original_count = original_count,
+            found_count = found_count,
             is_complete = is_complete,
         )
 
@@ -799,14 +807,25 @@ class CaptureScanTask:
             result (CaptureRootScanResult): 走査と移動の照合を終えた保存先の情報
 
         Returns:
-            bool: 消えたファイルを確定した場合は True (走査が不完全なときや、消えたファイルが多すぎるときは False)
+            bool: 消えたファイルを確定した場合は True (走査が不完全なときは False)
         """
 
-        # 走査が不完全なときや、消えたファイルが2割を超えるときは、期限による削除も含めて確定を見送る
+        # 走査が不完全なときは、期限による削除も含めて確定を見送る
         if result.is_complete is False:
             return False
-        if result.original_count > 0 and len(result.unseen) / result.original_count > 0.2:
-            return False
+
+        # 保存先に画像が1枚も見えないとき (マウントが外れて空のフォルダが見えているときなど) や、新しく消えたファイルが2割を超えるときは、
+        # 消えたファイルを Missing にして一覧から隠すだけにして、期限による削除を見送る (ファイルが戻れば、次の走査で元に戻る)
+        ## 利用者が自分で大量に消した場合も、次の走査からはすでに Missing の場所を除いて数えるので、割合が下がって1週間後に削除される
+        newly_missing_count = 0
+        for snapshot in result.unseen.values():
+            if snapshot['status'] != 'Missing':
+                newly_missing_count += 1
+        is_deletion_allowed = True
+        if result.found_count == 0 and len(result.unseen) > 0:
+            is_deletion_allowed = False
+        if result.original_count > 0 and newly_missing_count / result.original_count > 0.2:
+            is_deletion_allowed = False
 
         scan_started_at = result.started_at
         for path, snapshot in result.unseen.items():
@@ -844,7 +863,7 @@ class CaptureScanTask:
                             status = 'Missing',
                             missing_since = scan_started_at,
                         )
-                    elif current_file.missing_since <= scan_started_at - timedelta(days=7):
+                    elif is_deletion_allowed is True and current_file.missing_since <= scan_started_at - timedelta(days=7):
                         await current_file.delete()
                         # 場所が1つも残っていないキャプチャも一緒に削除する
                         if capture is not None and not await CaptureFile.filter(capture_id=capture.id).exists():
