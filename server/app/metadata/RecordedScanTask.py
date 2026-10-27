@@ -717,16 +717,25 @@ class RecordedScanTask:
                 await self.__saveRecordedMetadataToDB(recorded_program, existing_db_recorded_video_after_analyze)
                 logging.info(f'{file_path}: {"Updated" if existing_db_recorded_video_after_analyze else "Saved"} metadata to DB. (status: {recorded_program.recorded_video.status})')
 
+                # 前回の保存から続いているバックグラウンド解析タスクがあれば取り消す
+                ## コピーの続きなどで解析中にファイルの中身が変わると、走っているタスクは古い中身を対象にしている
+                ## そのまま続けると、サムネイルは古いハッシュの名前で保存されて今のレコードから参照されず、
+                ## 上の保存で未解析に戻した CM 区間も古い中身のままになるため、今回保存した中身で解析をやり直す
+                running_task = self._background_tasks.get(file_path)
+                if running_task is not None:
+                    logging.info(f'{file_path}: Cancelling background analysis task for outdated file content.')
+                    running_task.cancel()
+                    self._background_tasks.pop(file_path, None)
+
                 # DB への永続化が完了したら、録画完了後のバックグラウンド解析タスクを開始
                 ## "Recording" 状態の録画ファイルはまだ録画が完了していないので、サムネイル生成などの解析タスクは実行しない
                 ## DB 保存に失敗した状態で開始すると、RecordedVideo が存在しないままサムネイル生成だけが進んでしまうため、この処理は永続化後に実行する必要がある
                 if recorded_program.recorded_video.status == 'Recorded':
-                    if file_path not in self._background_tasks:
-                        task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
-                        # 待機しない通常スキャンでも例外を回収する (ERROR ログは解析タスク内で出力する)
-                        ## exception() で回収済みでも、API が await すれば同じ例外を受け取れる
-                        task.add_done_callback(lambda completed: completed.exception() if not completed.cancelled() else None)
-                        self._background_tasks[file_path] = task
+                    task = asyncio.create_task(self.__runBackgroundAnalysis(recorded_program))
+                    # 待機しない通常スキャンでも例外を回収する (ERROR ログは解析タスク内で出力する)
+                    ## exception() で回収済みでも、API が await すれば同じ例外を受け取れる
+                    task.add_done_callback(lambda completed: completed.exception() if not completed.cancelled() else None)
+                    self._background_tasks[file_path] = task
 
                 # wait_background_analysis が True の場合のみ、バックグラウンド解析タスクが完了するまで待つ
                 # 録画番組メタデータ再解析 API では、API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝える必要があるため
@@ -1033,7 +1042,9 @@ class RecordedScanTask:
             raise
         finally:
             # 完了したタスクを管理対象から削除
-            self._background_tasks.pop(file_path, None)
+            ## 中身が変わって解析をやり直した場合は新しいタスクが同じパスで登録されているので、自分自身が登録されているときだけ削除する
+            if self._background_tasks.get(file_path) is asyncio.current_task():
+                self._background_tasks.pop(file_path, None)
 
 
     async def __migrateKeyFramesToSegmentMap(self) -> None:
