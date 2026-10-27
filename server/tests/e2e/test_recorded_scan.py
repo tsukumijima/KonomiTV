@@ -62,6 +62,21 @@ def PlaceRecording(file_name: str, recorded_folder: Path) -> Path:
     return recorded_path
 
 
+async def WaitForStartupScan(client: httpx.AsyncClient) -> None:
+    """
+    サーバーの起動時に始まった録画フォルダの一括スキャンが終わるまで待つ
+
+    Args:
+        client (httpx.AsyncClient): テスト用のサーバーにつないだクライアント
+    """
+
+    async def IsStartupScanFinished() -> bool:
+        response = await client.get('/api/maintenance/batch-scan/status')
+        assert response.status_code == 200, response.text
+        return response.json()['is_running'] is False
+    await WaitUntil(IsStartupScanFinished)
+
+
 # =====================================================================================
 # API 単体 E2E テスト
 # ルーターの API 定義順に並べる
@@ -78,7 +93,8 @@ async def test_manual_batch_scan__can_run_again_after_startup_scan(client: httpx
     起動時の一括スキャンが終わった後は、手動の一括スキャンを再び実行できる
     """
 
-    # 起動時と同じく、録画フォルダの一括スキャンを API を通さずに始める
+    # サーバーの起動時に始まった一括スキャンが終わってから、起動時と同じく、録画フォルダの一括スキャンを API を通さずに始める
+    await WaitForStartupScan(client)
     startup_scan = asyncio.create_task(RecordedScanTask().runBatchScan())
     await asyncio.sleep(0)
     response = await client.post('/api/maintenance/batch-scan/run')
@@ -110,11 +126,7 @@ async def test_manual_batch_scan__recording_is_registered_analyzed_and_hidden_wh
     """
 
     # 起動時の一括スキャンが終わってから録画を置き、録画フォルダの監視で見つかる経路を通す
-    async def IsStartupScanFinished() -> bool:
-        response = await client.get('/api/maintenance/batch-scan/status')
-        assert response.status_code == 200, response.text
-        return response.json()['is_running'] is False
-    await WaitUntil(IsStartupScanFinished)
+    await WaitForStartupScan(client)
     recorded_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder)
 
     # 監視で見つかり、番組情報を解析して登録されるまで待つ
