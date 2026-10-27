@@ -14,9 +14,22 @@
             <div v-ripple class="capture-selection-bar__button" v-ftooltip.top="'タグを付ける'" @click="openTagDialog">
                 <Icon icon="fluent:tag-24-regular" width="22px" />
             </div>
-            <div v-if="isAdmin" v-ripple class="capture-selection-bar__button" v-ftooltip.top="'削除'" @click="isDeleteConfirmOpen = true">
-                <Icon icon="fluent:delete-24-regular" width="22px" />
-            </div>
+            <!-- 取り消せない削除は、よく押すいいねやタグの隣に置かず、1枚表示と同じく︙のメニューに赤で置く -->
+            <v-menu v-if="isAdmin" location="top end">
+                <template #activator="{ props: menuProps }">
+                    <div v-ripple class="capture-selection-bar__button" v-bind="menuProps">
+                        <Icon icon="fluent:more-vertical-24-filled" width="22px" />
+                    </div>
+                </template>
+                <v-list density="compact" bg-color="background-lighten-1">
+                    <v-list-item class="capture-selection-bar__menu-item--danger" @click="isDeleteConfirmOpen = true">
+                        <template #prepend>
+                            <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
+                        </template>
+                        <v-list-item-title class="ml-3">キャプチャを削除</v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
         </div>
     </transition>
     <CaptureTagDialog v-model:show="isTagDialogOpen" :captures="selectedList" @updated="onTagsUpdated" />
@@ -170,6 +183,10 @@ const deleteSelected = async () => {
             background: rgba(255, 255, 255, 0.08);
         }
     }
+}
+
+.capture-selection-bar__menu-item--danger {
+    color: rgb(var(--v-theme-error)) !important;
 }
 
 .capture-selection-bar-slide-enter-active, .capture-selection-bar-slide-leave-active {
