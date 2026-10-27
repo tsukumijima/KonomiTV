@@ -164,6 +164,10 @@ def ReadCaptureImage(data: bytes, filename: str, modified_at: datetime) -> Captu
     metadata_status = 'NoMetadata'
     if raw_comment is not None:
         try:
+            # XPComment は BYTE 型なので、バイト列か値の並びのときだけ読む
+            ## 整数の値を bytes() に渡すと、その数のバイトを確保してしまう
+            if not isinstance(raw_comment, (bytes, tuple)):
+                raise TypeError(f'Unexpected XPComment type: {type(raw_comment).__name__}')
             comment = bytes(raw_comment).decode('utf-16-le').rstrip('\x00')
             metadata = CaptureExif.model_validate_json(comment)
             # 有限の数値でも日時として表せない再生位置は、壊れたメタデータとして扱う
