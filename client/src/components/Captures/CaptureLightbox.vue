@@ -615,9 +615,18 @@ const toggleFavorite = async () => {
     if (props.capture === null || !requireLogin()) {
         return;
     }
-    const next = !props.capture.is_favorite;
-    if (await Captures.updateFavorites([props.capture.id], next)) {
-        emit('updated', { ...props.capture, is_favorite: next });
+    // 応答を待つ間に隣のキャプチャへ送られても、いいねを押したキャプチャに結果を反映する
+    const target = props.capture;
+    const next = !target.is_favorite;
+    if (await Captures.updateFavorites([target.id], next)) {
+        const updated = { ...target, is_favorite: next };
+        // 送ったあとは、いいねを押したキャプチャが隣として覚えられているので、戻ったときにも新しい状態で出るよう差し替える
+        for (const neighbor of [prevCapture, nextCapture]) {
+            if (neighbor.value?.id === updated.id) {
+                neighbor.value = updated;
+            }
+        }
+        emit('updated', updated);
     }
 };
 
