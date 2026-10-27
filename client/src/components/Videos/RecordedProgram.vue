@@ -145,6 +145,12 @@
                             </template>
                             <v-list-item-title class="ml-3">オフライン再生用に保存 ({{offlineMenuSizeLabel}})</v-list-item-title>
                         </v-list-item>
+                        <v-list-item :to="`/captures/recorded/${program.id}`">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:image-multiple-20-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">この番組で撮ったキャプチャを見る</v-list-item-title>
+                        </v-list-item>
                         <v-list-item @click="show_video_info = true">
                             <template v-slot:prepend>
                                 <svg width="20px" height="20px" viewBox="0 0 16 16">

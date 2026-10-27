@@ -178,7 +178,6 @@ const clearTypeFilter = () => {
     updateTypeFilter({ is_caption_composited: null, is_comment_composited: null, has_caption_text: null, has_metadata: null });
 };
 
-// 読み込めなかったとき (null) は、0件の表示ではなく、読み込めなかったことを伝える
 const isLoadFailed = ref(false);
 const onLoaded = (value: number | null) => {
     total.value = value ?? 0;

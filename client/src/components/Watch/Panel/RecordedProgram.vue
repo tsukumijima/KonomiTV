@@ -68,6 +68,11 @@
                             <span style="margin-left: 6px;">オフライン保存</span>
                         </template>
                     </div>
+                    <router-link v-ripple class="program-info__button" :to="`/captures/recorded/${playerStore.recorded_program.id}`"
+                        style="text-decoration: none; color: inherit;">
+                        <Icon icon="fluent:image-multiple-20-regular" width="18px" height="18px" style="margin-bottom: -1px" />
+                        <span style="margin-left: 6px;">この番組のキャプチャ</span>
+                    </router-link>
                 </div>
             </div>
         </section>
