@@ -594,6 +594,8 @@ const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, proces
 const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
 const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
 let task_status_timer: number | null = null;
+// この画面を離れたか (離れたあとに返ってきた進捗で、次の取得を予約しないため)
+let is_unmounted = false;
 
 // 進捗を取得し、どれかが実行中なら1秒後にもう一度取得する
 async function updateTaskStatuses() {
@@ -603,13 +605,24 @@ async function updateTaskStatuses() {
         Maintenance.fetchBackgroundAnalysisStatus(),
         Maintenance.fetchCaptureScanStatus(),
     ]);
+    if (is_unmounted === true) {
+        return;
+    }
+    // 取得できた進捗だけを反映する
+    if (batch_scan !== null) {
+        batch_scan_status.value = batch_scan;
+    }
+    if (background_analysis !== null) {
+        background_analysis_status.value = background_analysis;
+    }
+    if (capture_scan !== null) {
+        capture_scan_status.value = capture_scan;
+    }
     // 取得に失敗したら (エラーはサービス側で表示済み)、エラーを出し続けないよう取得を止める
+    // 手動で実行したタスクは、完了したときにもう一度取得するので、ボタンが無効のまま残ることはない
     if (batch_scan === null || background_analysis === null || capture_scan === null) {
         return;
     }
-    batch_scan_status.value = batch_scan;
-    background_analysis_status.value = background_analysis;
-    capture_scan_status.value = capture_scan;
     if (batch_scan.is_running === true || background_analysis.is_running === true || capture_scan.is_running === true) {
         task_status_timer = window.setTimeout(updateTaskStatuses, 1000);
     }
@@ -628,6 +641,7 @@ function getTaskProgressPercent(task_status: IMaintenanceTaskStatus): number {
 
 onMounted(() => updateTaskStatuses());
 onBeforeUnmount(() => {
+    is_unmounted = true;
     if (task_status_timer !== null) {
         window.clearTimeout(task_status_timer);
     }
@@ -646,7 +660,12 @@ async function runBatchScan() {
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
-    if (await result === true) {
+    const is_succeeded = await result;
+    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
         Message.success(
             '録画フォルダの一括スキャンが完了しました。\n' +
             'すべての録画ファイルがデータベースに同期されているはずです。'
@@ -666,7 +685,12 @@ async function startBackgroundAnalysis() {
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
-    if (await result === true) {
+    const is_succeeded = await result;
+    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
         Message.success(
             'バックグラウンド解析タスクの実行が完了しました。\n' +
             'すべての録画番組のメタデータ解析/サムネイル生成が完了しているはずです。'
@@ -686,7 +710,12 @@ async function runCaptureScan() {
     if (task_status_timer === null) {
         await updateTaskStatuses();
     }
-    if (await result === true) {
+    const is_succeeded = await result;
+    // 進捗の取得が止まっていても実行中の表示が残らないよう、完了したら進捗を取り直す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
         Message.success(
             'キャプチャフォルダの一括スキャンが完了しました。\n' +
             'すべてのキャプチャがデータベースに同期されているはずです。'
