@@ -819,17 +819,20 @@ async def CaptureUploadAPI(
             else:
                 name = f'{Path(filename).stem}-{count}{Path(filename).suffix}'
             path = NormalizeCapturePath(root / name)
+            # 実際に作るファイルは、受け取った名前の大文字小文字のままにする (ロックと DB には正規化したパスを使う)
+            ## Windows の正規化はパスを小文字にするので、そのまま作ると、保存先のファイル名まで小文字になってしまう
+            saved_path = os.path.abspath(os.path.join(os.path.normpath(str(upload_folder)), name))
 
             async with scanner.getPathLock(path):
                 # このリクエストでファイルを作ったかどうか (保存に失敗したときに、作ったファイルだけを消すため)
                 is_created = False
                 try:
                     # 同じ秒に撮った2枚を同時に受け取っても別の名前で保存できるよう、ファイルの作成そのものを排他的に行う
-                    async with await anyio.open_file(path, 'xb') as output:
+                    async with await anyio.open_file(saved_path, 'xb') as output:
                         is_created = True
                         await output.write(data)
                     if file_modified_at is not None:
-                        await asyncio.to_thread(os.utime, path, (modified_at.timestamp(), modified_at.timestamp()))
+                        await asyncio.to_thread(os.utime, saved_path, (modified_at.timestamp(), modified_at.timestamp()))
 
                     # 保存したファイルを、スキャンを待たずにその場でキャプチャとして登録する
                     capture = await scanner.registerFile(path, data=data)
@@ -849,9 +852,9 @@ async def CaptureUploadAPI(
                     ## 残しておくと、次のスキャンで画像として読めないファイルとして登録され、保存先に溜まっていく
                     if is_created is True:
                         try:
-                            await anyio.Path(path).unlink(missing_ok=True)
+                            await anyio.Path(saved_path).unlink(missing_ok=True)
                         except OSError as unlink_ex:
-                            logging.error(f'Cannot delete partially written capture image: {path}', exc_info=unlink_ex)
+                            logging.error(f'Cannot delete partially written capture image: {saved_path}', exc_info=unlink_ex)
 
                     if isinstance(ex, PermissionError):
                         raise HTTPException(
