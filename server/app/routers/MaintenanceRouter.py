@@ -279,6 +279,8 @@ async def BackgroundAnalysisAPI():
             # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
             ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
             ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
+            ## 1件の失敗で残りの録画の解析を止めずに続け、失敗した件数を数えておく
+            failed_count = 0
             for video_row in video_rows:
                 background_analysis_status.processed_count += 1
                 file_path = anyio.Path(video_row['file_path'])
@@ -322,9 +324,22 @@ async def BackgroundAnalysisAPI():
                             if isinstance(result, BaseException):
                                 raise result
 
+                # 実装側の誤りは、残りの録画でも同じく失敗するので、受け止めずにその場で止める
+                except (AttributeError, ImportError, NameError, TypeError):
+                    raise
+                # 録画ごとの失敗 (壊れた録画や読めないファイルなど) は、記録して次の録画へ進む
                 except Exception as ex:
                     logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
+                    failed_count += 1
                     continue
+
+            # 解析に失敗した録画があれば、完了したと伝えずに失敗を返す
+            if failed_count > 0:
+                logging.error(f'Manual background analysis failed for {failed_count} recorded files.')
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = 'Background analysis failed for some recorded files',
+                )
 
             # すべての録画ファイルのバックグラウンド解析が完了した
             logging.info('Manual background analysis has finished processing all recorded files.')
