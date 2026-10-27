@@ -1,5 +1,6 @@
 
 import asyncio
+import hashlib
 import json
 import pathlib
 from datetime import datetime
@@ -964,11 +965,15 @@ async def VideoThumbnailUpdateAPI(
     image_data: bytes | None = None
     for capture_file in await CaptureFile.filter(capture_id=capture.id, status='Available').order_by('id'):
         try:
-            image_data = await anyio.Path(capture_file.file_path).read_bytes()
-            break
+            data = await anyio.Path(capture_file.file_path).read_bytes()
         except OSError:
             # DB 上は利用できる場所でも読めないことがあるので、ほかの場所を試す
             continue
+        # 登録したあとに別の画像へ置き換えられ、まだスキャンされていない場所もあるので、中身のハッシュが一致した画像だけを使う
+        digest = await asyncio.to_thread(lambda: hashlib.sha256(data).digest())
+        if digest == bytes(capture.file_hash):
+            image_data = data
+            break
     if image_data is None:
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
