@@ -38,7 +38,8 @@ async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番�
     recorded_program = await RecordedProgram.filter(id=video_id).get_or_none() \
         .select_related('recorded_video') \
         .select_related('channel')
-    if recorded_program is None:
+    # 録画ファイルが見つからなくなった (Missing の) 録画番組は再生できないので、存在しない録画番組と同じく扱う
+    if recorded_program is None or recorded_program.recorded_video.status == 'Missing':
         logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,

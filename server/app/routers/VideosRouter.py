@@ -162,7 +162,8 @@ async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画�
         .select_related('recorded_video') \
         .select_related('channel') \
         .get_or_none(id=video_id)
-    if recorded_program is None:
+    # 録画ファイルが見つからなくなった (Missing の) 録画番組は、再生も再解析もできないので、存在しない録画番組と同じく扱う
+    if recorded_program is None or recorded_program.recorded_video.status == 'Missing':
         logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -336,6 +337,8 @@ async def VideosAPI(
     """
 
     # 生 SQL クエリを構築
+    ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
+    ## 通常の JOIN では、SQLite が録画ファイルを外側にして全件を並べ替える実行計画を選ぶことがある
     base_query = """
         SELECT
             rp.id AS rp_id,
@@ -407,9 +410,9 @@ async def VideosAPI(
             ch.is_radiochannel,
             ch.is_watchable
         FROM recorded_programs rp
-        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        CROSS JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE 1=1
+        WHERE rv.status != 'Missing'
         {where_clause}
         ORDER BY rp.start_time {order}, rp.id {order}
         LIMIT ? OFFSET ?
@@ -424,7 +427,7 @@ async def VideosAPI(
             target_ids = ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
             if not target_ids:
                 return schemas.RecordedPrograms(
-                    total = await RecordedProgram.all().filter(id__in=ids).count(),
+                    total = await RecordedProgram.filter(id__in=ids).exclude(recorded_video__status='Missing').count(),
                     recorded_programs = [],
                 )
 
@@ -437,7 +440,12 @@ async def VideosAPI(
             params = [*target_ids, str(PAGE_SIZE), '0']  # OFFSET は 0 固定
 
             # 総数を取得
-            total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
+            total_query = """
+                SELECT COUNT(*) as count
+                FROM recorded_programs rp
+                JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+                WHERE rv.status != 'Missing' AND rp.id IN ({})
+            """.format(
                 ','.join(['?' for _ in ids])
             )
             total_params = ids
@@ -451,7 +459,12 @@ async def VideosAPI(
             params = [*ids, str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
             # 総数を取得
-            total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
+            total_query = """
+                SELECT COUNT(*) as count
+                FROM recorded_programs rp
+                JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+                WHERE rv.status != 'Missing' AND rp.id IN ({})
+            """.format(
                 ','.join(['?' for _ in ids])
             )
             total_params = ids
@@ -465,7 +478,12 @@ async def VideosAPI(
         params = [str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
         # 総数を取得
-        total_query = 'SELECT COUNT(*) as count FROM recorded_programs'
+        ## 録画番組と録画ファイルは1対1なので、録画ファイルの状態の索引だけで数える
+        total_query = """
+            SELECT COUNT(*) as count
+            FROM recorded_videos
+            WHERE status != 'Missing'
+        """
         total_params = []
 
     try:
@@ -563,6 +581,8 @@ async def VideosSearchAPI(
         return await VideosAPI(order=order, page=page)
 
     # 生 SQL クエリを構築
+    ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
+    ## 通常の JOIN では、SQLite が録画ファイルを外側にして全件を並べ替える実行計画を選ぶことがある
     base_query = """
         SELECT
             rp.id AS rp_id,
@@ -634,9 +654,9 @@ async def VideosSearchAPI(
             ch.is_radiochannel,
             ch.is_watchable
         FROM recorded_programs rp
-        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        CROSS JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE {where_clause}
+        WHERE rv.status != 'Missing' AND {where_clause}
         ORDER BY rp.start_time {order}, rp.id {order}
         LIMIT ? OFFSET ?
     """
@@ -652,8 +672,9 @@ async def VideosSearchAPI(
     total_query = f"""
         SELECT COUNT(*) as count
         FROM recorded_programs rp
+        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE {where_clause}
+        WHERE rv.status != 'Missing' AND {where_clause}
     """
     total_params = params[:-2]  # LIMIT と OFFSET を除外
 

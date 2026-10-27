@@ -142,7 +142,7 @@ class TimeTableProgramReservation(BaseModel):
 class RecordedVideo(PydanticModel):
     # デフォルト値は録画番組からメタデータを取得する処理向け
     id: int = -1  # メタデータ取得時は ID が定まらないため -1 を設定
-    status: Literal['Recording', 'Recorded', 'AnalysisFailed']
+    status: Literal['Recording', 'Recorded', 'AnalysisFailed', 'Missing']
     file_path: str
     file_hash: str
     file_size: int

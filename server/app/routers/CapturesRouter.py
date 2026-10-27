@@ -466,6 +466,7 @@ async def SerializePrograms(ids: list[int]) -> list[schemas.CaptureProgram]:
         WHERE p.id IN ({placeholders})
         ORDER BY ch.id
     """, ids)
+    ## 録画ファイルが見つからなくなった (Missing の) 録画番組は開けないので含めない
     recorded_program_rows = await conn.execute_query_dict(f"""
         SELECT
             p.id AS program_id,
@@ -476,7 +477,9 @@ async def SerializePrograms(ids: list[int]) -> list[schemas.CaptureProgram]:
             AND r.service_id = p.service_id
             AND r.event_id = p.event_id
             AND r.start_time = p.start_time
+        JOIN recorded_videos rv ON rv.recorded_program_id = r.id
         WHERE p.id IN ({placeholders})
+            AND rv.status != 'Missing'
         ORDER BY r.id
     """, ids)
 
@@ -1013,13 +1016,16 @@ async def CaptureProgramsAPI(
         params.extend([f'%{keyword.lower()}%'] * 2)  # 2つの検索対象に同じパラメータを使う
 
     # 同じ番組キーの録画番組があるかどうかで絞り込む
+    ## 録画ファイルが見つからなくなった (Missing の) 録画番組は開けないので、録画番組がないものとして扱う
     recorded_program_condition = """
         EXISTS (
             SELECT 1 FROM recorded_programs r
+            JOIN recorded_videos rv ON rv.recorded_program_id = r.id
             WHERE r.network_id = p.network_id
                 AND r.service_id = p.service_id
                 AND r.event_id = p.event_id
                 AND r.start_time = p.start_time
+                AND rv.status != 'Missing'
         )
     """.strip()
     if has_recorded_program is True:

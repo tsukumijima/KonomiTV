@@ -629,6 +629,40 @@ class MetadataAnalyzer:
         return recorded_program
 
 
+    def matchesFileHash(self, file_hash: str) -> bool:
+        """
+        録画ファイルの中身が、指定されたハッシュで登録済みの録画と同じかを、メタデータを解析せずに判定する
+        録画ファイルの移動や名前の変更を、重い解析の前に照合するために使う
+        このメソッドは同期的なため、非同期メソッドから実行する際は asyncio.to_thread() で実行すること
+
+        Args:
+            file_hash (str): 登録済みの録画ファイルのハッシュ
+
+        Returns:
+            bool: 録画ファイルのハッシュが一致する場合は True
+        """
+
+        # ほとんどの録画は、ファイル全体を対象にしたハッシュで登録されている
+        try:
+            if self.__calculateFileHash(None) == file_hash:
+                return True
+        except ValueError:
+            return False
+
+        # 末尾がゼロ埋めされた TS は、analyze() と同じく、有効な TS データの終了位置までを対象にしたハッシュで登録されている
+        with self.recorded_file_path.open('rb') as f:
+            if f.read(1) != ts.SYNC_BYTE:
+                return False
+        duration_result = self.__calculateTSFileDuration()
+        if duration_result is None:
+            return False
+        _, end_ts_offset = duration_result
+        try:
+            return self.__calculateFileHash(end_ts_offset) == file_hash
+        except ValueError:
+            return False
+
+
     def __calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
         """
         録画ファイルのハッシュを計算する

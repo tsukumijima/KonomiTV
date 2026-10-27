@@ -25,7 +25,7 @@ class RecordedVideo(TortoiseModel):
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
-    status = cast(TortoiseField[Literal['Recording', 'Recorded', 'AnalysisFailed']], fields.CharField(255, db_index=True))
+    status = cast(TortoiseField[Literal['Recording', 'Recorded', 'AnalysisFailed', 'Missing']], fields.CharField(255, db_index=True))
     file_path = fields.TextField()  # ファイルパスは可変長だが、TextField には unique 制約が付けられない
     file_hash = fields.TextField()
     file_size = fields.IntField()
@@ -61,5 +61,7 @@ class RecordedVideo(TortoiseModel):
     thumbnail_info = cast(TortoiseField[ThumbnailInfo | None],
         # None はサムネイル未生成か、旧仕様から移行しきれていないことを表す
         fields.JSONField(default=None, encoder=lambda x: json.dumps(x, ensure_ascii=False), null=True))  # type: ignore
+    # 録画ファイルが最初に見つからなかった時刻 (この時刻から1週間たっても戻らなければ行を削除する)
+    missing_since = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
