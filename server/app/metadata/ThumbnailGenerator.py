@@ -173,6 +173,7 @@ class ThumbnailGenerator:
 
         self.file_path = file_path
         self.container_format = container_format
+        self.file_hash = file_hash
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
@@ -1296,6 +1297,13 @@ class ThumbnailGenerator:
             logging.warning(f'{self.file_path}: RecordedVideo not found for thumbnail metadata update.')
             return
 
+        # 生成中に録画ファイルの中身が変わってレコードのハッシュが変わっていたら、サムネイル情報を書き込まずに終える
+        ## 生成したサムネイルは古いハッシュの名前で保存されているので、今のレコードに情報を付けると参照先のファイルが無い状態になる
+        ## 今の中身のサムネイルは、中身の変化を検知した RecordedScanTask が作り直す
+        if db_recorded_video.file_hash != self.file_hash:
+            logging.warning(f'{self.file_path}: File content changed during thumbnail generation. Skipped thumbnail metadata update.')
+            return
+
         tile_width, tile_height = self.TILE_SCALE
         scoring_width, scoring_height = self.SCORING_SCALE
 
@@ -1325,7 +1333,8 @@ class ThumbnailGenerator:
                 interval_sec = self.tile_interval_sec,
             ),
         )
-        await db_recorded_video.save()
+        # 読み込んでから書き込むまでの間に RecordedScanTask がメタデータを保存し直していても巻き戻さないよう、サムネイル情報の列だけを書き込む
+        await db_recorded_video.save(update_fields=['thumbnail_info'])
 
 
     async def migrateFromLegacyTile(self) -> bool:
