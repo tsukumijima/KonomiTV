@@ -289,11 +289,10 @@ const loadDay = (date: string): Promise<DayLoadResult> => {
 // 取り直している日付ごとの件数 (拡大表示の前後の移動で、取り直し終わるのを待つため)
 let reloadingSections: Promise<unknown> | null = null;
 
-// 日付ごとの件数を取り直して、最初から描画し直す
+// 日付ごとの件数を取り直して、読み込んだ日を捨てて描画し直す (要素の範囲をずらした位置は保つ)
 const reload = async () => {
     generation++;
     const myGeneration = generation;
-    baseOffset.value = 0;
     loadedDays.value = new Map();
     pendingDays.length = 0;
     const request = Captures.fetchSections({ axis: props.axis, day_start_hour: props.dayStartHour, filter: props.filter });
@@ -313,7 +312,10 @@ const reload = async () => {
     }
     updateViewport();
 };
+// 絞り込みや並べ方が変わったときは、先頭から見直す
+// 削除やスキャンの完了で読み直すときは、見ている場所を保つよう、要素の範囲をずらした位置はそのまま使う
 watch(() => [props.filter, props.axis, props.dayStartHour], () => {
+    baseOffset.value = 0;
     window.scrollTo({ top: 0 });
     void reload();
 }, { deep: true });
