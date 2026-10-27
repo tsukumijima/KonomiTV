@@ -124,7 +124,9 @@ const deleteSelected = async () => {
     } else {
         Message.success(`${result.deleted_capture_ids.length}枚のキャプチャを削除しました。`);
     }
-    props.selection.clear();
+    // 削除できたキャプチャだけを選択から外し、削除できなかったキャプチャは選んだまま残して、もう一度押せるようにする
+    const deletedIds = new Set(result.deleted_capture_ids);
+    props.selection.setMany(selectedList.value.filter(capture => deletedIds.has(capture.id)), false);
     emit('deleted', result.deleted_capture_ids);
 };
 
