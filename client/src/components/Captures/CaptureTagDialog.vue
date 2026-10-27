@@ -89,20 +89,21 @@ const stateOf = (tag: ICaptureTag): 'All' | 'Some' | 'None' => {
 };
 
 // 全部に付いていれば外し、それ以外 (一部・なし) なら全部に付ける
-const toggleTag = async (tag: ICaptureTag) => {
+// 応答を待つ間にダイアログを閉じて別のキャプチャで開き直しても、押したときのキャプチャに結果を反映する
+const toggleTag = async (tag: ICaptureTag, targets: ICapture[] = workingCaptures.value) => {
     if (isBusy.value) {
         return;
     }
-    const isTagged = stateOf(tag) !== 'All';
-    const ids = workingCaptures.value.map(capture => capture.id);
+    const isTagged = targets.filter(capture => capture.tag_ids?.includes(tag.id)).length !== targets.length;
+    const ids = targets.map(capture => capture.id);
     isBusy.value = true;
     const success = await Captures.updateTagItems(tag.id, ids, isTagged);
     isBusy.value = false;
     if (!success) {
         return;
     }
-    const before = workingCaptures.value.filter(capture => capture.tag_ids?.includes(tag.id)).length;
-    workingCaptures.value = workingCaptures.value.map(capture => {
+    const before = targets.filter(capture => capture.tag_ids?.includes(tag.id)).length;
+    const updated = targets.map(capture => {
         const tagIds = new Set(capture.tag_ids ?? []);
         if (isTagged) {
             tagIds.add(tag.id);
@@ -111,10 +112,13 @@ const toggleTag = async (tag: ICaptureTag) => {
         }
         return { ...capture, tag_ids: [...tagIds] };
     });
-    // 一覧に出す枚数は手元で合わせる (付けた・外した枚数だけ増減する)
-    const after = isTagged ? workingCaptures.value.length : 0;
-    tag.capture_count = Math.max(0, tag.capture_count + after - before);
-    emit('updated', workingCaptures.value);
+    // 開いたままなら、ダイアログの状態と一覧に出す枚数を手元で合わせる (付けた・外した枚数だけ増減する)
+    if (workingCaptures.value === targets) {
+        workingCaptures.value = updated;
+        const after = isTagged ? updated.length : 0;
+        tag.capture_count = Math.max(0, tag.capture_count + after - before);
+    }
+    emit('updated', updated);
 };
 
 // 新しいタグを作り、開いているキャプチャにそのまま付ける
@@ -123,6 +127,7 @@ const createTag = async () => {
     if (name === '' || isBusy.value) {
         return;
     }
+    const targets = workingCaptures.value;
     isBusy.value = true;
     const tag = await Captures.createTag(name);
     isBusy.value = false;
@@ -131,7 +136,7 @@ const createTag = async () => {
     }
     tags.value = [...tags.value, tag].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
     newTagName.value = '';
-    await toggleTag(tags.value.find(item => item.id === tag.id)!);
+    await toggleTag(tags.value.find(item => item.id === tag.id)!, targets);
 };
 
 </script>
