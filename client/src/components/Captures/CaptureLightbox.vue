@@ -324,9 +324,11 @@ const move = async (delta: 1 | -1) => {
     if (props.capture === null || isSliding.value) {
         return;
     }
+    // 送り始めたときのキャプチャ (待っている間に閉じたり別のキャプチャを開いたりしたら、送るのをやめるため)
+    const current = props.capture;
     const target = delta === 1 ? nextCapture : prevCapture;
     if (target.value === undefined) {
-        target.value = await props.navigate(props.capture, delta);
+        target.value = await props.navigate(current, delta);
     }
     const neighbor = target.value;
     if (neighbor === null || neighbor === undefined) {
@@ -340,6 +342,12 @@ const move = async (delta: 1 | -1) => {
     const width = stageRef.value?.clientWidth ?? window.innerWidth;
     dragX.value = -delta * (width + SLIDE_GAP);
     await new Promise(resolve => window.setTimeout(resolve, 300));
+    // 滑らせている間に閉じたり別のキャプチャを開いたりしたら、隣へ差し替えずに位置だけを戻して終える
+    if (props.capture?.id !== current.id) {
+        isSliding.value = false;
+        dragX.value = 0;
+        return;
+    }
     // 差し替えと同時に位置を戻す (隣の画像がそのまま中央の枠へ移るので、見た目は動かない)
     isSnapping.value = true;
     emit('update:capture', neighbor);
