@@ -1020,8 +1020,17 @@ class CaptureScanTask:
                 """
 
                 nonlocal waiting_scan_task
+                # 監視が止まったあとで、保存先が見えるようになったら一括スキャンするか
+                ## awatch() を作り直しても、止まっている間に増えた画像は通知されないため、一括スキャンで取りこぼしを回収する
+                needs_scan_on_resume = False
                 while True:
                     try:
+                        if needs_scan_on_resume is True and await anyio.Path(root).is_dir():
+                            needs_scan_on_resume = False
+                            if waiting_scan_task is None:
+                                waiting_scan_task = asyncio.create_task(ScanAfterCurrent())
+                                scan_tasks.add(waiting_scan_task)
+                                waiting_scan_task.add_done_callback(scan_tasks.discard)
                         async for changes in awatch(root, force_polling=False):
 
                             # 追加・変更された画像を登録する
@@ -1046,8 +1055,21 @@ class CaptureScanTask:
                                 scan_tasks.add(waiting_scan_task)
                                 waiting_scan_task.add_done_callback(scan_tasks.discard)
 
+                            # 保存先そのものが消えたり移されたりしたときは、同じパスに作り直されても通知が届かなくなるため、監視を作り直す
+                            ## 作り直すまでの間に置かれた画像は、保存先が見えるようになってからの一括スキャンで登録する
+                            root_deleted = False
+                            for change, path in changes:
+                                if change == Change.deleted and Path(path) == Path(root):
+                                    root_deleted = True
+                                    break
+                            if root_deleted is True:
+                                logging.warning(f'{root}: Capture folder was removed; restarting the watcher.')
+                                needs_scan_on_resume = True
+                                break
+
                     except OSError as ex:
                         logging.warning(f'{root}: Capture watcher failed; retrying.', exc_info=ex)
+                        needs_scan_on_resume = True
                         await asyncio.sleep(5)
 
             # 保存先ごとに監視する (まとめて監視すると、1つの保存先が見えないだけで、すべての保存先の監視が止まるため)
