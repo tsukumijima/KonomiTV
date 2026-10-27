@@ -1073,12 +1073,17 @@ class RecordedScanTask:
             async with ProcessLimiter.getSemaphore('RecordedScanTask'):
                 # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
                 async with DriveIOLimiter.getSemaphore(file_path):
-                    await asyncio.gather(
+                    # 片方が失敗しても、もう片方が終わるまで同時実行数の制限の中で待ってから、失敗を伝える
+                    results = await asyncio.gather(
                         # 録画ファイルの CM 区間を検出し DB に保存
                         CMSectionsDetector(file_path, recorded_program.recorded_video.duration).detectAndSave(),
                         # シークバー用サムネイルとリスト表示用の代表サムネイルの両方を生成
                         ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(),
+                        return_exceptions = True,
                     )
+                    for result in results:
+                        if isinstance(result, BaseException):
+                            raise result
             logging.info(f'{file_path}: Background analysis task completed.')
 
         except Exception as ex:

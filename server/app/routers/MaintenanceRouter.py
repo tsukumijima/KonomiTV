@@ -315,8 +315,12 @@ async def BackgroundAnalysisAPI():
                             tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
 
                     # タスクが存在する場合、同時実行
+                    ## 片方が失敗しても、もう片方が終わるまで待ってから失敗を伝え、次の録画の解析と重ならないようにする
                     if tasks:
-                        await asyncio.gather(*tasks)
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for result in results:
+                            if isinstance(result, BaseException):
+                                raise result
 
                 except Exception as ex:
                     logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
