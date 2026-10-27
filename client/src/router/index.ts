@@ -218,7 +218,20 @@ const router = createRouter({
     scrollBehavior(to, from, savedPosition) {
         if (savedPosition) {
             // 戻る/進むボタンが押されたときは保存されたスクロール位置を使う
-            return savedPosition;
+            // 一覧の画面はデータを読み込んでからページの高さが決まるので、その位置までスクロールできる高さになるのを待ってから戻す
+            // 高さが足りないまま戻すと先頭に詰められてしまうため (待ちすぎないよう、3秒で打ち切る)
+            const startedAt = performance.now();
+            return new Promise((resolve) => {
+                const restore = () => {
+                    const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    if (scrollableHeight >= savedPosition.top || performance.now() - startedAt > 3000) {
+                        resolve(savedPosition);
+                        return;
+                    }
+                    requestAnimationFrame(restore);
+                };
+                restore();
+            });
         } else {
             // それ以外は常に先頭にスクロールする
             return {top: 0, left: 0};

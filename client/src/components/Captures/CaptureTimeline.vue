@@ -122,6 +122,16 @@ watch(totalHeight, (height) => {
     baseOffset.value = Math.min(baseOffset.value, Math.max(height - MAX_DOM_HEIGHT, 0));
 });
 
+// 要素の高さの上限を超える長いタイムラインでは、履歴に残るページのスクロール位置だけでは見ていた場所に戻れないので、ずらした位置も今の履歴に書いておく
+// 戻る操作で戻ったときは、最初に読み込み終えたところでこの位置に戻し、Vue Router が戻すページのスクロール位置と合わせる
+const savedBaseOffset: unknown = window.history.state?.capture_timeline_base_offset;
+let restoringBaseOffset = typeof savedBaseOffset === 'number' ? savedBaseOffset : null;
+// Vue Router がページのスクロール位置を戻し終えるまで、ずらす位置を保つ期限 (Vue Router は最大3秒待つので、少し長めにとる)
+let restoringScrollUntil: number | null = null;
+watch(baseOffset, (value) => {
+    window.history.replaceState({ ...window.history.state, capture_timeline_base_offset: value }, '');
+});
+
 /**
  * タイムラインの位置が要素の範囲の真ん中に来るよう、要素の上端に当たる位置を決める
  * @param contentY タイムラインの先頭からの位置
@@ -285,6 +295,11 @@ const reload = async () => {
     sections.value = (result?.sections ?? []).map(section => ({ ...section, top: 0, height: 0 }));
     layout();
     emit('loaded', result === null ? null : result.total);
+    if (restoringBaseOffset !== null) {
+        baseOffset.value = Math.min(restoringBaseOffset, Math.max(totalHeight.value - domHeight.value, 0));
+        restoringBaseOffset = null;
+        restoringScrollUntil = performance.now() + 4000;
+    }
     updateViewport();
 };
 watch(() => [props.filter, props.axis, props.dayStartHour], () => {
@@ -301,6 +316,16 @@ const updateViewport = () => {
     }
     const domScrollOffset = -rootRef.value.getBoundingClientRect().top;
     let contentY = baseOffset.value + domScrollOffset;
+
+    // 戻る操作で戻ったばかりで、Vue Router がまだページのスクロール位置を戻していない間は、ずらす位置をそのまま保つ
+    if (restoringScrollUntil !== null && (window.scrollY > 0 || performance.now() > restoringScrollUntil)) {
+        restoringScrollUntil = null;
+    }
+    if (restoringScrollUntil !== null) {
+        scrollOffset.value = contentY;
+        viewportHeight.value = window.innerHeight;
+        return;
+    }
 
     // ページの先頭や末尾まで一気にスクロールしたとき (Home・End キーや、スマホで画面の上端をタップしたとき) は、タイムラインの先頭や末尾を出す
     const isAtPageTop = window.scrollY <= 0;

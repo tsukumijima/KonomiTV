@@ -793,6 +793,8 @@ watch(() => props.capture !== null, (isOpen) => {
         document.documentElement.classList.remove('v-overlay-scroll-blocked');
     }
     if (isOpen && !hasHistoryEntry) {
+        // 1枚表示から別の画面へ移って戻ったときに、Vue Router が一覧の位置を戻せるよう、積む前に今の履歴へスクロール位置を書いておく
+        window.history.replaceState({ ...window.history.state, scroll: { left: window.scrollX, top: window.scrollY } }, '');
         window.history.pushState({ ...window.history.state }, '');
         hasHistoryEntry = true;
     }
