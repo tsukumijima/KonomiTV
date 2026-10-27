@@ -180,7 +180,7 @@ const clearTypeFilter = () => {
 
 const isLoadFailed = ref(false);
 const onLoaded = (value: number | null) => {
-    total.value = value ?? 0;
+    total.value = value;
     isLoadFailed.value = value === null;
     isLoaded.value = true;
 };
