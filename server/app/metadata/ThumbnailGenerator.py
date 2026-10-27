@@ -8,6 +8,7 @@ import pathlib
 import random
 import subprocess
 import time
+from collections.abc import Iterator
 from typing import Any, ClassVar, Literal, cast
 
 import anyio
@@ -860,12 +861,33 @@ class ThumbnailGenerator:
             # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
             video_stream.codec_context.skip_frame = 'NONINTRA'
 
+            def DecodeIFrames() -> Iterator[av.VideoFrame]:
+                """
+                tsreadex の出力を先頭から順にデコードし、I フレームだけを返す
+
+                Returns:
+                    Iterator[av.VideoFrame]: デコードできた I フレーム
+                """
+                for packet in container_for_read.demux(video_stream):
+                    # 受信状態の悪い TS では、1つのパケットに前のピクチャの片方のフィールドと次の I ピクチャが詰まり、
+                    # デコーダーが "first field missing" でパケットごと捨てることがあるため、そのパケットだけを飛ばして次へ進む
+                    try:
+                        decoded_frames = packet.decode()
+                    except av.error.InvalidDataError:
+                        logging.debug(f'{self.file_path}: Skipped an undecodable packet in tsreadex output.')
+                        continue
+                    # MPEG-2 では skip_frame = 'NONINTRA' でも P フレームが出力され、デコードに失敗した直後の P フレームは
+                    # 参照先が欠けた灰色の画像になるため、I フレームだけを返す
+                    for decoded_frame in decoded_frames:
+                        if decoded_frame.pict_type == av.video.frame.PictureType.I:
+                            yield decoded_frame
+
             first_frame_time: float | None = None
             previous_frame_bgr: NDArray[np.uint8] | None = None
             previous_frame_relative_time: float | None = None
             bgr_frames: list[NDArray[np.uint8]] = []
             next_candidate_index = 0
-            for decoded_frame in container_for_read.decode(video_stream):
+            for decoded_frame in DecodeIFrames():
                 if time.time() - start_time_frame_extraction > self.TSREADEX_FRAME_EXTRACTION_TIMEOUT:
                     logging.error(
                         f'{self.file_path}: tsreadex frame extraction timed out after '
