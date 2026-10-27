@@ -232,7 +232,11 @@ def ReadCaptureImage(data: bytes, filename: str, modified_at: datetime) -> Captu
         if filename_match is not None:
             try:
                 filename_time = datetime.strptime(filename_match[1], '%Y%m%d-%H%M%S').replace(tzinfo=JST)
-                if abs((filename_time - captured_at).total_seconds()) >= 600:
+                difference_seconds = abs((filename_time - captured_at).total_seconds())
+                # 時刻を12時間表記で名前に入れるソフトで撮ったキャプチャは、午後の時刻が午前の時刻として名前に入り、
+                # 更新日時とちょうど12時間ずれるので、コピーではなく名前の表記の違いとみなして、更新日時を使う
+                is_twelve_hour_notation = abs(difference_seconds - 12 * 60 * 60) < 600
+                if difference_seconds >= 600 and is_twelve_hour_notation is False:
                     captured_at = filename_time
             except ValueError:
                 pass

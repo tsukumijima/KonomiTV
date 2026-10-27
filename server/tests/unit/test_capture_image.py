@@ -91,3 +91,17 @@ def test_read_capture_without_metadata_prefers_file_name_time_after_copy() -> No
 
     assert info.metadata_status == 'NoMetadata'
     assert info.captured_at == datetime(2019, 6, 29, 9, 24, 55, tzinfo=JST)
+
+
+def test_read_capture_without_metadata_named_in_twelve_hour_notation() -> None:
+    """
+    番組情報も EXIF もない画像で、ファイルの更新日時がファイル名の時刻とちょうど12時間ずれているときは、
+    時刻を12時間表記で名前に入れるソフトで撮ったとみなして、ファイルの更新日時を撮影日時にする
+    """
+
+    data = (CAPTURES_DIR / 'Capture_20190629-092455.png').read_bytes()
+    modified_at = datetime(2019, 6, 29, 21, 24, 55, tzinfo=JST)
+    info = ReadCaptureImage(data, 'Capture_20190629-092455.png', modified_at)
+
+    assert info.metadata_status == 'NoMetadata'
+    assert info.captured_at == modified_at
