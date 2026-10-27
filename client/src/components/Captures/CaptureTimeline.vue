@@ -254,6 +254,9 @@ const loadDay = async (date: string) => {
     }
 };
 
+// 取り直している日付ごとの件数 (拡大表示の前後の移動で、取り直し終わるのを待つため)
+let reloadingSections: Promise<unknown> | null = null;
+
 // 日付ごとの件数を取り直して、最初から描画し直す
 const reload = async () => {
     generation++;
@@ -261,10 +264,13 @@ const reload = async () => {
     baseOffset.value = 0;
     loadedDays.value = new Map();
     pendingDays.length = 0;
-    const result = await Captures.fetchSections({ axis: props.axis, day_start_hour: props.dayStartHour, filter: props.filter });
+    const request = Captures.fetchSections({ axis: props.axis, day_start_hour: props.dayStartHour, filter: props.filter });
+    reloadingSections = request;
+    const result = await request;
     if (myGeneration !== generation) {
         return;
     }
+    reloadingSections = null;
     sections.value = (result?.sections ?? []).map(section => ({ ...section, top: 0, height: 0 }));
     layout();
     emit('loaded', result === null ? null : result.total);
@@ -404,33 +410,79 @@ const formatDate = (date: string) => {
 /**
  * 拡大表示の前後の移動に使う、隣のキャプチャを返す
  * 日の境目では隣の日を読み込んでから返すので、拡大表示のまま日をまたいで送れる
+ * 削除やいいねの取り消しで一覧から外れたキャプチャからも、並びの上で隣にあるキャプチャへ送れる
  * @param capture 今のキャプチャ
  * @param delta 1 なら次 (古い方)、-1 なら前 (新しい方)
  * @returns 隣のキャプチャ (端なら null)
  */
 const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture | null> => {
-    for (let index = 0; index < sections.value.length; index++) {
-        const captures = loadedDays.value.get(sections.value[index].date);
-        const position = captures?.findIndex(item => item.id === capture.id) ?? -1;
-        if (captures === undefined || position === -1) {
-            continue;
+
+    // 日の読み込みを始め、読み終わったその日のキャプチャを返す
+    // 同時に読み込める数の上限で待たされた場合に備え、読み終わるまで少し待つ
+    const waitForDay = async (date: string) => {
+        await loadDay(date);
+        for (let retry = 0; retry < 50 && !loadedDays.value.has(date); retry++) {
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
+        return loadedDays.value.get(date) ?? [];
+    };
+
+    // 隣の日の、送る向きの端のキャプチャを返す
+    const getEdgeOfDay = async (section: ITimelineSection | undefined) => {
+        if (section === undefined) {
+            return null;
+        }
+        const captures = await waitForDay(section.date);
+        return (delta === 1 ? captures[0] : captures[captures.length - 1]) ?? null;
+    };
+
+    // 削除やいいねの取り消しで一覧を取り直している間は、日付ごとの件数を取り直し終わるまで待つ
+    if (reloadingSections !== null) {
+        await reloadingSections;
+    }
+
+    // 今のキャプチャがある日を、タイムラインの日付の軸の日時から求める
+    const timeOf = (item: ICapture) => props.axis === 'CapturedAt' ? item.captured_at : item.broadcast_at;
+    const time = timeOf(capture);
+    if (time === null) {
+        return null;
+    }
+    const date = dayjs(time).subtract(props.dayStartHour, 'hour').format('YYYY-MM-DD');
+
+    // その日ごと一覧から外れたときは、送る向きにある一番近い日の端から返す (日は新しい順に並ぶ)
+    const index = sections.value.findIndex(section => section.date === date);
+    if (index === -1) {
+        if (delta === 1) {
+            return getEdgeOfDay(sections.value.find(section => section.date < date));
+        }
+        return getEdgeOfDay(sections.value.findLast(section => section.date > date));
+    }
+
+    // 今のキャプチャの隣を返す
+    const captures = await waitForDay(date);
+    const position = captures.findIndex(item => item.id === capture.id);
+    if (position !== -1) {
         if (captures[position + delta] !== undefined) {
             return captures[position + delta];
         }
-        const neighbor = sections.value[index + delta];
-        if (neighbor === undefined) {
-            return null;
-        }
-        await loadDay(neighbor.date);
-        // 同時に読み込める数の上限で待たされた場合に備え、読み終わるまで少し待つ
-        for (let retry = 0; retry < 50 && !loadedDays.value.has(neighbor.date); retry++) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        const neighborCaptures = loadedDays.value.get(neighbor.date) ?? [];
-        return (delta === 1 ? neighborCaptures[0] : neighborCaptures[neighborCaptures.length - 1]) ?? null;
+        return getEdgeOfDay(sections.value[index + delta]);
     }
-    return null;
+
+    // 今のキャプチャが一覧から外れたときは、並び (日時の新しい順、同じ日時は ID の大きい順) の上で隣にあるキャプチャを返す
+    const isOlder = (item: ICapture) => {
+        const itemTime = dayjs(timeOf(item)).valueOf();
+        const currentTime = dayjs(time).valueOf();
+        if (itemTime !== currentTime) {
+            return itemTime < currentTime;
+        }
+        return item.id < capture.id;
+    };
+    const olderIndex = captures.findIndex(isOlder);
+    const neighborIndex = delta === 1 ? olderIndex : (olderIndex === -1 ? captures.length : olderIndex) - 1;
+    if (neighborIndex >= 0 && captures[neighborIndex] !== undefined) {
+        return captures[neighborIndex];
+    }
+    return getEdgeOfDay(sections.value[index + delta]);
 };
 
 /**
