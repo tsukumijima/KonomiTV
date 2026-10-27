@@ -961,7 +961,25 @@ class CaptureScanTask:
                 return
 
             # 消えたファイルを確定するために始めた一括スキャンのタスク (終わるまで参照を持っておく)
-            scan_tasks: set[asyncio.Task[bool]] = set()
+            scan_tasks: set[asyncio.Task[None]] = set()
+            # まだ一括スキャンを始めていない、待っている間のタスク (同じ変化のために何度も一括スキャンしないよう、1つだけ持つ)
+            waiting_scan_task: asyncio.Task[None] | None = None
+
+            async def ScanAfterCurrent() -> None:
+                """
+                実行中の一括スキャンが終わるのを待ってから、ローカルの保存先を一括スキャンする
+                実行中の一括スキャンがすでに通り過ぎた場所の変化は、その一括スキャンでは拾えないため、終わってからもう一度走査する
+                """
+
+                nonlocal waiting_scan_task
+                while self.scan_lock.locked():
+                    await asyncio.sleep(1)
+                waiting_scan_task = None
+                try:
+                    await self.runBatchScan(local_roots)
+                except HTTPException:
+                    # 待っている間に別の一括スキャンが始まったときは、変化のあとに始まったその一括スキャンに任せる
+                    pass
 
             while True:
                 try:
@@ -973,12 +991,21 @@ class CaptureScanTask:
                                 await self.processFile(NormalizeCapturePath(path))
 
                         # 消えたファイルは、通信エラーと見分けるため、一括スキャンで全体を列挙してから確定する
+                        ## フォルダごと移してきた画像は、フォルダの追加しか通知されないので、これも一括スキャンで登録する
                         ## 百万枚規模では一括スキャンに数分以上かかるので、別のタスクで実行し、その間も追加・変更された画像を登録し続ける
-                        has_deleted = any(change == Change.deleted for change, _ in changes)
-                        if has_deleted is True and not self.scan_lock.locked():
-                            scan_task = asyncio.create_task(self.runBatchScan(local_roots))
-                            scan_tasks.add(scan_task)
-                            scan_task.add_done_callback(scan_tasks.discard)
+                        needs_scan = False
+                        for change, path in changes:
+                            if change == Change.deleted:
+                                needs_scan = True
+                                break
+                            if change == Change.added and Path(path).suffix.lower() not in self.CAPTURE_EXTENSIONS:
+                                if await anyio.Path(path).is_dir():
+                                    needs_scan = True
+                                    break
+                        if needs_scan is True and waiting_scan_task is None:
+                            waiting_scan_task = asyncio.create_task(ScanAfterCurrent())
+                            scan_tasks.add(waiting_scan_task)
+                            waiting_scan_task.add_done_callback(scan_tasks.discard)
 
                 except OSError as ex:
                     logging.warning('Capture watcher failed; retrying.', exc_info=ex)
