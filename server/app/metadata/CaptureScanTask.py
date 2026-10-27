@@ -10,7 +10,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, TypedDict, cast
+from typing import Annotated, Any, ClassVar, Literal, Self, TypedDict, cast
 from weakref import WeakValueDictionary
 
 import anyio
@@ -44,13 +44,14 @@ class CaptureExif(BaseModel):
     captured_at: Annotated[datetime, Field(validation_alias=AliasChoices('captured_at', 'capture_time'))]
     captured_playback_position: Annotated[float, Field(allow_inf_nan=False)]
     # ARIB の番組の ID はどれも16ビットなので、範囲外の値は壊れたメタデータとして扱う (DB の整数に収まらない値も弾く)
-    ## 番組情報のない録画などで撮ったキャプチャは、分からない ID を -1 にして書き込むので、-1 も受け付ける (番組とは結び付けない)
+    ## 番組情報のない録画などで撮ったキャプチャは、不明な ID を -1 にして書き込むので、-1 も受け付ける (番組とは結び付けない)
     network_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
     service_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
     event_id: Annotated[int, Field(ge=-1, le=0xFFFF)]
     start_time: datetime
-    end_time: datetime
-    duration: Annotated[float, Field(allow_inf_nan=False)]
+    # 放送時間未定 (EIT[p/f] の終了時間未定) の番組で撮ったキャプチャは、番組の長さを null にして書き込むので、終了時刻と長さは None になる
+    end_time: datetime | None
+    duration: Annotated[float, Field(allow_inf_nan=False)] | None
     title: str
     description: str
     caption_text: str | None = None
@@ -59,17 +60,19 @@ class CaptureExif(BaseModel):
 
     @field_validator('captured_at', 'start_time', 'end_time')
     @classmethod
-    def normalizeDateTime(cls, value: datetime) -> datetime:
+    def normalizeDateTime(cls, value: datetime | None) -> datetime | None:
         """
         タイムゾーンを省略した旧形式の日時も JST に揃える
 
         Args:
-            value (datetime): EXIF の日時
+            value (datetime | None): EXIF の日時
 
         Returns:
-            datetime: JST のタイムゾーン付き日時
+            datetime | None: JST のタイムゾーン付き日時
         """
 
+        if value is None:
+            return None
         if value.tzinfo is None:
             return value.replace(tzinfo=JST)
         return value.astimezone(JST)
@@ -99,6 +102,20 @@ class CaptureExif(BaseModel):
             except (KeyError, TypeError, ValueError):
                 pass
         return data
+
+    @model_validator(mode='after')
+    def clearEndTimeOfUndecidedProgram(self) -> Self:
+        """
+        放送時間未定の番組で撮ったキャプチャの終了時刻を None にする
+        KonomiTV のクライアントは、放送時間未定の番組の終了時刻に開始時刻と同じ値を入れて書き込むため、終了時刻としては使えない
+
+        Returns:
+            Self: 終了時刻を整えた番組情報
+        """
+
+        if self.duration is None:
+            self.end_time = None
+        return self
 
 
 @dataclass(slots=True)
@@ -468,6 +485,11 @@ class CaptureScanTask:
                                 'description': metadata.description,
                             },
                         )
+                        # 放送時間未定のときに撮ったキャプチャで作った放送回は、長さが決まってから撮ったキャプチャが来たら、終了時刻と長さを埋める
+                        if program.duration is None and metadata.duration is not None:
+                            program.end_time = metadata.end_time
+                            program.duration = metadata.duration
+                            await program.save(update_fields=['end_time', 'duration', 'updated_at'])
 
                     # 番組情報から取り出す値 (番組情報がないキャプチャでは空にする)
                     capture_program_id: int | None = None

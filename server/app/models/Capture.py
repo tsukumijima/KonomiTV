@@ -97,8 +97,9 @@ class CaptureProgram(TortoiseModel):
     service_id = fields.IntField()
     event_id = fields.IntField()
     start_time = fields.DatetimeField()
-    end_time = fields.DatetimeField()
-    duration = fields.FloatField()
+    # 放送時間未定 (EIT[p/f] の終了時間未定) の番組で撮ったキャプチャだけで作った放送回は、終了時刻と番組長が不明なので NULL にする
+    end_time = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
+    duration = cast(TortoiseField[float | None], fields.FloatField(null=True))
     title = fields.TextField()
     description = fields.TextField()
     captures: fields.ReverseRelation[Capture]

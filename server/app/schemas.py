@@ -708,8 +708,9 @@ class CaptureProgram(BaseModel):
     service_id: int
     event_id: int
     start_time: datetime
-    end_time: datetime
-    duration: float
+    # 放送時間未定の番組で撮ったキャプチャだけで作った放送回は、終了時刻と番組長が不明なので null になる
+    end_time: datetime | None
+    duration: float | None
     title: str
     description: str
     channel: CaptureChannel | None

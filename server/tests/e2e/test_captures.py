@@ -95,3 +95,43 @@ async def test_upload_list_and_delete_capture(client: httpx.AsyncClient, admin_h
     assert saved_path.exists() is False
     response = await client.get(f'/api/captures/{capture["id"]}')
     assert response.status_code == 404
+
+
+# -------------------------------------------------------------------------------------
+# 放送時間未定の放送回の補完フロー (POST /api/captures → GET /api/captures/{capture_id} → DELETE /api/captures) - 正常系
+# -------------------------------------------------------------------------------------
+
+async def test_upload_capture_of_program_with_undecided_duration_then_fill_in(client: httpx.AsyncClient, admin_headers: dict[str, str]) -> None:
+    """
+    放送時間未定の番組で撮ったキャプチャは、終了時刻と番組長が不明な放送回として登録され、
+    同じ放送回を長さが決まってから撮ったキャプチャが来ると、放送回の終了時刻と長さが埋まる
+    """
+
+    # 放送時間未定のときに撮ったキャプチャをアップロードすると、終了時刻と長さが null の放送回になる
+    file_name = 'Capture_20251013-141201.jpg'
+    response = await client.post('/api/captures', files={'image': (file_name, (FIXTURES_DIR / 'captures' / file_name).read_bytes(), 'image/jpeg')})
+    assert response.status_code == 201, response.text
+    undecided_capture = response.json()
+    assert undecided_capture['metadata_status'] == 'Parsed'
+    response = await client.get(f'/api/captures/{undecided_capture["id"]}')
+    assert response.status_code == 200, response.text
+    program = response.json()['program']
+    assert program['start_time'] == '2025-10-13T13:55:00+09:00'
+    assert program['end_time'] is None
+    assert program['duration'] is None
+
+    # 同じ放送回を、長さが決まってから撮ったキャプチャをアップロードすると、放送回の終了時刻と長さが埋まる
+    file_name = 'Capture_20251013-150401.jpg'
+    response = await client.post('/api/captures', files={'image': (file_name, (FIXTURES_DIR / 'captures' / file_name).read_bytes(), 'image/jpeg')})
+    assert response.status_code == 201, response.text
+    decided_capture = response.json()
+    response = await client.get(f'/api/captures/{undecided_capture["id"]}')
+    assert response.status_code == 200, response.text
+    filled_program = response.json()['program']
+    assert filled_program['id'] == program['id']
+    assert filled_program['end_time'] == '2025-10-13T15:15:00+09:00'
+    assert filled_program['duration'] == 4800
+
+    # ほかのテストの一覧に混ざらないよう、アップロードしたキャプチャを削除する
+    response = await client.request('DELETE', '/api/captures', json={'capture_ids': [undecided_capture['id'], decided_capture['id']]}, headers=admin_headers)
+    assert response.status_code == 200, response.text

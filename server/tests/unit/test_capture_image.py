@@ -68,6 +68,24 @@ def test_read_capture_without_playback_position_written_by_live_only_version() -
     assert info.metadata.captured_playback_position == 610.0
 
 
+def test_read_capture_of_program_with_undecided_duration() -> None:
+    """
+    放送時間未定の番組で撮ったキャプチャの番組情報も読み取り、終了時刻と番組長を不明 (None) として扱う
+    """
+
+    data = (CAPTURES_DIR / 'Capture_20251013-141201.jpg').read_bytes()
+    info = ReadCaptureImage(data, 'Capture_20251013-141201.jpg', datetime(2030, 1, 1, tzinfo=JST))
+
+    assert info.metadata_status == 'Parsed'
+    assert info.metadata is not None
+    assert info.metadata.title == 'ニュース'
+    assert info.metadata.start_time == datetime(2025, 10, 13, 13, 55, tzinfo=JST)
+    # 番組情報には終了時刻として開始時刻と同じ値が書き込まれているが、終了時刻としては使えないので None にする
+    assert info.metadata.end_time is None
+    assert info.metadata.duration is None
+    assert info.metadata.captured_playback_position == 1021.285
+
+
 def test_read_capture_without_metadata_uses_file_modified_time() -> None:
     """
     番組情報も EXIF もない PNG は、ファイル名の時刻と近ければ、ファイルの更新日時を撮影日時にする
