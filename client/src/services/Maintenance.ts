@@ -215,6 +215,9 @@ class Maintenance {
                 case 'Batch scan of capture folders is already running':
                     APIClient.showGenericError(response, 'キャプチャフォルダの一括スキャンは既に実行中です。');
                     break;
+                case 'Some capture folders could not be scanned completely':
+                    APIClient.showGenericError(response, '読み込めなかったフォルダがあったため、キャプチャフォルダの一括スキャンを最後まで行えませんでした。保存先フォルダにアクセスできるかを確認してから、もう一度実行してください。');
+                    break;
                 default:
                     APIClient.showGenericError(response, 'キャプチャフォルダの一括スキャンを開始できませんでした。');
                     break;
