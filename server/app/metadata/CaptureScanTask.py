@@ -566,9 +566,20 @@ class CaptureScanTask:
                 # 別の保存先へ移動した画像の照合を全保存先で終えてから、消えたファイルと期限を確定する
                 ## 期限による削除は、すべての保存先を最後まで走査できたときだけ行う
                 ## 読めなかった保存先へ移した画像は移動として照合できていないので、移す前の場所を削除すると、いいねやタグごと消えてしまうため
+                ## 保存先に画像が1枚も見えないとき (マウントが外れて空のフォルダが見えているときなど) や、新しく消えたファイルが2割を超えるときも、
+                ## その保存先へ移した画像をほかの保存先から削除しないよう、すべての保存先で削除を見送る (消えたファイルは Missing にして一覧から隠す)
+                ## 利用者が自分で大量に消した場合も、次の走査からはすでに Missing の場所を除いて数えるので、割合が下がって1週間後に削除される
                 can_delete_expired = is_all_folders
                 for result in results:
                     if result.is_complete is False:
+                        can_delete_expired = False
+                    newly_missing_count = 0
+                    for snapshot in result.unseen.values():
+                        if snapshot['status'] != 'Missing':
+                            newly_missing_count += 1
+                    if result.found_count == 0 and len(result.unseen) > 0:
+                        can_delete_expired = False
+                    if result.original_count > 0 and newly_missing_count / result.original_count > 0.2:
                         can_delete_expired = False
                 is_complete = True
                 for result in results:
@@ -576,8 +587,8 @@ class CaptureScanTask:
                         is_complete = False
 
                 # 上書きでどの場所にも置かれていなくなったキャプチャは、どの保存先にも属さないので、
-                # すべての保存先を最後まで走査できたときだけ、1週間たったものを削除する
-                if is_all_folders is True and len(roots) > 0 and is_complete is True:
+                # 期限による削除を行えるときだけ、1週間たったものを削除する
+                if len(roots) > 0 and is_complete is True and can_delete_expired is True:
                     expired_before = (datetime.now(JST) - timedelta(days=7)).isoformat(' ')
                     removed_count, _ = await connections.get('default').execute_query("""
                         DELETE FROM captures
@@ -820,7 +831,7 @@ class CaptureScanTask:
 
         Args:
             result (CaptureRootScanResult): 走査と移動の照合を終えた保存先の情報
-            can_delete_expired (bool): 期限による削除を行ってよいか (すべての保存先を最後まで走査できたときだけ True)
+            can_delete_expired (bool): 期限による削除を行ってよいか (すべての保存先を最後まで走査でき、削除を見送る保存先がないときだけ True)
 
         Returns:
             bool: 消えたファイルを確定した場合は True (走査が不完全なときは False)
@@ -829,19 +840,6 @@ class CaptureScanTask:
         # 走査が不完全なときは、期限による削除も含めて確定を見送る
         if result.is_complete is False:
             return False
-
-        # 保存先に画像が1枚も見えないとき (マウントが外れて空のフォルダが見えているときなど) や、新しく消えたファイルが2割を超えるときは、
-        # 消えたファイルを Missing にして一覧から隠すだけにして、期限による削除を見送る (ファイルが戻れば、次の走査で元に戻る)
-        ## 利用者が自分で大量に消した場合も、次の走査からはすでに Missing の場所を除いて数えるので、割合が下がって1週間後に削除される
-        newly_missing_count = 0
-        for snapshot in result.unseen.values():
-            if snapshot['status'] != 'Missing':
-                newly_missing_count += 1
-        is_deletion_allowed = can_delete_expired
-        if result.found_count == 0 and len(result.unseen) > 0:
-            is_deletion_allowed = False
-        if result.original_count > 0 and newly_missing_count / result.original_count > 0.2:
-            is_deletion_allowed = False
 
         scan_started_at = result.started_at
         for path, snapshot in result.unseen.items():
@@ -879,7 +877,7 @@ class CaptureScanTask:
                             status = 'Missing',
                             missing_since = scan_started_at,
                         )
-                    elif is_deletion_allowed is True and current_file.missing_since <= scan_started_at - timedelta(days=7):
+                    elif can_delete_expired is True and current_file.missing_since <= scan_started_at - timedelta(days=7):
                         await current_file.delete()
                         # 場所が1つも残っていないキャプチャも一緒に削除する
                         if capture is not None and not await CaptureFile.filter(capture_id=capture.id).exists():
