@@ -227,6 +227,9 @@ const setInfoOpen = (value: boolean) => {
 const prevCapture = ref<ICapture | null | undefined>(undefined);
 const nextCapture = ref<ICapture | null | undefined>(undefined);
 
+// 直前に表示していたキャプチャ (下の watch は開いた状態で作られるとすぐ実行されるので、その前に宣言しておく)
+let lastShownCapture: ICapture | null = null;
+
 // 表示するキャプチャが変わるたびに、詳細 (番組・ファイルの場所) と前後のキャプチャを取り直す
 // 隣へ送ったときは、送る前の今のキャプチャがそのまま反対側の隣になるので、取り直さずに使う
 watch(() => props.capture?.id, async (id, oldId) => {
@@ -258,7 +261,6 @@ watch(() => props.capture?.id, async (id, oldId) => {
         detail.value = fetched;
     }
 }, { immediate: true });
-let lastShownCapture: ICapture | null = null;
 
 // いいねやタグを変えたときは、同じキャプチャの新しい内容に差し替える
 watch(() => props.capture, (capture) => {
