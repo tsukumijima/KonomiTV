@@ -5,6 +5,7 @@ import hashlib
 import io
 import os
 import re
+import struct
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -153,17 +154,26 @@ def ReadCaptureImage(data: bytes, filename: str, modified_at: datetime) -> Captu
             image.verify()
 
     # EXIF から、KonomiTV が書き込んだ番組情報 (XPComment) と撮影日時 (DateTimeOriginal) を取り出す
+    ## EXIF が途中で切れていると、Pillow は struct.error を送出するので、画像は閲覧できるようにしたまま、壊れたメタデータとして扱う
+    raw_comment = None
+    original_time = None
+    is_exif_broken = False
     with Image.open(io.BytesIO(data)) as image:
-        exif = image.getexif()
-        raw_comment = exif.get(40092)
-        if 34665 in exif:
-            original_time = exif.get_ifd(34665).get(36867)
-        else:
-            original_time = exif.get(36867)
+        try:
+            exif = image.getexif()
+            raw_comment = exif.get(40092)
+            if 34665 in exif:
+                original_time = exif.get_ifd(34665).get(36867)
+            else:
+                original_time = exif.get(36867)
+        except struct.error:
+            is_exif_broken = True
 
     # XPComment だけが壊れている場合も、画像は閲覧できるようにする
     metadata = None
     metadata_status = 'NoMetadata'
+    if is_exif_broken is True:
+        metadata_status = 'Invalid'
     if raw_comment is not None:
         try:
             # XPComment は BYTE 型なので、バイト列か値の並びのときだけ読む
