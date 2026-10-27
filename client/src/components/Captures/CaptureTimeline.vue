@@ -179,8 +179,13 @@ const visibleSections = computed(() => {
 });
 
 // 見えている日のうち、読み込んでいない日を読み込む
+// 読み込めなかった日は、スクロールのたびに取り直してエラーを出し続けないよう、少し間を空けてから読み直す
 watch(visibleSections, (list) => {
     for (const section of list) {
+        const failedAt = failedDays.get(`${generation}:${section.date}`);
+        if (failedAt !== undefined && performance.now() - failedAt < 10 * 1000) {
+            continue;
+        }
         void loadDay(section.date);
     }
 });
@@ -221,6 +226,8 @@ const visibleTiles = (section: ITimelineSection) => {
 
 // 1日分のキャプチャを読み込む (同時に読み込むのは2日まで)
 let activeLoads = 0;
+// 読み込めなかった日と、その時刻 (キーは `世代:日付`)
+const failedDays = new Map<string, number>();
 const pendingDays: string[] = [];
 const loadDay = (date: string): Promise<DayLoadResult> => {
     if (loadedDays.value.has(date)) {
@@ -248,8 +255,12 @@ const loadDay = (date: string): Promise<DayLoadResult> => {
                 filter: props.filter,
             });
             if (myGeneration !== generation || result === null) {
+                if (result === null) {
+                    failedDays.set(loadingKey, performance.now());
+                }
                 return 'Failed';
             }
+            failedDays.delete(loadingKey);
             for (const program of result.programs) {
                 programs.set(program.id, program);
             }
