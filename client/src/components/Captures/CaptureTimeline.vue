@@ -75,6 +75,7 @@ const scrollOffset = ref(0);  // タイムラインの先頭から見た、画�
 // 日付ごとの件数と、読み込んだ日のキャプチャ
 const sections = shallowRef<ITimelineSection[]>([]);
 const loadedDays = shallowRef(new Map<string, ICapture[]>());
+// 読み込み中の日 (絞り込みを変えたあとの読み込みを、変える前の読み込みと分けるため、世代と日付の組で持つ)
 const loadingDays = new Set<string>();
 const programs = new Map<number, ICaptureProgram>();
 let generation = 0;  // 絞り込みが変わるたびに増やし、古い読み込みの結果を捨てる
@@ -190,7 +191,9 @@ const visibleTiles = (section: ITimelineSection) => {
 let activeLoads = 0;
 const pendingDays: string[] = [];
 const loadDay = async (date: string) => {
-    if (loadedDays.value.has(date) || loadingDays.has(date)) {
+    const myGeneration = generation;
+    const loadingKey = `${myGeneration}:${date}`;
+    if (loadedDays.value.has(date) || loadingDays.has(loadingKey)) {
         return;
     }
     if (activeLoads >= 2) {
@@ -199,8 +202,7 @@ const loadDay = async (date: string) => {
         }
         return;
     }
-    const myGeneration = generation;
-    loadingDays.add(date);
+    loadingDays.add(loadingKey);
     activeLoads++;
     try {
         const result = await Captures.fetchAllCaptures({
@@ -219,7 +221,7 @@ const loadDay = async (date: string) => {
         next.set(date, result.captures);
         loadedDays.value = next;
     } finally {
-        loadingDays.delete(date);
+        loadingDays.delete(loadingKey);
         activeLoads--;
         // 待っている日のうち、まだ見えている日から読み込む
         const visible = new Set(visibleSections.value.map(section => section.date));
