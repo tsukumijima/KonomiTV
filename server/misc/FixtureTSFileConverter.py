@@ -6,10 +6,6 @@ Usage: uv run python -m misc.FixtureTSFileConverter /path/to/input.ts tests/fixt
 実際の録画ファイルからテスト fixture 用 TS ファイル (tests/fixtures/recorded/) に変換するスクリプト。
 録画の指定した範囲を TS パケット単位で切り出し、必要なら映像だけを低いビットレートの H.264 に差し替える。
 番組情報 (PSI/SI)・音声・字幕は録画のまま残すので、解析のテストでは実際の放送の癖をそのまま確認できる。
-
-- 切り出し後の動画長が数秒のみの場合のみ、映像を差し替えずにそのまま通す
-- 切り出し後の動画長がそれよりも長い場合は、映像を大幅に圧縮した H.264 に差し替えることで数 MB に収める
-- 映像の差し替えには tsreplace を使う (PATH から解決する)。tsreplace は MPEG-2 の映像を受け付けないのと容量の関係で H.264 としている
 """
 
 import shutil
