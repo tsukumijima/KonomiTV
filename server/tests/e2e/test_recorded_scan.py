@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx2 as httpx
+import pytest
 
 from app.constants import JST, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
@@ -217,6 +218,33 @@ async def test_manual_batch_scan__recording_is_registered_analyzed_and_hidden_wh
 # -------------------------------------------------------------------------------------
 
 
+async def test_recorded_file_renamed__keeps_same_record(client: httpx.AsyncClient, recorded_folder: Path) -> None:
+    """
+    録画フォルダの中で録画ファイルの名前を変えると、同じ ID の録画番組のまま新しいパスに付け替わり、作ったサムネイル情報も残る
+    """
+
+    await WaitForStartupScan(client)
+    recorded_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'rename', datetime(2019, 8, 10, 20, 45, tzinfo=JST))
+    recorded_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, recorded_path))
+
+    # バックグラウンドの解析が終わってから、名前を変える
+    async def GetThumbnailInfo() -> dict[str, Any] | None:
+        response = await client.get(f'/api/videos/{recorded_program["id"]}')
+        assert response.status_code == 200, response.text
+        return response.json()['recorded_video']['thumbnail_info']
+    thumbnail_info = await WaitUntil(GetThumbnailInfo)
+    renamed_path = recorded_path.with_name('renamed.ts')
+    recorded_path.rename(renamed_path)
+
+    # 同じ ID のまま新しいパスに付け替わり、サムネイル情報も同じものが残る
+    renamed_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, renamed_path))
+    assert renamed_program['id'] == recorded_program['id']
+    assert await GetThumbnailInfo() == thumbnail_info
+
+    renamed_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, renamed_path))
+
+
 async def test_recorded_folder_renamed__keeps_same_record(client: httpx.AsyncClient, recorded_folder: Path) -> None:
     """
     録画フォルダの中で録画ファイルの入ったフォルダごと名前を変えると (配下のファイルの通知が届かない)、
@@ -237,3 +265,104 @@ async def test_recorded_folder_renamed__keeps_same_record(client: httpx.AsyncCli
 
     renamed_path.unlink()
     await WaitUntil(lambda: IsRecordedProgramGone(client, renamed_path))
+
+
+async def test_recorded_file_copied__waits_for_original_to_be_removed(client: httpx.AsyncClient, recorded_folder: Path) -> None:
+    """
+    同じ中身の録画ファイルを録画フォルダの別の場所へ置いても、元のファイルが見えるあいだは新しい録画番組を作らずに保留し、
+    サーバーを再起動して保留の記録が消えても一括スキャンで保留に戻り、元のファイルを消すと同じ ID のまま付け替わる
+    """
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 11, 20, 45, tzinfo=JST)
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'copy-original', recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+
+    # 別のフォルダへ同じ中身のファイルを置くと、付け替えを保留して、一覧には元の録画番組だけが出る
+    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'copy-destination', recorded_at)
+    async def IsPending() -> bool:
+        return copied_path in RecordedScanTask().pending_moves
+    await WaitUntil(IsPending)
+    assert await GetRecordedProgramByPath(client, copied_path) is None
+    assert (await GetRecordedProgramByPath(client, original_path) or {}).get('id') == original_program['id']
+
+    # サーバーを再起動して保留の記録が消えても、一括スキャンで保留に戻る
+    RecordedScanTask().pending_moves.clear()
+    response = await client.post('/api/maintenance/batch-scan/run')
+    assert response.status_code == 204, response.text
+    await WaitUntil(IsPending)
+    assert await GetRecordedProgramByPath(client, copied_path) is None
+
+    # 元のファイルを消すと、同じ ID のまま新しいパスへ付け替わる
+    original_path.unlink()
+    moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert moved_program['id'] == original_program['id']
+    assert copied_path not in RecordedScanTask().pending_moves
+
+    copied_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
+
+
+async def test_recorded_file_copied__original_folder_moved_outside(
+    client: httpx.AsyncClient,
+    recorded_folder: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    付け替えを保留している間に、元のファイルをフォルダごと録画フォルダの外へ移すと (中のファイルの削除イベントが届かない)、
+    保留の見回りで元のファイルがなくなったことに気づき、同じ ID のまま付け替わる
+    """
+
+    # 見回りの間隔を短くする
+    monkeypatch.setattr(RecordedScanTask, 'PENDING_MOVE_CHECK_INTERVAL_SECONDS', 1)
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 12, 20, 45, tzinfo=JST)
+    original_folder = recorded_folder / 'outside-original'
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', original_folder, recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'outside-destination', recorded_at)
+    async def IsPending() -> bool:
+        return copied_path in RecordedScanTask().pending_moves
+    await WaitUntil(IsPending)
+
+    # 元のファイルをフォルダごと録画フォルダの外へ移す
+    moved_out_folder = RECORDED_FOLDER.parent / 'outside-original'
+    original_folder.rename(moved_out_folder)
+    moved_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert moved_program['id'] == original_program['id']
+
+    shutil.rmtree(moved_out_folder)
+    copied_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))
+
+
+async def test_recorded_file_copied__original_deleted_by_api(
+    client: httpx.AsyncClient,
+    recorded_folder: Path,
+    admin_headers: dict[str, str],
+) -> None:
+    """
+    付け替えを保留している間に、元の録画番組を削除 API で消すと、消した ID は戻さず、残っているファイルを新しい録画番組として登録する
+    """
+
+    await WaitForStartupScan(client)
+    recorded_at = datetime(2019, 8, 13, 20, 45, tzinfo=JST)
+    original_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'delete-original', recorded_at)
+    original_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, original_path))
+    copied_path = PlaceRecording('terrestrial-tsreplace-h264.ts', recorded_folder / 'delete-destination', recorded_at)
+    async def IsPending() -> bool:
+        return copied_path in RecordedScanTask().pending_moves
+    await WaitUntil(IsPending)
+
+    # 元の録画番組を削除 API で消す (録画ファイルも消える)
+    response = await client.delete(f'/api/videos/{original_program["id"]}', headers=admin_headers)
+    assert response.status_code == 204, response.text
+    assert original_path.exists() is False
+
+    # 残っているファイルが、別の ID の新しい録画番組として登録される
+    registered_program = await WaitUntil(lambda: GetRecordedProgramByPath(client, copied_path))
+    assert registered_program['id'] != original_program['id']
+
+    copied_path.unlink()
+    await WaitUntil(lambda: IsRecordedProgramGone(client, copied_path))

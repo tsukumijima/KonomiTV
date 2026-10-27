@@ -7,7 +7,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal, cast
 
 import anyio
 import psutil
@@ -44,6 +44,21 @@ class FileRecordingInfo:
     last_checked: datetime
     file_size: int
     mtime_continuous_start_at: datetime | None
+
+
+@dataclass(slots=True)
+class PendingMove:
+    """
+    同じ中身の録画済みのレコードがあり、その元のファイルがまだ見えるために付け替えを保留している録画ファイルの情報
+    - recorded_video_id: 同じ中身の元のレコードの ID
+    - original_file_path: 保留にしたときの元のレコードのファイルパス
+    - file_size: 保留にしたときの録画ファイルのサイズ
+    - file_modified_at: 保留にしたときの録画ファイルの最終更新日時
+    """
+    recorded_video_id: int
+    original_file_path: str
+    file_size: int
+    file_modified_at: datetime
 
 
 @dataclass(slots=True)
@@ -100,6 +115,9 @@ class RecordedScanTask:
     # 見つからなくなった録画ファイルのレコードを残しておく時間 (秒)
     MISSING_RETENTION_SECONDS: ClassVar[int] = 604800  # 1週間
 
+    # 付け替えを保留している録画ファイルの元のファイルを見回る間隔 (秒)
+    PENDING_MOVE_CHECK_INTERVAL_SECONDS: ClassVar[int] = 60
+
     # 既知のハッシュ衝突が発生しうる file_hash の集合
     KNOWN_COLLISION_FILE_HASHES: ClassVar[set[str]] = {
         'd1dd210d6b1312cb342b56d02bd5e651',
@@ -139,9 +157,6 @@ class RecordedScanTask:
         # タスクの状態管理
         self._is_running = False
         self._task: asyncio.Task[None] | None = None
-        # このサーバーの起動で録画フォルダのスキャンを始めた日時
-        ## __handleFileDeletion() が、ドライブをまたぐ移動の移動先のレコードと、前の起動から別のパスにある同じ中身の録画のレコードを見分けるために参照する
-        self._started_at = datetime.now(tz=JST)
 
         # 録画フォルダ以下の一括スキャンの進捗 (実行中かどうかと、処理した録画ファイルの件数)
         ## 起動時の自動スキャンと手動スキャンの両方で更新し、BatchScanStatusAPI が参照する
@@ -149,6 +164,17 @@ class RecordedScanTask:
 
         # バックグラウンドタスクの状態管理
         self._background_tasks: dict[anyio.Path, asyncio.Task[None]] = {}
+
+        # 付け替えを保留している録画ファイル (録画ファイルのパスと保留の情報)
+        ## 同じ中身の録画済みのレコードの元のファイルがまだ見えるときに、processRecordedFile() が記録し、同じパスを照合し直すときにハッシュの照合を省くために参照する
+        ## __handleFileDeletion() と __checkRecordingCompletion() の見回りが、元のファイルがなくなった録画ファイルを照合し直すために参照する
+        ## メモリにだけ持つので、サーバーを再起動したら、一括スキャンが照合し直して保留に戻す
+        ## テストから、保留しているかを読むために参照される
+        self.pending_moves: dict[anyio.Path, PendingMove] = {}
+        # 保留の照合し直しのために作ったタスク (asyncio はタスクを弱い参照で持つため、完了するまでここで参照を持ち続ける)
+        self._pending_move_tasks: set[asyncio.Task[None]] = set()
+        # 付け替えを保留している録画ファイルの元のファイルを最後に見回った日時 (__checkRecordingCompletion() が参照する)
+        self._pending_moves_checked_at = datetime.now(tz=JST)
 
         # シンボリックリンクの元パスと実体パスのマッピング
         self._symlink_path_map: dict[str, str] = {}
@@ -621,6 +647,7 @@ class RecordedScanTask:
                 # ファイル変更イベント発火後に即座にファイルが削除される可能性も考慮
                 if not await self.isFileExists(file_path):
                     logging.warning(f'{file_path}: File does not exist after acquiring lock! ignored.')
+                    self.pending_moves.pop(file_path, None)  # 付け替えを保留していれば保留から外す
                     # ロック管理辞書から不要になったロックを削除
                     async with self._file_locks_dict_lock:
                         if file_path in self._file_locks and not file_lock.locked():
@@ -739,70 +766,130 @@ class RecordedScanTask:
 
                 analyzer = MetadataAnalyzer(pathlib.Path(str(file_path)))  # anyio.Path -> pathlib.Path に変換
 
-                # まだ録画済みとして登録されていないファイルは、重い解析の前に、見つからなくなった録画のレコードと中身を照合する
+                # まだ録画済みとして登録されていないファイルは、重い解析の前に、同じ中身の録画済みのレコードと照合する
                 ## 移動や名前の変更であれば、レコードのパスを付け替えるだけで、マイリストや視聴履歴が参照する ID とサムネイル・CM 区間をそのまま使い続けられる
                 ## ドライブをまたぐ移動では、コピー中に録画中として登録されたレコードが同じパスにあるので、それも照合の対象にする
+                ## 付け替えるか、付け替えを保留するかは、この照合の結果だけで決める (削除イベントの側は Missing にするだけ)
                 if (force_update is False and
                     (existing_recorded_video_summary is None or
                      existing_recorded_video_summary.status in ('Recording', 'Missing'))):
 
-                    # サイズと更新日時が同じで、Missing のレコードか、元のパスにもうファイルがない録画済みのレコードを候補にする
-                    ## 一括スキャンや、削除イベントより先に届いた追加イベントでは、移動元のレコードはまだ Missing になっていない
-                    ## ファイル名は照合に使わないので、名前の変更も拾える
-                    ## 作成日時は移動で変わる (Linux では名前の変更で更新され、ドライブをまたぐ移動ではファイルが作り直される) ため照合に使わず、
-                    ## 付け替えるときに新しい値で更新する
-                    candidate_rows = await RecordedVideo.filter(
-                        status__in = ['Recorded', 'Missing'],
-                        file_size = file_size,
-                        file_modified_at = file_modified_at,
-                    ).values('id', 'status', 'file_path', 'file_hash')
+                    # 前回の照合で付け替えを保留していれば、その情報を取り出す
+                    ## 照合の結果が変わっていれば、保留を続けるときにだけ記録し直す
+                    pending_move = self.pending_moves.pop(file_path, None)
 
-                    for candidate_row in candidate_rows:
+                    # 照合の間に別の処理が候補のレコードを付け替えたり削除したりしたときは、候補を選び直す
+                    is_reselecting = True
+                    while is_reselecting is True:
+                        is_reselecting = False
 
-                        # 録画済みのレコードは、元のパスにファイルが残っていれば移動ではない (読めない場合も移動とは判定しない)
-                        if candidate_row['status'] == 'Recorded':
+                        # サイズと更新日時が同じ、録画済みか Missing のレコードを候補にする
+                        ## ファイル名は照合に使わないので、名前の変更も拾える
+                        ## 作成日時は移動で変わる (Linux では名前の変更で更新され、ドライブをまたぐ移動ではファイルが作り直される) ため照合に使わず、
+                        ## 付け替えるときに新しい値で更新する
+                        candidate_rows = await RecordedVideo.filter(
+                            status__in = ['Recorded', 'Missing'],
+                            file_size = file_size,
+                            file_modified_at = file_modified_at,
+                        ).values('id', 'status', 'file_path', 'file_hash')
+
+                        # 候補を、付け替えられるレコードと、元のファイルが見えるので付け替えを保留するレコードに分ける
+                        ## 一括スキャンや、削除イベントより先に届いた追加イベントでは、移動元のレコードはまだ Missing になっていないので、元のパスのファイルを見て決める
+                        ## 元のパスが読めないときは、中身が同じと分かったファイルへ付け替えれば、ID を保ったまま再生できるので、付け替えられるレコードに入れる
+                        relinkable_rows: list[dict[str, Any]] = []
+                        holdable_rows: list[dict[str, Any]] = []
+                        for candidate_row in candidate_rows:
+                            if candidate_row['status'] == 'Missing':
+                                relinkable_rows.append(candidate_row)
+                                continue
                             if candidate_row['file_path'] == file_path_str:
                                 continue
                             try:
                                 await anyio.Path(candidate_row['file_path']).stat()
-                                continue
-                            except FileNotFoundError:
-                                pass
+                                holdable_rows.append(candidate_row)
                             except OSError:
+                                relinkable_rows.append(candidate_row)
+
+                        # 付け替えられるレコードを先に照合する
+                        ## 同じ中身の録画が別々のレコードで複数あるときも、実際に移動されたレコードへ付け替えられる
+                        for candidate_row in relinkable_rows:
+
+                            # 1MB を3か所読むだけの軽いハッシュで、中身が同じかを照合する
+                            is_same_content = await asyncio.to_thread(analyzer.matchesFileHash, candidate_row['file_hash'])
+                            if is_same_content is False:
                                 continue
 
-                        # 1MB を3か所読むだけの軽いハッシュで、中身が同じかを照合する
-                        is_same_content = await asyncio.to_thread(analyzer.matchesFileHash, candidate_row['file_hash'])
-                        if is_same_content is False:
+                            # 移動元のレコードを新しいパスへ付け替え、同じパスにコピー中に作られたレコードがあれば削除する
+                            ## 照合の間に別の処理が同じレコードを付け替えたり削除したりしていれば、更新件数が0件になるので候補を選び直す
+                            async with transactions.in_transaction():
+                                updated_count = await RecordedVideo.filter(
+                                    id = candidate_row['id'],
+                                    status = candidate_row['status'],
+                                    file_path = candidate_row['file_path'],
+                                ).update(
+                                    status = 'Recorded',
+                                    file_path = file_path_str,
+                                    file_created_at = file_created_at,
+                                    missing_since = None,
+                                )
+                                if updated_count > 0 and (
+                                    existing_recorded_video_summary is not None and
+                                    existing_recorded_video_summary.id != candidate_row['id']):
+                                    await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
+                            if updated_count == 0:
+                                is_reselecting = True
+                                break
+
+                            self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
+                            logging.info(f'{file_path}: Moved record from {candidate_row["file_path"]}.')
+                            await self.__restartBackgroundAnalysis(
+                                anyio.Path(candidate_row['file_path']),
+                                file_path,
+                                candidate_row['id'],
+                            )
+                            return
+                        if is_reselecting is True:
                             continue
 
-                        # 移動元のレコードを新しいパスへ付け替え、同じパスにコピー中に作られたレコードがあれば削除する
-                        ## 照合の間に別の処理が同じレコードを付け替えたり削除したりしていれば、更新件数が0件になるので次の候補を見る
-                        async with transactions.in_transaction():
-                            updated_count = await RecordedVideo.filter(
-                                id = candidate_row['id'],
-                                status = candidate_row['status'],
-                                file_path = candidate_row['file_path'],
-                            ).update(
-                                status = 'Recorded',
-                                file_path = file_path_str,
-                                file_created_at = file_created_at,
-                                missing_since = None,
-                            )
-                            if updated_count == 0:
-                                continue
-                            if (existing_recorded_video_summary is not None and
-                                existing_recorded_video_summary.id != candidate_row['id']):
-                                await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
+                        # 元のファイルが見えるレコードと中身が同じなら、元のファイルがなくなるまで付け替えを保留する
+                        ## ドライブをまたぐ移動では、コピーが終わってから元のファイルが消えるまでに時間がかかる (フォルダごとの移動では、すべてのファイルのコピーが終わるまで元が消えない)
+                        ## 保留している間は新しいレコードを作らず、一覧には元のレコードだけを出す
+                        ## 元のファイルがなくなったら、削除イベント・見回り・一括スキャンのどれかが照合し直し、上で付け替える
+                        for candidate_row in holdable_rows:
 
-                        self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
-                        logging.info(f'{file_path}: Moved record from {candidate_row["file_path"]}.')
-                        await self.__restartBackgroundAnalysis(
-                            anyio.Path(candidate_row['file_path']),
-                            file_path,
-                            candidate_row['id'],
-                        )
-                        return
+                            # 同じ起動の中で同じ元のレコードと照合済みで、ファイルが変わっていなければ、ハッシュを読み直さない
+                            if (pending_move is not None and
+                                pending_move.recorded_video_id == candidate_row['id'] and
+                                pending_move.original_file_path == candidate_row['file_path'] and
+                                pending_move.file_size == file_size and
+                                pending_move.file_modified_at == file_modified_at):
+                                is_same_content = True
+                            else:
+                                is_same_content = await asyncio.to_thread(analyzer.matchesFileHash, candidate_row['file_hash'])
+                            if is_same_content is False:
+                                continue
+
+                            # 同じパスにコピー中に作られた録画中のレコードがあれば、元のレコードと同じ中身なので削除する
+                            if (existing_recorded_video_summary is not None and
+                                existing_recorded_video_summary.status == 'Recording'):
+                                async with transactions.in_transaction():
+                                    deleted_count = await RecordedVideo.filter(
+                                        id = existing_recorded_video_summary.id,
+                                        status = 'Recording',
+                                    ).delete()
+                                    if deleted_count > 0:
+                                        await RecordedProgram.filter(id=existing_recorded_video_summary.recorded_program_id).delete()
+
+                            self._recording_files.pop(file_path, None)  # もし録画中扱いであればここで削除
+                            self.pending_moves[file_path] = PendingMove(
+                                recorded_video_id = candidate_row['id'],
+                                original_file_path = candidate_row['file_path'],
+                                file_size = file_size,
+                                file_modified_at = file_modified_at,
+                            )
+                            if pending_move is None:
+                                logging.info(f'{file_path}: Same content as {candidate_row["file_path"]}. Waiting for the original file to be removed.')
+                            return
 
                 # ProcessPoolExecutor を使い、別プロセス上でメタデータを解析
                 ## メタデータ解析処理は実装上同期 I/O で実装されており、また CPU-bound な処理のため、別プロセスで実行している
@@ -1743,8 +1830,9 @@ class RecordedScanTask:
         can_delete: bool = True,
     ) -> None:
         """
-        ファイル削除イベントを受け取り、DB のレコードを Missing にするか、移動先のパスへ付け替えるか、削除する
+        ファイル削除イベントを受け取り、DB のレコードを Missing にするか削除する
         一括スキャンで見つからなかった録画ファイルについても呼ばれる
+        移動先のパスへの付け替えは、移動先のファイルを照合する processRecordedFile() だけが行う
 
         Args:
             file_path (anyio.Path): 解決後の削除対象ファイルパス
@@ -1772,6 +1860,19 @@ class RecordedScanTask:
 
                 # 録画中とマークされていたファイルの場合は記録から削除
                 self._recording_files.pop(file_path, None)
+
+                # 付け替えを保留していたファイル自体が消えたときは、保留から外す (コピーを取り消したときなど)
+                self.pending_moves.pop(file_path, None)
+
+                # このファイルの元のレコードと同じ中身のために付け替えを保留しているファイルがあれば、照合し直す
+                ## 元のファイルがなくなったので、照合し直すと移動先のパスへ付け替えられる
+                ## 照合は移動先のパスのロックで行うので、このロックの外で動くタスクにする
+                deleted_paths = {str(file_path)}
+                if original_file_path is not None:
+                    deleted_paths.add(str(original_file_path))
+                for pending_file_path, pending_move in list(self.pending_moves.items()):
+                    if pending_move.original_file_path in deleted_paths:
+                        self.__retryPendingMove(pending_file_path)
 
                 # 削除イベントのあとで同じパスにファイルが戻ってきていれば、消えていないので何もしない
                 ## 戻ってきたファイルは、追加イベントか次の一括スキャンで処理される
@@ -1817,64 +1918,6 @@ class RecordedScanTask:
                             logging.info(f'{file_path}: Deleted record for file missing since {db_recorded_video.missing_since}.')
                     return
 
-                # ドライブをまたぐ移動では、コピーで新しいパスのレコードが先に作られてから、元のファイルが削除される
-                ## 同じ中身の録画済みのレコードが別のパスにあれば、元のレコードをそのパスへ付け替えて新しいレコードを削除し、
-                ## マイリストや視聴履歴が参照する ID とサムネイル・CM 区間を残す
-                ## コピー中に録画中として登録されたレコードはハッシュが途中の中身のものなので、ここでは一致せず、コピーの完了後の解析の入口で照合される
-                ## 移動先のレコードは、元のレコードより後に、この起動の間 (サーバーを止めている間に移したときは起動時のスキャン) で作られる
-                ## それより前からあるレコードは、利用者が別に置いている同じ中身の録画なので、付け替えずにそのレコードの ID を残す
-                moved_db_recorded_video = await RecordedVideo.filter(
-                    status = 'Recorded',
-                    file_hash = db_recorded_video.file_hash,
-                    file_size = db_recorded_video.file_size,
-                    file_modified_at = db_recorded_video.file_modified_at,
-                    created_at__gt = db_recorded_video.created_at,
-                    created_at__gte = self._started_at,
-                ).exclude(id=db_recorded_video.id).first()
-                if moved_db_recorded_video is not None:
-                    moved_file_path = anyio.Path(moved_db_recorded_video.file_path)
-                    if await self.isFileExists(moved_file_path):
-                        async with self._file_locks_dict_lock:
-                            if moved_file_path not in self._file_locks:
-                                self._file_locks[moved_file_path] = asyncio.Lock()
-                            moved_file_lock = self._file_locks[moved_file_path]
-                        is_moved = False
-                        async with moved_file_lock:
-
-                            # 新しいレコードで走っているバックグラウンド解析を取り消し、終わるのを待つ
-                            ## サムネイル生成と CM 区間検出は、保存先のレコードをファイルパスで探すため、付け替えたあとに古いレコードへ書き込んでしまう
-                            running_task = self._background_tasks.pop(moved_file_path, None)
-                            if running_task is not None:
-                                logging.info(f'{moved_file_path}: Cancelling background analysis task for moved file.')
-                                running_task.cancel()
-                                await asyncio.wait([running_task])
-
-                            # 新しいレコードを削除し、元のレコードを新しいパスへ付け替える
-                            ## ロックを取るまでの間に、新しいレコードが別の処理で削除や更新をされていれば、付け替えずに Missing にする
-                            async with transactions.in_transaction():
-                                is_unchanged = await RecordedVideo.filter(
-                                    id = moved_db_recorded_video.id,
-                                    status = 'Recorded',
-                                    file_path = moved_db_recorded_video.file_path,
-                                    file_hash = moved_db_recorded_video.file_hash,
-                                ).exists()
-                                if is_unchanged is True:
-                                    await RecordedProgram.filter(id=moved_db_recorded_video.recorded_program_id).delete()
-                                    await RecordedVideo.filter(id=db_recorded_video.id).update(
-                                        file_path = moved_db_recorded_video.file_path,
-                                        file_created_at = moved_db_recorded_video.file_created_at,
-                                    )
-                                    is_moved = True
-
-                        # 不要になったロックを管理辞書から削除 (ロックが解放された後に行う)
-                        async with self._file_locks_dict_lock:
-                            if moved_file_path in self._file_locks and not moved_file_lock.locked():
-                                self._file_locks.pop(moved_file_path, None)
-                        if is_moved is True:
-                            logging.info(f'{file_path}: Moved record to {moved_file_path}.')
-                            await self.__restartBackgroundAnalysis(file_path, moved_file_path, db_recorded_video.id)
-                            return
-
                 # 見つからなくなった録画済みのレコードは、すぐには削除せず Missing にする
                 ## 移動や名前の変更で新しいパスに現れたときに、解析をやり直さずに付け替えられるようにする
                 ## 読み込んだあとで別のパスへ付け替えられていれば、そのレコードは移動先にあるので Missing にしない
@@ -1896,6 +1939,20 @@ class RecordedScanTask:
                 async with self._file_locks_dict_lock:
                     if file_path in self._file_locks and not file_lock.locked():
                         self._file_locks.pop(file_path, None)
+
+
+    def __retryPendingMove(self, file_path: anyio.Path) -> None:
+        """
+        付け替えを保留している録画ファイルを、別のタスクで照合し直す
+        元のレコードが削除されていると新しい録画として重い解析を行うことがあるので、呼び出し元は照合の完了を待たずに続ける
+
+        Args:
+            file_path (anyio.Path): 付け替えを保留している録画ファイルのパス
+        """
+
+        task = asyncio.create_task(self.processRecordedFile(file_path))
+        self._pending_move_tasks.add(task)
+        task.add_done_callback(self._pending_move_tasks.discard)
 
 
     async def __checkRecordingCompletion(self) -> None:
@@ -1941,6 +1998,17 @@ class RecordedScanTask:
                             await self.processRecordedFile(file_path)
                     except Exception as ex:
                         logging.error(f'{file_path}: Error processing completed file:', exc_info=ex)
+
+                # 付け替えを保留している録画ファイルの元のファイルを見回り、なくなっているか読めなくなっていれば照合し直す
+                ## フォルダごと録画フォルダの外へ移したときなどは、中のファイルの削除イベントが届かないため
+                ## 元のファイルの有無だけを見て、DB には問い合わせない
+                if (now - self._pending_moves_checked_at).total_seconds() >= self.PENDING_MOVE_CHECK_INTERVAL_SECONDS:
+                    self._pending_moves_checked_at = now
+                    for pending_file_path, pending_move in list(self.pending_moves.items()):
+                        try:
+                            await anyio.Path(pending_move.original_file_path).stat()
+                        except OSError:
+                            self.__retryPendingMove(pending_file_path)
 
             except asyncio.CancelledError:
                 raise
