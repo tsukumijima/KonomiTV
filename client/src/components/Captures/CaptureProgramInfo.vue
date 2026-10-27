@@ -30,8 +30,13 @@ withDefaults(defineProps<{
 });
 
 // 局ロゴが取れないときは、ほかの画面と同じく既定のロゴに差し替える
+// 既定のロゴも取れないとき (サーバーに接続できないときなど) は、同じ URL を設定し直して読み込みを繰り返すのを避けるため、そのままにする
 const onLogoError = (event: Event) => {
-    (event.target as HTMLImageElement).src = `${Utils.api_base_url}/channels/gr001/logo`;
+    const image = event.target as HTMLImageElement;
+    const fallbackUrl = `${Utils.api_base_url}/channels/gr001/logo`;
+    if (image.src !== fallbackUrl) {
+        image.src = fallbackUrl;
+    }
 };
 
 const formatBroadcast = (start: string, end: string) =>
