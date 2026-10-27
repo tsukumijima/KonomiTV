@@ -87,11 +87,14 @@ const toggleFavorite = async () => {
     if (!requireLogin()) {
         return;
     }
+    // 応答を待つ間に選択が変わっても、送ったキャプチャにだけ結果を反映する
+    const targets = selectedList.value;
     const next = !allFavorite.value;
-    const ids = selectedList.value.map(capture => capture.id);
+    const ids = targets.map(capture => capture.id);
     if (await Captures.updateFavorites(ids, next)) {
-        const updated = selectedList.value.map(capture => ({ ...capture, is_favorite: next }));
-        props.selection.setMany(updated, true);
+        const updated = targets.map(capture => ({ ...capture, is_favorite: next }));
+        // 選択に持っている内容は、まだ選ばれているキャプチャの分だけ新しい状態に差し替える
+        props.selection.setMany(updated.filter(capture => props.selection.isSelected(capture)), true);
         emit('updated', updated);
         Message.success(next ? `${ids.length}枚にいいねしました。` : `${ids.length}枚のいいねを取り消しました。`);
     }
