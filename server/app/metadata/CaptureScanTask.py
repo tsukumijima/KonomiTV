@@ -537,11 +537,13 @@ class CaptureScanTask:
             self.batch_scan_status = schemas.MaintenanceTaskStatus(is_running=True)
             try:
                 # 設定されたすべての保存先を走査するかどうか (監視からは一部の保存先だけを走査する)
-                is_all_folders = folders is None
-
-                # 対象の保存先を正規化し、ほかの保存先の下にある保存先は親の走査に任せる
+                ## 保存先がネットワーク上の1つだけのときの定期の走査のように、渡された保存先がすべての保存先を含む場合も含める
+                configured_folders = {NormalizeCapturePath(folder) for folder in Config().capture.upload_folders}
                 if folders is None:
                     folders = [str(folder) for folder in Config().capture.upload_folders]
+                is_all_folders = configured_folders.issubset({NormalizeCapturePath(folder) for folder in folders})
+
+                # 対象の保存先を正規化し、ほかの保存先の下にある保存先は親の走査に任せる
                 normalized_folders = sorted({NormalizeCapturePath(folder) for folder in folders}, key=len)
                 roots: list[str] = []
                 for folder in normalized_folders:
