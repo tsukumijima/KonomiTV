@@ -939,17 +939,19 @@ class CaptureScanTask:
         for root in roots:
             is_network = False
             deepest_mountpoint = ''
+            # シンボリックリンクで設定された保存先は、リンクの先のマウントで判定する (保存先のパス自体はリンクのまま使う)
+            resolved_root = await asyncio.to_thread(os.path.realpath, root)
             for partition in partitions:
                 is_network_filesystem = partition.fstype.lower() in DriveIOLimiter.NETWORK_FILESYSTEMS
 
                 # 保存先を含むマウントのうち、最も深いマウントのファイルシステムで判定する
-                is_root_under_mountpoint = Path(root).is_relative_to(partition.mountpoint)
+                is_root_under_mountpoint = Path(resolved_root).is_relative_to(partition.mountpoint)
                 if is_root_under_mountpoint is True and len(partition.mountpoint) > len(deepest_mountpoint):
                     deepest_mountpoint = partition.mountpoint
                     is_network = is_network_filesystem
 
                 # 保存先自体がローカルでも、その下にネットワークのファイルシステムがマウントされていれば対象にする
-                is_mounted_under_root = Path(partition.mountpoint).is_relative_to(root) and partition.mountpoint != root
+                is_mounted_under_root = Path(partition.mountpoint).is_relative_to(resolved_root) and partition.mountpoint != resolved_root
                 if is_mounted_under_root is True and is_network_filesystem is True:
                     is_network = True
                     break
