@@ -29,10 +29,10 @@ export interface IRecordedVideo {
     video_resolution_width: number;
     video_resolution_height: number;
     has_video_stream_changes: boolean;
-    primary_audio_codec: 'AAC-LC';
+    primary_audio_codec: 'AAC-LC' | 'HE-AAC';
     primary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch';
     primary_audio_sampling_rate: number;
-    secondary_audio_codec: 'AAC-LC' | null;
+    secondary_audio_codec: 'AAC-LC' | 'HE-AAC' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
     cm_sections: { start_time: number; end_time: number; }[] | null;
