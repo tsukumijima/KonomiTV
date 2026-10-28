@@ -137,8 +137,6 @@ def main(
         if Path(INSTALLED_DIR / 'thirdparty/.gitkeep').exists() is False:
             Path(INSTALLED_DIR / 'thirdparty/.gitkeep').touch()
 
-    print(Padding('サードパーティーライブラリを更新しました。', (1, 2, 1, 2)))
-
     def GetEncoderVersion(encoder_name: str) -> None:
         # エンコーダーのバージョン情報を取得する
         ## バージョン情報は出力の1行目にある
@@ -209,21 +207,25 @@ def main(
         ## サードパーティーライブラリ内の Python には uv も含まれているため、グローバルに uv がインストールされていなくても実行できる
         sys.stdout.write(f'  {installed_python_path} -m uv sync --python {installed_python_path}\n\n')
 
-    # 最後に server/thirdparty/ を削除した後、インストールディレクトリ直下から server/ に移動する
-    ## この処理のみ、subprocess で外部コマンドで実行する必要がある (実行中の Python の実行ファイル自身を上書きするため)
-    ## このプロセスが終了した1秒後に非同期で実行される
+    # 実行中の Python を含む古い一式を退避し、新しい一式を同期的に配置する
+    ## Windows でも実行中のファイルを含むディレクトリのリネームは可能なため、削除による差し替えを避ける
+    ## コマンドが戻った時点で新しい一式を使えるよう、配置が完了してから更新の成功を表示する
+    thirdparty_backup_dir = Path(tempfile.mkdtemp(prefix='konomitv-thirdparty-', dir=INSTALLED_DIR))
+    installed_thirdparty_dir = INSTALLED_DIR / 'server/thirdparty'
+    installed_thirdparty_dir.rename(thirdparty_backup_dir / 'thirdparty')
+    try:
+        (INSTALLED_DIR / 'thirdparty').rename(installed_thirdparty_dir)
+    # 新しい一式の配置に失敗した場合は、退避した古い一式を元の場所へ戻す
+    except OSError:
+        (thirdparty_backup_dir / 'thirdparty').rename(installed_thirdparty_dir)
+        thirdparty_backup_dir.rmdir()
+        raise
+
+    # 退避した古い一式は、この Python と呼び出し元が終了してから別プロセスで削除する
     if platform_type == 'Windows':
-        command = (
-            'powershell -Command "Get-Process | Where-Object { $_.Path -eq \'' +
-                str(INSTALLED_DIR / 'server\\thirdparty\\Python\\python.exe') + '\' } | Stop-Process -Force" &&'
-            f'rmdir /S /Q {INSTALLED_DIR / "server/thirdparty"!s} > nul &&'
-            f'move /Y {INSTALLED_DIR / "thirdparty"!s} {INSTALLED_DIR / "server"!s} > nul'
-        )
+        command = f'rmdir /S /Q "{thirdparty_backup_dir!s}"'
     elif platform_type == 'Linux':
-        command = (
-            f'rm -rf {INSTALLED_DIR / "server/thirdparty"!s} &&'
-            f'mv {INSTALLED_DIR / "thirdparty"!s} {INSTALLED_DIR / "server"!s}'
-        )
+        command = f'rm -rf "{thirdparty_backup_dir!s}"'
 
     def RunCommandLater(command: str, wait_time: int):
         if sys.platform == 'win32':
@@ -237,7 +239,8 @@ def main(
                 f"sleep {wait_time} && {command}",
                 shell = True,
             )
-    RunCommandLater(command, 2)  # 2秒後に実行する
+    RunCommandLater(command, 2)  # 2秒後に退避した古い一式を削除する
+    print(Padding('サードパーティーライブラリを更新しました。', (1, 2, 1, 2)))
     sys.exit(0)
 
 
