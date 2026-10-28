@@ -21,11 +21,6 @@
                     {{genre.major}} / {{genre.middle}}
                 </div>
             </div>
-            <a v-if="channelsStore.channel.current.program_present" v-ripple class="program-info__captures"
-                href="/captures/broadcast" @click.prevent="openCaptures()">
-                <Icon icon="fluent:image-multiple-20-regular" width="17px" height="17px" />
-                <span class="ml-2">この番組のキャプチャ</span>
-            </a>
             <div class="program-info__next">
                 <span class="program-info__next-decorate">NEXT</span>
                 <Icon class="program-info__next-icon" icon="fluent:fast-forward-20-filled" width="16px" />
@@ -80,6 +75,11 @@
                     <span style="margin-left: 5px;">録画開始 (EDCB 専用)</span>
                 </template>
             </div>
+            <a v-if="channelsStore.channel.current.program_present" v-ripple class="program-info__captures"
+                href="/captures/broadcast" @click.prevent="openCaptures()">
+                <Icon icon="fluent:image-multiple-20-regular" width="17px" height="17px" style="margin-bottom: -1px" />
+                <span style="margin-left: 4.5px;">この番組のキャプチャ</span>
+            </a>
         </section>
         <!-- 録画停止確認ダイアログ -->
         <v-dialog v-model="show_stop_recording_dialog" max-width="715">
@@ -615,20 +615,6 @@ export default defineComponent({
                 font-size: 11px;
             }
         }
-        .program-info__captures {
-            display: inline-flex;
-            align-items: center;
-            margin-top: 12px;
-            padding: 5px 12px;
-            border-radius: 6px;
-            background: rgb(var(--v-theme-background-lighten-2));
-            color: rgb(var(--v-theme-text));
-            font-size: 12.5px;
-            text-decoration: none;
-            @include smartphone-horizontal {
-                font-size: 11.5px;
-            }
-        }
         .program-info__genre-container {
             display: flex;
             flex-wrap: wrap;
@@ -691,6 +677,28 @@ export default defineComponent({
                 border-radius: 50%;
                 background-color: #EF5350;
                 box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+            }
+        }
+        .program-info__captures {
+            display: flex;
+            align-items: center;
+            width: fit-content;
+            margin-top: 8px;
+            padding: 5px 8px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 12.7px;
+            line-height: 170%;
+            background: rgb(var(--v-theme-background-lighten-1));
+            border-radius: 4px;
+            user-select: none;
+            transition: color 0.15s ease;
+            cursor: pointer;
+            @include smartphone-horizontal {
+                font-size: 11.5px;
+            }
+
+            &:hover {
+                color: rgb(var(--v-theme-text));
             }
         }
         .program-info__next {
