@@ -62,6 +62,9 @@ router = APIRouter(
 # キャプチャの一覧の並び順
 CaptureOrder = Literal['CapturedAtDesc', 'CapturedAtAsc', 'BroadcastAtDesc', 'BroadcastAtAsc', 'PlaybackPosition']
 
+# 検索語を探す範囲 (指定しない場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のすべてから探す)
+CaptureQueryTarget = Literal['CaptionText', 'ProgramTitle', 'ProgramDescription']
+
 # アップロードできるキャプチャ画像の最大サイズ (50MiB)
 ## 4K の PNG でも数十 MB に収まるため、これを超えるファイルは受け付けない
 CAPTURE_UPLOAD_MAX_SIZE = 50 * 1024 * 1024
@@ -94,6 +97,7 @@ class CaptureFilters(BaseModel):
     has_caption_text: bool | None = None
     has_metadata: bool | None = None
     query: str | None = None
+    query_target: CaptureQueryTarget | None = None
 
 
 class CaptureCursor(BaseModel):
@@ -270,8 +274,24 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
         conditions.append("c.metadata_status != 'Parsed'")
 
     # 検索語は、録画番組の検索と同じく空白で区切った語の AND による部分一致で探す
-    ## 字幕・番組名・番組概要・チャンネル名・ファイル名のどれかに含まれていれば当てはまる
+    ## 範囲の指定がなければ、字幕・番組名・番組概要・チャンネル名・ファイル名のどれかに含まれていれば当てはまる
     for keyword in (filters.query or '').split():
+        pattern = f'%{keyword.lower()}%'
+
+        # 範囲を指定された場合は、その列だけから探す
+        if filters.query_target == 'CaptionText':
+            conditions.append('LOWER(c.caption_text) LIKE ?')
+            params.append(pattern)
+            continue
+        if filters.query_target == 'ProgramTitle':
+            conditions.append('LOWER(p.title) LIKE ?')
+            params.append(pattern)
+            continue
+        if filters.query_target == 'ProgramDescription':
+            conditions.append('LOWER(p.description) LIKE ?')
+            params.append(pattern)
+            continue
+
         conditions.append("""
             (
                 LOWER(c.caption_text) LIKE ? OR
@@ -287,7 +307,7 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
                 )
             )
         """.strip())
-        params.extend([f'%{keyword.lower()}%'] * 5)  # 5つの検索対象に同じパラメータを使う
+        params.extend([pattern] * 5)  # 5つの検索対象に同じパラメータを使う
 
     # 利用できる場所があるかの EXISTS は最後に置き、ほかの条件に当てはまったキャプチャだけで評価させる
     conditions.append(CAPTURE_AVAILABLE_CONDITION)
