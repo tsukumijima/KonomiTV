@@ -79,7 +79,7 @@
                         <Icon icon="fluent:more-vertical-20-filled" width="22px" />
                     </div>
                 </template>
-                <v-list density="compact" bg-color="background-lighten-1">
+                <v-list density="compact" bg-color="background-lighten-1" class="capture-header__menu-list">
                     <v-list-item @click="fileInputRef?.click()">
                         <template #prepend>
                             <Icon icon="fluent:arrow-upload-20-regular" width="20px" />
@@ -469,6 +469,16 @@ onBeforeUnmount(() => {
         border-radius: 50%;
         cursor: pointer;
         color: rgb(var(--v-theme-text));
+    }
+    // メニューの文字と項目の高さは、録画番組のメニュー (RecordedProgram.vue) にそろえる
+    &__menu-list {
+        :deep(.v-list-item-title) {
+            text-autospace: normal;
+            font-size: 14px !important;
+        }
+        :deep(.v-list-item) {
+            min-height: 36px !important;
+        }
     }
 
     // 画面を切り替えるタブと、検索結果の範囲の絞り込みは、同じ高さの行にして、画面を移っても下の一覧の位置を変えない
