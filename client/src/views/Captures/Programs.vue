@@ -13,9 +13,15 @@
                     <Icon icon="fluent:search-20-regular" width="18px" class="text-text-darken-1" />
                 </template>
             </v-text-field>
-            <v-select v-model="recordedFilter" class="capture-programs__recorded"
-                :items="[{ title: 'すべての番組', value: null }, { title: '録画番組あり', value: true }, { title: '録画番組なし', value: false }]"
-                color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
+            <!-- 絞り込みは検索欄の隣、並べ替えは同じ行の右端に配置する (スマホの縦画面では検索欄の下に2つを並べる) -->
+            <div class="capture-programs__selects">
+                <v-select v-model="recordedFilter" class="capture-programs__select"
+                    :items="[{ title: 'すべての番組', value: null }, { title: '録画番組あり', value: true }, { title: '録画番組なし', value: false }]"
+                    color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
+                <v-select v-model="order" class="capture-programs__select capture-programs__select--order"
+                    :items="[{ title: '放送が新しい順', value: 'BroadcastAtDesc' }, { title: '放送が古い順', value: 'BroadcastAtAsc' }]"
+                    color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
+            </div>
         </div>
 
         <!-- 最初のページの読み込み中は、ほかのキャプチャの画面と同じく見出しより下の領域の中央にスピナーを表示する -->
@@ -73,7 +79,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import CaptureHeader from '@/components/Captures/CaptureHeader.vue';
 import CapturePage from '@/components/Captures/CapturePage.vue';
-import Captures, { ICaptureProgramAlbum } from '@/services/Captures';
+import Captures, { CaptureProgramSortOrder, ICaptureProgramAlbum } from '@/services/Captures';
 import Utils, { dayjs, ProgramUtils } from '@/utils';
 
 
@@ -88,6 +94,8 @@ const queryInput = ref(String(route.query.query ?? ''));
 // 最初のページを読み込めなかったか (0件と区別して、読み込めなかったことを伝えるため)
 const isLoadFailed = ref(false);
 const recordedFilter = ref<boolean | null>(route.query.has_recorded_program === 'true' ? true : route.query.has_recorded_program === 'false' ? false : null);
+// 並び順は絞り込みと同じく URL のクエリパラメータに保持し、ブラウザバックしても維持されるようにする
+const order = ref<CaptureProgramSortOrder>(route.query.order === 'BroadcastAtAsc' ? 'BroadcastAtAsc' : 'BroadcastAtDesc');
 let generation = 0;
 // 戻る操作でこの一覧へ戻ったときの、離れたときのスクロール位置
 // 続きのページは下端の目印が見えるまで読み込まないので、この位置が画面に入るところまで続けて読み込み、Vue Router が位置を戻せる高さにする
@@ -104,6 +112,7 @@ const loadMore = async () => {
         cursor: nextCursor.value,
         query: String(route.query.query ?? ''),
         has_recorded_program: recordedFilter.value,
+        order: order.value,
     });
     if (myGeneration !== generation) {
         return;
@@ -137,7 +146,10 @@ const applyQuery = () => {
 watch(recordedFilter, (value) => {
     void router.replace({ query: { ...route.query, has_recorded_program: value === null ? undefined : String(value) } });
 });
-watch(() => [route.query.query, route.query.has_recorded_program], () => {
+watch(order, (value) => {
+    void router.replace({ query: { ...route.query, order: value === 'BroadcastAtDesc' ? undefined : value } });
+});
+watch(() => [route.query.query, route.query.has_recorded_program, route.query.order], () => {
     restoringScrollTop = null;
     reset();
 });
@@ -218,10 +230,24 @@ const onLogoError = (event: Event) => {
             max-width: none;
         }
     }
-    &__recorded {
-        flex: 0 0 172px;
+    &__selects {
+        display: flex;
+        flex-grow: 1;
+        gap: 10px;
+        min-width: 0;
         @include smartphone-vertical {
-            flex: none;
+            gap: 8px;
+        }
+    }
+    // 絞り込みと並べ替えの選択欄は、同じ幅にそろえる
+    &__select {
+        flex: 0 0 196px;
+        @include smartphone-vertical {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        &--order {
+            margin-left: auto;
         }
     }
     &__grid {

@@ -111,6 +111,9 @@ export interface ICaptureFile {
 /** キャプチャの一覧の並び順 */
 export type CaptureSortOrder = 'CapturedAtDesc' | 'CapturedAtAsc' | 'BroadcastAtDesc' | 'BroadcastAtAsc' | 'PlaybackPosition';
 
+/** 放送回の一覧の並び順 */
+export type CaptureProgramSortOrder = 'BroadcastAtDesc' | 'BroadcastAtAsc';
+
 /** タイムラインの時間の軸 (撮影日時か放送日時か) */
 export type CaptureTimelineAxis = 'CapturedAt' | 'BroadcastAt';
 
@@ -412,7 +415,7 @@ class Captures {
 
     /**
      * 番組ごとのキャプチャのまとまり (放送の回ごと) の一覧を取得する
-     * @param options カーソル・件数・検索語・録画の有無での絞り込み
+     * @param options カーソル・件数・検索語・録画の有無での絞り込み・並び順
      * @returns 番組の一覧 (失敗時は null)
      */
     static async fetchPrograms(options: {
@@ -420,9 +423,13 @@ class Captures {
         limit?: number;
         query?: string;
         has_recorded_program?: boolean | null;
+        order?: CaptureProgramSortOrder;
     } = {}): Promise<ICapturePrograms | null> {
 
-        const params: Record<string, string | number | boolean> = { limit: options.limit ?? 60 };
+        const params: Record<string, string | number | boolean> = {
+            order: options.order ?? 'BroadcastAtDesc',
+            limit: options.limit ?? 60,
+        };
         if (options.cursor) {
             params.cursor = options.cursor;
         }
