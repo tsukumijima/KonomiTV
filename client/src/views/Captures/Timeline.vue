@@ -1,6 +1,7 @@
 <template>
     <CapturePage :crumbs="crumbs" :with-scrubber="true">
         <CaptureHeader :title="title" :total="total" :active-tab="activeTab" :show-timeline-controls="true" :show-back-button="mode === 'Tag'"
+            :loading-label="isLoaded || needsLogin ? null : mode === 'Search' ? '検索中...' : '読み込み中...'"
             :show-query-targets="mode === 'Search'" :axis="axis" :filter="typeFilter" :query-targets="queryTargets"
             @update:axis="updateAxis" @update:filter="updateTypeFilter" @update:query-targets="updateQueryTargets" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
 
@@ -34,7 +35,7 @@
                 </v-btn>
             </div>
             <CaptureTimeline ref="timelineRef" :filter="filter" :axis="axis" :day-start-hour="dayStartHour"
-                :selection="selection" @open="openCapture" @loaded="onLoaded" />
+                :selection="selection" @open="openCapture" @reloading="onReloading" @loaded="onLoaded" />
         </template>
 
         <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="onDeleted" />
@@ -198,6 +199,11 @@ const clearTypeFilter = () => {
 };
 
 const isLoadFailed = ref(false);
+// 別の条件の一覧を読み込み始めたら、前の条件の件数を消して読み込み中にする
+const onReloading = () => {
+    total.value = null;
+    isLoaded.value = false;
+};
 const onLoaded = (value: number | null) => {
     total.value = value;
     isLoadFailed.value = value === null;

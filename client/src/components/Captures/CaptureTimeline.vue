@@ -60,6 +60,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (event: 'open', capture: ICapture): void;
+    // 絞り込みや並べ方が変わり、別の条件の一覧を読み込み始めたとき
+    (event: 'reloading'): void;
     // 読み込めなかったときは null を渡す (0件と区別して、読み込めなかったことを伝えるため)
     (event: 'loaded', total: number | null): void;
 }>();
@@ -315,9 +317,13 @@ const reload = async () => {
 // 絞り込みや並べ方が変わったときは、先頭から見直す
 // 削除やスキャンの完了で読み直すときは、見ている場所を保つよう、要素の範囲をずらした位置はそのまま使う
 // 1枚表示を閉じて同じ URL へ戻ると、絞り込みは同じ値の新しいオブジェクトになるので、値を比べて変わったときだけ先頭へ戻す
+// 前の条件の日付と件数は新しい条件の結果と食い違うので、日付ごとの件数が届くまで待たずにすぐ消す
 watch(() => JSON.stringify([props.filter, props.axis, props.dayStartHour]), () => {
     baseOffset.value = 0;
+    sections.value = [];
+    layout();
     window.scrollTo({ top: 0 });
+    emit('reloading');
     void reload();
 });
 
