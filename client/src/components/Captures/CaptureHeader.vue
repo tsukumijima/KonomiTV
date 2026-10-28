@@ -114,6 +114,19 @@
                 <span>{{ tab.label }}</span>
             </router-link>
         </div>
+
+        <!-- 画像のファイルを画面に持ってきている間に出す、ドロップしてアップロードするための枠 -->
+        <Teleport to="body">
+            <transition name="capture-drop-fade">
+                <div v-if="isDraggingFiles" class="capture-drop-overlay">
+                    <div class="capture-drop-overlay__frame">
+                        <Icon icon="fluent:arrow-upload-24-regular" width="56px" height="56px" />
+                        <div class="capture-drop-overlay__message">ドロップして画像をアップロード</div>
+                        <div class="capture-drop-overlay__sub">JPEG・PNG の画像を、複数まとめてアップロードできます。</div>
+                    </div>
+                </div>
+            </transition>
+        </Teleport>
     </div>
 </template>
 <script lang="ts" setup>
@@ -232,12 +245,8 @@ const clearFilters = () => {
 };
 
 // 手元の画像のアップロード (メタデータのない画像でも、ファイルの更新日時を撮影日時として扱う)
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const onFilesSelected = async () => {
-    const files = [...(fileInputRef.value?.files ?? [])];
-    if (fileInputRef.value !== null) {
-        fileInputRef.value.value = '';
-    }
+// メニューから選んだファイルと、画面にドロップしたファイルの両方をここで送る
+const uploadFiles = async (files: File[]) => {
     if (files.length === 0) {
         return;
     }
@@ -248,6 +257,64 @@ const onFilesSelected = async () => {
         Message.success(`${uploaded.length}枚の画像をアップロードしました。`);
         emit('uploaded', uploaded);
     }
+};
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const onFilesSelected = async () => {
+    const files = [...(fileInputRef.value?.files ?? [])];
+    if (fileInputRef.value !== null) {
+        fileInputRef.value.value = '';
+    }
+    await uploadFiles(files);
+};
+
+// 画面へのドラッグ＆ドロップでのアップロード
+// 子の要素を出入りするたびに dragenter と dragleave が届くので、入った回数と出た回数の差で、画面の上にあるかを判断する
+const isDraggingFiles = ref(false);
+let dragDepth = 0;
+// ページの中の画像や文字のドラッグには反応せず、ほかのアプリから持ってきたファイルのときだけ枠を出す
+const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') === true;
+const onDragEnter = (event: DragEvent) => {
+    if (hasFiles(event) === false) {
+        return;
+    }
+    event.preventDefault();
+    dragDepth++;
+    isDraggingFiles.value = true;
+};
+const onDragOver = (event: DragEvent) => {
+    if (hasFiles(event) === false) {
+        return;
+    }
+    // 既定の動作 (ブラウザがファイルを開く) を止めて、ドロップを受け付ける
+    event.preventDefault();
+    if (event.dataTransfer !== null) {
+        event.dataTransfer.dropEffect = 'copy';
+    }
+};
+const onDragLeave = (event: DragEvent) => {
+    if (hasFiles(event) === false) {
+        return;
+    }
+    dragDepth = Math.max(dragDepth - 1, 0);
+    if (dragDepth === 0) {
+        isDraggingFiles.value = false;
+    }
+};
+const onDrop = async (event: DragEvent) => {
+    if (hasFiles(event) === false) {
+        return;
+    }
+    event.preventDefault();
+    dragDepth = 0;
+    isDraggingFiles.value = false;
+
+    // サーバーが受け付ける JPEG と PNG の画像だけを送り、それ以外のファイルは送らずに知らせる
+    const files = [...(event.dataTransfer?.files ?? [])];
+    const images = files.filter(file => file.type === 'image/jpeg' || file.type === 'image/png');
+    if (images.length < files.length) {
+        Message.warning(`JPEG・PNG 以外の${files.length - images.length}個のファイルは、アップロードしませんでした。`);
+    }
+    await uploadFiles(images);
 };
 
 // 索引作りの進み具合 (走っている間だけ表示する)
@@ -269,11 +336,20 @@ const refreshScanStatus = async () => {
 onMounted(() => {
     void refreshScanStatus();
     scanTimer = window.setInterval(refreshScanStatus, 10 * 1000);
+    // ドロップは画面のどこで受けてもよいので、ウインドウ全体で受け取る
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
 });
 onBeforeUnmount(() => {
     if (scanTimer !== null) {
         window.clearInterval(scanTimer);
     }
+    window.removeEventListener('dragenter', onDragEnter);
+    window.removeEventListener('dragover', onDragOver);
+    window.removeEventListener('dragleave', onDragLeave);
+    window.removeEventListener('drop', onDrop);
 });
 
 </script>
@@ -621,6 +697,55 @@ onBeforeUnmount(() => {
             justify-content: flex-end;
         }
     }
+}
+
+// ドロップしてアップロードするための枠 (画面全体を薄く覆い、その内側に点線の角丸の枠を出す)
+// 1枚表示 (2300) より前に出し、タグのダイアログなど (2400) よりは後ろにする
+.capture-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2350;
+    display: flex;
+    padding: 24px;
+    background: rgba(var(--v-theme-background), 0.82);
+    backdrop-filter: blur(4px);
+    // 枠の上でもドラッグのイベントが下の画面からウインドウへ届くよう、枠自体は操作を受けない
+    pointer-events: none;
+    @include smartphone-vertical {
+        padding: 12px;
+    }
+    &__frame {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        border: 3px dashed rgb(var(--v-theme-primary));
+        border-radius: 20px;
+        background: rgba(var(--v-theme-primary), 0.06);
+        color: rgb(var(--v-theme-primary-lighten-1));
+        text-align: center;
+    }
+    &__message {
+        margin-top: 16px;
+        color: rgb(var(--v-theme-text));
+        font-size: 22px;
+        font-weight: 700;
+        @include smartphone-vertical {
+            font-size: 18px;
+        }
+    }
+    &__sub {
+        margin-top: 8px;
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 14px;
+    }
+}
+.capture-drop-fade-enter-active, .capture-drop-fade-leave-active {
+    transition: opacity 0.15s ease;
+}
+.capture-drop-fade-enter-from, .capture-drop-fade-leave-to {
+    opacity: 0;
 }
 
 </style>
