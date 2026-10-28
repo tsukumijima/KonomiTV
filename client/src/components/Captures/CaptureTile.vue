@@ -292,9 +292,11 @@ function getSharedObserver(): IntersectionObserver {
         opacity: 0;
         visibility: hidden;
         transition: opacity 0.15s ease, visibility 0.15s ease;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+        // 写真から浮かないよう、影は明るい画像の上でも形が分かる程度のごく薄いものにとどめる
+        filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
+        // お気に入りに追加済みのハートも、選択のチェックと同じ白で示す
         &--active {
-            color: rgb(var(--v-theme-primary));
+            color: #fff;
             opacity: 1;
             visibility: visible;
         }
