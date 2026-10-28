@@ -211,6 +211,14 @@ const onLogoError = (event: Event) => {
         display: flex;
         gap: 10px;
         margin-bottom: 16px;
+        // 検索欄と2つの選択欄を1行に並べられない画面幅では、1段目に検索欄を全幅で、2段目に選択欄を並べる
+        @include tablet-vertical {
+            flex-direction: column;
+        }
+        @include smartphone-horizontal {
+            flex-direction: column;
+            gap: 8px;
+        }
         @include smartphone-vertical {
             flex-direction: column;
             gap: 8px;
@@ -223,25 +231,43 @@ const onLogoError = (event: Event) => {
             font-size: 15px !important;
         }
     }
+    // 1行に並べる場合は検索欄の幅を優先して確保し、残りの幅に選択欄を並べる
     &__search {
-        flex: 1;
-        max-width: 420px;
+        flex: 0 1 420px;
+        min-width: 0;
+        @include tablet-vertical {
+            flex: none;
+        }
+        @include smartphone-horizontal {
+            flex: none;
+        }
         @include smartphone-vertical {
-            max-width: none;
+            flex: none;
         }
     }
     &__selects {
         display: flex;
-        flex-grow: 1;
+        flex: 1 1 auto;
         gap: 10px;
         min-width: 0;
+        @include smartphone-horizontal {
+            gap: 8px;
+        }
         @include smartphone-vertical {
             gap: 8px;
         }
     }
-    // 絞り込みと並べ替えの選択欄は、同じ幅にそろえる
+    // 絞り込みと並べ替えの選択欄は同じ幅に揃える (2段目に並べる場合は、それぞれ半分ずつの幅に広げる)
     &__select {
         flex: 0 0 196px;
+        @include tablet-vertical {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        @include smartphone-horizontal {
+            flex: 1 1 0;
+            min-width: 0;
+        }
         @include smartphone-vertical {
             flex: 1 1 0;
             min-width: 0;
