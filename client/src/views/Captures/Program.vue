@@ -286,22 +286,23 @@ onMounted(async () => {
             margin-top: 20px;
         }
     }
-    // 文字の大きさと高さは、録画番組の一覧の並べ替えの選択欄 (RecordedProgramList.vue) にそろえる
+    // 高さは左の「録画を再生」ボタン (38px) にそろえ、文字は上下の余白を詰めて中央に置く
     &__order {
-        flex: 0 0 172px;
+        flex: 0 0 190px;
         @include smartphone-vertical {
             flex: 1 0 100%;
         }
         :deep(.v-field) {
-            padding-right: 4px !important;
+            padding-right: 6px !important;
         }
         :deep(.v-field__input) {
-            min-height: unset !important;
-            padding-top: 6px !important;
-            padding-bottom: 6px !important;
-            padding-left: 12px !important;
+            align-items: center;
+            min-height: 38px !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-left: 14px !important;
             padding-right: 0px !important;
-            font-size: 14px !important;
+            font-size: 15px !important;
         }
     }
 

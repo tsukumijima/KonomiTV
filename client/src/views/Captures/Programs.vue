@@ -200,6 +200,10 @@ const onLogoError = (event: Event) => {
         :deep(.v-field__input) {
             font-size: 14px !important;
         }
+        // 選択欄の文字は、選んだ値を読み取りやすいよう検索欄の文字より1段大きくする
+        :deep(.v-select .v-field__input) {
+            font-size: 15px !important;
+        }
     }
     &__search {
         flex: 1;
