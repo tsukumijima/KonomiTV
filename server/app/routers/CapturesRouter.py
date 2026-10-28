@@ -62,7 +62,7 @@ router = APIRouter(
 # キャプチャの一覧の並び順
 CaptureOrder = Literal['CapturedAtDesc', 'CapturedAtAsc', 'BroadcastAtDesc', 'BroadcastAtAsc', 'PlaybackPosition']
 
-# 検索語を探す範囲 (指定しない場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のすべてから探す)
+# 検索語を探す範囲 (1つも指定しない場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のすべてから探す)
 CaptureQueryTarget = Literal['CaptionText', 'ProgramTitle', 'ProgramDescription']
 
 # アップロードできるキャプチャ画像の最大サイズ (50MiB)
@@ -97,7 +97,7 @@ class CaptureFilters(BaseModel):
     has_caption_text: bool | None = None
     has_metadata: bool | None = None
     query: str | None = None
-    query_target: CaptureQueryTarget | None = None
+    query_targets: list[CaptureQueryTarget] | None = None
 
 
 class CaptureCursor(BaseModel):
@@ -274,40 +274,43 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
         conditions.append("c.metadata_status != 'Parsed'")
 
     # 検索語は、録画番組の検索と同じく空白で区切った語の AND による部分一致で探す
-    ## 範囲の指定がなければ、字幕・番組名・番組概要・チャンネル名・ファイル名のどれかに含まれていれば当てはまる
+    ## 範囲の指定がないか、3つの範囲をすべて指定した場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のどれかに含まれていれば当てはまる
+    ## 範囲を指定した場合は、指定した範囲のどれかに含まれていれば当てはまる
+    query_targets = set(filters.query_targets or [])
+    is_all_targets = len(query_targets) == 0 or query_targets == {'CaptionText', 'ProgramTitle', 'ProgramDescription'}
     for keyword in (filters.query or '').split():
         pattern = f'%{keyword.lower()}%'
 
-        # 範囲を指定された場合は、その列だけから探す
-        if filters.query_target == 'CaptionText':
-            conditions.append('LOWER(c.caption_text) LIKE ?')
-            params.append(pattern)
-            continue
-        if filters.query_target == 'ProgramTitle':
-            conditions.append('LOWER(p.title) LIKE ?')
-            params.append(pattern)
-            continue
-        if filters.query_target == 'ProgramDescription':
-            conditions.append('LOWER(p.description) LIKE ?')
-            params.append(pattern)
+        # すべての範囲から探す
+        if is_all_targets is True:
+            conditions.append("""
+                (
+                    LOWER(c.caption_text) LIKE ? OR
+                    LOWER(p.title) LIKE ? OR
+                    LOWER(p.description) LIKE ? OR
+                    EXISTS (
+                        SELECT 1 FROM channels ch
+                        WHERE ch.network_id = p.network_id AND ch.service_id = p.service_id AND LOWER(ch.name) LIKE ?
+                    ) OR
+                    EXISTS (
+                        SELECT 1 FROM capture_files f
+                        WHERE f.capture_id = c.id AND LOWER(f.file_name) LIKE ?
+                    )
+                )
+            """.strip())
+            params.extend([pattern] * 5)  # 5つの検索対象に同じパラメータを使う
             continue
 
-        conditions.append("""
-            (
-                LOWER(c.caption_text) LIKE ? OR
-                LOWER(p.title) LIKE ? OR
-                LOWER(p.description) LIKE ? OR
-                EXISTS (
-                    SELECT 1 FROM channels ch
-                    WHERE ch.network_id = p.network_id AND ch.service_id = p.service_id AND LOWER(ch.name) LIKE ?
-                ) OR
-                EXISTS (
-                    SELECT 1 FROM capture_files f
-                    WHERE f.capture_id = c.id AND LOWER(f.file_name) LIKE ?
-                )
-            )
-        """.strip())
-        params.extend([pattern] * 5)  # 5つの検索対象に同じパラメータを使う
+        # 指定された範囲の列だけから探す (列の並びは、すべての範囲から探すときと同じ順にする)
+        target_conditions: list[str] = []
+        if 'CaptionText' in query_targets:
+            target_conditions.append('LOWER(c.caption_text) LIKE ?')
+        if 'ProgramTitle' in query_targets:
+            target_conditions.append('LOWER(p.title) LIKE ?')
+        if 'ProgramDescription' in query_targets:
+            target_conditions.append('LOWER(p.description) LIKE ?')
+        conditions.append(f'({" OR ".join(target_conditions)})')
+        params.extend([pattern] * len(target_conditions))
 
     # 利用できる場所があるかの EXISTS は最後に置き、ほかの条件に当てはまったキャプチャだけで評価させる
     conditions.append(CAPTURE_AVAILABLE_CONDITION)
@@ -635,7 +638,7 @@ async def ValidateCaptureIDs(ids: list[int]) -> list[int]:
 async def CapturesAPI(
     response: Response,
     user: Annotated[User | None, Depends(GetOptionalCurrentUser)],
-    filters: Annotated[CaptureFilters, Depends()],
+    filters: Annotated[CaptureFilters, Query()],
     order: Annotated[CaptureOrder, Query(description='並び順 (CapturedAtDesc or CapturedAtAsc or BroadcastAtDesc or BroadcastAtAsc or PlaybackPosition) 。')] = 'CapturedAtDesc',
     cursor: Annotated[str | None, Query(description='前のページのレスポンスに含まれる next_cursor 。')] = None,
     limit: Annotated[int, Query(ge=1, le=200, description='1ページに取得する最大枚数。')] = 100,
@@ -935,7 +938,7 @@ async def CapturesDeleteAPI(
 async def CaptureSectionsAPI(
     response: Response,
     user: Annotated[User | None, Depends(GetOptionalCurrentUser)],
-    filters: Annotated[CaptureFilters, Depends()],
+    filters: Annotated[CaptureFilters, Query()],
     axis: Annotated[Literal['CapturedAt', 'BroadcastAt'], Query(description='日付の軸 (CapturedAt or BroadcastAt) 。')] = 'CapturedAt',
     day_start_hour: Annotated[int, Query(ge=0, le=23, description='日付の境目とする時刻 (28時間表記なら 4) 。')] = 0,
 ):
