@@ -247,10 +247,12 @@ router.beforeResolve((to, from, next) => {
     const no_transition_routes = [
         '/tv/watch/',
         '/videos/watch/',
-        // キャプチャの画面の中で絞り込みや時間の軸を切り替えるときは、画面全体の切り替えの演出を省く
-        '/captures/',
     ];
-    if (document.startViewTransition && !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
+    // キャプチャの画面の中で絞り込みや時間の軸を切り替えたり、1枚表示を開閉したりするときは、パスが変わらずクエリや履歴だけが変わる
+    // このときは画面全体の切り替えの演出を省き、タブなどで別の画面へ移るときだけ演出する
+    const is_same_capture_page = to.path.startsWith('/captures/') && to.path === from.path;
+    if (document.startViewTransition && !is_same_capture_page &&
+        !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
         document.startViewTransition(() => {
             next();
         });
