@@ -114,6 +114,9 @@ export type CaptureSortOrder = 'CapturedAtDesc' | 'CapturedAtAsc' | 'BroadcastAt
 /** タイムラインの時間の軸 (撮影日時か放送日時か) */
 export type CaptureTimelineAxis = 'CapturedAt' | 'BroadcastAt';
 
+/** 検索語を探す範囲 (指定しない場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のすべてから探す) */
+export type CaptureQueryTarget = 'CaptionText' | 'ProgramTitle' | 'ProgramDescription';
+
 /** キャプチャの一覧と日付ごとの件数の絞り込み */
 export interface ICaptureFilter {
     capture_program_id?: number | null;
@@ -129,6 +132,7 @@ export interface ICaptureFilter {
     has_caption_text?: boolean | null;
     has_metadata?: boolean | null;
     query?: string | null;
+    query_target?: CaptureQueryTarget | null;
 }
 
 

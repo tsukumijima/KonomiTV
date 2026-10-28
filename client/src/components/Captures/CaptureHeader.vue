@@ -91,7 +91,16 @@
             <input ref="fileInputRef" type="file" accept="image/jpeg,image/png" multiple hidden @change="onFilesSelected">
         </div>
 
-        <div class="capture-header__tabs">
+        <!-- 検索結果では、別の画面へ移るタブの代わりに、検索語を探す範囲を選ぶ絞り込みを出す -->
+        <div v-if="showQueryTargets" class="capture-header__tabs">
+            <div v-for="choice in queryTargetChoices" :key="String(choice.value)" v-ripple class="capture-header__target"
+                :class="{'capture-header__target--active': queryTarget === choice.value}"
+                @click="$emit('update:queryTarget', choice.value)">
+                <Icon v-if="queryTarget === choice.value" icon="fluent:checkmark-16-filled" width="16px" />
+                <span>{{ choice.label }}</span>
+            </div>
+        </div>
+        <div v-else class="capture-header__tabs">
             <router-link v-for="tab in tabs" :key="tab.value" v-ripple class="capture-header__tab"
                 :class="{'capture-header__tab--active': tab.value === activeTab}" :to="tab.to">
                 <Icon :icon="tab.icon" width="18px" />
@@ -106,7 +115,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import Message from '@/message';
-import Captures, { CaptureTimelineAxis, ICapture, ICaptureFilter } from '@/services/Captures';
+import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureFilter } from '@/services/Captures';
 import Maintenance, { IMaintenanceTaskStatus } from '@/services/Maintenance';
 
 
@@ -119,19 +128,24 @@ const props = withDefaults(defineProps<{
     activeTab: 'Timeline' | 'Programs' | 'Favorites' | 'Tags' | null;
     showTimelineControls?: boolean;
     showBackButton?: boolean;
+    showQueryTargets?: boolean;
     axis?: CaptureTimelineAxis;
     filter?: ICaptureFilter;
+    queryTarget?: CaptureQueryTarget | null;
 }>(), {
     total: null,
     showTimelineControls: false,
     showBackButton: false,
+    showQueryTargets: false,
     axis: 'CapturedAt',
     filter: () => ({}),
+    queryTarget: null,
 });
 
 const emit = defineEmits<{
     (event: 'update:axis', axis: CaptureTimelineAxis): void;
     (event: 'update:filter', filter: ICaptureFilter): void;
+    (event: 'update:queryTarget', queryTarget: CaptureQueryTarget | null): void;
     (event: 'uploaded', captures: ICapture[]): void;
     (event: 'scanned'): void;
 }>();
@@ -166,6 +180,14 @@ const submitSearch = () => {
     isSearchOpen.value = false;
     void router.push({ path: '/captures/search', query: { query } });
 };
+
+// 検索語を探す範囲 (「すべて」は、字幕・番組名・番組概要に加えて、チャンネル名とファイル名からも探す)
+const queryTargetChoices: { label: string; value: CaptureQueryTarget | null }[] = [
+    { label: 'すべて', value: null },
+    { label: '字幕テキスト', value: 'CaptionText' },
+    { label: '番組名', value: 'ProgramTitle' },
+    { label: '番組概要', value: 'ProgramDescription' },
+];
 
 // 並べ替えの基準 (撮影日時か、その場面が放送された日時か)
 const axisChoices: { label: string; value: CaptureTimelineAxis }[] = [
@@ -476,6 +498,35 @@ onBeforeUnmount(() => {
         &--active {
             background: rgb(var(--v-theme-primary));
             color: #fff;
+        }
+    }
+    // 検索語を探す範囲 (タブと見分けられるよう、枠線とチェックの付いた絞り込みの見た目にする)
+    &__target {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        height: 34px;
+        padding: 0 14px;
+        border: 1px solid rgb(var(--v-theme-background-lighten-2));
+        border-radius: 8px;
+        color: rgb(var(--v-theme-text));
+        font-size: 13.5px;
+        cursor: pointer;
+        user-select: none;
+        // スマホの縦画面では、4つの範囲が画面の幅に収まるよう詰める
+        @include smartphone-vertical {
+            padding: 0 9px;
+            font-size: 13px;
+        }
+        &--active {
+            padding-left: 10px;
+            border-color: rgb(var(--v-theme-secondary));
+            background: rgba(var(--v-theme-secondary), 0.2);
+            color: rgb(var(--v-theme-secondary-lighten-1));
+            @include smartphone-vertical {
+                padding-left: 6px;
+            }
         }
     }
 
