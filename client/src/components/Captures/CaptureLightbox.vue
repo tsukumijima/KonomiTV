@@ -28,8 +28,9 @@
                             :href="Captures.getImageURL(capture)" :download="downloadName" @click.stop>
                             <Icon icon="fluent:arrow-download-24-regular" width="24px" />
                         </a>
-                        <!-- 縦画面では情報のシートをこのボタンでも開閉する (横画面は視聴画面と同じパネルのボタンで開閉する) -->
-                        <div v-if="isPortrait" v-ripple class="capture-lightbox__button" @click="setInfoOpen(!isInfoOpen)">
+                        <!-- 情報 (横画面では右のパネル、縦画面では下のシート) の開閉 (開いている間はアイコンを塗りつぶしにする) -->
+                        <div v-ripple class="capture-lightbox__button" v-ftooltip.bottom="isInfoOpen ? '情報を閉じる (I)' : '情報を開く (I)'"
+                            @click="setInfoOpen(!isInfoOpen)">
                             <Icon :icon="isInfoOpen ? 'fluent:info-24-filled' : 'fluent:info-24-regular'" width="24px" />
                         </div>
                         <!-- その他の操作 (録画番組のメニューと同じく、取り消せない削除は区切り線の下に赤で置き、押し間違えにくくする) -->
@@ -78,13 +79,6 @@
                             :class="{'capture-lightbox__nav--hidden': nextCapture === null}" @click.stop="move(1)">
                             <Icon icon="fluent:chevron-right-24-regular" width="32px" />
                         </div>
-                        <!-- 情報パネルの開閉ボタン (視聴画面のパネルの開閉ボタンと同じ見た目と位置) -->
-                        <div v-if="!isPortrait" v-ripple class="capture-lightbox__panel-button"
-                            :class="{'capture-lightbox__panel-button--open': isInfoOpen}"
-                            v-ftooltip.left="isInfoOpen ? '情報を閉じる (I)' : '情報を開く (I)'"
-                            @click.stop="setInfoOpen(!isInfoOpen)">
-                            <Icon icon="fluent:navigation-16-filled" width="32px" />
-                        </div>
                     </div>
                 </div>
 
@@ -93,12 +87,6 @@
                     @touchstart="onSheetTouchStart" @touchmove="onSheetTouchMove"
                     @touchend="onSheetTouchEnd" @touchcancel="onSheetTouchEnd">
                     <div v-if="isPortrait" class="capture-lightbox__sheet-handle" @click="setInfoOpen(false)"></div>
-                    <div v-else class="capture-lightbox__info-header">
-                        <div v-ripple class="capture-lightbox__info-close" @click="setInfoOpen(false)">
-                            <Icon icon="akar-icons:chevron-right" width="25px" />
-                            <span>閉じる</span>
-                        </div>
-                    </div>
                     <div ref="infoScrollRef" class="capture-lightbox__info-scroll">
                         <CaptureInfo :capture="capture" :detail="detail" :program="program" :tag-names="tagNames"
                             @open-program="openProgram" @play="playRecording" />
@@ -945,9 +933,8 @@ onBeforeUnmount(() => {
         &--prev {
             left: 20px;
         }
-        // 右端には視聴画面と同じ位置にパネルの開閉ボタンがあるので、その内側に置く
         &--next {
-            right: 92px;
+            right: 20px;
         }
         &--hidden {
             display: none;
@@ -957,55 +944,8 @@ onBeforeUnmount(() => {
         }
     }
 
-    // 情報パネルの開閉ボタン (視聴画面の .switch-button-panel と同じ見た目)
-    &__panel-button {
-        position: absolute;
-        top: 50%;
-        right: 28px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 48px;
-        height: 48px;
-        margin-top: -24px;
-        color: rgb(var(--v-theme-text));
-        background: #2F221FC0;
-        border-radius: 7px;
-        cursor: pointer;
-        user-select: none;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s, visibility 0.3s, background-color 0.15s;
-        z-index: 2;
-        @include smartphone-horizontal {
-            right: 15px;
-            width: 38px;
-            height: 38px;
-            margin-top: -19px;
-            border-radius: 5px;
-            svg {
-                height: 27px;
-            }
-        }
-        &:hover {
-            background: #2F221FF0;
-        }
-        @media (hover: none) {
-            &:hover {
-                background: #2F221FC0;
-            }
-        }
-        svg {
-            position: relative;
-            top: 1.5px;
-            transition: color 0.4s cubic-bezier(0.26, 0.68, 0.55, 0.99);
-        }
-        &--open {
-            color: rgb(var(--v-theme-primary));
-        }
-    }
     &--control {
-        .capture-lightbox__nav, .capture-lightbox__panel-button {
+        .capture-lightbox__nav {
             opacity: 1;
             visibility: visible;
         }
@@ -1026,35 +966,6 @@ onBeforeUnmount(() => {
             width: 310px;
             margin-right: -310px;
         }
-        &-header {
-            display: flex;
-            align-items: center;
-            flex-shrink: 0;
-            height: 70px;
-            padding: 0 16px;
-            padding-top: env(safe-area-inset-top);
-            @include smartphone-horizontal {
-                height: 52px;
-            }
-        }
-        // 視聴画面のパネルの「閉じる」ボタンと同じ見た目
-        &-close {
-            display: flex;
-            position: relative;
-            align-items: center;
-            left: -4px;
-            height: 35px;
-            padding: 0 4px;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            user-select: none;
-            cursor: pointer;
-            svg {
-                position: relative;
-                left: -4px;
-            }
-        }
         &-scroll {
             flex: 1;
             min-height: 0;
@@ -1062,6 +973,10 @@ onBeforeUnmount(() => {
             overscroll-behavior: contain;
             // 横の操作は前後の送りに使うので、ブラウザには縦のスクロールだけを任せる
             touch-action: pan-y;
+            // 横画面のパネルでは、番組名を上のバーのボタンの高さにそろえる
+            .capture-lightbox:not(.capture-lightbox--portrait) & {
+                padding-top: calc(16px + env(safe-area-inset-top));
+            }
         }
     }
     &--info:not(&--portrait) &__info {
