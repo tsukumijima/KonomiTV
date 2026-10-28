@@ -10,23 +10,12 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Literal, TextIO
 
-from tortoise import timezone
-
-from app.constants import (
-    KONOMITV_SERVER_LOG_PATH,
-    LOGS_ARCHIVES_DIR,
-    SERVER_LOG_ARCHIVE_RETENTION_DAYS,
-)
+from app.constants import JST, LOGS_ARCHIVES_DIR
 
 
-# サーバーログの日付プレフィックスを抽出するための正規表現
+# サーバーログとアクセスログの日付プレフィックスを抽出するための正規表現
 # ログフォーマット例: [2025/12/17 16:33:58.880] INFO: Message
 LOG_DATE_PATTERN = re.compile(r'^\[(\d{4}/\d{2}/\d{2}) \d{2}:\d{2}:\d{2}\.\d{3}\]')
-
-# アーカイブファイル名から日付キー (YYYYMMDD) を抽出するための正規表現
-ARCHIVE_FILE_PATTERN = re.compile(
-    rf'^{re.escape(KONOMITV_SERVER_LOG_PATH.stem)}\.(\d{{8}}){re.escape(KONOMITV_SERVER_LOG_PATH.suffix)}$',
-)
 
 
 class DailyRotatingFileHandler(TimedRotatingFileHandler):
@@ -65,6 +54,10 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
         # ローテーション後の移動先を archives ディレクトリへ切り替える
         self.namer = self._namer
 
+        # アーカイブの命名と cleanup の対象を決める元のログファイルのパスを保持しておく
+        ## サーバーログとアクセスログで同じハンドラーを使うため、アーカイブ名はログファイルごとに分ける
+        self.log_path = Path(self.baseFilename)
+
         # 後続の cleanup で使用する保持日数を保持しておく
         self.retention_days = retention_days
 
@@ -90,8 +83,7 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
             pass
         return stream
 
-    @staticmethod
-    def _namer(default_name: str) -> str:
+    def _namer(self, default_name: str) -> str:
         """
         ローテーション後のファイル名を archives ディレクトリ配下に変換する。
 
@@ -103,7 +95,7 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
         """
 
         date_suffix = default_name.rsplit('.', 1)[1]
-        return str(GetArchiveFilePath(date_suffix))
+        return str(GetArchiveFilePath(Path(self.baseFilename), date_suffix))
 
     def doRollover(self) -> None:
         """
@@ -175,14 +167,15 @@ class DailyRotatingFileHandler(TimedRotatingFileHandler):
             pass
 
         # ローテーション完了後に期限切れアーカイブを整理する
-        CleanupOldArchiveLogs(self.retention_days)
+        CleanupOldArchiveLogs(self.log_path, self.retention_days)
 
 
-def GetArchiveFilePath(date_key: str) -> Path:
+def GetArchiveFilePath(log_path: Path, date_key: str) -> Path:
     """
     日付キー (YYYYMMDD) からアーカイブファイルのパスを生成する。
 
     Args:
+        log_path (Path): アーカイブの元になるログファイルのパス
         date_key (str): 日付キー（例: '20260212'）
 
     Returns:
@@ -191,14 +184,15 @@ def GetArchiveFilePath(date_key: str) -> Path:
 
     # アーカイブ命名規則を 1 箇所に集約して、生成と解析の不一致を防ぐ
     ## 例: KonomiTV-Server.log -> KonomiTV-Server.20260212.log
-    return LOGS_ARCHIVES_DIR / f'{KONOMITV_SERVER_LOG_PATH.stem}.{date_key}{KONOMITV_SERVER_LOG_PATH.suffix}'
+    return LOGS_ARCHIVES_DIR / f'{log_path.stem}.{date_key}{log_path.suffix}'
 
 
-def CleanupOldArchiveLogs(retention_days: int | None) -> None:
+def CleanupOldArchiveLogs(log_path: Path, retention_days: int | None) -> None:
     """
     保存期間を超えたアーカイブログを削除する。
 
     Args:
+        log_path (Path): アーカイブの元になるログファイルのパス (このログのアーカイブだけを削除対象にする)
         retention_days (int | None): アーカイブ保持日数。None の場合は無期限保持。
     """
 
@@ -211,13 +205,16 @@ def CleanupOldArchiveLogs(retention_days: int | None) -> None:
         return
 
     # JST 基準で削除閾値を算出する
+    ## 起動時は Tortoise ORM の初期化前に呼ばれ、tortoise.timezone.now() では UTC の日付になるため、JST を明示する
     ## 例: retention_days=30 の場合、30 日より前の日付ファイルのみ削除する
-    today_in_jst = timezone.now().date()
+    today_in_jst = datetime.now(JST).date()
     delete_before_date = today_in_jst - timedelta(days=retention_days)
 
     # 命名規則に一致するアーカイブファイルのみを対象にクリーンアップする
-    for archive_path in LOGS_ARCHIVES_DIR.glob(f'{KONOMITV_SERVER_LOG_PATH.stem}.*{KONOMITV_SERVER_LOG_PATH.suffix}'):
-        match = ARCHIVE_FILE_PATTERN.match(archive_path.name)
+    ## アーカイブファイル名から日付キー (YYYYMMDD) を抽出する
+    archive_file_pattern = re.compile(rf'^{re.escape(log_path.stem)}\.(\d{{8}}){re.escape(log_path.suffix)}$')
+    for archive_path in LOGS_ARCHIVES_DIR.glob(f'{log_path.stem}.*{log_path.suffix}'):
+        match = archive_file_pattern.match(archive_path.name)
 
         # 命名規則から外れるファイルは、他用途の可能性があるため触らない
         if match is None:
@@ -238,13 +235,17 @@ def CleanupOldArchiveLogs(retention_days: int | None) -> None:
                 continue
 
 
-def SplitServerLogByDate() -> None:
+def SplitLogByDate(log_path: Path, retention_days: int | None) -> None:
     """
-    起動時にサーバーログを日付単位で分割する。
+    起動時にサーバーログまたはアクセスログを日付単位で分割する。
 
-    サーバーログ内の各行を、行頭の日付プレフィックスに基づいて振り分ける。
+    ログ内の各行を、行頭の日付プレフィックスに基づいて振り分ける。
     スタックトレースなど日付を持たない行は、直前に出現した日付と同じファイルへ書き出す。
     分割の成否にかかわらず、処理の最後に期限切れアーカイブのクリーンアップを実行する。
+
+    Args:
+        log_path (Path): 分割するログファイルのパス
+        retention_days (int | None): アーカイブ保持日数。None の場合は無期限保持。
     """
 
     def PrintBootstrapLog(level: Literal['INFO', 'WARNING', 'ERROR'], message: str) -> None:
@@ -257,7 +258,7 @@ def SplitServerLogByDate() -> None:
         """
 
         # ロガー初期化前でも既存ログに近い見た目で観測できるよう、JST タイムスタンプ付きで出力する
-        now_in_jst = timezone.now()
+        now_in_jst = datetime.now(JST)
         date_time_str = now_in_jst.strftime('%Y/%m/%d %H:%M:%S')
         timestamp = f'{date_time_str}.{now_in_jst.microsecond // 1000:03d}'
         level_prefix = f'{level.upper()}:'.ljust(10)
@@ -271,15 +272,15 @@ def SplitServerLogByDate() -> None:
         # ======== Phase 1: 分割が必要かの事前判定 ========
 
         # ログファイルが存在しない場合は分割不要
-        if KONOMITV_SERVER_LOG_PATH.exists() is False:
+        if log_path.exists() is False:
             return
 
         # ファイルサイズの取得を試みる
         ## サイズ取得に失敗する環境（権限不足・I/O エラー等）では分割処理を諦めて起動継続を優先する
         try:
-            file_size = KONOMITV_SERVER_LOG_PATH.stat().st_size
+            file_size = log_path.stat().st_size
         except OSError as ex:
-            PrintBootstrapLog('ERROR', f'Failed to get server log file size: {ex}. Skip log split.')
+            PrintBootstrapLog('ERROR', f'Failed to get log file size of {log_path.name}: {ex}. Skip log split.')
             return
 
         # 空ファイルであれば分割対象は存在しない
@@ -289,12 +290,13 @@ def SplitServerLogByDate() -> None:
         # ======== Phase 2: 高速パス判定 ========
 
         # ログ本文に含まれる日付表記に合わせて、比較用の今日の日付文字列を JST で生成する
-        today_str = timezone.now().date().strftime('%Y/%m/%d')
+        ## ロガーと Tortoise ORM の初期化前に呼ばれるため、tortoise.timezone.now() ではなく JST を明示する
+        today_str = datetime.now(JST).date().strftime('%Y/%m/%d')
 
         # ログの先頭で最初に見つかる日付行が今日であれば、全行が今日のログとみなして分割をスキップする
         ## 通常の運用ではほとんどの起動がこのパスを通るため、全行パースのコストを回避できる
         try:
-            with KONOMITV_SERVER_LOG_PATH.open(encoding='utf-8', errors='replace') as source_file:
+            with log_path.open(encoding='utf-8', errors='replace') as source_file:
                 for source_line in source_file:
                     match = LOG_DATE_PATTERN.match(source_line)
                     # 最初に見つかった日付行のみで判定し、今日の日付であれば分割不要と判断する
@@ -306,14 +308,14 @@ def SplitServerLogByDate() -> None:
         except OSError as ex:
             PrintBootstrapLog(
                 'WARNING',
-                f'Failed to pre-scan server log for fast path: {ex}. Continue full split.',
+                f'Failed to pre-scan {log_path.name} for fast path: {ex}. Continue full split.',
             )
 
         # ======== Phase 3: 日付別分割の実行 ========
 
         PrintBootstrapLog(
             'INFO',
-            f'Splitting server log by date (file size: {file_size / 1024 / 1024:.1f} MB)...',
+            f'Splitting {log_path.name} by date (file size: {file_size / 1024 / 1024:.1f} MB)...',
         )
 
         archive_entry_counts: dict[str, int] = {}
@@ -324,7 +326,7 @@ def SplitServerLogByDate() -> None:
             with ExitStack() as exit_stack:
                 # 元のログファイルを読み取り用に開く
                 source_file = exit_stack.enter_context(
-                    KONOMITV_SERVER_LOG_PATH.open(encoding='utf-8', errors='replace'),
+                    log_path.open(encoding='utf-8', errors='replace'),
                 )
 
                 # 今日分のログを書き出す一時ファイルを作成する
@@ -333,8 +335,8 @@ def SplitServerLogByDate() -> None:
                     tempfile.NamedTemporaryFile(
                         mode='w',
                         encoding='utf-8',
-                        dir=KONOMITV_SERVER_LOG_PATH.parent,
-                        prefix='.KonomiTV-Server.today.',
+                        dir=log_path.parent,
+                        prefix=f'.{log_path.stem}.today.',
                         suffix='.log.tmp',
                         delete=False,
                     ),
@@ -368,7 +370,7 @@ def SplitServerLogByDate() -> None:
 
                     # 日付ごとのアーカイブファイルハンドルは初回アクセス時に遅延生成する
                     if archive_file is None:
-                        archive_file_path = GetArchiveFilePath(date_key)
+                        archive_file_path = GetArchiveFilePath(log_path, date_key)
                         LOGS_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
                         archive_file = exit_stack.enter_context(archive_file_path.open('a', encoding='utf-8'))
                         archive_files[date_key] = archive_file
@@ -392,7 +394,7 @@ def SplitServerLogByDate() -> None:
 
             # 今日分の一時ファイルを本体ログへアトミックに置換する
             if today_temp_path is not None:
-                today_temp_path.replace(KONOMITV_SERVER_LOG_PATH)
+                today_temp_path.replace(log_path)
 
             # ログファイルとアーカイブ側の権限を緩める
             ## Docker 上のサーバープロセスは root で実行されるため、一般ユーザー権限ではログの閲覧・削除ができない問題への対策
@@ -417,13 +419,13 @@ def SplitServerLogByDate() -> None:
                 )
                 PrintBootstrapLog(
                     'INFO',
-                    f'Successfully split server log into {len(archived_dates)} archive(s): {archived_summary}',
+                    f'Successfully split {log_path.name} into {len(archived_dates)} archive(s): {archived_summary}',
                 )
 
         # 分割全体で予期しない例外が起きた場合は、起動継続を優先してエラーのみ出力する
         ## 途中生成した一時ファイルが残ると次回処理のノイズになるため、可能な限り削除する
         except Exception as ex:
-            PrintBootstrapLog('ERROR', f'Failed to split server log by date: {ex}')
+            PrintBootstrapLog('ERROR', f'Failed to split {log_path.name} by date: {ex}')
             traceback.print_exc()
             if today_temp_path is not None and today_temp_path.exists() is True:
                 try:
@@ -433,4 +435,4 @@ def SplitServerLogByDate() -> None:
 
     # 分割の成否にかかわらず、期限切れアーカイブのクリーンアップを最後に実行する
     finally:
-        CleanupOldArchiveLogs(SERVER_LOG_ARCHIVE_RETENTION_DAYS)
+        CleanupOldArchiveLogs(log_path, retention_days)

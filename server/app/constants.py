@@ -63,7 +63,7 @@ LOGS_DIR = BASE_DIR / 'logs'
 ## サーバーログのアーカイブ（日付別ログ）を格納するサブディレクトリ
 ## ログディレクトリ直下にアーカイブが大量に並ぶとノイズになるため、サブディレクトリに分離する
 LOGS_ARCHIVES_DIR = LOGS_DIR / 'archives'
-## サーバーログのアーカイブの保持期限 (日数)
+## サーバーログとアクセスログのアーカイブの保持期限 (日数)
 ## 30 日を超えたアーカイブログを自動削除する
 SERVER_LOG_ARCHIVE_RETENTION_DAYS: int | None = 30
 ## KonomiTV のサーバーログのパス
@@ -188,10 +188,10 @@ LOGGING_CONFIG: dict[str, Any] = {
         },
         'access_file': {
             'formatter': 'access_file',
-            'class': 'logging.FileHandler',
+            'class': 'app.utils.LogRotation.DailyRotatingFileHandler',
             'filename': KONOMITV_ACCESS_LOG_PATH,
-            'mode': 'a',
             'encoding': 'utf-8',
+            'retention_days': SERVER_LOG_ARCHIVE_RETENTION_DAYS,
         },
     },
     'loggers': {
