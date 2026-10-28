@@ -87,6 +87,13 @@
                     @touchstart="onSheetTouchStart" @touchmove="onSheetTouchMove"
                     @touchend="onSheetTouchEnd" @touchcancel="onSheetTouchEnd">
                     <div v-if="isPortrait" class="capture-lightbox__sheet-handle" @click="setInfoOpen(false)"></div>
+                    <!-- 横画面のパネルは、視聴画面のパネルと同じ「閉じる」ボタンでも閉じられるようにする -->
+                    <div v-else class="capture-lightbox__info-header">
+                        <div v-ripple class="capture-lightbox__info-close" @click="setInfoOpen(false)">
+                            <Icon icon="akar-icons:chevron-right" width="25px" />
+                            <span>閉じる</span>
+                        </div>
+                    </div>
                     <div ref="infoScrollRef" class="capture-lightbox__info-scroll">
                         <CaptureInfo :capture="capture" :detail="detail" :program="program" :tag-names="tagNames"
                             @open-program="openProgram" @play="playRecording" />
@@ -966,6 +973,35 @@ onBeforeUnmount(() => {
             width: 310px;
             margin-right: -310px;
         }
+        &-header {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            height: 70px;
+            padding: 0 16px;
+            padding-top: env(safe-area-inset-top);
+            @include smartphone-horizontal {
+                height: 52px;
+            }
+        }
+        // 視聴画面のパネルの「閉じる」ボタンと同じ見た目
+        &-close {
+            display: flex;
+            position: relative;
+            align-items: center;
+            left: -4px;
+            height: 35px;
+            padding: 0 4px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            user-select: none;
+            cursor: pointer;
+            svg {
+                position: relative;
+                left: -4px;
+            }
+        }
         &-scroll {
             flex: 1;
             min-height: 0;
@@ -973,10 +1009,6 @@ onBeforeUnmount(() => {
             overscroll-behavior: contain;
             // 横の操作は前後の送りに使うので、ブラウザには縦のスクロールだけを任せる
             touch-action: pan-y;
-            // 横画面のパネルでは、番組名を上のバーのボタンの高さにそろえる
-            .capture-lightbox:not(.capture-lightbox--portrait) & {
-                padding-top: calc(16px + env(safe-area-inset-top));
-            }
         }
     }
     &--info:not(&--portrait) &__info {
