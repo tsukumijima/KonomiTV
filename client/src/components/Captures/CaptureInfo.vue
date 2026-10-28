@@ -115,7 +115,7 @@ const formatPosition = (seconds: number) => {
 <style lang="scss" scoped>
 
 .capture-info {
-    padding: 4px 20px 24px;
+    padding: 0px 20px 24px;
     color: rgb(var(--v-theme-text));
     @include smartphone-vertical {
         padding: 4px 16px calc(env(safe-area-inset-bottom) + 24px);
