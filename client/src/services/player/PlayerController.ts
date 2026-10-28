@@ -1386,6 +1386,14 @@ class PlayerController {
             }
         });
 
+        // DPlayer は画質切り替え完了時に再生速度を元へ戻すため、ライブ視聴のバッファ調整中は再度 0 にする
+        // 必要なバッファが貯まった時点で on_canplay() が再生速度を 1 に戻し、背景写真を非表示にする
+        this.player.on('quality_end', () => {
+            if (this.playback_mode === 'Live' && this.player?.type === 'mpegts' && player_store.is_loading === true) {
+                this.player.video.playbackRate = 0;
+            }
+        });
+
         // 今回 (DPlayer 初期化直後) と画質切り替え開始時の両方のタイミングで実行する必要がある処理
         // mpegts.js などの DPlayer のプラグインは画質切り替え時に一旦破棄されるため、再度イベントハンドラーを登録する必要がある
         const on_init_or_quality_change = async () => {
