@@ -291,7 +291,7 @@ function getSharedObserver(): IntersectionObserver {
         display: flex;
         padding: 2px;
         border-radius: 50%;
-        color: rgba(255, 255, 255, 0.92);
+        color: rgba(var(--v-theme-text), 0.92);
         opacity: 0;
         transition: opacity 0.15s ease;
         filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
@@ -314,7 +314,7 @@ function getSharedObserver(): IntersectionObserver {
         display: flex;
         padding: 3px;
         border-radius: 50%;
-        color: rgba(255, 255, 255, 0.92);
+        color: rgba(var(--v-theme-text), 0.92);
         // 見えていない間は、スマホで右上を触ったときに知らずに切り替わらないよう、押せなくする
         opacity: 0;
         visibility: hidden;
@@ -323,7 +323,7 @@ function getSharedObserver(): IntersectionObserver {
         filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
         // お気に入りに追加済みのハートも、選択のチェックと同じ白で示す
         &--active {
-            color: #fff;
+            color: rgb(var(--v-theme-text));
             opacity: 1;
             visibility: visible;
         }
@@ -336,7 +336,7 @@ function getSharedObserver(): IntersectionObserver {
         height: 20px;
         border-radius: 4px;
         background: rgba(0, 0, 0, 0.6);
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         // 入れ物はクリックを下のタイルへ通すが、印はマウスを乗せたときに言葉を出せるようにする (クリックは親のタイルへ伝わる)
         pointer-events: auto;
     }
@@ -348,7 +348,7 @@ function getSharedObserver(): IntersectionObserver {
         padding: 0px 6px;
         border-radius: 4px;
         background: rgba(0, 0, 0, 0.66);
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         font-size: 12px;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -380,7 +380,7 @@ function getSharedObserver(): IntersectionObserver {
         }
         .capture-tile__check {
             color: rgb(var(--v-theme-primary));
-            background: #fff;
+            background: rgb(var(--v-theme-text));
             padding: 0;
             margin: 2px;
         }

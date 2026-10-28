@@ -846,7 +846,7 @@ onBeforeUnmount(() => {
     z-index: 2300;
     display: flex;
     overflow: hidden;
-    color: #fff;
+    color: rgb(var(--v-theme-text));
     outline: none;
     // 画像やボタンを押したときに文字が選択されないようにする (情報欄の読む文だけ、CaptureInfo.vue で選択できるように戻す)
     user-select: none;
@@ -878,11 +878,11 @@ onBeforeUnmount(() => {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         cursor: pointer;
         text-decoration: none;
         &:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(var(--v-theme-text), 0.1);
         }
         @media (hover: none) {
             &:hover {
@@ -932,7 +932,7 @@ onBeforeUnmount(() => {
         margin-top: -26px;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.4);
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         cursor: pointer;
         opacity: 0;
         visibility: hidden;

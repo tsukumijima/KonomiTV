@@ -337,7 +337,7 @@ const onThumbPointerUp = () => {
         padding: 0px 14px;
         border-radius: 18px;
         background: rgb(var(--v-theme-primary));
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         font-size: 15px;
         font-weight: 700;
         line-height: 36px;

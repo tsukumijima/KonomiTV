@@ -181,7 +181,7 @@ const deleteSelected = async () => {
         border-radius: 50%;
         cursor: pointer;
         &:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(var(--v-theme-text), 0.08);
         }
     }
 }

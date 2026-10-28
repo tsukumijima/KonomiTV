@@ -267,7 +267,7 @@ const onLogoError = (event: Event) => {
         padding: 1px 8px;
         border-radius: 10px;
         background: rgb(var(--v-theme-primary));
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         font-size: 11.5px;
         line-height: 20px;
     }
@@ -278,7 +278,7 @@ const onLogoError = (event: Event) => {
         padding: 1px 8px;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.66);
-        color: #fff;
+        color: rgb(var(--v-theme-text));
         font-size: 12px;
         line-height: 20px;
     }

@@ -543,7 +543,7 @@ onBeforeUnmount(() => {
             padding: 0 6px;
             border-radius: 10px;
             background: rgb(var(--v-theme-secondary));
-            color: #fff;
+            color: rgb(var(--v-theme-text));
             font-size: 12px;
             font-weight: 700;
             // スマホの縦画面では、アイコンの右上に重ねる
@@ -670,7 +670,7 @@ onBeforeUnmount(() => {
         }
         &--active {
             background: rgb(var(--v-theme-primary));
-            color: #fff;
+            color: rgb(var(--v-theme-text));
         }
     }
 
@@ -701,7 +701,7 @@ onBeforeUnmount(() => {
             cursor: pointer;
             &--active {
                 background: rgb(var(--v-theme-primary));
-                color: #fff;
+                color: rgb(var(--v-theme-text));
             }
         }
         &-divider {
