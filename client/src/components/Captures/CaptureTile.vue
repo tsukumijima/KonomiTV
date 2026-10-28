@@ -16,8 +16,15 @@
         <div v-ripple class="capture-tile__check" @click.stop="$emit('toggle', $event.shiftKey)">
             <Icon :icon="selected ? 'fluent:checkmark-circle-24-filled' : 'fluent:circle-24-regular'" width="24px" height="24px" />
         </div>
+        <!-- お気に入りのボタン (お気に入りに追加済みなら常に出し、そうでなければマウスを乗せたときだけ出す) -->
+        <!-- ログインしていないとき (is_favorite が null) は、お気に入りを使えないので出さない -->
+        <div v-if="capture.is_favorite !== null" v-ripple class="capture-tile__favorite"
+            :class="{'capture-tile__favorite--active': capture.is_favorite}"
+            v-ftooltip.bottom="capture.is_favorite ? 'お気に入りから外す' : 'お気に入りに追加'"
+            @click.stop="toggleFavorite">
+            <Icon :icon="capture.is_favorite ? 'fluent:heart-24-filled' : 'fluent:heart-24-regular'" width="22px" height="22px" />
+        </div>
         <div class="capture-tile__badges">
-            <Icon v-if="capture.is_favorite" class="capture-tile__favorite" icon="fluent:heart-24-filled" width="16px" height="16px" />
             <!-- 画像に写し込まれているものは、小さなタイルでも場所を取らないよう見慣れた記号で示し、言葉は読み上げとツールチップで伝える -->
             <span v-if="capture.is_caption_composited" class="capture-tile__badge" role="img" aria-label="字幕入り" title="字幕入り">
                 <Icon icon="fluent:closed-caption-16-filled" width="16px" height="16px" />
@@ -37,6 +44,7 @@
 
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+import Message from '@/message';
 import Captures, { ICapture } from '@/services/Captures';
 
 
@@ -56,6 +64,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
     (event: 'open'): void;
     (event: 'toggle', shiftKey: boolean): void;
+    (event: 'updated', capture: ICapture): void;
 }>();
 
 const imageRef = ref<HTMLImageElement | null>(null);
@@ -88,6 +97,24 @@ watch(() => props.capture.id, () => {
     observer.unobserve(imageRef.value);
     observer.observe(imageRef.value);
 });
+
+// お気に入りの切り替え
+// 応答を待つ間にタイルが別のキャプチャに使い回されても、押したときのキャプチャに結果を当てる
+let isUpdatingFavorite = false;
+const toggleFavorite = async () => {
+    if (isUpdatingFavorite) {
+        return;
+    }
+    isUpdatingFavorite = true;
+    const capture = props.capture;
+    const next = capture.is_favorite !== true;
+    const succeeded = await Captures.updateFavorites([capture.id], next);
+    isUpdatingFavorite = false;
+    if (succeeded) {
+        Message.success(next ? 'キャプチャをお気に入りに追加しました。' : 'キャプチャをお気に入りから外しました。');
+        emit('updated', { ...capture, is_favorite: next });
+    }
+};
 
 // 選択モード中のクリックは選択の切り替え、それ以外は拡大表示
 const onClick = (event: MouseEvent) => {
@@ -252,9 +279,25 @@ function getSharedObserver(): IntersectionObserver {
         gap: 4px;
         pointer-events: none;
     }
+    // お気に入りのボタン (選択のチェックと対になるよう、右上に同じ大きさで置く)
     &__favorite {
-        color: #fff;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        display: flex;
+        padding: 3px;
+        border-radius: 50%;
+        color: rgba(255, 255, 255, 0.92);
+        // 見えていない間は、スマホで右上を触ったときに知らずに切り替わらないよう、押せなくする
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+        &--active {
+            color: rgb(var(--v-theme-primary));
+            opacity: 1;
+            visibility: visible;
+        }
     }
     &__badge {
         display: flex;
@@ -286,8 +329,9 @@ function getSharedObserver(): IntersectionObserver {
 
     @media (hover: hover) {
         &:hover {
-            .capture-tile__shade, .capture-tile__check {
+            .capture-tile__shade, .capture-tile__check, .capture-tile__favorite {
                 opacity: 1;
+                visibility: visible;
             }
         }
     }

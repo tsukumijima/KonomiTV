@@ -18,7 +18,8 @@
                         :selected="selection.isSelected(tile.capture)"
                         :selecting="selection.isSelecting.value"
                         @open="$emit('open', tile.capture)"
-                        @toggle="(shiftKey) => onToggle(tile.capture!, shiftKey)" />
+                        @toggle="(shiftKey) => onToggle(tile.capture!, shiftKey)"
+                        @updated="$emit('updated', $event)" />
                     <div v-else class="capture-timeline__placeholder"></div>
                 </div>
             </template>
@@ -62,6 +63,8 @@ const emit = defineEmits<{
     (event: 'open', capture: ICapture): void;
     // 絞り込みや並べ方が変わり、別の条件の一覧を読み込み始めたとき
     (event: 'reloading'): void;
+    // タイルのお気に入りのボタンで、キャプチャの状態が変わったとき
+    (event: 'updated', capture: ICapture): void;
     // 読み込めなかったときは null を渡す (0件と区別して、読み込めなかったことを伝えるため)
     (event: 'loaded', total: number | null): void;
 }>();

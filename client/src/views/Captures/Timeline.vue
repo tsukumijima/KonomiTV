@@ -35,7 +35,7 @@
                 </v-btn>
             </div>
             <CaptureTimeline ref="timelineRef" :filter="filter" :axis="axis" :day-start-hour="dayStartHour"
-                :selection="selection" @open="openCapture" @reloading="onReloading" @loaded="onLoaded" />
+                :selection="selection" @open="openCapture" @reloading="onReloading" @loaded="onLoaded" @updated="onUpdated([$event])" />
         </template>
 
         <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="onDeleted" />

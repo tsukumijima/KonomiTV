@@ -58,7 +58,8 @@
                         <CaptureTile :capture="capture" :show-position="order === 'PlaybackPosition'"
                             :selected="selection.isSelected(capture)" :selecting="selection.isSelecting.value"
                             @open="openedCapture = capture"
-                            @toggle="(shiftKey) => selection.toggle(capture, shiftKey ? captures : null)" />
+                            @toggle="(shiftKey) => selection.toggle(capture, shiftKey ? captures : null)"
+                            @updated="onUpdated([$event])" />
                     </div>
                     <!-- 字幕が出ていなかった場面は何も書かない (「字幕なし」と書くと、それ自体がセリフに見えるため) -->
                     <div v-if="hasCaptions" class="capture-program__caption">{{ capture.caption_text ?? '' }}</div>
