@@ -43,9 +43,14 @@
                 </div>
                 <div class="capture-program-card__meta">
                     <div class="capture-program-card__title" v-html="ProgramUtils.decorateProgramInfo(program, 'title')"></div>
-                    <div class="capture-program-card__sub">
-                        <span v-if="program.channel" class="capture-program-card__channel">{{ program.channel.name }}</span>
-                        <span>{{ formatStart(program.start_time) }}</span>
+                    <!-- 局ロゴ・局名・放送時間は、番組名の行数にかかわらずカードの下端にそろえる -->
+                    <div class="capture-program-card__broadcaster">
+                        <img v-if="program.channel !== null" class="capture-program-card__broadcaster-icon" loading="lazy" decoding="async"
+                            :src="`${Utils.api_base_url}/channels/${program.channel.id}/logo`" @error="onLogoError">
+                        <div class="capture-program-card__broadcaster-container">
+                            <div class="capture-program-card__broadcaster-name">{{ program.channel?.name ?? 'チャンネル情報なし' }}</div>
+                            <div class="capture-program-card__broadcaster-time">{{ formatBroadcast(program.start_time, program.end_time) }}</div>
+                        </div>
                     </div>
                 </div>
             </router-link>
@@ -159,7 +164,25 @@ onMounted(() => {
 });
 onBeforeUnmount(() => observer?.disconnect());
 
-const formatStart = (value: string) => Utils.apply28HourClock(dayjs(value).format('YYYY/MM/DD (dd) HH:mm'));
+// 終了時刻が不明な放送回は、ほかの画面の番組情報と同じく終了時刻を --:-- と表示する
+// スマホの縦画面では、2列のカードに終了時刻まで収まるよう、録画番組の短い表記 (ProgramUtils.getProgramTime()) と同じく曜日を省く
+const formatBroadcast = (start: string, end: string | null) => {
+    const startFormat = Utils.isSmartphoneVertical() ? 'YYYY/MM/DD HH:mm' : 'YYYY/MM/DD (dd) HH:mm';
+    if (end === null) {
+        return Utils.apply28HourClock(`${dayjs(start).format(startFormat)} ～ --:--`);
+    }
+    return Utils.apply28HourClock(`${dayjs(start).format(startFormat)} ～ ${dayjs(end).format('HH:mm')}`);
+};
+
+// 局ロゴが取れないときは、ほかの画面と同じく既定のロゴに差し替える
+// 既定のロゴも取れないとき (サーバーに接続できないときなど) は、同じ URL を設定し直して読み込みを繰り返すのを避けるため、そのままにする
+const onLogoError = (event: Event) => {
+    const image = event.target as HTMLImageElement;
+    const fallbackUrl = `${Utils.api_base_url}/channels/gr001/logo`;
+    if (image.src !== fallbackUrl) {
+        image.src = fallbackUrl;
+    }
+};
 
 </script>
 <style lang="scss" scoped>
@@ -251,7 +274,11 @@ const formatStart = (value: string) => Utils.apply28HourClock(dayjs(value).forma
         font-size: 12px;
         line-height: 20px;
     }
+    // 同じ行のカードは高さがそろうので、番組名の下を伸ばして局名と放送時間を下端に置く
     &__meta {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
         padding: 10px 12px 12px;
         @include smartphone-vertical {
             padding: 8px 9px 10px;
@@ -269,22 +296,51 @@ const formatStart = (value: string) => Utils.apply28HourClock(dayjs(value).forma
             font-size: 13px;
         }
     }
-    &__sub {
+    &__broadcaster {
         display: flex;
-        flex-wrap: wrap;
-        gap: 2px 10px;
-        margin-top: 6px;
-        font-size: 12.5px;
-        color: rgb(var(--v-theme-text-darken-1));
-        @include smartphone-vertical {
-            font-size: 11.5px;
-        }
-    }
-    &__channel {
+        align-items: center;
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        margin-top: auto;
+        padding-top: 8px;
+        color: rgb(var(--v-theme-text-darken-1));
+        // 局ロゴは番組の情報欄 (CaptureProgramInfo.vue) と同じ縦横比にする
+        &-icon {
+            flex-shrink: 0;
+            width: 36px;
+            height: 29.5px;
+            margin-right: 10px;
+            border-radius: 3px;
+            background: linear-gradient(150deg, rgb(var(--v-theme-gray)), rgb(var(--v-theme-background-lighten-2)));
+            object-fit: cover;
+            user-select: none;
+            // スマホの縦画面では、2列のカードに放送時間が収まるよう局ロゴを出さない
+            @include smartphone-vertical {
+                display: none;
+            }
+        }
+        &-container {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        &-name, &-time {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        &-name {
+            font-size: 13px;
+            @include smartphone-vertical {
+                font-size: 11.5px;
+            }
+        }
+        &-time {
+            margin-top: 1px;
+            font-size: 12.5px;
+            @include smartphone-vertical {
+                font-size: 11px;
+            }
+        }
     }
 }
 
