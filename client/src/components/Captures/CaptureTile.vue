@@ -42,7 +42,7 @@
 </template>
 <script lang="ts" setup>
 
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import Message from '@/message';
 import Captures, { ICapture } from '@/services/Captures';
@@ -121,8 +121,35 @@ const onClick = (event: MouseEvent) => {
     if (props.selecting || event.shiftKey) {
         emit('toggle', event.shiftKey);
     } else {
-        emit('open');
+        openWithTransition();
     }
+};
+
+// 拡大表示を開くときは、View Transitions API でタイルの画像が1枚表示の画像の位置まで拡大していくように見せる
+// タイルの画像と1枚表示の画像に同じ名前を付けると、ブラウザが2つの位置と大きさをつないでアニメーションさせる
+const openWithTransition = () => {
+    const image = imageRef.value;
+    // 対応していないブラウザ、画像がまだ読み込めていないタイル、動きを減らす設定のときは、そのまま開く
+    if (document.startViewTransition === undefined || image === null || isLoaded.value === false ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches === true) {
+        emit('open');
+        return;
+    }
+    image.style.setProperty('view-transition-name', 'capture-lightbox-image');
+    document.startViewTransition(async () => {
+        // 開いた後の画面では、名前を1枚表示の画像 (CaptureLightbox.vue) へ渡す
+        image.style.removeProperty('view-transition-name');
+        emit('open');
+        await nextTick();
+        // 1枚表示の画像の描画が間に合うよう、デコードを待ってから開いた後の画面を撮らせる (同じ URL なのでキャッシュから読まれる)
+        const target = document.querySelector<HTMLImageElement>('.capture-lightbox__image--current');
+        if (target !== null) {
+            await Promise.race([
+                target.decode().catch(() => undefined),
+                new Promise(resolve => window.setTimeout(resolve, 300)),
+            ]);
+        }
+    });
 };
 
 // スマホでは長押しで選択を始める (HonomiTV 版の選択の作りと同じ)

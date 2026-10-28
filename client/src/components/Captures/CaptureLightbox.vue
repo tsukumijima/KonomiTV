@@ -68,6 +68,7 @@
                                 :style="{ left: `calc(${slide.offset * 100}% + ${slide.offset * SLIDE_GAP}px)` }"
                                 @click.self="onStageClick">
                                 <img v-if="slide.capture !== null" class="capture-lightbox__image" :src="Captures.getImageURL(slide.capture)"
+                                    :class="{'capture-lightbox__image--current': slide.offset === 0}"
                                     :alt="slide.capture.caption_text ?? ''" draggable="false">
                             </div>
                         </div>
@@ -1058,6 +1059,25 @@ onBeforeUnmount(() => {
 }
 .capture-lightbox-fade-enter-from, .capture-lightbox-fade-leave-to {
     opacity: 0;
+}
+
+</style>
+<style lang="scss">
+
+// 一覧のタイルから開いたときに、タイルの画像から拡大していく表示中の画像 (CaptureTile.vue の openWithTransition() を参照)
+// View Transitions API の疑似要素は文書の最上位にできるので、スコープなしのスタイルで指定する
+.capture-lightbox__image--current {
+    view-transition-name: capture-lightbox-image;
+}
+::view-transition-group(capture-lightbox-image) {
+    animation-duration: 0.3s;
+    animation-timing-function: cubic-bezier(0.26, 0.68, 0.55, 0.99);
+}
+::view-transition-old(capture-lightbox-image),
+::view-transition-new(capture-lightbox-image) {
+    // タイルは画像を切り抜いて並べているので、縦横比の違いで画像が伸び縮みしないよう、切り抜いたまま重ねる
+    height: 100%;
+    object-fit: cover;
 }
 
 </style>
