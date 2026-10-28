@@ -35,16 +35,16 @@ withDefaults(defineProps<{
     flex-direction: column;
     width: 100%;
     min-width: 0;  // サイドナビゲーション横のフレックス子要素を親幅内で縮め、はみ出しを防ぐ
-    padding: 20px 28px 120px;
+    padding: 20px 28px 60px;
     // 日付の見出し・タブ・タイルなどの押して使う部品は、押したときに操作だけが働くよう、文字の選択を外す
     // 読んで写したくなる文 (番組概要など) だけ、それぞれの部品で選択できるように戻す
     user-select: none;
     @include smartphone-horizontal {
-        padding: 16px 20px 120px !important;
+        padding: 16px 20px 60px !important;
     }
     // スマホの縦画面では、マイリストや視聴履歴と同じく上に 18px (10px + 8px)、左右に 8px を空ける
     @include smartphone-vertical {
-        padding: 18px 8px 140px !important;
+        padding: 18px 8px 70px !important;
     }
 
     // PC ではスクラバーのレールの幅 (52px) だけ右に余白を取る (タッチの端末のつまみは画像の上に重ねる)
