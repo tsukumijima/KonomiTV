@@ -2,9 +2,9 @@
     <CapturePage :crumbs="[
         { name: 'ホーム', path: '/' },
         { name: 'キャプチャ', path: '/captures/' },
-        { name: 'タグ', path: '/captures/tags/', disabled: true },
+        { name: 'タグ別', path: '/captures/tags/', disabled: true },
     ]">
-        <CaptureHeader title="タグ" :total="null" active-tab="Tags" />
+        <CaptureHeader title="タグ別" :total="null" active-tab="Tags" />
 
         <div v-if="!isLoggedIn && !isLoading" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:person-20-regular" width="54px" height="54px" />

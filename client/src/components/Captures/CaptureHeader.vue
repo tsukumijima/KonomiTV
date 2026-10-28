@@ -106,7 +106,7 @@
                 <span>{{ choice.label }}</span>
             </div>
         </div>
-        <!-- タイムライン・番組・いいね・タグの画面を切り替えるタブ -->
+        <!-- タイムライン・番組別・タグ別・お気に入りの画面を切り替えるタブ -->
         <div v-else class="capture-header__tabs">
             <router-link v-for="tab in tabs" :key="tab.value" v-ripple class="capture-header__tab"
                 :class="{'capture-header__tab--active': tab.value === activeTab}" :to="tab.to">
@@ -159,11 +159,12 @@ const emit = defineEmits<{
     (event: 'scanned'): void;
 }>();
 
+// 番組別とタグ別はどちらもキャプチャをまとめたアルバムの一覧なので、隣に並べる
 const tabs = [
     { value: 'Timeline', label: 'タイムライン', icon: 'fluent:image-multiple-20-regular', to: '/captures/' },
-    { value: 'Programs', label: '番組', icon: 'fluent:video-clip-multiple-20-regular', to: '/captures/programs/' },
-    { value: 'Favorites', label: 'いいね', icon: 'fluent:heart-20-regular', to: '/captures/favorites/' },
-    { value: 'Tags', label: 'タグ', icon: 'fluent:tag-multiple-20-regular', to: '/captures/tags/' },
+    { value: 'Programs', label: '番組別', icon: 'fluent:video-clip-multiple-20-regular', to: '/captures/programs/' },
+    { value: 'Tags', label: 'タグ別', icon: 'fluent:tag-multiple-20-regular', to: '/captures/tags/' },
+    { value: 'Favorites', label: 'お気に入り', icon: 'fluent:heart-20-regular', to: '/captures/favorites/' },
 ];
 
 // スマホの縦画面の検索欄 (検索結果の画面では、今の検索語を入れた状態で開く)

@@ -151,7 +151,7 @@ const crumbs = computed(() => {
     const base = [{ name: 'ホーム', path: '/' }, { name: 'キャプチャ', path: '/captures/' }];
     switch (mode.value) {
         case 'Favorites': return [...base, { name: 'いいね', path: '/captures/favorites/', disabled: true }];
-        case 'Tag': return [...base, { name: 'タグ', path: '/captures/tags/' }, { name: tagName.value ?? 'タグ', path: route.path, disabled: true }];
+        case 'Tag': return [...base, { name: 'タグ別', path: '/captures/tags/' }, { name: tagName.value ?? 'タグ', path: route.path, disabled: true }];
         case 'Search': return [...base, { name: '検索結果', path: route.fullPath, disabled: true }];
         default: return [{ name: 'ホーム', path: '/' }, { name: 'キャプチャ', path: '/captures/', disabled: true }];
     }

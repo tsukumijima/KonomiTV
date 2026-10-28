@@ -2,7 +2,7 @@
     <CapturePage :crumbs="[
         { name: 'ホーム', path: '/' },
         { name: 'キャプチャ', path: '/captures/' },
-        { name: '番組', path: '/captures/programs/' },
+        { name: '番組別', path: '/captures/programs/' },
         { name: program ? program.title : '番組', path: route.fullPath, disabled: true },
     ]">
         <div class="capture-program">
