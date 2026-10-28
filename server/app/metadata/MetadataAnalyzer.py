@@ -269,10 +269,10 @@ class MetadataAnalyzer:
         video_resolution_width: int | None = None
         video_resolution_height: int | None = None
         has_video_stream_changes: bool = False
-        primary_audio_codec: Literal['AAC-LC'] | None = None
+        primary_audio_codec: Literal['AAC-LC', 'HE-AAC'] | None = None
         primary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         primary_audio_sampling_rate: int | None = None
-        secondary_audio_codec: Literal['AAC-LC'] | None = None
+        secondary_audio_codec: Literal['AAC-LC', 'HE-AAC'] | None = None
         secondary_audio_channel: Literal['Monaural', 'Stereo', '5.1ch'] | None = None
         secondary_audio_sampling_rate: int | None = None
 
@@ -404,8 +404,11 @@ class MetadataAnalyzer:
                     prof = audio_stream.profile
                     if prof is None or 'LC' in prof:
                         primary_audio_codec = 'AAC-LC'
+                    elif prof == 'HE-AAC':
+                        # ワンセグの AAC+SBR は HE-AAC として報告される (再生時は AAC-LC に変換するので再生できる)
+                        primary_audio_codec = 'HE-AAC'
                 if primary_audio_codec is None:
-                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    # AAC-LC・HE-AAC 以外のフォーマットは当面 KonomiTV で再生できない
                     logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
                 ## チャンネル数
@@ -432,8 +435,11 @@ class MetadataAnalyzer:
                     prof = audio_stream.profile
                     if prof is None or 'LC' in prof:
                         secondary_audio_codec = 'AAC-LC'
+                    elif prof == 'HE-AAC':
+                        # ワンセグの AAC+SBR は HE-AAC として報告される (再生時は AAC-LC に変換するので再生できる)
+                        secondary_audio_codec = 'HE-AAC'
                 if secondary_audio_codec is None:
-                    # AAC-LC 以外のフォーマットは当面 KonomiTV で再生できない
+                    # AAC-LC・HE-AAC 以外のフォーマットは当面 KonomiTV で再生できない
                     logging.warning(f'{self.recorded_file_path}: Unsupported audio codec: {audio_stream.codec_name}. ignored.')
                     continue
                 ## チャンネル数
@@ -544,32 +550,36 @@ class MetadataAnalyzer:
                     )
                     break
 
-            # TS ファイルに含まれる番組情報・チャンネル情報を解析する
+            # TS ファイルに含まれる録画開始時刻と録画終了時刻を解析する
+            ## TSInfoAnalyzer.analyze() は、EIT を読んだ位置が録画開始マージン (前の番組) だったときに次の番組を選ぶ判定で
+            ## 録画開始時刻を参照するため、番組情報より先に解析しておく
             analyzer = TSInfoAnalyzer(recorded_video, end_ts_offset=end_ts_offset, preferred_service_id=preferred_service_id)
+            recording_time = analyzer.analyzeRecordingTime()
+            if recording_time is not None:
+                recorded_video.recording_start_time = recording_time[0]
+                recorded_video.recording_end_time = recording_time[1]
+
+            # TS ファイルに含まれる番組情報・チャンネル情報を解析する
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis completed.')
-                # 取得成功時は録画開始時刻と録画終了時刻も解析する
-                recording_time = analyzer.analyzeRecordingTime()
-                if recording_time is not None:
-                    recorded_video.recording_start_time = recording_time[0]
-                    recorded_video.recording_end_time = recording_time[1]
             else:
                 # 取得失敗時、最終更新日時が現在時刻から30秒以内ならまだ録画中の可能性が高いので、None を返し DB には保存しない
                 if (now - recorded_video.file_modified_at).total_seconds() < 30:
                     logging.warning(f'{self.recorded_file_path}: MPEG-TS SDT/EIT analysis failed. (still recording?)')
                     return None
         else:
-            # 何らかのメタ情報から番組情報・チャンネル情報を解析する
+            # 何らかのメタ情報から録画開始時刻と録画終了時刻を解析する (番組情報より先に解析する理由は MPEG-TS の場合と同じ)
             analyzer = TSInfoAnalyzer(recorded_video)
+            recording_time = analyzer.analyzeRecordingTime()
+            if recording_time is not None:
+                recorded_video.recording_start_time = recording_time[0]
+                recorded_video.recording_end_time = recording_time[1]
+
+            # 何らかのメタ情報から番組情報・チャンネル情報を解析する
             recorded_program = analyzer.analyze()  # 取得失敗時は None が返る
             if recorded_program is not None:
                 logging.debug(f'{self.recorded_file_path}: {container_format} Service/Event analysis completed.')
-                # 取得成功時は録画開始時刻と録画終了時刻も解析する
-                recording_time = analyzer.analyzeRecordingTime()
-                if recording_time is not None:
-                    recorded_video.recording_start_time = recording_time[0]
-                    recorded_video.recording_end_time = recording_time[1]
 
         # MPEG-TS 形式ではなくメタ情報も存在しなければ番組情報は取得できないので、ファイル名などから最低限の情報を設定する
         # MPEG-TS 形式だが TS ファイルからチャンネル情報・番組情報を取得できなかった場合も同様
@@ -621,6 +631,40 @@ class MetadataAnalyzer:
                 recorded_program.is_partially_recorded = False
 
         return recorded_program
+
+
+    def matchesFileHash(self, file_hash: str) -> bool:
+        """
+        録画ファイルの中身が、指定されたハッシュで登録済みの録画と同じかを、メタデータを解析せずに判定する
+        録画ファイルの移動や名前の変更を、重い解析の前に照合するために使う
+        このメソッドは同期的なため、非同期メソッドから実行する際は asyncio.to_thread() で実行すること
+
+        Args:
+            file_hash (str): 登録済みの録画ファイルのハッシュ
+
+        Returns:
+            bool: 録画ファイルのハッシュが一致する場合は True
+        """
+
+        # ほとんどの録画は、ファイル全体を対象にしたハッシュで登録されている
+        try:
+            if self.__calculateFileHash(None) == file_hash:
+                return True
+        except ValueError:
+            return False
+
+        # 末尾がゼロ埋めされた TS は、analyze() と同じく、有効な TS データの終了位置までを対象にしたハッシュで登録されている
+        with self.recorded_file_path.open('rb') as f:
+            if f.read(1) != ts.SYNC_BYTE:
+                return False
+        duration_result = self.__calculateTSFileDuration()
+        if duration_result is None:
+            return False
+        _, end_ts_offset = duration_result
+        try:
+            return self.__calculateFileHash(end_ts_offset) == file_hash
+        except ValueError:
+            return False
 
 
     def __calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
@@ -906,6 +950,123 @@ class MetadataAnalyzer:
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
+        def ClearLeadingPartialAACFrames(sample_data: bytes) -> bytes:
+            """
+            録画ファイルの途中から切り出した TS サンプルについて、音声ストリームごとに、
+            先頭の AAC (ADTS) フレームより前に残っている、ヘッダーが切り落とされたフレームの残りを 0x00 で埋める
+            ADTS フレームの区切りと PES の区切りが一致しないチャンネルでは、サンプルの最初の PES が前のフレームの途中から始まる
+            FFmpeg の AAC パーサーはこの残りの中にある 0xFFF を ADTS ヘッダーと取り違え、
+            ありえないチャンネル数やサンプルレートを音声ストリームの情報として返すことがあるため、取り違えの元になるバイトを消す
+
+            Args:
+                sample_data (bytes): 録画ファイルから TS パケット単位で切り出したサンプル
+
+            Returns:
+                bytes: 先頭の AAC フレームより前の音声データを 0x00 で埋めたサンプル (TS の構造と長さは元のサンプルのまま)
+            """
+
+            # 本物の ADTS ヘッダーと判断するのに必要な、同じ構成のヘッダーが連続する数
+            ## 0xFFF の偶然の一致が3回続けてフレーム長の位置にそろう確率は無視できる
+            REQUIRED_CONTINUOUS_HEADERS = 3
+            # 先頭の AAC フレームを探す、音声ストリームごとの ES の長さ
+            ## AAC のフレームは最大でも 8KB 程度なので、数フレーム分あれば足りる
+            MAX_SEARCH_ES_BYTES = 64 * 1024
+
+            def ParseADTSHeader(es_data: bytearray, position: int) -> tuple[int, int, int, int] | None:
+                """
+                指定位置のバイト列を ADTS ヘッダーとして解析する
+
+                Args:
+                    es_data (bytearray): 音声の ES
+                    position (int): ADTS ヘッダーとして解析する位置
+
+                Returns:
+                    tuple[int, int, int, int] | None: プロファイル・サンプルレートの番号・チャンネル構成・フレーム長のタプル
+                        (ADTS ヘッダーとして正しくない場合は None)
+                """
+                if position + 7 > len(es_data):
+                    return None
+                # 同期語 (12bit) と、ADTS では常に 0 になる layer (2bit) を確認する
+                if es_data[position] != 0xFF or (es_data[position + 1] & 0xF6) != 0xF0:
+                    return None
+                profile = es_data[position + 2] >> 6
+                sampling_frequency_index = (es_data[position + 2] >> 2) & 0x0F
+                channel_configuration = ((es_data[position + 2] & 0x01) << 2) | (es_data[position + 3] >> 6)
+                frame_length = (
+                    ((es_data[position + 3] & 0x03) << 11) |
+                    (es_data[position + 4] << 3) |
+                    (es_data[position + 5] >> 5)
+                )
+                # 13 以上のサンプルレートの番号は予約値で、フレーム長はヘッダー長 (7バイト) 未満にならない
+                if sampling_frequency_index >= 13 or frame_length < 7:
+                    return None
+                return (profile, sampling_frequency_index, channel_configuration, frame_length)
+
+            # 音声ストリームの PID ごとに、最初の PES 以降の ES のバイト列と、各バイトのサンプル内での位置を集める
+            ## 音声の PES は stream_id が 0xC0 ~ 0xDF なので、PMT を読まずに PES ヘッダーから音声ストリームを判別できる
+            sample = bytearray(sample_data)
+            sample_view = memoryview(sample)
+            audio_es_data: dict[int, bytearray] = {}
+            audio_es_positions: dict[int, list[int]] = {}
+            for packet_offset in range(0, len(sample) - ts.PACKET_SIZE + 1, ts.PACKET_SIZE):
+                packet = sample_view[packet_offset:packet_offset + ts.PACKET_SIZE]
+                if packet[0] != ts.SYNC_BYTE[0] or ts.has_payload(packet) is False:
+                    continue
+                pid = ts.pid(packet)
+                payload_offset = packet_offset + ts.PACKET_SIZE - len(ts.payload(packet))
+                es_offset = payload_offset
+
+                if ts.payload_unit_start_indicator(packet) is True:
+                    # PES ヘッダーを読み飛ばし、ES の始まる位置を求める
+                    pes_header = sample_view[payload_offset:payload_offset + 9]
+                    if len(pes_header) < 9 or pes_header[0:3] != b'\x00\x00\x01':
+                        continue
+                    if pid not in audio_es_data:
+                        if not (0xC0 <= pes_header[3] <= 0xDF):
+                            continue
+                        audio_es_data[pid] = bytearray()
+                        audio_es_positions[pid] = []
+                    es_offset = payload_offset + 9 + pes_header[8]
+                elif pid not in audio_es_data:
+                    # 最初の PES の先頭より前のデータは FFmpeg も読み捨てるので、ES は最初の PES の先頭から集める
+                    continue
+
+                if len(audio_es_data[pid]) >= MAX_SEARCH_ES_BYTES:
+                    continue
+                packet_end = packet_offset + ts.PACKET_SIZE
+                audio_es_data[pid] += sample_view[es_offset:packet_end]
+                audio_es_positions[pid].extend(range(es_offset, packet_end))
+
+            # 音声ストリームごとに、同じ構成の ADTS ヘッダーがフレーム長の間隔で連続する最初の位置を探す
+            for pid, es_data in audio_es_data.items():
+                first_frame_position: int | None = None
+                for position in range(len(es_data)):
+                    first_header = ParseADTSHeader(es_data, position)
+                    if first_header is None:
+                        continue
+                    # 2つ目以降のヘッダーも、プロファイル・サンプルレート・チャンネル構成が同じであることを確認する
+                    next_position = position
+                    continuous_headers = 0
+                    while continuous_headers < REQUIRED_CONTINUOUS_HEADERS:
+                        header = ParseADTSHeader(es_data, next_position)
+                        if header is None or header[0:3] != first_header[0:3]:
+                            break
+                        continuous_headers += 1
+                        next_position += header[3]
+                    if continuous_headers == REQUIRED_CONTINUOUS_HEADERS:
+                        first_frame_position = position
+                        break
+
+                # ADTS ではない音声 (LATM など) や、先頭のフレームを見つけられなかった音声はそのまま残す
+                if first_frame_position is None:
+                    continue
+
+                # 先頭の AAC フレームより前の音声データを 0x00 で埋める (0x00 は ADTS の同期語と一致しない)
+                for position in audio_es_positions[pid][:first_frame_position]:
+                    sample[position] = 0x00
+
+            return bytes(sample)
+
         # 全体解析: 録画ファイル全体のメディア情報を取得する
         args_full = [
             '-hide_banner',
@@ -973,6 +1134,10 @@ class MetadataAnalyzer:
                         # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                         sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
                         sample_data = f.read(sample_size)
+
+                    # サンプルの先頭に残る、ヘッダーが切り落とされた AAC フレームの残りを消す
+                    ## FFprobe が残りの中の偶然の 0xFFF を ADTS ヘッダーと取り違え、誤った音声の情報を返すのを防ぐ
+                    sample_data = ClearLeadingPartialAACFrames(sample_data)
 
                     # 録画ファイルから切り出したサンプルを標準入力から FFprobe に渡して解析
                     args_sample = [

@@ -124,12 +124,8 @@ class Users {
         // エラー処理
         if (response.type === 'error') {
             switch (response.data.detail) {
-                case 'Incorrect username': {
-                    Message.error('ログインできませんでした。そのユーザー名のアカウントは存在しません。');
-                    break;
-                }
-                case 'Incorrect password': {
-                    Message.error('ログインできませんでした。パスワードを間違えていませんか？');
+                case 'Incorrect username or password': {
+                    Message.error('ログインできませんでした。ユーザー名かパスワードを間違えていませんか？');
                     break;
                 }
                 default: {

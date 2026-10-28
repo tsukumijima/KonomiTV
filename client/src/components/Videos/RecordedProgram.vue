@@ -145,6 +145,12 @@
                             </template>
                             <v-list-item-title class="ml-3">オフライン再生用に保存 ({{offlineMenuSizeLabel}})</v-list-item-title>
                         </v-list-item>
+                        <v-list-item :to="`/captures/recorded/${program.id}`">
+                            <template v-slot:prepend>
+                                <Icon icon="fluent:image-multiple-20-regular" width="20px" height="20px" />
+                            </template>
+                            <v-list-item-title class="ml-3">この番組で撮ったキャプチャを見る</v-list-item-title>
+                        </v-list-item>
                         <v-list-item @click="show_video_info = true">
                             <template v-slot:prepend>
                                 <svg width="20px" height="20px" viewBox="0 0 16 16">
@@ -165,7 +171,7 @@
                             </template>
                             <v-list-item-title class="ml-3">メタデータを再解析</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="regenerateThumbnail()" v-ftooltip="'サムネイルのみを再生成します（数分かかります） 変更を反映するにはブラウザキャッシュの削除が必要です'">
+                        <v-list-item @click="regenerateThumbnail()" v-ftooltip="'サムネイルのみを再生成します（数分かかります） 変更はページを再読み込みすると反映されます'">
                             <template v-slot:prepend>
                                 <Icon icon="fluent:image-arrow-counterclockwise-24-regular" width="20px" height="20px" />
                             </template>
@@ -369,7 +375,7 @@ watch(() => [props.offlineVideo?.generation_id, props.program.id], () => {
 });
 const offlineThumbnailURL = computed(() => {
     if (props.offlineVideo === null || shouldUseServerThumbnail.value === true) {
-        return `${Utils.api_base_url}/videos/${props.program.id}/thumbnail`;
+        return Videos.getThumbnailURL(props.program);
     }
     return OfflineVideos.getAssetURL(props.offlineVideo, 'thumbnail.webp');
 });

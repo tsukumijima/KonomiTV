@@ -1,6 +1,7 @@
 
 import base64
 import hashlib
+import os
 import pkgutil
 import secrets
 import sys
@@ -10,7 +11,8 @@ from zoneinfo import ZoneInfo
 
 import httpx2 as httpx
 from cryptography.fernet import Fernet
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 from pydantic import BaseModel, PositiveInt
 
 
@@ -24,22 +26,28 @@ JST = ZoneInfo('Asia/Tokyo')
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# テストの実行中かどうか
+## pytest の実行時は、pyproject.toml の [tool.pytest_env] で環境変数 KONOMITV_TEST に 1 が設定される
+## テストの実行中は、書き込みが発生するファイルとフォルダの名前に .test を付けて、実際に使っている DB・設定・サムネイル・ログと分ける
+IS_TEST = os.environ.get('KONOMITV_TEST') == '1'
+TEST_SUFFIX = '.test' if IS_TEST else ''
+
 # クライアントの静的ファイルがあるディレクトリ
 CLIENT_DIR = BASE_DIR.parent / 'client/dist'
 
 # データディレクトリ
 DATA_DIR = BASE_DIR / 'data'
 ## アカウントのアイコン画像があるディレクトリ
-ACCOUNT_ICON_DIR = DATA_DIR / 'account-icons'
+ACCOUNT_ICON_DIR = DATA_DIR / f'account-icons{TEST_SUFFIX}'
 ## サムネイル画像があるディレクトリ
-THUMBNAILS_DIR = DATA_DIR / 'thumbnails'
+THUMBNAILS_DIR = DATA_DIR / f'thumbnails{TEST_SUFFIX}'
 ## Twitter 関連のデバッグ用スクリーンショットの保存先ディレクトリ
-TWITTER_DEBUG_SCREENSHOTS_DIR = DATA_DIR / 'twitter-debug-screenshots'
+TWITTER_DEBUG_SCREENSHOTS_DIR = DATA_DIR / f'twitter-debug-screenshots{TEST_SUFFIX}'
 ## デバッグ用スクリーンショットの保持期限 (日数)
 ## 7 日を超えたスクリーンショットを自動削除する
 TWITTER_DEBUG_SCREENSHOTS_RETENTION_DAYS = 7
 ## サーバー終了時に再起動が必要なことを伝えるロックファイルのパス
-RESTART_REQUIRED_LOCK_PATH = DATA_DIR / 'restart_required.lock'
+RESTART_REQUIRED_LOCK_PATH = DATA_DIR / f'restart_required{TEST_SUFFIX}.lock'
 
 # スタティックディレクトリ
 STATIC_DIR = BASE_DIR / 'static'
@@ -59,9 +67,9 @@ LOGS_ARCHIVES_DIR = LOGS_DIR / 'archives'
 ## 30 日を超えたアーカイブログを自動削除する
 SERVER_LOG_ARCHIVE_RETENTION_DAYS: int | None = 30
 ## KonomiTV のサーバーログのパス
-KONOMITV_SERVER_LOG_PATH = LOGS_DIR / 'KonomiTV-Server.log'
+KONOMITV_SERVER_LOG_PATH = LOGS_DIR / f'KonomiTV-Server{TEST_SUFFIX}.log'
 ## KonomiTV のアクセスログのパス
-KONOMITV_ACCESS_LOG_PATH = LOGS_DIR / 'KonomiTV-Access.log'
+KONOMITV_ACCESS_LOG_PATH = LOGS_DIR / f'KonomiTV-Access{TEST_SUFFIX}.log'
 ## Akebi (HTTPS リバースプロキシ) のログファイルのパス
 AKEBI_LOG_PATH = LOGS_DIR / 'Akebi-HTTPS-Server.log'
 
@@ -88,7 +96,7 @@ __model_list = [name for _, name, _ in pkgutil.iter_modules(path=['app/models'])
 DATABASE_CONFIG = {
     'timezone': 'Asia/Tokyo',
     'connections': {
-        'default': f'sqlite://{DATA_DIR / "database.sqlite"!s}',
+        'default': f'sqlite://{DATA_DIR / f"database{TEST_SUFFIX}.sqlite"!s}',
     },
     'apps': {
         'models': {
@@ -381,7 +389,7 @@ NICONICO_OAUTH_CLIENT_ID = '4JTJdyBZLwMJwaI7'
 
 # JWT のエンコード/デコードに使うシークレットキー
 ## jwt_secret.dat がない場合は自動生成する
-JWT_SECRET_KEY_PATH = DATA_DIR / 'jwt_secret.dat'
+JWT_SECRET_KEY_PATH = DATA_DIR / f'jwt_secret{TEST_SUFFIX}.dat'
 if Path.exists(JWT_SECRET_KEY_PATH) is False:
     with open(JWT_SECRET_KEY_PATH, mode='w', encoding='utf-8') as file:
         file.write(secrets.token_hex(32))  # 32ビット (256文字) の乱数を書き込む
@@ -408,10 +416,13 @@ BLUESKY_ACCOUNT_SESSION_FERNET_KEY = base64.urlsafe_b64encode(
 BLUESKY_ACCOUNT_SESSION_FERNET = Fernet(BLUESKY_ACCOUNT_SESSION_FERNET_KEY)
 
 # パスワードハッシュ化のための設定
-PASSWORD_CONTEXT = CryptContext(
-    schemes = ['bcrypt'],
-    deprecated = 'auto',
-)
+PASSWORD_HASH = PasswordHash((BcryptHasher(),))
+# bcrypt がハッシュ化に使うパスワードの最大のバイト数
+## bcrypt 5 系はこれを超えるパスワードで例外を送出するので、これまでの passlib と同じくこの長さで切り捨ててから渡す
+PASSWORD_MAX_BYTES = 72
+# 存在しないユーザー名でログインされたときに照合する、ダミーのパスワードハッシュ
+## ユーザーが存在しない場合も同じ設定のハッシュと照合して同じだけ時間をかけ、応答時間からユーザー名の有無を推測されないようにする
+PASSWORD_DUMMY_HASH = PASSWORD_HASH.hash(secrets.token_urlsafe(32))
 
 # 外部 API に送信するリクエストヘッダー
 ## KonomiTV の User-Agent を指定

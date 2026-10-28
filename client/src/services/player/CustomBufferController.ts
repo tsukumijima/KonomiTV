@@ -1,5 +1,5 @@
 
-import Hls, { BufferController, FragmentTracker } from 'hls.js';
+import Hls, { BufferController, Events, FragmentTracker, type MediaDetachingData } from 'hls.js';
 
 
 /**
@@ -84,7 +84,7 @@ class CustomBufferController extends BufferController {
     /**
      * メディアデタッチ時のイベントハンドラー（上書き）
      */
-    protected onMediaDetaching(): void {
+    protected onMediaDetaching(event: Events.MEDIA_DETACHING, data: MediaDetachingData): void {
         // HTMLMediaElement を取得
         // @ts-ignore
         const media: HTMLMediaElement = this.media;
@@ -97,7 +97,7 @@ class CustomBufferController extends BufferController {
         }
         // 親クラスの onMediaDetaching を呼び出す
         // @ts-ignore
-        super.onMediaDetaching();
+        super.onMediaDetaching(event, data);
     }
 
 

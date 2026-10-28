@@ -289,12 +289,22 @@ class PlayerController {
         // この誤差は放送局や TOT 精度によっておそらく異なるので、本編の最初が削れないように2秒のプラスに留めている
         // seek_seconds はこの後 DPlayer を初期化した後の初回シーク時に参照される
         let seek_seconds = options.seek_seconds;
+        // URL で指定された再生位置から再生を始めるか (視聴履歴からの再開と区別し、続きからの通知を視聴履歴のときだけ出すため)
+        let is_url_playback_position = false;
         if (seek_seconds === null) {
             if (this.playback_mode === 'Video') {
                 const history = settings_store.settings.watched_history.find(
                     history => history.video_id === player_store.recorded_program.id
                 );
-                if (history) {
+                // URL で再生位置 (録画ファイルの先頭からの秒数) が指定されたときは、視聴履歴より優先してその位置から再生を開始する
+                // キャプチャの「この場面から再生」などから使う
+                const url_params = new URLSearchParams(window.location.search);
+                const playback_position = Number(url_params.get('playback_position'));
+                if (url_params.has('playback_position') && Number.isFinite(playback_position)) {
+                    seek_seconds = Math.max(0, playback_position);
+                    is_url_playback_position = true;
+                    console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (URL Playback Position)`);
+                } else if (history) {
                     seek_seconds = history.last_playback_position;
                     console.log(`\u001b[31m[PlayerController] Seeking to ${seek_seconds} seconds. (Watched History)`);
                 } else {
@@ -730,13 +740,18 @@ class PlayerController {
                     // かつデコーダーが自動でデインタレースしてくれない環境では、Picture-in-Picture するとインタレ未解除の映像が
                     // ミニプレイヤーで表示されると思われるが、技術的に改善が難しいのと、ミニプレイヤーならジャギ気にならんやろと言うことで当面仕様とする
                     deinterlace: is_yadif_enabled,
-                    deinterlacer: is_yadif_enabled === true ? (video: HTMLVideoElement) => new Deinterlacer(video, {
-                        // 常に MPEG-2 60i 映像を 60fps でぬるぬる再生する
-                        doubleRate: true,
-                        // 24fps モードがオンの場合のみ、実写区間では 60fps でぬるぬる描画しつつ、
-                        // 映画・アニメなど 24fps で制作された映像を自動検出し、余分なフレームを間引いて本来の動きに近づける
-                        film: this.playback_mode === 'Live' ? this.quality_profile.tv_24fps_mode : this.quality_profile.video_24fps_mode,
-                    }) : undefined,
+                    deinterlacer: is_yadif_enabled === true ? (video: HTMLVideoElement) => {
+                        // PinP 内の画質切り替えでも、最初のフレーム通知は閉じられない元画面の Document で登録する
+                        const document_pip_manager = this.player_managers.find((manager) => manager instanceof DocumentPiPManager);
+                        document_pip_manager?.prepareVideoElement(video);
+                        return new Deinterlacer(video, {
+                            // 常に MPEG-2 60i 映像を 60fps でぬるぬる再生する
+                            doubleRate: true,
+                            // 24fps モードがオンの場合のみ、実写区間では 60fps でぬるぬる描画しつつ、
+                            // 映画・アニメなど 24fps で制作された映像を自動検出し、余分なフレームを間引いて本来の動きに近づける
+                            film: this.playback_mode === 'Live' ? this.quality_profile.tv_24fps_mode : this.quality_profile.video_24fps_mode,
+                        });
+                    } : undefined,
                 },
                 // mpegts.js
                 mpegts: {
@@ -1019,8 +1034,8 @@ class PlayerController {
                 this.player.bar.set('played', seek_seconds / player_store.recorded_program.recorded_video.duration, 'width');
 
                 // 視聴履歴から再生を再開する場合のみ通知を表示
-                // そうでない場合は seek() 実行後に表示される通知を即座に非表示にする
-                if (seek_seconds > player_store.recorded_program.recording_start_margin + 2) {
+                // そうでない場合 (URL で指定された再生位置から始める場合を含む) は seek() 実行後に表示される通知を即座に非表示にする
+                if (seek_seconds > player_store.recorded_program.recording_start_margin + 2 && is_url_playback_position === false) {
                     this.player.notice('前回視聴した続きから再生します');
                 } else {
                     this.player.hideNotice();
@@ -1368,6 +1383,14 @@ class PlayerController {
             // ライブ視聴: 再生が開始できていない場合に再生状態の復旧を試みる
             if (this.playback_mode === 'Live') {
                 this.recoverPlayback();
+            }
+        });
+
+        // DPlayer は画質切り替え完了時に再生速度を元へ戻すため、ライブ視聴のバッファ調整中は再度 0 にする
+        // 必要なバッファが貯まった時点で on_canplay() が再生速度を 1 に戻し、背景写真を非表示にする
+        this.player.on('quality_end', () => {
+            if (this.playback_mode === 'Live' && this.player?.type === 'mpegts' && player_store.is_loading === true) {
+                this.player.video.playbackRate = 0;
             }
         });
 

@@ -29,7 +29,9 @@ from app.constants import (
     ACCOUNT_ICON_DIR,
     JST,
     JWT_SECRET_KEY,
-    PASSWORD_CONTEXT,
+    PASSWORD_DUMMY_HASH,
+    PASSWORD_HASH,
+    PASSWORD_MAX_BYTES,
 )
 from app.models.AccountLink import AccountLink
 from app.models.BlueskyAccount import BlueskyAccount
@@ -42,6 +44,21 @@ router = APIRouter(
     tags = ['Users'],
     prefix = '/api/users',
 )
+
+
+def TruncatePassword(password: str) -> bytes:
+    """
+    パスワードを、bcrypt がハッシュ化に使う先頭のバイト数に切り捨てる
+    bcrypt 4 系と passlib が黙って切り捨てていたのと同じ位置で切り捨て、これまでに登録したパスワードでも同じ結果にする
+
+    Args:
+        password (str): パスワード
+
+    Returns:
+        bytes: UTF-8 で先頭 72 バイトまでに切り捨てたパスワード
+    """
+
+    return password.encode('utf-8')[:PASSWORD_MAX_BYTES]
 
 
 def GenerateAccessToken(user_id: int) -> str:
@@ -136,6 +153,26 @@ async def GetCurrentUser(token: Annotated[str, Depends(OAuth2PasswordBearer(toke
         )
 
     return current_user
+
+
+async def GetOptionalCurrentUser(
+    token: Annotated[str | None, Depends(OAuth2PasswordBearer(tokenUrl='users/token', auto_error=False))],
+) -> User | None:
+    """
+    アクセストークンが送られてきた場合だけ、現在ログイン中のユーザーを取得する
+    ログインしなくても使える API で、ログインしている場合だけ本人の情報を取得するために使う
+    不正なトークンの場合は、GetCurrentUser() と同じくエラーにする
+
+    Args:
+        token (str | None): JWT エンコードされたアクセストークン (送られてこなかった場合は None)
+
+    Returns:
+        User | None: 現在ログイン中のユーザー (アクセストークンが送られてこなかった場合は None)
+    """
+
+    if token is None:
+        return None
+    return await GetCurrentUser(token)
 
 
 async def GetCurrentAdminUser(current_user: Annotated[User, Depends(GetCurrentUser)]) -> User:
@@ -247,10 +284,14 @@ async def UserCreateAPI(
             detail = 'Specified username is not permitted',
         )
 
+    # パスワードをハッシュ化する
+    ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+    hashed_password = await asyncio.to_thread(PASSWORD_HASH.hash, TruncatePassword(user_create_request.password))
+
     # 新しいユーザーアカウントのモデルを作成・保存
     current_user = await User.create(
         name = user_create_request.username,  # ユーザー名
-        password = PASSWORD_CONTEXT.hash(user_create_request.password),  # ハッシュ化されたパスワード
+        password = hashed_password,  # ハッシュ化されたパスワード
         is_admin = False if await User.all().count() > 0 else True,  # 他のユーザーアカウントがまだ作成されていないなら、特別に管理者権限を付与
         client_settings = {},  # クライアント側の設定（ひとまず空の辞書を設定）
     )
@@ -285,21 +326,22 @@ async def UserAccessTokenAPI(
     # ユーザーを取得
     current_user = await User.filter(name=form_data.username).get_or_none()
 
-    # 指定されたユーザーが存在しない
-    if not current_user:
-        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect username. [username: {form_data.username}]')
-        raise HTTPException(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = 'Incorrect username',
-            headers = {'WWW-Authenticate': 'Bearer'},
-        )
+    # 指定されたパスワードを照合する
+    ## ユーザーが存在しない場合もダミーのハッシュと照合して同じだけ時間をかけ、応答時間からユーザー名の有無を推測されないようにする
+    ## bcrypt の照合は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+    password_hash = current_user.password if current_user is not None else PASSWORD_DUMMY_HASH
+    is_password_valid = await asyncio.to_thread(PASSWORD_HASH.verify, TruncatePassword(form_data.password), password_hash)
 
-    # 指定されたパスワードのハッシュが DB にあるものと一致しない
-    if not PASSWORD_CONTEXT.verify(form_data.password, current_user.password):
-        logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
+    # 指定されたユーザーが存在しないか、パスワードのハッシュが DB にあるものと一致しない
+    ## どちらなのかを返すとユーザー名の有無が分かってしまうため、どちらの場合も同じエラーを返す (ログにはどちらだったかを残す)
+    if current_user is None or is_password_valid is False:
+        if current_user is None:
+            logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect username. [username: {form_data.username}]')
+        else:
+            logging.warning(f'[UsersRouter][UserAccessTokenAPI] Incorrect password. [username: {form_data.username}]')
         raise HTTPException(
             status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = 'Incorrect password',
+            detail = 'Incorrect username or password',
             headers = {'WWW-Authenticate': 'Bearer'},
         )
 
@@ -501,7 +543,8 @@ async def UserUpdateAPI(
 
     # パスワードを更新（存在する場合）
     if user_update_request.password is not None:
-        current_user.password = PASSWORD_CONTEXT.hash(user_update_request.password)  # ハッシュ化されたパスワード
+        ## bcrypt のハッシュ化は CPU を使う重い処理なので、イベントループを止めないよう別スレッドで実行する
+        current_user.password = await asyncio.to_thread(PASSWORD_HASH.hash, TruncatePassword(user_update_request.password))  # ハッシュ化されたパスワード
 
     # レコードを保存する
     await current_user.save()

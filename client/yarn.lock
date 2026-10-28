@@ -2274,9 +2274,9 @@ doctrine@^3.0.0:
   dependencies:
     esutils "^2.0.2"
 
-"dplayer@github:tsukumijima/DPlayer#v1.33.2":
-  version "1.33.2"
-  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/e1132aa9bef23013dfd49ea228622daa6aebc0b0"
+"dplayer@github:tsukumijima/DPlayer#v1.33.3":
+  version "1.33.3"
+  resolved "https://codeload.github.com/tsukumijima/DPlayer/tar.gz/31035afa989d2ffda931eb9f8d03aa045d3bc68b"
   dependencies:
     aribb24.js "~1.11.5"
     axios "^1.7.2"
@@ -3588,9 +3588,9 @@ mitt@^3.0.1:
   resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.1.tgz#ea36cf0cc30403601ae074c8f77b7092cdab36d1"
   integrity sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==
 
-"mpeg2toh264@github:tsukumijima/mpeg2toh264#69f2a47aa5bbeb8ffce57ecf5408eaa85a59d7d1":
+"mpeg2toh264@github:tsukumijima/mpeg2toh264#38343a89a0757a0f750c3151fc74e14abf511ff0":
   version "0.0.1"
-  resolved "https://codeload.github.com/tsukumijima/mpeg2toh264/tar.gz/69f2a47aa5bbeb8ffce57ecf5408eaa85a59d7d1"
+  resolved "https://codeload.github.com/tsukumijima/mpeg2toh264/tar.gz/38343a89a0757a0f750c3151fc74e14abf511ff0"
 
 "mpegts.js@github:tsukumijima/mpegts.js#9f6c3dbb661754f0d3e7b42949fbcf698883d480":
   version "1.8.2"

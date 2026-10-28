@@ -617,16 +617,18 @@ class TSInformation:
             ## ex: tvk1 (gr031) / NHK総合1・福岡 (gr031)
             ## ここでは gr011 に対して gr011 / gr011-1 / gr011-2 ... をまとめて取得し、
             ## 既存の枝番も考慮したうえで次に空いている枝番を決定する
-            same_channel_numbers = cast(list[str], await Channel.filter(
-                ~(Q(network_id=network_id) & Q(service_id=service_id)),  # network_id と service_id の組み合わせが異なる
-                Q(channel_number=channel_number) | Q(channel_number__startswith=f'{channel_number}-'),
-                type='GR',  # 地デジのみ
-            ).values_list('channel_number', flat=True))
+            try:
+                same_channel_numbers = cast(list[str], await Channel.filter(
+                    ~(Q(network_id=network_id) & Q(service_id=service_id)),  # network_id と service_id の組み合わせが異なる
+                    Q(channel_number=channel_number) | Q(channel_number__startswith=f'{channel_number}-'),
+                    type='GR',  # 地デジのみ
+                ).values_list('channel_number', flat=True))
 
-            # Tortoise ORM を独自に初期化した場合は、開いた Tortoise ORM のコネクションを明示的に閉じる
+            # Tortoise ORM を独自に初期化した場合は、取得に失敗したときも含めて、開いた Tortoise ORM のコネクションを明示的に閉じる
             # コネクションを閉じないと Ctrl+C を押下しても終了できない
-            if cleanup_required is True:
-                await Tortoise.close_connections()
+            finally:
+                if cleanup_required is True:
+                    await Tortoise.close_connections()
 
             # 異なる NID-SID で同じベースチャンネル番号のサービスが複数ある場合、枝番をつける
             ## 以前はベース番号と完全一致するレコード数だけを数えていたため、
@@ -704,7 +706,16 @@ class TSInformation:
 
     @staticmethod
     def calculateIsSubchannel(type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'], service_id: int) -> bool:
-        """ チャンネルがサブチャンネルかどうかを算出する """
+        """
+        チャンネルがサブチャンネルかどうかを算出する
+
+        Args:
+            type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネル種別
+            service_id (int): サービス ID
+
+        Returns:
+            bool: サブチャンネルかどうか
+        """
 
         # 地デジ: サービス ID に 0x0187 を AND 演算（ビットマスク）した時に 0 でない場合
         ## 地デジのサービス ID は、ARIB TR-B14 第五分冊 第七編 9.1 によると
