@@ -283,10 +283,10 @@ onMounted(async () => {
         flex-shrink: 0;
         justify-content: flex-end;
         @include smartphone-vertical {
-            margin-top: 20px;
+            margin-top: 16px;
         }
     }
-    // 高さは左の「録画を再生」ボタン (38px) にそろえ、文字は上下の余白を詰めて中央に置く
+    // 高さと角の丸みは「録画を再生」ボタン (38px・7px) にそろえ、文字は上下の余白を詰めて中央に置く
     &__order {
         flex: 0 0 190px;
         @include smartphone-vertical {
@@ -294,6 +294,7 @@ onMounted(async () => {
         }
         :deep(.v-field) {
             padding-right: 6px !important;
+            border-radius: 7px;
         }
         :deep(.v-field__input) {
             align-items: center;

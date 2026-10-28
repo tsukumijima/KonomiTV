@@ -213,7 +213,7 @@ const onLogoError = (event: Event) => {
         }
     }
     &__recorded {
-        flex: 0 0 150px;
+        flex: 0 0 172px;
         @include smartphone-vertical {
             flex: none;
         }
