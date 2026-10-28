@@ -62,6 +62,9 @@ router = APIRouter(
 # キャプチャの一覧の並び順
 CaptureOrder = Literal['CapturedAtDesc', 'CapturedAtAsc', 'BroadcastAtDesc', 'BroadcastAtAsc', 'PlaybackPosition']
 
+# 放送回の一覧の並び順 (値の名前は、キャプチャの一覧の並び順のうち放送日時順のものに合わせる)
+CaptureProgramOrder = Literal['BroadcastAtDesc', 'BroadcastAtAsc']
+
 # 検索語を探す範囲 (1つも指定しない場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のすべてから探す)
 CaptureQueryTarget = Literal['CaptionText', 'ProgramTitle', 'ProgramDescription']
 
@@ -1004,9 +1007,10 @@ async def CaptureProgramsAPI(
     limit: Annotated[int, Query(ge=1, le=200, description='1ページに取得する最大の放送回の数。')] = 60,
     query: Annotated[str | None, Query(description='検索キーワード。番組名かチャンネル名に部分一致する放送回を検索する。')] = None,
     has_recorded_program: Annotated[bool | None, Query(description='同じ番組の録画番組があるかどうかで絞り込む。')] = None,
+    order: Annotated[CaptureProgramOrder, Query(description='並び順 (BroadcastAtDesc or BroadcastAtAsc) 。')] = 'BroadcastAtDesc',
 ):
     """
-    キャプチャのある放送回を、放送の新しい順にアルバムとして一覧する。<br>
+    キャプチャのある放送回を、放送日時の順 (既定は新しい順) にアルバムとして一覧する。<br>
     半角または全角スペースで区切ることで、複数のキーワードによる AND 検索が可能。
     """
 
@@ -1057,18 +1061,24 @@ async def CaptureProgramsAPI(
         conditions.append(f'NOT {recorded_program_condition}')
 
     # 放送開始日時と ID の組で、前のページの続きから取得する
+    ## 降順なら前のページの最後の行より前の行を、昇順なら後ろの行を取得する
+    is_descending = order == 'BroadcastAtDesc'
     user_id = user.id if user is not None else None
-    signature = CursorSignature(['Programs', query, has_recorded_program, user_id])
+    signature = CursorSignature(['Programs', query, has_recorded_program, order, user_id])
     if cursor is not None:
-        conditions.append('(p.start_time, p.id) < (?, ?)')
+        if is_descending:
+            conditions.append('(p.start_time, p.id) < (?, ?)')
+        else:
+            conditions.append('(p.start_time, p.id) > (?, ?)')
         params.extend(DecodeCursor(cursor, signature, 2))
 
     # 放送回を取得する (次のページがあるかを知るため、1件多く取得する)
+    direction = 'DESC' if is_descending else 'ASC'
     rows = await connections.get('default').execute_query_dict(f"""
         SELECT p.id, p.start_time
         FROM capture_programs p
         WHERE {' AND '.join(conditions)}
-        ORDER BY p.start_time DESC, p.id DESC
+        ORDER BY p.start_time {direction}, p.id {direction}
         LIMIT ?
     """, [*params, limit + 1])
 
