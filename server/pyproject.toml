@@ -4,7 +4,7 @@ version = "0.15.0-dev"
 description = "KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "aerich==0.9.1",
+    "aerich==0.10.1",
     "aiofiles>=24.1.0",
     "aiohttp>=3.12.14",
     "ariblib @ https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl",
