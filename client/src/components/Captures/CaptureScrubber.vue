@@ -11,6 +11,10 @@
         <div v-if="hoverY !== null" class="capture-scrubber__hover" :style="{ top: `${hoverY}px` }">
             <div class="capture-scrubber__hover-label">{{ labelAt(railToContent(hoverY)) }}</div>
         </div>
+        <!-- スクロールしている間は、Google フォトと同じくレールの上端に今見ている年月を出す (レールに乗せている間は、乗せた位置の年月だけを出す) -->
+        <transition name="capture-scrubber-fade">
+            <div v-if="isScrolling && hoverY === null" class="capture-scrubber__current">{{ labelAt(scrollOffset) }}</div>
+        </transition>
     </div>
     <!-- スマホ: スクロール中だけ右端につまみが出て、引いている間はつまみの横に年月が出る -->
     <div v-else ref="railRef" class="capture-scrubber-touch" :class="{'capture-scrubber-touch--visible': isThumbVisible}">
@@ -109,6 +113,27 @@ const onRailPointerMove = (event: PointerEvent) => {
         emit('scroll-to', railToContent(hoverY.value));
     }
 };
+
+// PC: スクロールした直後だけ、レールの上端に今見ている年月を出す
+const isScrolling = ref(false);
+let scrollingTimer: number | null = null;
+watch(() => props.scrollOffset, () => {
+    if (isTouch.value) {
+        return;
+    }
+    isScrolling.value = true;
+    if (scrollingTimer !== null) {
+        window.clearTimeout(scrollingTimer);
+    }
+    scrollingTimer = window.setTimeout(() => {
+        isScrolling.value = false;
+    }, 1500);
+});
+onBeforeUnmount(() => {
+    if (scrollingTimer !== null) {
+        window.clearTimeout(scrollingTimer);
+    }
+});
 
 // スマホ: スクロールした直後と引いている間だけ、つまみを出す
 const THUMB_HEIGHT = 44;
@@ -237,10 +262,35 @@ const onThumbPointerUp = () => {
         }
     }
 
+    // スクロール中にレールの上端に出す今の年月 (Google フォトと同じく、レールの右端にそろえて下線を引く)
+    &__current {
+        position: absolute;
+        top: 4px;
+        right: 2px;
+        padding: 0px 10px;
+        border-bottom: 2px solid rgb(var(--v-theme-primary));
+        border-radius: 6px 6px 0 0;
+        background: rgb(var(--v-theme-background-lighten-2));
+        color: rgb(var(--v-theme-text));
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 28px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+    }
+
     // レールの目盛りが見にくくならないよう、乗せたときだけ背景を付ける
     &:hover {
         background: linear-gradient(to left, rgba(var(--v-theme-background-lighten-1), 0.85), rgba(var(--v-theme-background-lighten-1), 0));
     }
+}
+
+.capture-scrubber-fade-enter-active, .capture-scrubber-fade-leave-active {
+    transition: opacity 0.2s ease;
+}
+.capture-scrubber-fade-enter-from, .capture-scrubber-fade-leave-to {
+    opacity: 0;
 }
 
 // スマホのつまみ
