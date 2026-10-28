@@ -395,6 +395,10 @@ onBeforeUnmount(() => {
         @include smartphone-vertical {
             font-size: 22px;
         }
+        // iPhone SE などの小さいスマホでは、見出しと枚数が省略されずに収まるよう文字を小さくする
+        @include smartphone-vertical-short {
+            font-size: 19px;
+        }
         // 幅が足りないときは、まず枚数を縮めて省略し、それでも足りないとき (長いタグの名前など) だけ見出しを省略する
         &-text {
             flex-shrink: 1;
@@ -413,6 +417,10 @@ onBeforeUnmount(() => {
             font-size: 14px;
             font-weight: 400;
             color: rgb(var(--v-theme-text-darken-1));
+            @include smartphone-vertical-short {
+                margin-left: 8px;
+                font-size: 12.5px;
+            }
             &--loading {
                 display: flex;
                 align-items: center;
@@ -608,7 +616,7 @@ onBeforeUnmount(() => {
         transition: color 0.15s ease, border-color 0.15s ease;
         white-space: nowrap;
         // スマホの縦画面では、4つのタブが画面の幅に収まるよう、アイコンを小さくして文字の長さに応じて幅を配る
-        // iPhone SE (幅 375px) 以下の画面では、アイコンを並べる幅が足りないのでアイコンを外す
+        // iPhone SE などの小さいスマホでは、アイコンを並べる幅が足りないのでアイコンを外す
         @include smartphone-vertical {
             flex: 1 1 auto;
             min-width: 0;
@@ -620,7 +628,7 @@ onBeforeUnmount(() => {
                 height: 16px;
                 flex-shrink: 0;
             }
-            @media (max-width: 379.98px) {
+            @include smartphone-vertical-short {
                 gap: 0;
                 :deep(svg) {
                     display: none;
