@@ -7,7 +7,7 @@
             <div class="capture-program-info__broadcaster-container">
                 <div v-if="program.channel !== null" class="capture-program-info__broadcaster-name">{{ program.channel.name }}</div>
                 <div class="capture-program-info__broadcaster-time">
-                    {{ formatBroadcast(program.start_time, program.end_time) }}<template v-if="captureCount !== null">・{{ captureCount.toLocaleString() }}枚</template>
+                    {{ formatBroadcast(program) }}<template v-if="captureCount !== null"> / {{ captureCount.toLocaleString() }}枚</template>
                 </div>
             </div>
         </div>
@@ -39,12 +39,16 @@ const onLogoError = (event: Event) => {
     }
 };
 
-// 終了時刻が不明な放送回は、ほかの画面の番組情報 (ProgramUtils.getProgramTime()) と同じく放送時間未定と表示する
-const formatBroadcast = (start: string, end: string | null) => {
-    if (end === null) {
-        return Utils.apply28HourClock(`${dayjs(start).format('YYYY/MM/DD (dd) HH:mm')} ～ --:-- (放送時間未定)`);
+// 放送時間は、ほかの画面の番組情報 (ProgramUtils.getProgramTime()) と同じく、番組の長さを分で添える
+// 終了時刻が不明な放送回は、同じく放送時間未定と表示する
+const formatBroadcast = (program: ICaptureProgram) => {
+    const start = dayjs(program.start_time).format('YYYY/MM/DD (dd) HH:mm');
+    if (program.end_time === null || program.duration === null) {
+        return Utils.apply28HourClock(`${start} ～ --:-- (放送時間未定)`);
     }
-    return Utils.apply28HourClock(`${dayjs(start).format('YYYY/MM/DD (dd) HH:mm')} ～ ${dayjs(end).format('HH:mm')}`);
+    // 分単位の番組長 (割り切れない場合は小数第2位で四捨五入)
+    const duration = Math.round(program.duration / 60 * 100) / 100;
+    return Utils.apply28HourClock(`${start} ～ ${dayjs(program.end_time).format('HH:mm')} (${duration}分)`);
 };
 
 </script>
