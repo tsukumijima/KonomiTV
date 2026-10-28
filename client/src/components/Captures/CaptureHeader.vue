@@ -601,6 +601,12 @@ onBeforeUnmount(() => {
         user-select: none;
         transition: color 0.15s ease, border-color 0.15s ease;
         white-space: nowrap;
+        // スマホの横画面では左側にナビゲーションが表示されて横幅が狭くなるため、4つのタブが収まるよう文字数に応じて幅を割り当てる
+        @include smartphone-horizontal {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 0 8px;
+        }
         // スマホの縦画面では、4つのタブが画面の幅に収まるよう、アイコンを小さくして文字の長さに応じて幅を配る
         // iPhone SE などの小さいスマホでは、アイコンを並べる幅が足りないのでアイコンを外す
         @include smartphone-vertical {
