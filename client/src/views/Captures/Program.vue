@@ -225,6 +225,7 @@ onMounted(async () => {
 .capture-program {
     display: flex;
     flex-direction: column;
+    flex-grow: 1;  // 空の状態の表示を見出しより下の領域の中央に配置するため、外枠を残りの高さいっぱいに広げる
     min-width: 0;
 
     &__intro {

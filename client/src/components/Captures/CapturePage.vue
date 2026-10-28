@@ -58,9 +58,11 @@ withDefaults(defineProps<{
 </style>
 <style lang="scss">
 
-// キャプチャの画面で共通の、読み込み中の表示
-// 本来タイルやカードが並ぶ見出しより下の残りの高さを埋め、その上下左右の中央にスピナーを置く
-.capture-loading {
+// キャプチャの各画面で共通の、読み込み中と空の状態の表示
+// すべてのキャプチャの画面に適用されるよう、各画面の共通の外枠であるこのコンポーネントに定義する
+// どちらも見出しより下の残りの領域いっぱいに広げ、その中央に配置する
+// 文字サイズは、録画番組の一覧 (RecordedProgramList.vue) の空の状態の表示に合わせる
+.capture-loading, .capture-empty {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -69,36 +71,43 @@ withDefaults(defineProps<{
     min-height: 200px;
     // 外枠の下端には一覧の末尾用の余白 (60px) があるため、上側にも同程度の余白を確保し、表示領域の上下中央に配置する
     padding: 44px 12px 0px;
+    text-align: center;
+}
+.capture-loading {
     color: rgb(var(--v-theme-text-darken-1));
 }
-
-// キャプチャの画面で共通の、空の状態の表示
-// どの画面から開いても当たるよう、すべてのキャプチャの画面が通るこの外枠に置く
 .capture-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 16px;
-    text-align: center;
     &__icon {
         color: rgb(var(--v-theme-text-darken-1));
     }
     &__message {
-        margin-top: 16px;
-        font-size: 19px;
+        margin-top: 8px;
+        font-size: 21px;
         font-weight: 700;
+        @include tablet-vertical {
+            font-size: 19px;
+        }
+        @include smartphone-horizontal {
+            font-size: 19px;
+        }
         @include smartphone-vertical {
-            font-size: 17px;
+            font-size: 19px;
         }
     }
     &__sub {
-        margin-top: 10px;
-        font-size: 14px;
-        line-height: 1.8;
+        margin-top: 8px;
+        font-size: 15px;
         color: rgb(var(--v-theme-text-darken-1));
-        @include smartphone-vertical {
+        @include tablet-vertical {
             font-size: 13px;
+        }
+        @include smartphone-horizontal {
+            font-size: 13px;
+        }
+        @include smartphone-vertical {
+            margin-top: 7px;
+            font-size: 13px;
+            line-height: 1.65;
         }
     }
 }
