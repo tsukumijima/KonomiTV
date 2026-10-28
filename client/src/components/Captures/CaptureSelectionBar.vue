@@ -6,7 +6,7 @@
             </div>
             <span class="capture-selection-bar__count">{{ selection.count.value.toLocaleString() }}枚を選択中</span>
             <v-spacer></v-spacer>
-            <div v-ripple class="capture-selection-bar__button" v-ftooltip.top="allFavorite ? 'いいねを取り消す' : 'いいね'"
+            <div v-ripple class="capture-selection-bar__button" v-ftooltip.top="allFavorite ? 'お気に入りから外す' : 'お気に入りに追加'"
                 @click="toggleFavorite">
                 <Icon :icon="allFavorite ? 'fluent:heart-24-filled' : 'fluent:heart-24-regular'" width="22px"
                     :class="{'text-primary': allFavorite}" />
@@ -14,7 +14,7 @@
             <div v-ripple class="capture-selection-bar__button" v-ftooltip.top="'タグを付ける'" @click="openTagDialog">
                 <Icon icon="fluent:tag-24-regular" width="22px" />
             </div>
-            <!-- 取り消せない削除は、よく押すいいねやタグの隣に置かず、1枚表示と同じく︙のメニューに赤で置く -->
+            <!-- 取り消せない削除は、よく押すお気に入りやタグの隣に置かず、1枚表示と同じく︙のメニューに赤で置く -->
             <v-menu v-if="isAdmin" location="top end">
                 <template #activator="{ props: menuProps }">
                     <div v-ripple class="capture-selection-bar__button" v-bind="menuProps">
@@ -89,13 +89,13 @@ const allFavorite = computed(() => selectedList.value.length > 0 && selectedList
 
 const requireLogin = () => {
     if (!userStore.is_logged_in) {
-        Message.warning('いいねとタグを使うには、KonomiTV アカウントにログインしてください。');
+        Message.warning('お気に入りとタグを使うには、KonomiTV アカウントにログインしてください。');
         return false;
     }
     return true;
 };
 
-// 選んだものがすべていいね済みなら取り消し、それ以外ならすべてにいいねする
+// 選んだものがすべてお気に入りに追加済みなら外し、それ以外ならすべてお気に入りに追加する
 const toggleFavorite = async () => {
     if (!requireLogin()) {
         return;
@@ -109,7 +109,7 @@ const toggleFavorite = async () => {
         // 選択に持っている内容は、まだ選ばれているキャプチャの分だけ新しい状態に差し替える
         props.selection.setMany(updated.filter(capture => props.selection.isSelected(capture)), true);
         emit('updated', updated);
-        Message.success(next ? `${ids.length}枚のキャプチャにいいねしました。` : `${ids.length}枚のキャプチャのいいねを取り消しました。`);
+        Message.success(next ? `${ids.length}枚のキャプチャをお気に入りに追加しました。` : `${ids.length}枚のキャプチャをお気に入りから外しました。`);
     }
 };
 

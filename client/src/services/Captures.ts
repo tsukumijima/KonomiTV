@@ -457,9 +457,9 @@ class Captures {
 
 
     /**
-     * キャプチャにいいねする・いいねを取り消す (ログイン必須)
+     * キャプチャをお気に入りに追加する・お気に入りから外す (ログイン必須)
      * @param capture_ids キャプチャの ID のリスト
-     * @param is_favorite true ならいいねし、false なら取り消す
+     * @param is_favorite true ならお気に入りに追加し、false なら外す
      * @returns 成功したかどうか
      */
     static async updateFavorites(capture_ids: number[], is_favorite: boolean): Promise<boolean> {
@@ -467,7 +467,7 @@ class Captures {
             await APIClient.post('/captures/favorites', { capture_ids }) :
             await APIClient.delete('/captures/favorites', { data: { capture_ids } });
         if (response.type === 'error') {
-            APIClient.showGenericError(response, is_favorite ? 'いいねできませんでした。' : 'いいねを取り消せませんでした。');
+            APIClient.showGenericError(response, is_favorite ? 'お気に入りに追加できませんでした。' : 'お気に入りから外せませんでした。');
             return false;
         }
         return true;

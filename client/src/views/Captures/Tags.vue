@@ -9,7 +9,7 @@
         <div v-if="!isLoggedIn && !isLoading" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:person-20-regular" width="54px" height="54px" />
             <div class="capture-empty__message">タグを使うには、ログインが必要です。</div>
-            <div class="capture-empty__sub">いいねやタグは、アカウントごとに分けて保存されます。</div>
+            <div class="capture-empty__sub">お気に入りやタグは、アカウントごとに分けて保存されます。</div>
             <v-btn class="mt-6 px-4" color="secondary" variant="flat" height="40" to="/login/">
                 <Icon icon="fa:sign-in" class="mr-2" />ログイン
             </v-btn>

@@ -10,13 +10,13 @@
                 :style="{ background: `rgba(0, 0, 0, ${backdropOpacity})` }"
                 @mousemove="showControl">
                 <div class="capture-lightbox__main">
-                    <!-- 上のバー: 閉じる・いいね・タグ・ダウンロード・(縦画面のみ) 情報・削除 -->
+                    <!-- 上のバー: 閉じる・お気に入り・タグ・ダウンロード・情報・削除 -->
                     <div class="capture-lightbox__bar" :style="{ opacity: backdropOpacity }">
                         <div v-ripple class="capture-lightbox__button" v-ftooltip.bottom="'閉じる (Esc)'" @click="close">
                             <Icon icon="fluent:arrow-left-24-regular" width="24px" />
                         </div>
                         <v-spacer></v-spacer>
-                        <div v-ripple class="capture-lightbox__button" v-ftooltip.bottom="capture.is_favorite ? 'いいねを取り消す (F)' : 'いいね (F)'"
+                        <div v-ripple class="capture-lightbox__button" v-ftooltip.bottom="capture.is_favorite ? 'お気に入りから外す (F)' : 'お気に入りに追加 (F)'"
                             @click="toggleFavorite">
                             <Icon :icon="capture.is_favorite ? 'fluent:heart-24-filled' : 'fluent:heart-24-regular'" width="24px"
                                 :class="{'text-primary': capture.is_favorite}" />
@@ -250,7 +250,7 @@ watch(() => props.capture?.id, async (id, oldId) => {
     }
 }, { immediate: true });
 
-// いいねやタグを変えたときは、同じキャプチャの新しい内容に差し替える
+// お気に入りやタグを変えたときは、同じキャプチャの新しい内容に差し替える
 watch(() => props.capture, (capture) => {
     if (capture !== null && lastShownCapture?.id === capture.id) {
         lastShownCapture = capture;
@@ -608,12 +608,12 @@ onBeforeUnmount(() => {
 });
 
 
-// ---------- いいね・タグ・削除・番組への移動 ----------
+// ---------- お気に入り・タグ・削除・番組への移動 ----------
 
-// いいねとタグはログインが必要 (家族と共用するときに、それぞれの分類が混ざらないようにするため)
+// お気に入りとタグはログインが必要 (家族と共用するときに、それぞれの分類が混ざらないようにするため)
 const requireLogin = () => {
     if (!userStore.is_logged_in) {
-        Message.warning('いいねとタグを使うには、KonomiTV アカウントにログインしてください。');
+        Message.warning('お気に入りとタグを使うには、KonomiTV アカウントにログインしてください。');
         return false;
     }
     return true;
@@ -623,12 +623,12 @@ const toggleFavorite = async () => {
     if (props.capture === null || !requireLogin()) {
         return;
     }
-    // 応答を待つ間に隣のキャプチャへ送られても、いいねを押したキャプチャに結果を反映する
+    // 応答を待つ間に隣のキャプチャへ送られても、お気に入りのボタンを押したキャプチャに結果を反映する
     const target = props.capture;
     const next = !target.is_favorite;
     if (await Captures.updateFavorites([target.id], next)) {
         const updated = { ...target, is_favorite: next };
-        // 送ったあとは、いいねを押したキャプチャが隣として覚えられているので、戻ったときにも新しい状態で出るよう差し替える
+        // 送ったあとは、お気に入りのボタンを押したキャプチャが隣として覚えられているので、戻ったときにも新しい状態で出るよう差し替える
         for (const neighbor of [prevCapture, nextCapture]) {
             if (neighbor.value?.id === updated.id) {
                 neighbor.value = updated;
@@ -767,7 +767,7 @@ const leaveTo = (path: string) => {
 
 // ---------- キーボードとページのスクロール ----------
 
-// キーボードの操作 (左右で前後、Esc で閉じる、F でいいね、T でタグ、I で情報)
+// キーボードの操作 (左右で前後、Esc で閉じる、F でお気に入り、T でタグ、I で情報)
 const onKeyDown = (event: KeyboardEvent) => {
     if (props.capture === null || isTagDialogOpen.value || isDeleteConfirmOpen.value) {
         return;

@@ -468,7 +468,7 @@ const formatDate = (date: string) => {
 /**
  * 拡大表示の前後の移動に使う、隣のキャプチャを返す
  * 日の境目では隣の日を読み込んでから返すので、拡大表示のまま日をまたいで送れる
- * 削除やいいねの取り消しで一覧から外れたキャプチャからも、並びの上で隣にあるキャプチャへ送れる
+ * 削除やお気に入りから外したことで一覧から外れたキャプチャからも、並びの上で隣にあるキャプチャへ送れる
  * @param capture 今のキャプチャ
  * @param delta 1 なら次 (古い方)、-1 なら前 (新しい方)
  * @returns 隣のキャプチャ (端なら null、隣の日を読み込めず分からないときは undefined)
@@ -503,7 +503,7 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
         return (delta === 1 ? captures[0] : captures[captures.length - 1]) ?? null;
     };
 
-    // 削除やいいねの取り消しで一覧を取り直している間は、日付ごとの件数を取り直し終わるまで待つ
+    // 削除やお気に入りから外したことで一覧を取り直している間は、日付ごとの件数を取り直し終わるまで待つ
     if (reloadingSections !== null) {
         await reloadingSections;
     }
@@ -556,7 +556,7 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
 };
 
 /**
- * 読み込み済みのキャプチャを差し替える (いいねやタグを変えたとき)
+ * 読み込み済みのキャプチャを差し替える (お気に入りやタグを変えたとき)
  * @param updated 更新後のキャプチャ
  */
 const replaceCapture = (updated: ICapture) => {

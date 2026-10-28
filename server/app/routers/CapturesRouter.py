@@ -133,7 +133,7 @@ async def GetCaptureRows(ids: list[int]) -> list[dict[str, Any]]:
 async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> list[schemas.Capture]:
     """
     DB から取得したキャプチャの行を API のレスポンスの形にする
-    ログインしている場合は、本人のいいねとタグの状態をページの分まとめて取得して重ねる
+    ログインしている場合は、本人のお気に入りとタグの状態をページの分まとめて取得して重ねる
 
     Args:
         rows (list[dict[str, Any]]): DB から取得したページの行
@@ -143,7 +143,7 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
         list[schemas.Capture]: ファイルのパスを含まないキャプチャの情報
     """
 
-    # ログインしている場合だけ、ページ内のキャプチャに付いている本人のいいねとタグを取得する
+    # ログインしている場合だけ、ページ内のキャプチャに付いている本人のお気に入りとタグを取得する
     capture_ids = [row['id'] for row in rows]
     favorite_capture_ids: set[int] = set()
     tag_ids_by_capture_id: dict[int, list[int]] = {}
@@ -167,7 +167,7 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
         # 内容のハッシュは16進数の文字列で返す (クライアントは画像の URL に付け、内容が変わったら URL も変わるようにする)
         file_hash = bytes(row['file_hash']).hex()
 
-        # ログインしていない場合、いいねとタグの状態は分からないので None にする
+        # ログインしていない場合、お気に入りとタグの状態は分からないので None にする
         is_favorite: bool | None = None
         tag_ids: list[int] | None = None
         if user is not None:
@@ -187,7 +187,7 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
 async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple[list[str], list[Any]]:
     """
     絞り込みの条件から、キャプチャの一覧の WHERE 句の条件を作る
-    場所・いいね・タグでの絞り込みは EXISTS で行い、キャプチャの行が増えないようにする
+    場所・お気に入り・タグでの絞り込みは EXISTS で行い、キャプチャの行が増えないようにする
 
     Args:
         filters (CaptureFilters): 絞り込みの条件
@@ -231,7 +231,7 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
         """.strip())
         params.append(filters.recorded_program_id)
 
-    # いいねとタグでの絞り込みはログインが必要
+    # お気に入りとタグでの絞り込みはログインが必要
     if filters.is_favorite is True:
         if user is None:
             raise HTTPException(
@@ -340,12 +340,12 @@ async def BuildPersonalCaptureCondition(
     owner_id: int,
 ) -> str:
     """
-    いいねやタグで絞り込む条件を、付いている件数に合わせて IN と EXISTS から選ぶ
+    お気に入りやタグで絞り込む条件を、付いている件数に合わせて IN と EXISTS から選ぶ
     114.9万件で測ったところ、古い3件だけに付いたタグは IN が速く、半数に付いたタグは EXISTS が速かった
     IN の対象は NOT NULL の主キーなので、結果は EXISTS と同じになり、キャプチャの行も増えない
 
     Args:
-        table (Literal['capture_favorites', 'capture_tag_items']): いいねまたはタグの項目のテーブル (持ち主は確認済み)
+        table (Literal['capture_favorites', 'capture_tag_items']): お気に入りまたはタグの項目のテーブル (持ち主は確認済み)
         owner_column (Literal['user_id', 'tag_id']): 持ち主で絞る列
         owner_id (int): ユーザーまたはタグの ID
 
@@ -648,10 +648,10 @@ async def CapturesAPI(
     """
     キャプチャを、キーセット方式のページングで一覧する。<br>
     同じ時刻に撮影されたキャプチャも、ページの境目で欠けずに取得できる。<br>
-    ログインしている場合は、本人のいいねとタグの状態も返す。
+    ログインしている場合は、本人のお気に入りとタグの状態も返す。
     """
 
-    # 本人のいいねとタグの状態を含むので、共有のキャッシュに入れさせない
+    # 本人のお気に入りとタグの状態を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
     conditions, params = await BuildCaptureWhere(filters, user)
@@ -947,7 +947,7 @@ async def CaptureSectionsAPI(
     タイムラインの右端の年月の目盛り (スクラバー) に使う。絞り込みの条件はキャプチャ一覧 API と同じ。
     """
 
-    # いいねやタグで絞り込んだ集計を含むので、共有のキャッシュに入れさせない
+    # お気に入りやタグで絞り込んだ集計を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
     # 絞り込みのない集計は、キャプチャの登録や削除があるまでメモリにキャッシュして使い回す
@@ -1010,7 +1010,7 @@ async def CaptureProgramsAPI(
     半角または全角スペースで区切ることで、複数のキーワードによる AND 検索が可能。
     """
 
-    # 代表のキャプチャに本人のいいねとタグの状態を含むので、共有のキャッシュに入れさせない
+    # 代表のキャプチャに本人のお気に入りとタグの状態を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
     # 利用できるキャプチャが1枚以上ある放送回だけに絞る
@@ -1099,7 +1099,7 @@ async def CaptureProgramAPI(
     指定された放送回のアルバムを取得する。
     """
 
-    # 代表のキャプチャに本人のいいねとタグの状態を含むので、共有のキャッシュに入れさせない
+    # 代表のキャプチャに本人のお気に入りとタグの状態を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
     programs = await SerializePrograms([capture_program_id])
@@ -1212,7 +1212,7 @@ async def CaptureTagDeleteAPI(
 
 @router.post(
     '/favorites',
-    summary = 'キャプチャいいね追加 API',
+    summary = 'キャプチャお気に入り追加 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def CaptureFavoritesCreateAPI(
@@ -1220,11 +1220,11 @@ async def CaptureFavoritesCreateAPI(
     user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
-    指定されたキャプチャに、ログイン中のユーザーのいいねをまとめて付ける。<br>
+    指定されたキャプチャを、ログイン中のユーザーのお気に入りにまとめて追加する。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
-    # 既にいいねを付けているキャプチャは、一意制約に当たっても無視する
+    # 既にお気に入りに追加しているキャプチャは、一意制約に当たっても無視する
     ids = await ValidateCaptureIDs(body.capture_ids)
     favorites = [CaptureFavorite(user_id=user.id, capture_id=id) for id in ids]
     await CaptureFavorite.bulk_create(favorites, ignore_conflicts=True, batch_size=200)
@@ -1232,7 +1232,7 @@ async def CaptureFavoritesCreateAPI(
 
 @router.delete(
     '/favorites',
-    summary = 'キャプチャいいね削除 API',
+    summary = 'キャプチャお気に入り削除 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def CaptureFavoritesDeleteAPI(
@@ -1240,7 +1240,7 @@ async def CaptureFavoritesDeleteAPI(
     user: Annotated[User, Depends(GetCurrentUser)],
 ):
     """
-    指定されたキャプチャから、ログイン中のユーザーのいいねをまとめて外す。<br>
+    指定されたキャプチャを、ログイン中のユーザーのお気に入りからまとめて外す。<br>
     JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていないとアクセスできない。
     """
 
@@ -1304,7 +1304,7 @@ async def CaptureAPI(
     指定されたキャプチャの詳細を取得する。
     """
 
-    # 本人のいいねとタグの状態を含むので、共有のキャッシュに入れさせない
+    # 本人のお気に入りとタグの状態を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
     rows = await GetCaptureRows([capture_id])

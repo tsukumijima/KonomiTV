@@ -47,12 +47,12 @@ class Capture(TortoiseModel):
     capture_program_id: int | None
     # キャプチャの実体ファイルへの参照
     files: fields.ReverseRelation[CaptureFile]
-    # キャプチャをいいねしたユーザーへの参照
+    # キャプチャをお気に入りに追加したユーザーへの参照
     favorites: fields.ReverseRelation[CaptureFavorite]
     # キャプチャをタグ付けしたタグへの参照
     tag_items: fields.ReverseRelation[CaptureTagItem]
     # 同じパスのファイルが別の内容に上書きされ、どの場所にも置かれていなくなった時刻 (場所があるキャプチャでは NULL)
-    ## いいねとタグを残したまま、この時刻から1週間だけ残してから削除する
+    ## お気に入りとタグを残したまま、この時刻から1週間だけ残してから削除する
     detached_since = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -115,7 +115,7 @@ class CaptureFavorite(TortoiseModel):
         unique_together = (('user', 'capture'),)
 
     id = fields.IntField(pk=True)
-    # いいねを付けたユーザー (いいねはアカウントごとに持つ)
+    # お気に入りに追加したユーザー (お気に入りはアカウントごとに持つ)
     user: fields.ForeignKeyRelation[User] = \
         fields.ForeignKeyField('models.User', related_name='capture_favorites', on_delete=fields.CASCADE)
     user_id: int

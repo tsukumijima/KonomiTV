@@ -5,11 +5,11 @@
             :show-query-targets="mode === 'Search'" :axis="axis" :filter="typeFilter" :query-targets="queryTargets"
             @update:axis="updateAxis" @update:filter="updateTypeFilter" @update:query-targets="updateQueryTargets" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
 
-        <!-- いいねとタグはログインが必要 -->
+        <!-- お気に入りとタグはログインが必要 -->
         <div v-if="needsLogin" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:person-20-regular" width="54px" height="54px" />
-            <div class="capture-empty__message">いいねとタグを使うには、ログインが必要です。</div>
-            <div class="capture-empty__sub">いいねやタグは、アカウントごとに分けて保存されます。</div>
+            <div class="capture-empty__message">お気に入りとタグを使うには、ログインが必要です。</div>
+            <div class="capture-empty__sub">お気に入りやタグは、アカウントごとに分けて保存されます。</div>
             <v-btn class="mt-6 px-4" color="secondary" variant="flat" height="40" to="/login/">
                 <Icon icon="fa:sign-in" class="mr-2" />ログイン
             </v-btn>
@@ -140,7 +140,7 @@ const activeTab = computed(() => {
 });
 const title = computed(() => {
     switch (mode.value) {
-        case 'Favorites': return 'いいね';
+        case 'Favorites': return 'お気に入り';
         case 'Tag': return tagName.value ?? 'タグ';
         // スマホの縦画面では、録画番組の検索結果と同じく「検索結果」に短くする (検索語は検索欄に残っている)
         case 'Search': return Utils.isSmartphoneVertical() ? '検索結果' : `「${searchQuery.value}」の検索結果`;
@@ -150,7 +150,7 @@ const title = computed(() => {
 const crumbs = computed(() => {
     const base = [{ name: 'ホーム', path: '/' }, { name: 'キャプチャ', path: '/captures/' }];
     switch (mode.value) {
-        case 'Favorites': return [...base, { name: 'いいね', path: '/captures/favorites/', disabled: true }];
+        case 'Favorites': return [...base, { name: 'お気に入り', path: '/captures/favorites/', disabled: true }];
         case 'Tag': return [...base, { name: 'タグ別', path: '/captures/tags/' }, { name: tagName.value ?? 'タグ', path: route.path, disabled: true }];
         case 'Search': return [...base, { name: '検索結果', path: route.fullPath, disabled: true }];
         default: return [{ name: 'ホーム', path: '/' }, { name: 'キャプチャ', path: '/captures/', disabled: true }];
@@ -165,7 +165,7 @@ const emptyMessage = computed(() => {
         return '条件に一致するキャプチャはありません。';
     }
     if (mode.value === 'Favorites') {
-        return 'いいねしたキャプチャはまだありません。';
+        return 'お気に入りに追加したキャプチャはまだありません。';
     }
     if (mode.value === 'Tag') {
         return 'このタグが付与されたキャプチャはまだありません。';
@@ -180,7 +180,7 @@ const emptySubMessage = computed(() => {
         return '絞り込み条件を解除すると、<br class="d-sm-none">他のキャプチャも表示されます。';
     }
     if (mode.value === 'Favorites') {
-        return 'キャプチャにいいねをつけると、<br class="d-sm-none">ここに表示されます。';
+        return 'キャプチャをお気に入りに追加すると、<br class="d-sm-none">ここに表示されます。';
     }
     if (mode.value === 'Search' && queryTargets.value.length > 0) {
         return '検索する範囲の選択をすべて外すと、<br class="d-sm-none">チャンネル名やファイル名も含めて検索します。';
@@ -218,7 +218,7 @@ const openCapture = (capture: ICapture) => {
 };
 const navigate = async (capture: ICapture, delta: 1 | -1) => timelineRef.value?.getNeighbor(capture, delta) ?? null;
 
-// いいね・タグの変更は、表示中の一覧に反映する (いいねを取り消したものは、いいねの画面では一覧を取り直す)
+// お気に入り・タグの変更は、表示中の一覧に反映する (お気に入りから外したものは、お気に入りの画面では一覧を取り直す)
 const onUpdated = (captures: ICapture[]) => {
     for (const capture of captures) {
         timelineRef.value?.replaceCapture(capture);
