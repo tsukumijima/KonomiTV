@@ -197,11 +197,6 @@ class Program(TortoiseModel):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         if is_running_multiprocess is True:
 
-            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
-            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
-            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
-            connections.discard('default')
-
             # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)
 
@@ -492,11 +487,6 @@ class Program(TortoiseModel):
         # マルチプロセス時は既存のコネクションが使えないため、Tortoise ORM を初期化し直す
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         if is_running_multiprocess is True:
-
-            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
-            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
-            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
-            connections.discard('default')
 
             # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)

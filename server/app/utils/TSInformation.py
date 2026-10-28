@@ -4,7 +4,7 @@ import re
 from typing import ClassVar, Literal, cast
 
 from ariblib.aribstr import AribString
-from tortoise import Tortoise, connections
+from tortoise import Tortoise
 from tortoise.exceptions import ConfigurationError
 from tortoise.expressions import Q
 
@@ -595,9 +595,6 @@ class TSInformation:
             cleanup_required = False
             if multiprocessing.current_process().name != 'MainProcess':
                 # マルチプロセス時は問答無用でデータベース接続を初期化する
-                ## Windows だと既存のコネクションを破棄せずとも接続を初期化すれば良いが、Linux では必ず破棄してから初期化する必要があったはず
-                ## おそらくマルチプロセス時に変数の状態こそ fork 先に引き継がれるが、コネクション自体は正しく引き継がれない (?) のが原因
-                connections.discard('default')
                 await Tortoise.init(config=DATABASE_CONFIG)
                 cleanup_required = True
             else:
@@ -607,7 +604,6 @@ class TSInformation:
                     # コネクションが取得できても実際は使えない可能性があるのでテスト
                     await conn.execute_query('SELECT 1')
                 except (ConfigurationError, Exception):
-                    connections.discard('default')
                     await Tortoise.init(config=DATABASE_CONFIG)
                     cleanup_required = True
 

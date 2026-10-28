@@ -892,7 +892,7 @@ requires-dist = [
     { name = "ruamel-yaml", specifier = "==0.18.12" },
     { name = "sse-starlette", specifier = ">=2.1.3" },
     { name = "taskipy", specifier = ">=1.14.1" },
-    { name = "tortoise-orm", specifier = ">=0.23.0,<1.0.0" },
+    { name = "tortoise-orm", specifier = ">=1.1.9" },
     { name = "typer", specifier = ">=0.21.0,<1.0.0" },
     { name = "typing-extensions", specifier = ">=4.12.2" },
     { name = "typing-inspect", specifier = ">=0.9.0,<1.0.0" },
@@ -1434,15 +1434,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pytz"
-version = "2026.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/14/21/d83d6ef28c4c912c4bb4d1dcf591f7b8c6bde87b9c66f9f454677314e16d/pytz-2026.5.tar.gz", hash = "sha256:fa23724b9c486543b9ff54a327ee7569ac83ade54bb9afd0fc18676620401c86", size = 318572, upload-time = "2026-10-04T02:37:58.719Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/ef/c66110d46fb800dda0bf33164182dfadabe26a90e4476844d502a23dca8e/pytz-2026.5-py2.py3-none-any.whl", hash = "sha256:e658af3757f9e26a9d25dd2aff38335acd92bc9104f890a894b2c1ba28311b03", size = 506342, upload-time = "2026-10-04T02:37:56.814Z" },
-]
-
-[[package]]
 name = "pywin32"
 version = "312"
 source = { registry = "https://pypi.org/simple" }
@@ -1682,18 +1673,17 @@ wheels = [
 
 [[package]]
 name = "tortoise-orm"
-version = "0.25.4"
+version = "1.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
     { name = "anyio" },
     { name = "iso8601" },
     { name = "pypika-tortoise" },
-    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/44/8a75e91a5d0e2e2545485de3e084fac1f4ff2ba4859e39240fa204c748d5/tortoise_orm-0.25.4.tar.gz", hash = "sha256:88c231ebe158f1287fc9c9497313f9a46cfb70b66c458ba39900921a4e52d01b", size = 232871, upload-time = "2026-02-02T17:57:10.825Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/19/b26db2d0cc5599715e15409ee63af51b4d637faae21a98fe26d58354ac2b/tortoise_orm-1.1.9.tar.gz", hash = "sha256:0399e1aa9518620f8b9c455598ac06ab890332c03e335cfca4b73b48d4e6abaa", size = 410828, upload-time = "2026-10-14T05:49:04.459Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/8c/c5825518f67fb9042c4020c272f4c872e10ea5358424e087eb943cef6561/tortoise_orm-0.25.4-py3-none-any.whl", hash = "sha256:a699e629632abf760d14794e8afd3579a9c844623d50a58a6fbdcd6f52b5a37d", size = 168512, upload-time = "2026-02-02T17:57:08.776Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/69/45787b25cadada61593ac4ea483f793b66497f7b29b51c3158ac7fe4c5a6/tortoise_orm-1.1.9-py3-none-any.whl", hash = "sha256:9304796aef7406cfd2b9d8e2c42598e56df015fb61a2718bb0df08901d2253ce", size = 282165, upload-time = "2026-10-14T05:49:03.03Z" },
 ]
 
 [[package]]
