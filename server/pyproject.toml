@@ -119,6 +119,8 @@ lines-after-imports = 2
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Python 3.12 以降は Pydantic が標準の typing.TypedDict を扱えるため、typing_extensions.TypedDict ではなく typing.TypedDict に統一する
 "typing_extensions.TypedDict".msg = "Use typing.TypedDict instead."
+# tortoise.timezone は Tortoise ORM の初期化状態とバージョンによって返すタイムゾーンが変わる (初期化前は UTC) ため、JST を明示した datetime.now(JST) に統一する
+"tortoise.timezone".msg = "Use datetime.now(JST) instead."
 
 [tool.pyright]
 # Python バージョンを指定
