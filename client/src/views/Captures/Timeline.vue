@@ -1,8 +1,8 @@
 <template>
     <CapturePage :crumbs="crumbs" :with-scrubber="true">
         <CaptureHeader :title="title" :total="total" :active-tab="activeTab" :show-timeline-controls="true" :show-back-button="mode === 'Tag'"
-            :show-query-targets="mode === 'Search'" :axis="axis" :filter="typeFilter" :query-target="queryTarget"
-            @update:axis="updateAxis" @update:filter="updateTypeFilter" @update:query-target="updateQueryTarget" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
+            :show-query-targets="mode === 'Search'" :axis="axis" :filter="typeFilter" :query-targets="queryTargets"
+            @update:axis="updateAxis" @update:filter="updateTypeFilter" @update:query-targets="updateQueryTargets" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
 
         <!-- いいねとタグはログインが必要 -->
         <div v-if="needsLogin" class="capture-empty">
@@ -28,7 +28,7 @@
                     <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                     <span class="ml-1">絞り込みをすべて解除</span>
                 </v-btn>
-                <v-btn v-else-if="queryTarget !== null" class="mt-6 px-4" color="secondary" variant="flat" height="40" @click="updateQueryTarget(null)">
+                <v-btn v-else-if="queryTargets.length > 0" class="mt-6 px-4" color="secondary" variant="flat" height="40" @click="updateQueryTargets([])">
                     <Icon icon="fluent:search-16-regular" width="18px" height="18px" />
                     <span class="ml-1">すべての範囲から検索</span>
                 </v-btn>
@@ -70,13 +70,15 @@ const userStore = useUserStore();
 const mode = computed(() => (route.meta.captureMode ?? 'Timeline') as TimelineMode);
 const tagId = computed(() => mode.value === 'Tag' ? Number(route.params.tag_id) : null);
 const searchQuery = computed(() => mode.value === 'Search' ? String(route.query.query ?? '') : '');
-// 検索語を探す範囲 (URL のクエリに持たせ、指定がなければすべての範囲から探す)
-const queryTarget = computed<CaptureQueryTarget | null>(() => {
-    const value = route.query.query_target;
-    if (mode.value === 'Search' && (value === 'CaptionText' || value === 'ProgramTitle' || value === 'ProgramDescription')) {
-        return value;
+// 検索語を探す範囲 (URL のクエリに持たせ、1つも選んでいなければすべての範囲から探す)
+const QUERY_TARGETS: CaptureQueryTarget[] = ['CaptionText', 'ProgramTitle', 'ProgramDescription'];
+const queryTargets = computed<CaptureQueryTarget[]>(() => {
+    if (mode.value !== 'Search') {
+        return [];
     }
-    return null;
+    const value = route.query.query_targets;
+    const values = Array.isArray(value) ? value : [value];
+    return QUERY_TARGETS.filter(target => values.includes(target));
 });
 const tagName = ref<string | null>(null);
 
@@ -103,10 +105,10 @@ const filter = computed<ICaptureFilter>(() => ({
     is_favorite: mode.value === 'Favorites' ? true : null,
     tag_id: tagId.value,
     query: searchQuery.value || null,
-    query_target: queryTarget.value,
+    query_targets: queryTargets.value,
 }));
 
-const updateQuery = (patch: Record<string, string | null>) => {
+const updateQuery = (patch: Record<string, string | string[] | null>) => {
     const query = { ...route.query, ...patch };
     for (const key of Object.keys(query)) {
         if (query[key] === null || query[key] === undefined) {
@@ -116,7 +118,7 @@ const updateQuery = (patch: Record<string, string | null>) => {
     void router.replace({ query });
 };
 const updateAxis = (value: CaptureTimelineAxis) => updateQuery({ axis: value === 'BroadcastAt' ? 'BroadcastAt' : null });
-const updateQueryTarget = (value: CaptureQueryTarget | null) => updateQuery({ query_target: value });
+const updateQueryTargets = (value: CaptureQueryTarget[]) => updateQuery({ query_targets: value.length > 0 ? value : null });
 const updateTypeFilter = (value: ICaptureFilter) => {
     updateQuery({
         is_caption_composited: value.is_caption_composited === null || value.is_caption_composited === undefined ? null : String(value.is_caption_composited),
@@ -179,8 +181,8 @@ const emptySubMessage = computed(() => {
     if (mode.value === 'Favorites') {
         return 'キャプチャにいいねをつけると、<br class="d-sm-none">ここに表示されます。';
     }
-    if (mode.value === 'Search' && queryTarget.value !== null) {
-        return '検索する範囲を「すべて」にすると、<br class="d-sm-none">ほかの範囲も含めて検索します。';
+    if (mode.value === 'Search' && queryTargets.value.length > 0) {
+        return '検索する範囲の選択をすべて外すと、<br class="d-sm-none">チャンネル名やファイル名も含めて検索します。';
     }
     if (mode.value === 'Search') {
         return '字幕テキスト・番組名・番組概要・チャンネル名・ファイル名から検索できます。<br>空白で区切ると、すべてを含むキャプチャを検索します。';

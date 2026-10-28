@@ -91,15 +91,17 @@
             <input ref="fileInputRef" type="file" accept="image/jpeg,image/png" multiple hidden @change="onFilesSelected">
         </div>
 
-        <!-- 検索結果では、別の画面へ移るタブの代わりに、検索語を探す範囲を選ぶ絞り込みを出す -->
-        <div v-if="showQueryTargets" class="capture-header__tabs">
-            <div v-for="choice in queryTargetChoices" :key="String(choice.value)" v-ripple class="capture-header__target"
-                :class="{'capture-header__target--active': queryTarget === choice.value}"
-                @click="$emit('update:queryTarget', choice.value)">
-                <Icon v-if="queryTarget === choice.value" icon="fluent:checkmark-16-filled" width="16px" />
+        <!-- 検索結果では、別の画面へ移るタブの代わりに、検索語を探す範囲の絞り込みを出す -->
+        <!-- 何も選ばなければすべての範囲から探し、選んだ範囲のどれかに含まれるキャプチャに絞り込む -->
+        <div v-if="showQueryTargets" class="capture-header__targets">
+            <div v-for="choice in queryTargetChoices" :key="choice.value" v-ripple class="capture-header__target"
+                :class="{'capture-header__target--active': queryTargets.includes(choice.value)}"
+                @click="toggleQueryTarget(choice.value)">
+                <Icon :icon="queryTargets.includes(choice.value) ? 'fluent:checkmark-16-filled' : choice.icon" width="18px" />
                 <span>{{ choice.label }}</span>
             </div>
         </div>
+        <!-- タイムライン・番組・いいね・タグの画面を切り替えるタブ -->
         <div v-else class="capture-header__tabs">
             <router-link v-for="tab in tabs" :key="tab.value" v-ripple class="capture-header__tab"
                 :class="{'capture-header__tab--active': tab.value === activeTab}" :to="tab.to">
@@ -131,7 +133,7 @@ const props = withDefaults(defineProps<{
     showQueryTargets?: boolean;
     axis?: CaptureTimelineAxis;
     filter?: ICaptureFilter;
-    queryTarget?: CaptureQueryTarget | null;
+    queryTargets?: CaptureQueryTarget[];
 }>(), {
     total: null,
     showTimelineControls: false,
@@ -139,13 +141,13 @@ const props = withDefaults(defineProps<{
     showQueryTargets: false,
     axis: 'CapturedAt',
     filter: () => ({}),
-    queryTarget: null,
+    queryTargets: () => [],
 });
 
 const emit = defineEmits<{
     (event: 'update:axis', axis: CaptureTimelineAxis): void;
     (event: 'update:filter', filter: ICaptureFilter): void;
-    (event: 'update:queryTarget', queryTarget: CaptureQueryTarget | null): void;
+    (event: 'update:queryTargets', queryTargets: CaptureQueryTarget[]): void;
     (event: 'uploaded', captures: ICapture[]): void;
     (event: 'scanned'): void;
 }>();
@@ -181,13 +183,19 @@ const submitSearch = () => {
     void router.push({ path: '/captures/search', query: { query } });
 };
 
-// 検索語を探す範囲 (「すべて」は、字幕・番組名・番組概要に加えて、チャンネル名とファイル名からも探す)
-const queryTargetChoices: { label: string; value: CaptureQueryTarget | null }[] = [
-    { label: 'すべて', value: null },
-    { label: '字幕テキスト', value: 'CaptionText' },
-    { label: '番組名', value: 'ProgramTitle' },
-    { label: '番組概要', value: 'ProgramDescription' },
+// 検索語を探す範囲 (何も選ばないときは、字幕・番組名・番組概要に加えて、チャンネル名とファイル名からも探す)
+const queryTargetChoices: { label: string; value: CaptureQueryTarget; icon: string }[] = [
+    { label: '字幕テキスト', value: 'CaptionText', icon: 'fluent:closed-caption-20-regular' },
+    { label: '番組名', value: 'ProgramTitle', icon: 'fluent:video-clip-20-regular' },
+    { label: '番組概要', value: 'ProgramDescription', icon: 'fluent:text-description-20-regular' },
 ];
+const toggleQueryTarget = (value: CaptureQueryTarget) => {
+    // 範囲は選択肢の並びの順に保ち、同じ組み合わせが同じ URL になるようにする
+    const next = queryTargetChoices
+        .map(choice => choice.value)
+        .filter(target => target === value ? !props.queryTargets.includes(target) : props.queryTargets.includes(target));
+    emit('update:queryTargets', next);
+};
 
 // 並べ替えの基準 (撮影日時か、その場面が放送された日時か)
 const axisChoices: { label: string; value: CaptureTimelineAxis }[] = [
@@ -275,10 +283,13 @@ onBeforeUnmount(() => {
         padding-right: 8px;
     }
 
+    // 見出しの行は、置かれるボタン (戻る・並べ替えと絞り込み・その他) の有無にかかわらず同じ高さにし、タブで画面を移っても位置を変えない
     &__top {
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-shrink: 0;
+        height: 40px;
         min-width: 0;
     }
     // 番組の画面 (Program.vue) の戻るボタンと同じ寸法
@@ -460,73 +471,88 @@ onBeforeUnmount(() => {
         color: rgb(var(--v-theme-text));
     }
 
-    &__tabs {
+    // 画面を切り替えるタブと、検索結果の範囲の絞り込みは、同じ高さの行にして、画面を移っても下の一覧の位置を変えない
+    &__tabs, &__targets {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 14px;
-        margin-bottom: 10px;
+        flex-shrink: 0;
+        height: 44px;
+        margin-top: 10px;
+        margin-bottom: 14px;
         overflow-x: auto;
         scrollbar-width: none;
         &::-webkit-scrollbar {
             display: none;
         }
     }
+    // タブ (テレビをみるのチャンネルの種類のタブと同じく、下線で今の画面を示す)
+    &__tabs {
+        box-shadow: inset 0 -3px 0 rgb(var(--v-theme-background-lighten-1));
+    }
     &__tab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        flex-shrink: 0;
+        min-width: 110px;
+        height: 100%;
+        padding: 0 16px;
+        border-bottom: 3px solid transparent;
+        border-radius: 2.5px 2.5px 0 0;
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 15px;
+        text-decoration: none;
+        cursor: pointer;
+        user-select: none;
+        transition: color 0.15s ease, border-color 0.15s ease;
+        white-space: nowrap;
+        // スマホの縦画面では、4つのタブが画面の幅に収まるよう、アイコンを外して文字の長さに応じて幅を配る
+        @include smartphone-vertical {
+            flex: 1 1 auto;
+            min-width: 0;
+            gap: 0;
+            padding: 0 4px;
+            font-size: 14px;
+            :deep(svg) {
+                display: none;
+            }
+        }
+        &:hover {
+            color: rgb(var(--v-theme-text));
+        }
+        &--active {
+            border-bottom-color: rgb(var(--v-theme-primary));
+            color: rgb(var(--v-theme-text));
+            font-weight: 700;
+        }
+    }
+    // 検索語を探す範囲 (選んだ範囲はプライマリカラーで塗り、チェックを付ける)
+    &__targets {
+        align-items: center;
+        gap: 8px;
+    }
+    &__target {
         display: flex;
         align-items: center;
         gap: 6px;
         flex-shrink: 0;
         height: 34px;
         padding: 0 14px;
-        // スマホの縦画面では、4つのタブが画面の幅に収まるようアイコンを外して詰める
-        @include smartphone-vertical {
-            gap: 0;
-            padding: 0 12px;
-            font-size: 13px;
-            :deep(svg) {
-                display: none;
-            }
-        }
         border-radius: 17px;
         background: rgb(var(--v-theme-background-lighten-1));
         color: rgb(var(--v-theme-text));
         font-size: 13.5px;
-        text-decoration: none;
         cursor: pointer;
         user-select: none;
-        &--active {
-            background: rgb(var(--v-theme-primary));
-            color: #fff;
-        }
-    }
-    // 検索語を探す範囲 (タブと見分けられるよう、枠線とチェックの付いた絞り込みの見た目にする)
-    &__target {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex-shrink: 0;
-        height: 34px;
-        padding: 0 14px;
-        border: 1px solid rgb(var(--v-theme-background-lighten-2));
-        border-radius: 8px;
-        color: rgb(var(--v-theme-text));
-        font-size: 13.5px;
-        cursor: pointer;
-        user-select: none;
-        // スマホの縦画面では、4つの範囲が画面の幅に収まるよう詰める
+        // スマホの縦画面では、3つの範囲が画面の幅に収まるよう詰める
         @include smartphone-vertical {
-            padding: 0 9px;
+            gap: 4px;
+            padding: 0 12px;
             font-size: 13px;
         }
         &--active {
-            padding-left: 10px;
-            border-color: rgb(var(--v-theme-secondary));
-            background: rgba(var(--v-theme-secondary), 0.2);
-            color: rgb(var(--v-theme-secondary-lighten-1));
-            @include smartphone-vertical {
-                padding-left: 6px;
-            }
+            background: rgb(var(--v-theme-primary));
+            color: #fff;
         }
     }
 
