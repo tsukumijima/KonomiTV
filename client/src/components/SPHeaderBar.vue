@@ -8,7 +8,8 @@
             <!-- 番組表コントロール用スロット -->
             <slot name="timetable-controls"></slot>
             <!-- スマホ縦画面では Navigation が非表示のため、ヘッダー側にバッジを残す -->
-            <OfflineDownloadBadge class="mr-4" />
+            <!-- スマホ横画面では左側の Navigation にオフライン保存の項目と件数が表示されるため、ヘッダーではバッジを非表示にする -->
+            <OfflineDownloadBadge class="offline-download-badge mr-4" />
             <div v-if="showSearchButton" v-ripple class="search-button" @click="activateSearch">
                 <Icon icon="fluent:search-20-filled" height="24px" />
             </div>
@@ -240,6 +241,12 @@ watch(() => props.searchQuery, (searchQueryValue) => {
     }
 
     .v-spacer {
+        @include smartphone-horizontal {
+            display: none;
+        }
+    }
+
+    .offline-download-badge {
         @include smartphone-horizontal {
             display: none;
         }
