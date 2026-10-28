@@ -1,6 +1,6 @@
 [project]
 name = "KonomiTV"
-version = "0.14.1"
+version = "0.15.0-dev"
 description = "KonomiTV: Kept Organized, Notably Optimized, Modern Interface TV media server"
 requires-python = ">=3.13,<3.14"
 dependencies = [
