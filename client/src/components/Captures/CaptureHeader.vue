@@ -34,9 +34,9 @@
             <!-- 並べ替えと絞り込みは、一覧の見え方を変える操作としてまとめ、1つのボタンから開く -->
             <v-menu v-if="showTimelineControls" location="bottom end" :close-on-content-click="false">
                 <template #activator="{ props: menuProps }">
-                    <v-btn class="capture-header__view-button" variant="flat" color="background-lighten-1" height="40"
+                    <v-btn class="capture-header__view-button" variant="flat" color="background-lighten-1" height="34"
                         :class="{'capture-header__view-button--active': activeFilterCount > 0}" v-bind="menuProps">
-                        <Icon icon="fluent:filter-20-regular" width="20px" height="20px" />
+                        <Icon icon="fluent:filter-20-regular" width="18px" height="18px" />
                         <span class="capture-header__view-button-text">並べ替えと絞り込み</span>
                         <span v-if="activeFilterCount > 0" class="capture-header__view-button-count">{{ activeFilterCount }}</span>
                     </v-btn>
@@ -374,9 +374,10 @@ onBeforeUnmount(() => {
         }
     }
 
+    // 高さと文字の大きさは、録画番組の一覧の並べ替えの選択欄 (RecordedProgramList.vue) にそろえる
     &__view-button {
         flex-shrink: 0;
-        padding: 0 12px !important;
+        padding: 0 10px !important;
         border-radius: 6px;
         letter-spacing: 0;
         font-size: 14px;
@@ -385,6 +386,11 @@ onBeforeUnmount(() => {
             position: relative;
             min-width: 40px !important;
             width: 40px;
+            height: 40px !important;
+            :deep(svg) {
+                width: 20px;
+                height: 20px;
+            }
             padding: 0 !important;
             background: transparent !important;
             box-shadow: none !important;
