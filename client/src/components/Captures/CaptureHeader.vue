@@ -607,15 +607,24 @@ onBeforeUnmount(() => {
         user-select: none;
         transition: color 0.15s ease, border-color 0.15s ease;
         white-space: nowrap;
-        // スマホの縦画面では、4つのタブが画面の幅に収まるよう、アイコンを外して文字の長さに応じて幅を配る
+        // スマホの縦画面では、4つのタブが画面の幅に収まるよう、アイコンを小さくして文字の長さに応じて幅を配る
+        // iPhone SE (幅 375px) 以下の画面では、アイコンを並べる幅が足りないのでアイコンを外す
         @include smartphone-vertical {
             flex: 1 1 auto;
             min-width: 0;
-            gap: 0;
+            gap: 4px;
             padding: 0 4px;
             font-size: 14px;
             :deep(svg) {
-                display: none;
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+            @media (max-width: 379.98px) {
+                gap: 0;
+                :deep(svg) {
+                    display: none;
+                }
             }
         }
         &:hover {
