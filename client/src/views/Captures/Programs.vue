@@ -188,6 +188,7 @@ const onLogoError = (event: Event) => {
 <style lang="scss" scoped>
 
 .capture-programs {
+    // 検索欄と選択欄の高さは、タグ作成のフォーム (Tags.vue) と同じ標準の高さのままにし、文字だけを録画番組の一覧の並べ替えの選択欄にそろえて小さくする
     &__toolbar {
         display: flex;
         gap: 10px;
@@ -195,6 +196,9 @@ const onLogoError = (event: Event) => {
         @include smartphone-vertical {
             flex-direction: column;
             gap: 8px;
+        }
+        :deep(.v-field__input) {
+            font-size: 14px !important;
         }
     }
     &__search {
@@ -205,7 +209,7 @@ const onLogoError = (event: Event) => {
         }
     }
     &__recorded {
-        flex: 0 0 180px;
+        flex: 0 0 150px;
         @include smartphone-vertical {
             flex: none;
         }
