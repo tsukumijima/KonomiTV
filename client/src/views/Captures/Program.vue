@@ -32,9 +32,9 @@
                     <div v-if="captures.length > 0" class="capture-program__toolbar">
                     <v-select v-model="order" class="capture-program__order"
                         :items="[
-                            { title: '放送の時間順', value: 'PlaybackPosition' },
-                            { title: '撮影が新しい順', value: 'CapturedAtDesc' },
-                            { title: '撮影が古い順', value: 'CapturedAtAsc' },
+                            { title: '再生位置順', value: 'PlaybackPosition' },
+                            { title: '撮影日時が新しい順', value: 'CapturedAtDesc' },
+                            { title: '撮影日時が古い順', value: 'CapturedAtAsc' },
                         ]"
                         color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
                     </div>
@@ -44,12 +44,12 @@
             <div v-if="isLoadFailed" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">キャプチャを読み込めませんでした。</div>
-                <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+                <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
             </div>
             <div v-else-if="!isLoading && captures.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:image-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">この番組のキャプチャはまだありません。</div>
-                <div class="capture-empty__sub">この番組を見ながらキャプチャを撮ると、<br class="d-sm-none">ここに集まります。</div>
+                <div class="capture-empty__sub">この番組の視聴中にキャプチャを撮影すると、<br class="d-sm-none">ここに表示されます。</div>
             </div>
 
             <div class="capture-program__grid" :class="{'capture-program__grid--captions': hasCaptions}">

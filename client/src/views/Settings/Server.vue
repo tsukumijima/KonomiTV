@@ -409,7 +409,7 @@
                 <div class="settings__item-heading">キャプチャフォルダの一括スキャンを手動実行</div>
                 <div class="settings__item-label">
                     キャプチャの保存先フォルダ内の画像は、通常 KonomiTV サーバーの起動時に自動的にスキャンされます。<br>
-                    キャプチャが KonomiTV に正しく反映されていない場合にのみ実行してみてください。<br>
+                    キャプチャが KonomiTV に正しく反映されていない場合にのみ実行してください。<br>
                 </div>
                 <div class="settings__item-label mt-1">
                     <strong>大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。</strong><br>

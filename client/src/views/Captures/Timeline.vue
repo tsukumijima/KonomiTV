@@ -8,7 +8,7 @@
         <div v-if="needsLogin" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:person-20-regular" width="54px" height="54px" />
             <div class="capture-empty__message">いいねとタグを使うには、ログインが必要です。</div>
-            <div class="capture-empty__sub">家族と共用していても、いいねとタグはアカウントごとに分かれます。</div>
+            <div class="capture-empty__sub">いいねやタグは、アカウントごとに分けて保存されます。</div>
             <v-btn class="mt-6 px-4" color="secondary" variant="flat" height="40" to="/login/">
                 <Icon icon="fa:sign-in" class="mr-2" />ログイン
             </v-btn>
@@ -17,7 +17,7 @@
             <div v-if="isLoaded && isLoadFailed" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">キャプチャを読み込めませんでした。</div>
-                <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+                <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
             </div>
             <div v-else-if="isLoaded && total === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" :icon="emptyIcon" width="54px" height="54px" />
@@ -145,31 +145,31 @@ const hasTypeFilter = computed(() => Object.values(typeFilter.value).some(value 
 
 const emptyMessage = computed(() => {
     if (hasTypeFilter.value) {
-        return '条件に合うキャプチャはありません。';
+        return '条件に一致するキャプチャはありません。';
     }
     if (mode.value === 'Favorites') {
         return 'いいねしたキャプチャはまだありません。';
     }
     if (mode.value === 'Tag') {
-        return 'このタグのキャプチャはまだありません。';
+        return 'このタグが付与されたキャプチャはまだありません。';
     }
     if (mode.value === 'Search') {
-        return '条件に合うキャプチャは見つかりませんでした。';
+        return '条件に一致するキャプチャは見つかりませんでした。';
     }
     return 'キャプチャはまだありません。';
 });
 const emptySubMessage = computed(() => {
     if (hasTypeFilter.value) {
-        return '絞り込みを解除すると、<br class="d-sm-none">ほかのキャプチャも表示されます。';
+        return '絞り込み条件を解除すると、<br class="d-sm-none">他のキャプチャも表示されます。';
     }
     if (mode.value === 'Favorites') {
-        return 'キャプチャを開いていいねすると、<br class="d-sm-none">ここに集まります。';
+        return 'キャプチャにいいねをつけると、<br class="d-sm-none">ここに表示されます。';
     }
     if (mode.value === 'Search') {
-        return '字幕のテキスト・番組名・番組概要・チャンネル名・ファイル名から探します。<br>空白で区切ると、すべてを含むものを探します。';
+        return '字幕テキスト・番組名・番組概要・チャンネル名・ファイル名から検索できます。<br>空白で区切ると、すべてを含むキャプチャを検索します。';
     }
     if (mode.value === 'Timeline') {
-        return '視聴画面でキャプチャを撮るか、保存先フォルダに置いた画像が読み込まれると、<br class="d-none d-sm-inline">ここに表示されます。';
+        return '視聴画面でキャプチャを撮影するか、保存先フォルダに画像が追加されると、<br class="d-none d-sm-inline">ここに表示されます。';
     }
     return '';
 });

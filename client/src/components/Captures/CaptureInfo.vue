@@ -17,15 +17,15 @@
             </div>
         </section>
         <section v-else class="capture-info__program">
-            <h1 class="capture-info__title">番組の情報がありません</h1>
-            <div class="capture-info__description">撮影したときの番組の情報が、この画像には記録されていません。</div>
+            <h1 class="capture-info__title">番組情報がありません</h1>
+            <div class="capture-info__description">撮影時の番組情報が、この画像には記録されていません。</div>
         </section>
 
         <!-- 撮影したときに出ていた字幕 -->
         <div v-if="capture.caption_text" class="capture-info__caption">
             <div class="capture-info__caption-heading">
                 <Icon icon="fluent:closed-caption-20-regular" width="18px" />
-                <span>この場面の字幕</span>
+                <span>字幕テキスト</span>
             </div>
             <div class="capture-info__caption-text">{{ capture.caption_text }}</div>
         </div>
@@ -37,11 +37,11 @@
                 <span>{{ formatDateTime(capture.captured_at) }}</span>
             </div>
             <div v-if="capture.broadcast_at" class="capture-info__row">
-                <span class="capture-info__label">場面の放送日時</span>
+                <span class="capture-info__label">放送日時</span>
                 <span>{{ formatDateTime(capture.broadcast_at) }}</span>
             </div>
             <div v-if="capture.playback_position !== null" class="capture-info__row">
-                <span class="capture-info__label">番組内の位置</span>
+                <span class="capture-info__label">再生位置</span>
                 <span>開始から {{ formatPosition(capture.playback_position) }}</span>
             </div>
             <div class="capture-info__row">
@@ -49,14 +49,14 @@
                 <span>{{ capture.image_width }}×{{ capture.image_height }}・{{ Utils.formatBytes(capture.file_size) }}</span>
             </div>
             <div class="capture-info__row">
-                <span class="capture-info__label">画面の内容</span>
+                <span class="capture-info__label">合成情報</span>
                 <span>{{ contentLabel }}</span>
             </div>
             <div v-if="detail !== null" class="capture-info__row">
                 <span class="capture-info__label">保存場所</span>
                 <span class="capture-info__files">
                     <span v-for="file in detail.files" :key="file.file_path">
-                        {{ file.file_path }}<template v-if="file.status !== 'Available'"> ({{ file.status === 'Missing' ? '保存先にファイルが見つかりません' : 'ファイルを読み込めません' }})</template>
+                        {{ file.file_path }}<template v-if="file.status !== 'Available'"> ({{ file.status === 'Missing' ? 'ファイルが見つかりません' : 'ファイルを読み込めません' }})</template>
                     </span>
                 </span>
             </div>

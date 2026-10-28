@@ -112,7 +112,7 @@
                         <v-card-text class="pt-2 pb-0">
                             <div class="text-error-lighten-1 font-weight-bold">
                                 保存先にある画像ファイルも削除され、元に戻すことはできません。<br>
-                                同じ画像がほかのフォルダにも保存されていれば、それらもまとめて削除されます。
+                                同じ画像が他のフォルダにもある場合は、それらも一緒に削除されます。
                             </div>
                         </v-card-text>
                         <v-card-actions class="pt-4 px-6 pb-6">

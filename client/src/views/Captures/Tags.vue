@@ -9,7 +9,7 @@
         <div v-if="!isLoggedIn && !isLoading" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:person-20-regular" width="54px" height="54px" />
             <div class="capture-empty__message">タグを使うには、ログインが必要です。</div>
-            <div class="capture-empty__sub">家族と共用していても、いいねとタグはアカウントごとに分かれます。</div>
+            <div class="capture-empty__sub">いいねやタグは、アカウントごとに分けて保存されます。</div>
             <v-btn class="mt-6 px-4" color="secondary" variant="flat" height="40" to="/login/">
                 <Icon icon="fa:sign-in" class="mr-2" />ログイン
             </v-btn>
@@ -17,7 +17,7 @@
         <template v-else-if="isLoggedIn">
             <div class="capture-tags__create">
                 <v-text-field v-model="newTagName" color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable"
-                    hide-details flat placeholder="新しいタグの名前 (例: 作品名、かわいい、ネタキャプ)" maxlength="100"
+                    hide-details flat placeholder="新しいタグの名前 (例: 作品名、キャラクター名、名シーン)" maxlength="100"
                     @keydown.enter.prevent="createTag" />
                 <v-btn color="primary" variant="flat" height="48" class="capture-tags__create-button"
                     :disabled="newTagName.trim() === ''" @click="createTag">
@@ -29,12 +29,12 @@
             <div v-if="isLoadFailed" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグの一覧を読み込めませんでした。</div>
-                <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+                <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
             </div>
             <div v-else-if="!isLoading && tags.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:tag-multiple-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグはまだありません。</div>
-                <div class="capture-empty__sub">キャプチャを開いてタグのボタンを押すか、<br class="d-sm-none">上の入力欄から作れます。<br>1枚に何個でも付けられます。</div>
+                <div class="capture-empty__sub">キャプチャの詳細や上の入力欄から、タグを作成して付与できます。<br>1枚のキャプチャに複数のタグを付与することもできます。</div>
             </div>
             <div class="capture-tags__list">
                 <router-link v-for="tag in tags" :key="tag.id" v-ripple class="capture-tag-card" :to="`/captures/tags/${tag.id}`">
@@ -90,8 +90,8 @@
             <v-card>
                 <v-card-title class="d-flex justify-center pt-6 font-weight-bold">タグ「{{ deletingTag?.name }}」を削除しますか？</v-card-title>
                 <v-card-text class="pt-2 pb-0">
-                    このタグは、付いているすべてのキャプチャから外れます。<br>
-                    キャプチャの画像は削除されません。
+                    このタグは、付与されているすべてのキャプチャから解除されます。<br>
+                    キャプチャ画像自体は削除されません。
                 </v-card-text>
                 <v-card-actions class="pt-4 px-6 pb-6">
                     <v-spacer></v-spacer>

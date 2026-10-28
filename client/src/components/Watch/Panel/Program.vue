@@ -24,7 +24,7 @@
             <a v-if="channelsStore.channel.current.program_present" v-ripple class="program-info__captures"
                 href="/captures/broadcast" @click.prevent="openCaptures()">
                 <Icon icon="fluent:image-multiple-20-regular" width="17px" height="17px" />
-                <span class="ml-2">この番組で撮ったキャプチャ</span>
+                <span class="ml-2">この番組のキャプチャ</span>
             </a>
             <div class="program-info__next">
                 <span class="program-info__next-decorate">NEXT</span>

@@ -21,10 +21,10 @@
                 <span v-if="total !== null" class="capture-header__title-count">{{ total.toLocaleString() }}枚</span>
             </h2>
             <div v-if="scanStatus !== null && scanStatus.is_running" class="capture-header__scan"
-                v-ftooltip.bottom="'保存先のキャプチャを読み込んでいます。読み込んだものから順に表示されます。'">
+                v-ftooltip.bottom="'保存先フォルダのキャプチャをスキャンしています。解析が完了した画像から順次表示されます。'">
                 <Icon icon="line-md:loading-twotone-loop" width="16px" />
-                <span v-if="scanStatus.total_count === 0">保存先のフォルダを確認しています...</span>
-                <span v-else>キャプチャを読み込んでいます... ({{ scanStatus.processed_count.toLocaleString() }} / {{ scanStatus.total_count.toLocaleString() }} 枚)</span>
+                <span v-if="scanStatus.total_count === 0">保存先フォルダを確認しています...</span>
+                <span v-else>キャプチャをスキャンしています... ({{ scanStatus.processed_count.toLocaleString() }} / {{ scanStatus.total_count.toLocaleString() }} 枚)</span>
             </div>
             <v-spacer></v-spacer>
             <!-- スマホの縦画面では、上部のヘッダーを隠しているので、ここに検索の入口を置く -->
@@ -43,7 +43,7 @@
                 </template>
                 <v-card class="capture-header__filter" color="background-lighten-1">
                     <div class="capture-header__filter-row">
-                        <span class="capture-header__filter-label">並べる日時</span>
+                        <span class="capture-header__filter-label">並べ替えの基準</span>
                         <div class="capture-header__filter-choices">
                             <div v-for="choice in axisChoices" :key="choice.value" v-ripple
                                 class="capture-header__filter-choice"
@@ -84,7 +84,7 @@
                         <template #prepend>
                             <Icon icon="fluent:arrow-upload-20-regular" width="20px" />
                         </template>
-                        <v-list-item-title class="ml-3">手元の画像をアップロード</v-list-item-title>
+                        <v-list-item-title class="ml-3">画像をアップロード</v-list-item-title>
                     </v-list-item>
                 </v-list>
             </v-menu>
@@ -167,18 +167,18 @@ const submitSearch = () => {
     void router.push({ path: '/captures/search', query: { query } });
 };
 
-// 並べる日時 (撮影した日時か、その場面が放送された日時か)
+// 並べ替えの基準 (撮影日時か、その場面が放送された日時か)
 const axisChoices: { label: string; value: CaptureTimelineAxis }[] = [
-    { label: '撮影した日時', value: 'CapturedAt' },
-    { label: '放送された日時', value: 'BroadcastAt' },
+    { label: '撮影日時', value: 'CapturedAt' },
+    { label: '放送日時', value: 'BroadcastAt' },
 ];
 
 // キャプチャの種類の絞り込み (どれも「指定なし」「あり」「なし」の3択)
 const filterOptions: { key: CaptureTypeFilterKey; label: string; choices: { label: string; value: boolean | null }[] }[] = [
-    { key: 'is_caption_composited', label: '画像に字幕が入っている', choices: [{ label: 'すべて', value: null }, { label: '入っている', value: true }, { label: '入っていない', value: false }] },
-    { key: 'is_comment_composited', label: '画像にコメントが入っている', choices: [{ label: 'すべて', value: null }, { label: '入っている', value: true }, { label: '入っていない', value: false }] },
-    { key: 'has_caption_text', label: '撮影したときに字幕が出ていた', choices: [{ label: 'すべて', value: null }, { label: '出ていた', value: true }, { label: '出ていない', value: false }] },
-    { key: 'has_metadata', label: '番組の情報', choices: [{ label: 'すべて', value: null }, { label: 'ある', value: true }, { label: 'ない', value: false }] },
+    { key: 'is_caption_composited', label: '字幕の合成', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
+    { key: 'is_comment_composited', label: 'コメントの合成', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
+    { key: 'has_caption_text', label: '字幕テキスト', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
+    { key: 'has_metadata', label: '番組情報', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
 ];
 const activeFilterCount = computed(() => filterOptions.filter(option => props.filter[option.key] !== null && props.filter[option.key] !== undefined).length);
 

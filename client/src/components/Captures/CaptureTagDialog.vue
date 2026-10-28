@@ -16,7 +16,7 @@
                 <div class="capture-tag-dialog__list">
                     <div v-if="isLoading" class="capture-tag-dialog__empty">タグを読み込んでいます...</div>
                     <div v-else-if="isLoadFailed" class="capture-tag-dialog__empty">
-                        タグの一覧を読み込めませんでした。<br>KonomiTV サーバーが動いているかを確認してから、もう一度開いてください。
+                        タグの一覧を読み込めませんでした。<br>KonomiTV サーバーが起動しているか確認してから、もう一度お試しください。
                     </div>
                     <div v-else-if="tags.length === 0" class="capture-tag-dialog__empty">
                         タグはまだありません。<br>下の入力欄から、新しいタグを追加できます。

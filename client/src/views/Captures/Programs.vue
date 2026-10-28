@@ -14,24 +14,24 @@
                 </template>
             </v-text-field>
             <v-select v-model="recordedFilter" class="capture-programs__recorded"
-                :items="[{ title: 'すべての番組', value: null }, { title: '録画のある番組', value: true }, { title: '録画のない番組', value: false }]"
+                :items="[{ title: 'すべての番組', value: null }, { title: '録画番組あり', value: true }, { title: '録画番組なし', value: false }]"
                 color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
         </div>
 
         <div v-if="isLoadFailed" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
             <div class="capture-empty__message">番組の一覧を読み込めませんでした。</div>
-            <div class="capture-empty__sub">KonomiTV サーバーが動いているかを確認してから、ページを再読み込みしてください。</div>
+            <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
         </div>
         <div v-else-if="!isLoading && programs.length === 0 && (String(route.query.query ?? '') !== '' || recordedFilter !== null)" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:search-20-regular" width="54px" height="54px" />
-            <div class="capture-empty__message">条件に合う番組はありません。</div>
-            <div class="capture-empty__sub">検索語を消すか、「すべての番組」に戻すと、ほかの番組も表示されます。</div>
+            <div class="capture-empty__message">条件に一致する番組はありません。</div>
+            <div class="capture-empty__sub">検索キーワードを消去するか、絞り込みを「すべての番組」に戻すと、他の番組も表示されます。</div>
         </div>
         <div v-else-if="!isLoading && programs.length === 0" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:video-clip-multiple-20-regular" width="54px" height="54px" />
-            <div class="capture-empty__message">番組ごとにまとめられるキャプチャはまだありません。</div>
-            <div class="capture-empty__sub">KonomiTV の視聴画面で撮ったキャプチャは、<br class="d-none d-sm-inline">撮影した番組の放送回ごとに、ここへまとまります。</div>
+            <div class="capture-empty__message">番組情報が記録されたキャプチャはまだありません。</div>
+            <div class="capture-empty__sub">視聴画面でキャプチャを撮影すると、<br class="d-none d-sm-inline">番組の放送回ごとにここにまとまって表示されます。</div>
         </div>
         <div class="capture-programs__grid">
             <router-link v-for="program in programs" :key="program.id" v-ripple class="capture-program-card"
