@@ -7,6 +7,7 @@ import errno
 import hashlib
 import json
 import os
+import re
 import shutil
 from datetime import date as Date
 from datetime import datetime, timedelta
@@ -974,12 +975,18 @@ async def CaptureSectionsAPI(
     ## DB の日時は +09:00 付きで保存されていて、SQLite の date() は UTC に直して扱うので、9時間を足して日本時間に戻す
     date_expression = f"date(c.{column}_at, '+9 hours', '-{day_start_hour} hours')"
 
+    # 放送回の列 (p.) を条件に使う場合のみ、capture_programs テーブルを JOIN する
+    ## JOIN しない場合は、captures テーブルの行を読み込まずに、日時と ID のインデックスだけを走査して件数を数えられる
+    program_join = ''
+    if any(re.search(r'\bp\.', condition) is not None for condition in conditions):
+        program_join = 'LEFT JOIN capture_programs p ON p.id = c.capture_program_id'
+
     rows = await connections.get('default').execute_query_dict(f"""
         SELECT
             {date_expression} AS date,
             COUNT(*) AS count
         FROM captures c
-        LEFT JOIN capture_programs p ON p.id = c.capture_program_id
+        {program_join}
         WHERE {' AND '.join(conditions)}
         GROUP BY {date_expression}
         ORDER BY date DESC
