@@ -1,7 +1,6 @@
 <template>
     <CapturePage :crumbs="crumbs" :with-scrubber="true">
         <CaptureHeader :title="title" :total="total" :active-tab="activeTab" :show-timeline-controls="true" :show-back-button="mode === 'Tag'"
-            :loading-label="isLoaded || needsLogin ? null : mode === 'Search' ? '検索中...' : '読み込み中...'"
             :show-query-targets="mode === 'Search'" :axis="axis" :filter="typeFilter" :query-targets="queryTargets"
             @update:axis="updateAxis" @update:filter="updateTypeFilter" @update:query-targets="updateQueryTargets" @uploaded="timelineRef?.reload()" @scanned="timelineRef?.reload()" />
 
@@ -15,7 +14,11 @@
             </v-btn>
         </div>
         <template v-else>
-            <div v-if="isLoaded && isLoadFailed" class="capture-empty">
+            <!-- 読み込み中は、ほかのキャプチャの画面と同じく見出しより下の領域の中央にスピナーを表示する -->
+            <div v-if="!isLoaded" class="capture-loading">
+                <Icon icon="line-md:loading-twotone-loop" width="48px" height="48px" />
+            </div>
+            <div v-else-if="isLoadFailed" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">キャプチャを読み込めませんでした。</div>
                 <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>

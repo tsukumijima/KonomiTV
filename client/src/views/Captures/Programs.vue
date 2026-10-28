@@ -18,7 +18,11 @@
                 color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
         </div>
 
-        <div v-if="isLoadFailed" class="capture-empty">
+        <!-- 最初のページの読み込み中は、ほかのキャプチャの画面と同じく見出しより下の領域の中央にスピナーを表示する -->
+        <div v-if="isLoading && programs.length === 0" class="capture-loading">
+            <Icon icon="line-md:loading-twotone-loop" width="48px" height="48px" />
+        </div>
+        <div v-else-if="isLoadFailed" class="capture-empty">
             <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
             <div class="capture-empty__message">番組の一覧を読み込めませんでした。</div>
             <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
@@ -55,8 +59,10 @@
                 </div>
             </router-link>
         </div>
-        <div ref="sentinelRef" class="capture-programs__sentinel">
-            <Icon v-if="isLoading" icon="line-md:loading-twotone-loop" width="28px" />
+        <!-- 番組が0件の間は、読み込み中や空の状態の表示が上下中央に配置されるよう、無限スクロールの監視用の要素の余白をなくす -->
+        <div ref="sentinelRef" class="capture-programs__sentinel" :class="{'capture-programs__sentinel--empty': programs.length === 0}">
+            <!-- 2ページ目以降の読み込み中のみ、一覧の下端にスピナーを表示する -->
+            <Icon v-if="isLoading && programs.length > 0" icon="line-md:loading-twotone-loop" width="28px" />
         </div>
     </CapturePage>
 </template>
@@ -232,6 +238,9 @@ const onLogoError = (event: Event) => {
         justify-content: center;
         padding: 24px 0;
         color: rgb(var(--v-theme-text-darken-1));
+        &--empty {
+            padding: 0;
+        }
     }
 }
 

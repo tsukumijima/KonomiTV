@@ -58,6 +58,20 @@ withDefaults(defineProps<{
 </style>
 <style lang="scss">
 
+// キャプチャの画面で共通の、読み込み中の表示
+// 本来タイルやカードが並ぶ見出しより下の残りの高さを埋め、その上下左右の中央にスピナーを置く
+.capture-loading {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    // 外枠の下端には一覧の末尾用の余白 (60px) があるため、上側にも同程度の余白を確保し、表示領域の上下中央に配置する
+    padding: 44px 12px 0px;
+    color: rgb(var(--v-theme-text-darken-1));
+}
+
 // キャプチャの画面で共通の、空の状態の表示
 // どの画面から開いても当たるよう、すべてのキャプチャの画面が通るこの外枠に置く
 .capture-empty {

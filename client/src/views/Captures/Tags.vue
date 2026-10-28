@@ -14,7 +14,11 @@
                 <Icon icon="fa:sign-in" class="mr-2" />ログイン
             </v-btn>
         </div>
-        <template v-else-if="isLoggedIn">
+        <!-- ログイン状態の確認中も、ほかのキャプチャの画面と同じく中央にスピナーを表示する -->
+        <div v-else-if="!isLoggedIn" class="capture-loading">
+            <Icon icon="line-md:loading-twotone-loop" width="48px" height="48px" />
+        </div>
+        <template v-else>
             <div class="capture-tags__create">
                 <v-text-field v-model="newTagName" color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable"
                     hide-details flat placeholder="新しいタグの名前 (例: 作品名、キャラクター名、名シーン)" maxlength="100"
@@ -26,12 +30,16 @@
                 </v-btn>
             </div>
 
-            <div v-if="isLoadFailed" class="capture-empty">
+            <!-- 読み込み中は、ほかのキャプチャの画面と同じく見出しより下の領域の中央にスピナーを表示する -->
+            <div v-if="isLoading" class="capture-loading">
+                <Icon icon="line-md:loading-twotone-loop" width="48px" height="48px" />
+            </div>
+            <div v-else-if="isLoadFailed" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:cloud-error-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグの一覧を読み込めませんでした。</div>
                 <div class="capture-empty__sub">KonomiTV サーバーが起動しているか確認してから、ページを再読み込みしてください。</div>
             </div>
-            <div v-else-if="!isLoading && tags.length === 0" class="capture-empty">
+            <div v-else-if="tags.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:tag-multiple-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグはまだありません。</div>
                 <div class="capture-empty__sub">キャプチャの詳細や上の入力欄から、タグを作成して付与できます。<br>1枚のキャプチャに複数のタグを付与することもできます。</div>
@@ -124,7 +132,8 @@ const tags = ref<ICaptureTag[]>([]);
 const isLoading = ref(true);
 // 読み込みに失敗したか (0件と区別して、読み込めなかったことを伝えるため)
 const isLoadFailed = ref(false);
-const isLoggedIn = ref(false);
+// 前回確認したログイン状態を初期値とし、ログイン済みならタグの作成フォームをすぐに表示する
+const isLoggedIn = ref(userStore.is_logged_in);
 const newTagName = ref('');
 const renamingTag = ref<ICaptureTag | null>(null);
 const renameInput = ref('');

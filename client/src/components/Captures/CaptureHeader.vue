@@ -18,12 +18,7 @@
             </div>
             <h2 class="capture-header__title">
                 <span class="capture-header__title-text">{{ title }}</span>
-                <!-- 読み込み中は、録画番組の検索結果と同じく、枚数の代わりに読み込み中であることを出す -->
-                <span v-if="loadingLabel !== null" class="capture-header__title-count capture-header__title-count--loading">
-                    <Icon icon="line-md:loading-twotone-loop" width="18px" height="18px" />
-                    <span>{{ loadingLabel }}</span>
-                </span>
-                <span v-else-if="total !== null" class="capture-header__title-count">{{ total.toLocaleString() }}枚</span>
+                <span v-if="total !== null" class="capture-header__title-count">{{ total.toLocaleString() }}枚</span>
             </h2>
             <div v-if="scanStatus !== null && scanStatus.is_running" class="capture-header__scan"
                 v-ftooltip.bottom="'保存先フォルダのキャプチャをスキャンしています。解析が完了した画像から順次表示されます。'">
@@ -145,7 +140,6 @@ export type CaptureTypeFilterKey = 'is_caption_composited' | 'is_comment_composi
 const props = withDefaults(defineProps<{
     title: string;
     total?: number | null;
-    loadingLabel?: string | null;
     activeTab: 'Timeline' | 'Programs' | 'Favorites' | 'Tags' | null;
     showTimelineControls?: boolean;
     showBackButton?: boolean;
@@ -155,7 +149,6 @@ const props = withDefaults(defineProps<{
     queryTargets?: CaptureQueryTarget[];
 }>(), {
     total: null,
-    loadingLabel: null,
     showTimelineControls: false,
     showBackButton: false,
     showQueryTargets: false,
@@ -420,13 +413,6 @@ onBeforeUnmount(() => {
             @include smartphone-vertical-short {
                 margin-left: 8px;
                 font-size: 12.5px;
-            }
-            &--loading {
-                display: flex;
-                align-items: center;
-                align-self: center;
-                gap: 4px;
-                flex-shrink: 0;
             }
         }
     }
