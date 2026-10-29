@@ -13,6 +13,7 @@
 - 片方の変更がコメントや型の追従程度にとどまる場合に限り、1つのコミットにまとめてよい。その場合も、主な変更がある側に合わせて `[Client]` か `[Server]` のどちらか一方を書く
 - 範囲表記の `[]` は、重ねると親子の階層を表す。`[Client][Server]` のように、並行する範囲を並べて書かない
 - サーバーの範囲表記は、`server/app/` 以下のフォルダ名とファイル名を `/` で連結し、`[Server][Routers/CapturesRouter]`・`[Server][Models/Program]`・`[Server][Metadata/CaptureScanTask]` のように書く。`[Server][CapturesRouter]` のようにフォルダ名を省略した形は以前の書き方であり、履歴に残っていても使用しない
+- DB のマイグレーションを含むコミットの範囲表記は、`[Server][Migrations]` ではなく、マイグレーションの対象のテーブルを定義するモデルに合わせて `[Server][Models/Capture]` のように書く。マイグレーションのファイルだけを変更するコミットも同様とする
 - クライアントの範囲表記は、`client/src/components/` と `client/src/views/` 以下のファイルであれば、`[Client][Captures/CaptureHeader]` のようにそのフォルダ名を省略して書く
 
 ## 開発環境構成
