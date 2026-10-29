@@ -167,15 +167,31 @@ def NormalizeCapturePath(path: str | Path | anyio.Path) -> str:
     """
     すべての取り込みの経路で、同じ形の絶対パスを作る
     Docker のパスは、設定の読み込み時に付けた /host-rootfs をそのまま残し、実際のアクセスにも同じ値を使う
+    大文字と小文字は、画面にそのまま表示できるよう実際の表記のまま残す (同じファイルかどうかは CapturePathKey() で判定する)
 
     Args:
         path (str | Path | anyio.Path): ファイルまたはフォルダのパス
 
     Returns:
-        str: Windows の大文字小文字と区切りも揃えた絶対パス
+        str: 区切りを揃えた絶対パス
     """
 
-    return os.path.normcase(os.path.abspath(os.path.normpath(str(path))))
+    return os.path.abspath(os.path.normpath(str(path)))
+
+
+def CapturePathKey(path: str) -> str:
+    """
+    同じファイルを指すパスかどうかを判定するためのキーを作る
+    Windows のファイルシステムは大文字と小文字を区別しないため、表記だけが異なるパスを同じキーにする (Linux ではパスをそのまま返す)
+
+    Args:
+        path (str): NormalizeCapturePath() で正規化したパス
+
+    Returns:
+        str: パスの同一性の判定に使うキー
+    """
+
+    return os.path.normcase(path)
 
 
 @asynccontextmanager
@@ -379,10 +395,12 @@ class CaptureScanTask:
             asyncio.Lock: そのパスを扱うすべての処理で共通のロック
         """
 
-        lock = self.path_locks.get(path)
+        # Windows で大文字と小文字だけが異なるパスも、同じファイルなので同じロックにする
+        key = CapturePathKey(path)
+        lock = self.path_locks.get(key)
         if lock is None:
             lock = asyncio.Lock()
-            self.path_locks[path] = lock
+            self.path_locks[key] = lock
         return lock
 
 
@@ -724,6 +742,7 @@ class CaptureScanTask:
         scan_started_at = datetime.now(JST)
 
         # 走査でまだ見つかっていない場所 (走査が終わった時点で残っているものが、消えたファイルの候補になる)
+        ## Windows で大文字と小文字だけが異なるパスも同じファイルとして照合するため、CapturePathKey() のキーで引く
         unseen: dict[str, CaptureFileSnapshot] = {}
         # 移動の照合に使う、ファイル名・サイズ・更新日時から登録済みのパスを引く辞書
         paths_by_signature: dict[tuple[str, int, datetime], list[str]] = {}
@@ -754,7 +773,7 @@ class CaptureScanTask:
                 break
             last_id = rows[-1]['id']
             for snapshot in cast(list[CaptureFileSnapshot], rows):
-                unseen[snapshot['file_path']] = snapshot
+                unseen[CapturePathKey(snapshot['file_path'])] = snapshot
                 signature = (snapshot['file_name'], snapshot['file_size'], snapshot['file_modified_at'])
                 paths_by_signature.setdefault(signature, []).append(snapshot['file_path'])
                 if snapshot['status'] != 'Missing':
@@ -784,8 +803,9 @@ class CaptureScanTask:
             # 同じ保存先の中で、ファイル名・サイズ・更新日時が同じで、まだ見つかっていない場所を候補にする
             candidate_ids: dict[str, int] = {}
             for candidate_path in paths_by_signature.get((file_name, size, modified_at), []):
-                if candidate_path in unseen:
-                    candidate_ids[candidate_path] = unseen[candidate_path]['id']
+                candidate = unseen.get(CapturePathKey(candidate_path))
+                if candidate is not None:
+                    candidate_ids[candidate_path] = candidate['id']
 
             # 同じ保存先に候補がなければ、保存先をまたぐ移動の候補を DB から探す
             if len(candidate_ids) == 0:
@@ -798,12 +818,12 @@ class CaptureScanTask:
                     candidate_ids[candidate_row['file_path']] = candidate_row['id']
 
             for old_path, old_id in candidate_ids.items():
-                if old_path == path:
+                if CapturePathKey(old_path) == CapturePathKey(path):
                     continue
 
                 # 古いパスと新しいパスの両方のロックを、パスの順に取る (取る順を揃えてデッドロックを避ける)
                 async with AsyncExitStack() as stack:
-                    for locked_path in sorted((old_path, path)):
+                    for locked_path in sorted((old_path, path), key=CapturePathKey):
                         await stack.enter_async_context(self.getPathLock(locked_path))
 
                     # 古いパスにまだファイルがあれば移動ではない (読めない場合も移動とは判定しない)
@@ -844,7 +864,7 @@ class CaptureScanTask:
                                 status = moved_status,
                                 missing_since = None,
                             )
-                            unseen.pop(old_path, None)
+                            unseen.pop(CapturePathKey(old_path), None)
                             is_moved = True
 
                     if is_moved is True:
@@ -875,12 +895,16 @@ class CaptureScanTask:
             for chunk_end in range(len(files), 0, -self.SCAN_CHUNK_SIZE):
                 chunk = files[max(0, chunk_end - self.SCAN_CHUNK_SIZE):chunk_end]
 
+                # 変更はないが、大文字と小文字だけが異なるパスで登録されている場所の ID と実際のパス (塊ごとにまとめて付け替える)
+                case_changed_files: list[tuple[int, str]] = []
+
                 async def Process(entry: tuple[str, int, datetime, datetime]) -> None:
                     nonlocal is_complete
                     path, size, created_at, modified_at = entry
+                    key = CapturePathKey(path)
                     try:
                         # 2回目以降の走査では、一覧の stat の情報だけで変更のないファイルを飛ばす
-                        known = unseen.get(path)
+                        known = unseen.get(key)
                         if known is not None:
                             is_unchanged = (
                                 known['file_size'] == size and
@@ -888,11 +912,20 @@ class CaptureScanTask:
                                 known['file_modified_at'] == modified_at and
                                 known['status'] != 'Missing'
                             )
+
+                            # Windows で大文字と小文字だけが異なるパスで登録されている場所は、DB のパスを実際の表記に付け替える
+                            ## 以前の版が小文字にそろえて登録した場所や、名前の大文字と小文字だけを変更したファイルが該当する
+                            ## 変更のないファイルは塊の処理を終えてからまとめて付け替え、変更のあるファイルは登録し直す前に付け替える
+                            is_case_changed = known['file_path'] != path
                             if is_unchanged is True:
+                                if is_case_changed is True:
+                                    case_changed_files.append((known['id'], path))
                                 return
+                            if is_case_changed is True:
+                                await CaptureFile.filter(id=known['id']).update(file_path=path, file_name=Path(path).name)
 
                         # 新しく見つかったパスは、まず別の場所からの移動かを照合する
-                        if path not in unseen:
+                        else:
                             is_moved = await MoveCaptureFile(path, size, created_at, modified_at)
                             if is_moved is True:
                                 return
@@ -907,7 +940,7 @@ class CaptureScanTask:
                         logging.warning(f'Cannot inspect capture: {path}', exc_info=ex)
 
                     finally:
-                        unseen.pop(path, None)
+                        unseen.pop(key, None)
                         self.batch_scan_status.processed_count += 1
                         self.batch_scan_status.total_count = max(
                             self.batch_scan_status.total_count,
@@ -919,6 +952,22 @@ class CaptureScanTask:
                 for offset in range(0, len(chunk), self.NETWORK_DRIVE_CONCURRENCY):
                     entries = chunk[offset:offset + self.NETWORK_DRIVE_CONCURRENCY]
                     await asyncio.gather(*(Process(entry) for entry in entries))
+
+                # 大文字と小文字だけが異なる場所を、1つのトランザクションでまとめて付け替える
+                ## 以前の版で登録した Windows の環境では、更新後の最初の走査で登録済みのすべての場所が該当するため、1件ずつコミットしない
+                if len(case_changed_files) > 0:
+                    try:
+                        async with InWriteTransaction():
+                            for file_id, path in case_changed_files:
+                                # 走査の途中で監視やアップロードが実際の表記のパスを登録していた場合は、付け替えずに残す
+                                try:
+                                    await CaptureFile.filter(id=file_id).update(file_path=path, file_name=Path(path).name)
+                                except IntegrityError as ex:
+                                    logging.warning(f'Cannot update capture path: {path}', exc_info=ex)
+                        self.invalidateSections()
+                    except OperationalError as ex:
+                        is_complete = False
+                        logging.warning(f'Cannot update capture paths in {folder}', exc_info=ex)
 
         return CaptureRootScanResult(
             unseen = unseen,
@@ -946,7 +995,8 @@ class CaptureScanTask:
             return False
 
         scan_started_at = result.started_at
-        for path, snapshot in result.unseen.items():
+        for snapshot in result.unseen.values():
+            path = snapshot['file_path']
             async with self.getPathLock(path):
 
                 # 走査のあとで同じパスに戻ってきていれば、消えていないので何もしない (読めない場合も確定しない)
@@ -1198,10 +1248,12 @@ class CaptureScanTask:
         capture = await Capture.get_or_none(id=capture_id)
         if capture is None:
             return True
-        files = await CaptureFile.filter(capture_id=capture_id).order_by('file_path')
+        files = await CaptureFile.filter(capture_id=capture_id)
         async with AsyncExitStack() as stack:
 
             # 削除の途中で一括スキャンが登録し直さないよう、すべての場所のロックを取る
+            ## 移動の照合と同じく、ロックのキーの順に取る (取る順を揃えてデッドロックを避ける)
+            files.sort(key=lambda file: CapturePathKey(file.file_path))
             for file in files:
                 await stack.enter_async_context(self.getPathLock(file.file_path))
 
