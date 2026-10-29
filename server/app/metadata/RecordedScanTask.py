@@ -402,6 +402,7 @@ class RecordedScanTask:
             ## 全ファイルを先に数えると最初の1件の処理が遅れるため、走査の前には数えない
             ## 新しく見つかったファイルの分は、処理した件数が総数を超えた時点で総数を増やして合わせる
             self.batch_scan_status.total_count = len(existing_db_recorded_videos)
+            self.batch_scan_status.has_registered_files = len(existing_db_recorded_videos) > 0
 
             # 各録画フォルダをスキャン
             logging.info('Scanning recorded folders...')

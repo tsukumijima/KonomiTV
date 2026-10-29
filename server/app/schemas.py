@@ -867,6 +867,8 @@ class MaintenanceTaskStatus(BaseModel):
     is_running: bool = False
     processed_count: int = 0
     total_count: int = 0
+    # 一括スキャンの開始時に、登録済みのファイルがあったかどうか (初回のスキャンと、追加・変更されたファイルを探すスキャンを区別する)
+    has_registered_files: bool = False
 
 # ***** バージョン情報 *****
 

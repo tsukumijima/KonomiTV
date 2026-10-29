@@ -673,6 +673,8 @@ class CaptureScanTask:
                 for root in roots:
                     registered_count = await CaptureFile.filter(file_path__startswith=os.path.join(root, '')).count()
                     self.batch_scan_status.total_count += registered_count
+                # 登録済みのキャプチャがあれば、画面では初回のスキャンではなく、追加・変更されたキャプチャを探していると表示する
+                self.batch_scan_status.has_registered_files = self.batch_scan_status.total_count > 0
 
                 # 保存先を1つずつ走査する
                 results: list[CaptureRootScanResult] = []
