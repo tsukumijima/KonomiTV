@@ -6,7 +6,8 @@ import io
 import os
 import re
 import struct
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,6 +27,7 @@ from pydantic import (
     model_validator,
 )
 from tortoise import connections, transactions
+from tortoise.backends.base.client import BaseDBAsyncClient
 from tortoise.exceptions import IntegrityError, OperationalError
 from watchfiles import Change, awatch
 
@@ -174,6 +176,23 @@ def NormalizeCapturePath(path: str | Path | anyio.Path) -> str:
     """
 
     return os.path.normcase(os.path.abspath(os.path.normpath(str(path))))
+
+
+@asynccontextmanager
+async def InWriteTransaction() -> AsyncGenerator[BaseDBAsyncClient]:
+    """
+    最初の SQL 文で書き込みのロックを取るトランザクションを開始する
+    番組情報の更新は別のプロセスから別の DB 接続で書き込むため、読み取りから始めたトランザクションが書き込みを始めると、
+    ロック待ちのタイムアウト (busy_timeout) を待たずに即座に SQLITE_BUSY のエラー (database is locked) になる
+    行を更新しない UPDATE 文を最初に実行して書き込みのロックを取り、ほかの接続の書き込みが完了するまで待ってから読み取りを始める
+
+    Yields:
+        BaseDBAsyncClient: トランザクションの DB 接続
+    """
+
+    async with transactions.in_transaction() as connection:
+        await connection.execute_query('UPDATE capture_files SET id = id WHERE 0')
+        yield connection
 
 
 def ReadCaptureImage(data: bytes, filename: str, modified_at: datetime) -> CaptureImageInfo:
@@ -463,7 +482,7 @@ class CaptureScanTask:
             raise OSError('Capture changed while being read')
 
         # ファイルの読み込みと画像の解析を終えてから、SQLite の接続のロックを取る
-        async with transactions.in_transaction():
+        async with InWriteTransaction():
             capture = None
             if info is not None:
                 capture = await Capture.get_or_none(file_hash=info.file_hash)
@@ -803,7 +822,7 @@ class CaptureScanTask:
 
                     # 新しいパスがまだ登録されていなければ、古い場所の行を新しいパスに付け替える
                     is_moved = False
-                    async with transactions.in_transaction():
+                    async with InWriteTransaction():
                         if not await CaptureFile.filter(file_path=path).exists():
                             if current_file.capture_id is not None:
                                 moved_status = 'Available'
@@ -930,7 +949,7 @@ class CaptureScanTask:
                 except OSError:
                     continue
 
-                async with transactions.in_transaction():
+                async with InWriteTransaction():
 
                     # 走査を始めたあとに行が変わっていたら (アップロードや付け替え)、確定しない
                     current_file = await CaptureFile.get_or_none(id=snapshot['id'], file_path=path)
@@ -1206,7 +1225,7 @@ class CaptureScanTask:
 
             # 削除の途中で場所が追加されたり、移動の照合で別のパスへ付け替えられたりしていたら、DB の行は残す
             ## 付け替えられた場所は古いパスの削除が FileNotFoundError で飛ばされ、移動先の画像が残っているため、ID とパスの組で照合する
-            async with transactions.in_transaction():
+            async with InWriteTransaction():
                 current_files: set[tuple[int, str]] = set()
                 for current_file in await CaptureFile.filter(capture_id=capture_id).values('id', 'file_path'):
                     current_files.add((current_file['id'], current_file['file_path']))
