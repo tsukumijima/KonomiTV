@@ -20,7 +20,7 @@ class Capture(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'captures'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # キャプチャの同一性は画像の内容の SHA-256 で決める (同じ内容の画像が複数の場所にあっても1枚として扱う)
     ## BinaryField は unique をサポートしないため、マイグレーションで一意索引を作成している
     file_hash = fields.BinaryField()
@@ -64,7 +64,7 @@ class CaptureFile(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'capture_files'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # このファイルの内容のキャプチャ (画像として読めなかったファイルでは NULL)
     capture: fields.ForeignKeyNullableRelation[Capture] = \
         fields.ForeignKeyField('models.Capture', related_name='files', null=True, on_delete=fields.CASCADE)
@@ -90,7 +90,7 @@ class CaptureProgram(TortoiseModel):
         table: str = 'capture_programs'
         unique_together = (('network_id', 'service_id', 'event_id', 'start_time'),)
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # キャプチャの EXIF に書き込まれた放送回の番組情報
     ## 番組キー (network_id・service_id・event_id・開始時刻) で、録画番組と問い合わせのときに結び付ける
     network_id = fields.IntField()
@@ -114,7 +114,7 @@ class CaptureFavorite(TortoiseModel):
         table: str = 'capture_favorites'
         unique_together = (('user', 'capture'),)
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # お気に入りに追加したユーザー (お気に入りはアカウントごとに持つ)
     user: fields.ForeignKeyRelation[User] = \
         fields.ForeignKeyField('models.User', related_name='capture_favorites', on_delete=fields.CASCADE)
@@ -132,7 +132,7 @@ class CaptureTag(TortoiseModel):
         table: str = 'capture_tags'
         unique_together = (('user', 'name'),)
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # タグの持ち主 (タグはアカウントごとに持ち、本人だけが編集・参照できる)
     user: fields.ForeignKeyRelation[User] = \
         fields.ForeignKeyField('models.User', related_name='capture_tags', on_delete=fields.CASCADE)
@@ -150,7 +150,7 @@ class CaptureTagItem(TortoiseModel):
         table: str = 'capture_tag_items'
         unique_together = (('tag', 'capture'),)
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     tag: fields.ForeignKeyRelation[CaptureTag] = \
         fields.ForeignKeyField('models.CaptureTag', related_name='items', on_delete=fields.CASCADE)
     tag_id: int

@@ -23,7 +23,7 @@ class Series(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'series'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     title = fields.TextField()
     description = fields.TextField()
     genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore

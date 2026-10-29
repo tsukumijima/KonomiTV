@@ -34,9 +34,9 @@ class Program(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'programs'
 
-    id = fields.CharField(255, pk=True)
+    id = fields.CharField(255, primary_key=True)
     channel: fields.ForeignKeyRelation[Channel] = \
-        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
+        fields.ForeignKeyField('models.Channel', related_name='programs', db_index=True, on_delete=fields.CASCADE)
     channel_id: str
     network_id = fields.IntField()
     service_id = fields.IntField()
@@ -44,8 +44,8 @@ class Program(TortoiseModel):
     title = fields.TextField()
     description = fields.TextField()
     detail = cast(TortoiseField[dict[str, str]], fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
-    start_time = fields.DatetimeField(index=True)
-    end_time = fields.DatetimeField(index=True)
+    start_time = fields.DatetimeField(db_index=True)
+    end_time = fields.DatetimeField(db_index=True)
     duration = fields.FloatField()
     is_free = fields.BooleanField()
     genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore

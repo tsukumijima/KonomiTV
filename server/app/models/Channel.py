@@ -39,7 +39,7 @@ class Channel(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'channels'
 
-    id = fields.CharField(255, pk=True)
+    id = fields.CharField(255, primary_key=True)
     display_channel_id = fields.CharField(255, unique=True)
     network_id = fields.IntField()
     service_id = fields.IntField()

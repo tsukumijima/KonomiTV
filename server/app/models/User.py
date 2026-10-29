@@ -28,7 +28,7 @@ class User(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'users'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.TextField()
     password = fields.TextField()
     is_admin = fields.BooleanField()

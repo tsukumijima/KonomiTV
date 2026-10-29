@@ -21,7 +21,7 @@ class RecordedVideo(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'recorded_videos'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
