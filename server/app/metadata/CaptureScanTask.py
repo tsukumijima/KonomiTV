@@ -304,6 +304,9 @@ class CaptureScanTask:
     # 一括スキャンで1度に一覧から取り出して処理するファイルの数
     SCAN_CHUNK_SIZE: ClassVar[int] = 2000
 
+    # 一括スキャンの開始時に、登録済みの場所を DB から1度に取得する行数
+    SNAPSHOT_PAGE_SIZE: ClassVar[int] = 2000
+
     # キャプチャとして扱う画像の拡張子
     CAPTURE_EXTENSIONS: ClassVar[tuple[str, ...]] = ('.jpg', '.jpeg', '.png')
 
@@ -720,37 +723,43 @@ class CaptureScanTask:
 
         scan_started_at = datetime.now(JST)
 
-        # この保存先に登録済みの場所を取得する (メモリを抑えるため、照合に使う列だけを取得する)
-        ## 保存先がドライブのルート (F:\ や /) のときも区切りが二重にならないよう、末尾の区切りを os.path.join() で1つにそろえる
-        rows = await CaptureFile.filter(file_path__startswith=os.path.join(root, '')).values(
-            'id',
-            'file_path',
-            'file_name',
-            'file_size',
-            'file_created_at',
-            'file_modified_at',
-            'capture_id',
-            'status',
-            'missing_since',
-        )
-        snapshots = cast(list[CaptureFileSnapshot], rows)
-
         # 走査でまだ見つかっていない場所 (走査が終わった時点で残っているものが、消えたファイルの候補になる)
         unseen: dict[str, CaptureFileSnapshot] = {}
-        for snapshot in snapshots:
-            unseen[str(snapshot['file_path'])] = snapshot
-
         # 移動の照合に使う、ファイル名・サイズ・更新日時から登録済みのパスを引く辞書
         paths_by_signature: dict[tuple[str, int, datetime], list[str]] = {}
-        for snapshot in snapshots:
-            signature = (snapshot['file_name'], snapshot['file_size'], snapshot['file_modified_at'])
-            paths_by_signature.setdefault(signature, []).append(snapshot['file_path'])
-
         # 消えたファイルの割合は、すでに Missing の場所を除いて数える
         original_count = 0
-        for snapshot in snapshots:
-            if snapshot['status'] != 'Missing':
-                original_count += 1
+
+        # この保存先に登録済みの場所を、ID の順に一定の件数ずつ取得する (メモリを抑えるため、照合に使う列だけを取得する)
+        ## Tortoise ORM は取得した行を辞書に変換する処理をイベントループ上で実行するため、百万件を一度に取得すると、
+        ## 変換が終わるまでのあいだ (十数秒以上) ほかのすべての API が応答しなくなる
+        ## 保存先がドライブのルート (F:\ や /) のときも区切りが二重にならないよう、末尾の区切りを os.path.join() で1つにそろえる
+        last_id = 0
+        while True:
+            rows = await CaptureFile.filter(
+                file_path__startswith = os.path.join(root, ''),
+                id__gt = last_id,
+            ).order_by('id').limit(self.SNAPSHOT_PAGE_SIZE).values(
+                'id',
+                'file_path',
+                'file_name',
+                'file_size',
+                'file_created_at',
+                'file_modified_at',
+                'capture_id',
+                'status',
+                'missing_since',
+            )
+            if len(rows) == 0:
+                break
+            last_id = rows[-1]['id']
+            for snapshot in cast(list[CaptureFileSnapshot], rows):
+                unseen[snapshot['file_path']] = snapshot
+                signature = (snapshot['file_name'], snapshot['file_size'], snapshot['file_modified_at'])
+                paths_by_signature.setdefault(signature, []).append(snapshot['file_path'])
+                if snapshot['status'] != 'Missing':
+                    original_count += 1
+
         found_count = 0
         is_complete = True
 
