@@ -92,7 +92,7 @@ class BlueskyAccount(TortoiseModel):
         except InvalidToken as ex:
             logging.error('[BlueskyAccount][decryptSessionString] Failed to decrypt session string:', exc_info=ex)
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Failed to decrypt Bluesky session. Please re-link your Bluesky account.',
             ) from ex
 

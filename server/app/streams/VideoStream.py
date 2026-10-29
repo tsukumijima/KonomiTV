@@ -133,7 +133,7 @@ class VideoStream:
                     f'Session does not exist.'
                 )
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail = 'Session does not exist',
                 )
 
@@ -211,7 +211,7 @@ class VideoStream:
                     f'quality: {quality}{requested_encoding_options.buildSuffix()}]'
                 )
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail = 'Session exists but program_id or quality mismatch',
                 )
 
@@ -224,7 +224,7 @@ class VideoStream:
                     f'is_24fps_mode_enabled: {encoding_options.is_24fps_mode_enabled}]'
                 )
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail = 'Session exists but encoding options mismatch',
                 )
 

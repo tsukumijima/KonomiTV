@@ -42,7 +42,7 @@ async def GetCurrentBlueskyAccount(
     if bluesky_account is None:
         logging.error(f'[BlueskyRouter][GetCurrentBlueskyAccount] BlueskyAccount associated with handle does not exist. [handle: {normalized_handle}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'BlueskyAccount associated with handle does not exist',
         )
 
@@ -68,7 +68,7 @@ async def BlueskyAuthAPI(
     except Exception as ex:
         logging.error('[BlueskyRouter][BlueskyAuthAPI] Failed to login to Bluesky:', exc_info=ex)
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Failed to login to Bluesky',
         ) from ex
 
@@ -100,7 +100,7 @@ async def BlueskyAuthAPI(
                 exc_info=ex,
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Failed to link Bluesky account',
             ) from ex
         existing_account.handle = bluesky_account.handle
@@ -165,7 +165,7 @@ async def BlueskyPostAPI(
     if any(reply_field is not None for reply_field in reply_fields):
         if not all(reply_field is not None for reply_field in reply_fields):
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'reply_root_uri / reply_root_cid / reply_parent_uri / reply_parent_cid must all be specified together.',
             )
         assert normalized_reply_root_uri is not None

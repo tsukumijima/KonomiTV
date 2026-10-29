@@ -116,7 +116,7 @@ async def GetCurrentTwitterAccount(
     if len(twitter_account) == 0:
         logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] TwitterAccount associated with screen_name does not exist. [screen_name: {screen_name}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
 
@@ -136,7 +136,7 @@ async def GetCurrentTwitterAccount(
     # 古い形式のレコードが削除された場合、エラーを返す
     if is_removed is True:
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Old cookie format or OAuth session is no longer available',
         )
 
@@ -144,7 +144,7 @@ async def GetCurrentTwitterAccount(
     if len(valid_accounts) == 0:
         logging.error(f'[TwitterRouter][GetCurrentTwitterAccount] No valid TwitterAccount found after cleanup. [screen_name: {screen_name}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'TwitterAccount associated with screen_name does not exist',
         )
 
@@ -179,13 +179,13 @@ async def TwitterCookieAuthAPI(
         error_message = f'Failed to parse cookies.txt: {ex!s}'
         logging.error(f'[TwitterRouter][TwitterCookieAuthAPI] {error_message}')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = error_message,
         ) from ex
     if len(twitter_cookies) == 0:
         logging.error('[TwitterRouter][TwitterCookieAuthAPI] No valid cookies found in the provided cookies.txt.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'No valid cookies found in the provided cookies.txt',
         )
 
@@ -370,7 +370,7 @@ async def TwitterTweetAPI(
     if len(images) > 4:
         logging.error(f'[TwitterRouter][TwitterTweetAPI] Can tweet up to 4 images. [image length: {len(images)}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Can tweet up to 4 images',
         )
 
@@ -551,7 +551,7 @@ async def TwitterVideoProxyAPI(
     if parsed_url.scheme != 'https':
         logging.error(f'[TwitterRouter][TwitterVideoProxyAPI] URL scheme must be https: {parsed_url.scheme}')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'URL scheme must be https.',
         )
 
@@ -559,7 +559,7 @@ async def TwitterVideoProxyAPI(
     if parsed_url.hostname not in ALLOWED_VIDEO_PROXY_DOMAINS:
         logging.error(f'[TwitterRouter][TwitterVideoProxyAPI] URL domain is not allowed: {parsed_url.hostname}')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = f'URL domain is not allowed. Only {", ".join(ALLOWED_VIDEO_PROXY_DOMAINS)} are allowed.',
         )
 

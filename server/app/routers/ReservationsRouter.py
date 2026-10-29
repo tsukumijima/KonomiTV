@@ -682,7 +682,7 @@ def GetCtrlCmdUtil() -> CtrlCmdUtil:
     else:
         logging.warning('[ReservationsRouter][GetCtrlCmdUtil] This API is only available when the backend is EDCB.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'This API is only available when the backend is EDCB',
         )
 
@@ -781,7 +781,7 @@ async def GetReserveData(
     # 指定された録画予約が見つからなかった場合はエラーを返す
     logging.error(f'[ReservesRouter][GetReserveData] Specified reservation_id was not found. [reservation_id: {reservation_id}]')
     raise HTTPException(
-        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail = 'Specified reservation_id was not found',
     )
 
@@ -1070,7 +1070,7 @@ async def AddReservationAPI(
         if channel is None:
             logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program.channel_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified channel was not found',
             )
 
@@ -1079,7 +1079,7 @@ async def AddReservationAPI(
         if channel.transport_stream_id is None:
             logging.error(f'[ReservationsRouter][AddReserveAPI] Specified channel does not have transport_stream_id. [channel_id: {channel.id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified channel does not have transport_stream_id',
             )
 
@@ -1094,7 +1094,7 @@ async def AddReservationAPI(
         ) is True:
             logging.error(f'[ReservationsRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'The same program_id is already reserved',
             )
 
@@ -1129,7 +1129,7 @@ async def AddReservationAPI(
         if program_payload is None:
             logging.error(f'[ReservesRouter][AddReserveAPI] Specified program was not found. [program_id: {reserve_add_request.program_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified program was not found',
             )
 
@@ -1138,7 +1138,7 @@ async def AddReservationAPI(
         if channel is None:
             logging.error(f'[ReservesRouter][AddReserveAPI] Specified channel was not found. [channel_id: {program_payload.channel_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified channel was not found',
             )
 
@@ -1147,7 +1147,7 @@ async def AddReservationAPI(
         if channel.transport_stream_id is None:
             logging.error(f'[ReservationsRouter][AddReserveAPI] Specified channel does not have transport_stream_id. [channel_id: {channel.id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified channel does not have transport_stream_id',
             )
 
@@ -1160,7 +1160,7 @@ async def AddReservationAPI(
                 f'[ReservationsRouter][AddReserveAPI] Program payload does not match channel. [program_id: {reserve_add_request.program_id} / payload_channel_id: {program_payload.channel_id} / channel_id: {channel.id} / payload_network_id: {program_payload.network_id} / channel_network_id: {channel.network_id} / payload_service_id: {program_payload.service_id} / channel_service_id: {channel.service_id}]',
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Program payload does not match channel',
             )
 
@@ -1170,7 +1170,7 @@ async def AddReservationAPI(
                 f'[ReservationsRouter][AddReserveAPI] Specified program duration is unknown. [program_id: {reserve_add_request.program_id} / duration: {program_payload.duration}]',
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified program duration is unknown',
             )
 
@@ -1188,7 +1188,7 @@ async def AddReservationAPI(
                 f'[ReservationsRouter][AddReserveAPI] Specified program has already ended. [program_id: {reserve_add_request.program_id} / event_id: {event_id} / start_time: {start_time.isoformat()} / duration_second: {duration_second}]',
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specified program has already ended',
             )
 
@@ -1203,7 +1203,7 @@ async def AddReservationAPI(
         ) is True:
             logging.error(f'[ReservationsRouter][AddReserveAPI] The same program_id is already reserved. [program_id: {reserve_add_request.program_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'The same program_id is already reserved',
             )
 
@@ -1221,7 +1221,7 @@ async def AddReservationAPI(
                 f'[ReservationsRouter][AddReserveAPI] The fallback event is already reserved. [program_id: {reserve_add_request.program_id} / requested_event_id: {requested_event_id} / resolved_event_id: {event_id}]',
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'The fallback event is already reserved',
             )
 
@@ -1269,7 +1269,7 @@ async def AddReservationAPI(
                     f'[ReservationsRouter][AddReserveAPI] Reservation already exists before retry. [program_id: {reserve_add_request.program_id} / event_id: {event_id}]',
                 )
                 raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail = 'The same program_id is already reserved',
                 )
 
@@ -1293,7 +1293,7 @@ async def AddReservationAPI(
                 f'[ReservationsRouter][AddReserveAPI] Reservation was added by another process concurrently. [program_id: {reserve_add_request.program_id} / event_id: {event_id}]',
             )
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'The same program_id is already reserved',
             )
 

@@ -93,7 +93,7 @@ class TwitterAccount(TortoiseModel):
         except InvalidToken as ex:
             logging.error('[TwitterAccount][decryptAccessTokenSecret] Failed to decrypt cookie:', exc_info=ex)
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Failed to decrypt Twitter cookies. Please re-link your Twitter account.',
             ) from ex
 

@@ -500,7 +500,7 @@ async def GetAutoAddData(
     logging.error('[ReservationConditionsRouter][GetAutoAddData] Specified reservation_condition_id was not found. '
                     f'[reservation_condition_id: {reservation_condition_id}]')
     raise HTTPException(
-        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail = 'Specified reservation_condition_id was not found',
     )
 

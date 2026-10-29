@@ -210,7 +210,7 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
         is_program_key_complete = all(value is not None for value in program_key)
         if is_program_key_complete is False or filters.start_time is None:
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Specify all four program key fields',
             )
         conditions.append('p.network_id = ? AND p.service_id = ? AND p.event_id = ? AND p.start_time = ?')
@@ -436,7 +436,7 @@ def DecodeCursor(cursor: str, signature: str, key_count: int) -> list[str | int 
         return parsed.keys
     except (ValueError, ValidationError) as ex:
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Invalid cursor',
         ) from ex
 
@@ -767,7 +767,7 @@ async def CaptureUploadAPI(
             modified_at = datetime.fromtimestamp(file_modified_at / 1000, JST)
         except (ValueError, OverflowError, OSError) as ex:
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Invalid file_modified_at',
             ) from ex
 
@@ -776,7 +776,7 @@ async def CaptureUploadAPI(
     if filename in ('', '.', '..') or '/' in filename or '\\' in filename or '\x00' in filename or ':' in filename:
         logging.error('[CapturesRouter][CaptureUploadAPI] Invalid filename was specified.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified filename is invalid',
         )
 
@@ -785,7 +785,7 @@ async def CaptureUploadAPI(
     if filename.lower().endswith(('.jpg', '.jpeg', '.png')) is False:
         logging.error('[CapturesRouter][CaptureUploadAPI] Filename with unsupported extension was specified.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Please upload JPEG or PNG image',
         )
 
@@ -797,7 +797,7 @@ async def CaptureUploadAPI(
     except (UnidentifiedImageError, SyntaxError, ValueError, Image.DecompressionBombError, OSError) as ex:
         logging.error('[CapturesRouter][CaptureUploadAPI] Invalid image file was uploaded.')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Please upload JPEG or PNG image',
         ) from ex
 
@@ -868,7 +868,7 @@ async def CaptureUploadAPI(
                     capture = await scanner.registerFile(path, data=data)
                     if capture is None:
                         raise HTTPException(
-                            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                             detail = 'Please upload JPEG or PNG image',
                         )
                     return (await SerializeCaptures(await GetCaptureRows([capture.id]), user))[0]
@@ -888,7 +888,7 @@ async def CaptureUploadAPI(
 
                     if isinstance(ex, PermissionError):
                         raise HTTPException(
-                            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                             detail = 'Permission denied to save the file',
                         ) from ex
 
@@ -898,12 +898,12 @@ async def CaptureUploadAPI(
                         detail = 'No space left on the device'
                     logging.error('Cannot save capture image.', exc_info=ex)
                     raise HTTPException(
-                        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail = detail,
                     ) from ex
 
     raise HTTPException(
-        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail = 'No available folder to save the file',
     )
 
@@ -1171,7 +1171,7 @@ async def CaptureTagCreateAPI(
         tag = await CaptureTag.create(user_id=user.id, name=body.name)
     except IntegrityError as ex:
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Capture tag name already exists',
         ) from ex
 
@@ -1202,7 +1202,7 @@ async def CaptureTagUpdateAPI(
         await tag.save()
     except IntegrityError as ex:
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Capture tag name already exists',
         ) from ex
 
