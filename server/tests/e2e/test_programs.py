@@ -1,5 +1,6 @@
 """番組情報の更新 (Program.update) の E2E テスト。"""
 
+import asyncio
 import json
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, tzinfo
@@ -9,7 +10,9 @@ import httpx2 as httpx
 import pytest
 import pytest_asyncio
 from syrupy.assertion import SnapshotAssertion
+from tortoise import transactions
 
+from app.config import Config
 from app.constants import JST
 from app.models.Channel import Channel
 from app.models.Program import Program
@@ -172,3 +175,51 @@ async def test_update_programs(backend: Literal['Mirakurun', 'EDCB'], monkeypatc
             changed_programs.append(program)
     assert {'deleted': deleted_program_ids, 'changed': changed_programs} == snapshot_json(name='six_hours_later')
 
+async def test_update_programs__in_another_process_while_main_process_writes(backend: Literal['Mirakurun', 'EDCB'], monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    サーバーの定期更新と同じく別プロセスで番組情報を更新し、その間にメインプロセスが DB への書き込みを続けても、
+    同一プロセスで更新した場合と同じ番組をすべて保存できる
+    """
+
+    # 同一プロセスで更新した結果を期待値とする
+    await UpdatePrograms(backend)
+    expected_programs = await DumpPrograms()
+    await Program.all().delete()
+
+    # Program.update() は設定されたバックエンドから番組情報を取得する
+    monkeypatch.setattr(Config().general, 'backend', backend)
+    programs_requested = FAKE_MIRAKURUN.programs_requested if backend == 'Mirakurun' else FAKE_EDCB.programs_requested
+    programs_requested.clear()
+    is_update_finished = asyncio.Event()
+
+    async def WriteFromMainProcess() -> None:
+        """
+        ニコニコ実況の勢いの更新や録画のスキャンのように、メインプロセスから DB への書き込みを続ける
+        """
+
+        # 書き込みのたびに、チャンネルの実況の勢いを前回と異なる値に更新する
+        ## SQLite は値が変わらない UPDATE ではデータベースを変更しないため、別プロセスのスナップショットが古くならず、書き込みの衝突を再現できない
+        jikkyo_force = 0
+
+        # 別プロセスが番組情報の取得を終えて DB の読み取りを始めるまで、書き込みのトランザクションを維持する
+        async with transactions.in_transaction():
+            jikkyo_force += 1
+            await Channel.filter(id='NID32736-SID1024').update(jikkyo_force=jikkyo_force)
+            while programs_requested.is_set() is False and is_update_finished.is_set() is False:
+                await asyncio.sleep(0.01)
+            await asyncio.sleep(0.5)
+
+        # その後も、番組情報の更新が完了するまで短い書き込みを繰り返す
+        while is_update_finished.is_set() is False:
+            jikkyo_force += 1
+            await Channel.filter(id='NID32736-SID1024').update(jikkyo_force=jikkyo_force)
+            await asyncio.sleep(0.05)
+
+    writer = asyncio.create_task(WriteFromMainProcess())
+    try:
+        await asyncio.wait_for(Program.update(multiprocess=True), timeout=30)
+    finally:
+        is_update_finished.set()
+        await writer
+        await Channel.filter(id='NID32736-SID1024').update(jikkyo_force=None)
+    assert await DumpPrograms() == expected_programs
