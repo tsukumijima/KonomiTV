@@ -2,6 +2,8 @@
 import asyncio
 import atexit
 import mimetypes
+import multiprocessing
+import sys
 from pathlib import Path
 
 import tortoise.contrib.fastapi
@@ -56,6 +58,15 @@ try:
 except AssertionError:
     # バリデーションは既にサーバー起動時に行われているためスキップする
     CONFIG = LoadConfig(bypass_validation=True)
+
+# Linux では ProcessPoolExecutor の子プロセスを forkserver 方式で起動する
+## Python 3.13 までの Linux の既定は fork で、スレッドが動いているサーバープロセスを丸ごと複製するため、
+## 別のスレッドがロックを保持した瞬間に複製されると、子プロセスがそのロックを待ち続けて停止することがある
+## forkserver は、スレッドを持たない専用のプロセスから子プロセスを複製する
+## 子プロセス側の処理は Windows (spawn) と同じく、サーバー設定の読み込みと DB への接続を子プロセス自身で行うように実装されている
+## Python 3.14 以降は Linux でも forkserver が既定になるため、この指定は不要になる
+if sys.platform == 'linux':
+    multiprocessing.set_start_method('forkserver')
 
 # FastAPI を初期化
 app = FastAPI(

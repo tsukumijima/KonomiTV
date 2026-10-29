@@ -1,9 +1,11 @@
 """番組情報の更新 (Program.update) の E2E テスト。"""
 
 import asyncio
+import concurrent.futures
+import functools
 import json
 from collections.abc import AsyncGenerator
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 import httpx2 as httpx
@@ -17,6 +19,7 @@ from app.constants import JST
 from app.models.Channel import Channel
 from app.models.Program import Program
 from tests.conftest import FAKE_EDCB, FAKE_MIRAKURUN, FIXTURES_DIR
+from tests.FrozenDatetime import CreateFrozenDatetime, InitializeProgramUpdateProcess
 
 
 # tests/fixtures/programs/ の番組情報を、実際の Mirakurun と EDCB から取得した時刻
@@ -35,27 +38,14 @@ EDCB_TRANSPORT_STREAM_IDS = {
 def FreezeNow(monkeypatch: pytest.MonkeyPatch, now: datetime) -> None:
     """
     番組情報の更新処理が現在時刻として参照する datetime.now() を、指定した時刻に固定する
-    別プロセスで番組情報を更新する場合も、fork で生成された子プロセスに固定した時刻が引き継がれる
+    別プロセスで番組情報を更新する場合は、子プロセスにも InitializeProgramUpdateProcess() で同じ時刻を適用する必要がある
 
     Args:
         monkeypatch (pytest.MonkeyPatch): pytest の monkeypatch
         now (datetime): 現在時刻として扱う時刻
     """
 
-    # app/models/Program.py の datetime を置き換える、now() のみ固定した時刻を返すクラス
-    ## 番組情報の更新処理は datetime で生成した日時をそのまま DB に保存するが、sqlite3 は datetime のサブクラスを保存できない
-    ## このため datetime は継承せず、日時の生成 (コンストラクタと fromtimestamp()) は通常の datetime に委譲する
-    class FrozenDatetime:
-        def __new__(cls, *args: Any, **kwargs: Any) -> datetime:
-            return datetime(*args, **kwargs)
-
-        fromtimestamp = datetime.fromtimestamp
-
-        @staticmethod
-        def now(tz: tzinfo | None = None) -> datetime:
-            return now.astimezone(tz)
-
-    monkeypatch.setattr('app.models.Program.datetime', FrozenDatetime)
+    monkeypatch.setattr('app.models.Program.datetime', CreateFrozenDatetime(now))
 
 
 async def UpdatePrograms(backend: Literal['Mirakurun', 'EDCB']) -> None:
@@ -188,6 +178,14 @@ async def test_update_programs__in_another_process_while_main_process_writes(bac
 
     # Program.update() は設定されたバックエンドから番組情報を取得する
     monkeypatch.setattr(Config().general, 'backend', backend)
+
+    # 別プロセスで番組情報を更新する子プロセスにも、固定した現在時刻とバックエンドを適用する
+    ## forkserver で起動した子プロセスは、メインプロセスで monkeypatch した値ではなく、config.test.yaml の設定と実際の時刻で動作する
+    monkeypatch.setattr(concurrent.futures, 'ProcessPoolExecutor', functools.partial(
+        concurrent.futures.ProcessPoolExecutor,
+        initializer = InitializeProgramUpdateProcess,
+        initargs = (CAPTURED_AT, backend),
+    ))
     programs_requested = FAKE_MIRAKURUN.programs_requested if backend == 'Mirakurun' else FAKE_EDCB.programs_requested
     programs_requested.clear()
     is_update_finished = asyncio.Event()
