@@ -12,7 +12,7 @@ class MockMirakurun:
     """
 
     # 返すチャンネル (Mirakurun の /api/services の形式)
-    ## テスト用の録画ファイル (tests/fixtures/recorded/) の放送局に合わせている
+    ## テスト用の録画ファイル (tests/fixtures/recorded/) と番組情報 (tests/fixtures/programs/) の放送局に合わせている
     SERVICES: list[dict[str, Any]] = [
         {
             'id': 3273601024,
@@ -22,6 +22,23 @@ class MockMirakurun:
             'type': 1,
             'remoteControlKeyId': 1,
             'channel': {'type': 'GR', 'channel': '27'},
+        },
+        {
+            'id': 3273601025,
+            'serviceId': 1025,
+            'networkId': 32736,
+            'name': 'NHK総合2・東京',
+            'type': 1,
+            'remoteControlKeyId': 1,
+            'channel': {'type': 'GR', 'channel': '27'},
+        },
+        {
+            'id': 400101,
+            'serviceId': 101,
+            'networkId': 4,
+            'name': 'NHK BS',
+            'type': 1,
+            'channel': {'type': 'BS', 'channel': 'BS15_0'},
         },
         {
             'id': 400260,
@@ -39,7 +56,7 @@ class MockMirakurun:
         空いているポートで HTTP サーバーを作成する (リクエストの受け付けは start() で始める)
         """
 
-        services = self.SERVICES
+        mock = self
 
         class Handler(BaseHTTPRequestHandler):
             """
@@ -47,11 +64,14 @@ class MockMirakurun:
             """
 
             def do_GET(self) -> None:
-                # パスごとに返す内容を決める (番組情報とチューナーは空にする)
+                # パスごとに返す内容を決める (チューナーは空にする)
                 body: Any
                 if self.path == '/api/services':
-                    body = services
-                elif self.path in ('/api/programs', '/api/tuners'):
+                    body = mock.SERVICES
+                elif self.path == '/api/programs':
+                    mock.programs_requested.set()
+                    body = mock.programs
+                elif self.path == '/api/tuners':
                     body = []
                 else:
                     self.send_error(404)
@@ -74,6 +94,14 @@ class MockMirakurun:
 
         # リクエストを受け付けるスレッド (start() で作成し、stop() で終了を待つ)
         self.thread: threading.Thread | None = None
+
+        # /api/programs に返す番組情報 (Mirakurun の /api/programs の形式)
+        ## サーバーの起動時は空にしておき、番組情報の更新処理のテスト側で tests/fixtures/programs/ の mirakurun-programs.json の内容を設定する
+        self.programs: list[dict[str, Any]] = []
+
+        # /api/programs へのリクエストを受け付けたときにセットするイベント
+        ## 別プロセスで実行される番組情報の更新処理が、番組情報の取得まで到達したことをテスト側で検知するために使う
+        self.programs_requested = threading.Event()
 
 
     @property

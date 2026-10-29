@@ -26,6 +26,7 @@ from app.constants import (
     THUMBNAILS_DIR,
     TWITTER_DEBUG_SCREENSHOTS_DIR,
 )
+from tests.MockEDCB import MockEDCB
 from tests.MockMirakurun import MockMirakurun
 
 
@@ -36,13 +37,14 @@ FIXTURES_DIR = Path(__file__).resolve().parent / 'fixtures'
 ## app/config.py の _CONFIG_YAML_PATH と同じ場所で、テストのたびに書き出す
 CONFIG_PATH = BASE_DIR.parent / f'config{TEST_SUFFIX}.yaml'
 
-# テストの実行中に使う一時フォルダと偽の Mirakurun
+# テストの実行中に使う一時フォルダと偽の Mirakurun・EDCB
 ## pytest_configure() で中身を用意して起動し、pytest_unconfigure() で片付ける
 ## 録画フォルダとキャプチャの保存先は、テストのたびに空のフォルダから始める
 TEMP_DIR = Path(tempfile.mkdtemp(prefix='KonomiTV-Test-'))
 RECORDED_FOLDER = TEMP_DIR / 'recorded'
 CAPTURE_FOLDER = TEMP_DIR / 'captures'
 FAKE_MIRAKURUN = MockMirakurun()
+FAKE_EDCB = MockEDCB()
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -81,7 +83,9 @@ def pytest_configure(config: pytest.Config) -> None:
     CAPTURE_FOLDER.mkdir()
 
     # 放送のバックエンドとして偽の Mirakurun を起動する
+    ## 偽の EDCB は、EDCB から番組情報を更新するテストでのみ使用する
     FAKE_MIRAKURUN.start()
+    FAKE_EDCB.start()
 
     # テスト用のサーバー設定を書き出して読み込む
     ## JSON は YAML としても読めるので、そのまま config.test.yaml に書き出す
@@ -89,6 +93,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config_dict = {
         'general': {
             'backend': 'Mirakurun',
+            'edcb_url': FAKE_EDCB.url,
             'mirakurun_url': FAKE_MIRAKURUN.url,
             'encoder': 'FFmpeg',
         },
@@ -105,13 +110,14 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_unconfigure(config: pytest.Config) -> None:
     """
-    テストの終了後に、偽の Mirakurun を止め、一時フォルダを片付ける
+    テストの終了後に、偽の Mirakurun と EDCB を止め、一時フォルダを片付ける
 
     Args:
         config (pytest.Config): pytest の設定
     """
 
     FAKE_MIRAKURUN.stop()
+    FAKE_EDCB.stop()
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
 
