@@ -323,6 +323,9 @@ class CaptureScanTask:
     # 一括スキャンの開始時に、登録済みの場所を DB から1度に取得する行数
     SNAPSHOT_PAGE_SIZE: ClassVar[int] = 2000
 
+    # 大文字と小文字だけが異なるパスを、1つのトランザクションで付け替える行数
+    PATH_UPDATE_BATCH_SIZE: ClassVar[int] = 100
+
     # キャプチャとして扱う画像の拡張子
     CAPTURE_EXTENSIONS: ClassVar[tuple[str, ...]] = ('.jpg', '.jpeg', '.png')
 
@@ -955,17 +958,19 @@ class CaptureScanTask:
                     entries = chunk[offset:offset + self.NETWORK_DRIVE_CONCURRENCY]
                     await asyncio.gather(*(Process(entry) for entry in entries))
 
-                # 大文字と小文字だけが異なる場所を、1つのトランザクションでまとめて付け替える
+                # 大文字と小文字だけが異なる場所を、一定の件数ずつ1つのトランザクションにまとめて付け替える
                 ## 以前の版で登録した Windows の環境では、更新後の最初の走査で登録済みのすべての場所が該当するため、1件ずつコミットしない
+                ## SQLite の接続は API のクエリと共有しているため、1つのトランザクションを大きくすると、その間 API のクエリが待たされる
                 if len(case_changed_files) > 0:
                     try:
-                        async with InWriteTransaction():
-                            for file_id, path in case_changed_files:
-                                # 走査の途中で監視やアップロードが実際の表記のパスを登録していた場合は、付け替えずに残す
-                                try:
-                                    await CaptureFile.filter(id=file_id).update(file_path=path, file_name=Path(path).name)
-                                except IntegrityError as ex:
-                                    logging.warning(f'Cannot update capture path: {path}', exc_info=ex)
+                        for offset in range(0, len(case_changed_files), self.PATH_UPDATE_BATCH_SIZE):
+                            async with InWriteTransaction():
+                                for file_id, path in case_changed_files[offset:offset + self.PATH_UPDATE_BATCH_SIZE]:
+                                    # 走査の途中で監視やアップロードが実際の表記のパスを登録していた場合は、付け替えずに残す
+                                    try:
+                                        await CaptureFile.filter(id=file_id).update(file_path=path, file_name=Path(path).name)
+                                    except IntegrityError as ex:
+                                        logging.warning(f'Cannot update capture path: {path}', exc_info=ex)
                         self.invalidateSections()
                     except OperationalError as ex:
                         is_complete = False
