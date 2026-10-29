@@ -11,6 +11,8 @@ export interface IMaintenanceTaskStatus {
     is_running: boolean;
     processed_count: number;
     total_count: number;
+    // 一括スキャンの開始時に、登録済みのファイルがあったかどうか (初回のスキャンと、追加・変更されたファイルを探すスキャンを区別する)
+    has_registered_files: boolean;
 }
 
 

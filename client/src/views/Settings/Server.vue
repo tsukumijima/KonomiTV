@@ -590,9 +590,9 @@ async function updateDatabase() {
 
 // 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャンの進捗
 // サーバーの起動時に自動で走る一括スキャンも、この画面を開いた時点で実行中なら進捗を出す
-const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
-const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
-const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0});
+const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
 let task_status_timer: number | null = null;
 // この画面を離れたか (離れたあとに返ってきた進捗で、次の取得を予約しないため)
 let is_unmounted = false;
@@ -664,7 +664,7 @@ async function runBatchScan() {
         '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
     );
     // 押した直後からボタンを無効にし、サーバーがタスクを始めたころに進捗の取得を始める
-    batch_scan_status.value = {is_running: true, processed_count: 0, total_count: 0};
+    batch_scan_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
     const result = Maintenance.runBatchScan();
     await Utils.sleep(0.5);
     if (task_status_timer === null) {
@@ -689,7 +689,7 @@ async function startBackgroundAnalysis() {
         'バックグラウンド解析タスクを開始しています...\n' +
         '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
     );
-    background_analysis_status.value = {is_running: true, processed_count: 0, total_count: 0};
+    background_analysis_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
     const result = Maintenance.startBackgroundAnalysis();
     await Utils.sleep(0.5);
     if (task_status_timer === null) {
@@ -714,7 +714,7 @@ async function runCaptureScan() {
         'キャプチャフォルダの一括スキャンを開始しています...\n' +
         '大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。'
     );
-    capture_scan_status.value = {is_running: true, processed_count: 0, total_count: 0};
+    capture_scan_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
     const result = Maintenance.runCaptureScan();
     await Utils.sleep(0.5);
     if (task_status_timer === null) {
