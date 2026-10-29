@@ -373,7 +373,7 @@ class CaptureScanTask:
         self.task: asyncio.Task[None] | None = None
 
         # 絞り込みなしの日付ごとの件数のキャッシュ (CaptureSectionsAPI が参照する)
-        ## 集計の途中で DB が変わった場合に古い集計を書き戻さないよう、invalidateSections() のたびに世代番号を進める
+        ## 集計の途中で DB が変わった場合に古い集計を書き戻さないよう、invalidateSections() と addCaptureToSections() のたびに世代番号を進める
         self.sections_generation = 0
         self.sections_cache: dict[tuple[str, int], schemas.CaptureSections] = {}
 
@@ -385,6 +385,45 @@ class CaptureScanTask:
 
         self.sections_generation += 1
         self.sections_cache.clear()
+
+
+    def addCaptureToSections(self, capture: Capture) -> None:
+        """
+        新しく登録したキャプチャの登録をコミットした直後に呼び、日付ごとの件数のキャッシュで、そのキャプチャの日付の件数を1つ増やす
+        百万枚規模では集計し直すのに数秒かかり、その間ほかの API のクエリも待たされるため、キャプチャが増えただけのときはキャッシュを捨てない
+
+        Args:
+            capture (Capture): 新しく登録したキャプチャ
+        """
+
+        # 集計の途中だった CaptureSectionsAPI の結果は、このキャプチャを含むかどうか分からないので、キャッシュに書き戻させない
+        self.sections_generation += 1
+
+        for (axis, day_start_hour), cached in list(self.sections_cache.items()):
+
+            # CaptureSectionsAPI の集計と同じく、日本時間の日時を日付の境目の時刻の分だけずらした日付で数える
+            ## 放送日時の分からないキャプチャは、放送日時の軸の件数には含めない
+            if axis == 'CapturedAt':
+                value = capture.captured_at
+            else:
+                value = capture.broadcast_at
+            if value is None:
+                continue
+            date = (value.astimezone(JST) - timedelta(hours=day_start_hour)).date().isoformat()
+
+            # その日の件数を1つ増やす (その日のキャプチャがまだなければ、新しい日付を新しい順の位置に追加する)
+            sections: list[schemas.CaptureSection] = []
+            is_counted = False
+            for section in cached.sections:
+                if section.date == date:
+                    sections.append(schemas.CaptureSection(date=date, count=section.count + 1))
+                    is_counted = True
+                else:
+                    sections.append(section)
+            if is_counted is False:
+                sections.append(schemas.CaptureSection(date=date, count=1))
+                sections.sort(key=lambda section: section.date, reverse=True)
+            self.sections_cache[(axis, day_start_hour)] = schemas.CaptureSections(sections=sections, total=cached.total + 1)
 
 
     def getPathLock(self, path: str) -> asyncio.Lock:
@@ -508,6 +547,8 @@ class CaptureScanTask:
         # ファイルの読み込みと画像の解析を終えてから、SQLite の接続のロックを取る
         async with InWriteTransaction():
             capture = None
+            # まだどこにもない内容のキャプチャを、新しく登録したかどうか
+            is_capture_created = False
             if info is not None:
                 capture = await Capture.get_or_none(file_hash=info.file_hash)
                 if capture is None:
@@ -553,7 +594,7 @@ class CaptureScanTask:
                         broadcast_at = program.start_time + timedelta(seconds=playback_position)
 
                     # 同じハッシュのキャプチャを同時に登録しようとしても1件になるよう、get_or_create で登録する
-                    capture, _ = await Capture.get_or_create(
+                    capture, is_capture_created = await Capture.get_or_create(
                         file_hash = info.file_hash,
                         defaults = {
                             'image_width': info.image_width,
@@ -599,7 +640,13 @@ class CaptureScanTask:
                 if has_other_files is False:
                     await Capture.filter(id=existing_file.capture_id).update(detached_since=datetime.now(JST))
 
-        self.invalidateSections()
+        # 新しいキャプチャが、このパスにあったほかのキャプチャを置き換えずに増えたときは、日付ごとの件数を1つ増やすだけにする
+        ## 同じ内容のキャプチャが別の場所にも置かれたときや、上書きで別のキャプチャが見えなくなったときは、件数が変わるかどうかが分からないので集計し直す
+        is_capture_replaced = existing_file is not None and existing_file.capture_id is not None
+        if capture is not None and is_capture_created is True and is_capture_replaced is False:
+            self.addCaptureToSections(capture)
+        else:
+            self.invalidateSections()
         return capture
 
 
@@ -971,7 +1018,6 @@ class CaptureScanTask:
                                         await CaptureFile.filter(id=file_id).update(file_path=path, file_name=Path(path).name)
                                     except IntegrityError as ex:
                                         logging.warning(f'Cannot update capture path: {path}', exc_info=ex)
-                        self.invalidateSections()
                     except OperationalError as ex:
                         is_complete = False
                         logging.warning(f'Cannot update capture paths in {folder}', exc_info=ex)
