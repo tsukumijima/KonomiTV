@@ -280,6 +280,8 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
     # 検索語は、録画番組の検索と同じく空白で区切った語の AND による部分一致で探す
     ## 範囲の指定がないか、3つの範囲をすべて指定した場合は、字幕・番組名・番組概要・チャンネル名・ファイル名のどれかに含まれていれば当てはまる
     ## 範囲を指定した場合は、指定した範囲のどれかに含まれていれば当てはまる
+    ## 番組名・番組概要・チャンネル名は放送回 (capture_programs) の数千行の中で、ファイル名は capture_files の中で1回だけ探し、
+    ## 当てはまった放送回とキャプチャの ID で絞り込む (キャプチャ1枚ごとに放送回やファイルを探し直すと、百万枚規模では数倍遅くなる)
     query_targets = set(filters.query_targets or [])
     is_all_targets = len(query_targets) == 0 or query_targets == {'CaptionText', 'ProgramTitle', 'ProgramDescription'}
     for keyword in (filters.query or '').split():
@@ -290,15 +292,16 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
             conditions.append("""
                 (
                     LOWER(c.caption_text) LIKE ? OR
-                    LOWER(p.title) LIKE ? OR
-                    LOWER(p.description) LIKE ? OR
-                    EXISTS (
-                        SELECT 1 FROM channels ch
-                        WHERE ch.network_id = p.network_id AND ch.service_id = p.service_id AND LOWER(ch.name) LIKE ?
+                    c.capture_program_id IN (
+                        SELECT p2.id FROM capture_programs p2
+                        WHERE LOWER(p2.title) LIKE ? OR LOWER(p2.description) LIKE ? OR EXISTS (
+                            SELECT 1 FROM channels ch
+                            WHERE ch.network_id = p2.network_id AND ch.service_id = p2.service_id AND LOWER(ch.name) LIKE ?
+                        )
                     ) OR
-                    EXISTS (
-                        SELECT 1 FROM capture_files f
-                        WHERE f.capture_id = c.id AND LOWER(f.file_name) LIKE ?
+                    c.id IN (
+                        SELECT f.capture_id FROM capture_files f
+                        WHERE LOWER(f.file_name) LIKE ?
                     )
                 )
             """.strip())
@@ -309,12 +312,17 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
         target_conditions: list[str] = []
         if 'CaptionText' in query_targets:
             target_conditions.append('LOWER(c.caption_text) LIKE ?')
+            params.append(pattern)
+        program_conditions: list[str] = []
         if 'ProgramTitle' in query_targets:
-            target_conditions.append('LOWER(p.title) LIKE ?')
+            program_conditions.append('LOWER(p2.title) LIKE ?')
+            params.append(pattern)
         if 'ProgramDescription' in query_targets:
-            target_conditions.append('LOWER(p.description) LIKE ?')
+            program_conditions.append('LOWER(p2.description) LIKE ?')
+            params.append(pattern)
+        if len(program_conditions) > 0:
+            target_conditions.append(f'c.capture_program_id IN (SELECT p2.id FROM capture_programs p2 WHERE {" OR ".join(program_conditions)})')
         conditions.append(f'({" OR ".join(target_conditions)})')
-        params.extend([pattern] * len(target_conditions))
 
     # 利用できる場所があるかの EXISTS は最後に置き、ほかの条件に当てはまったキャプチャだけで評価させる
     conditions.append(CAPTURE_AVAILABLE_CONDITION)
