@@ -86,6 +86,12 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 # テスト完了後に一時ディレクトリを即座に削除する
 tmp_path_retention_policy = "none"
+# FastAPI の on_event() は非推奨だが、lifespan への移行は起動・終了処理の書き方が大きく変わるため当面そのまま使う
+## 互換性のために残されている API なので、テストの実行結果には警告を表示しない (Pyright では引き続き警告される)
+## 警告のメッセージは改行と空白から始まるため、先頭の空白を \s* で読み飛ばして照合する
+filterwarnings = [
+    "ignore:\\s*on_event is deprecated:DeprecationWarning",
+]
 
 # テストの実行時に設定する環境変数
 ## KONOMITV_TEST が 1 のとき、書き込みが発生するファイルとフォルダの名前に .test が付き、実際に使っている DB・設定・サムネイル・ログと分かれる
