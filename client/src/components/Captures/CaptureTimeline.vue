@@ -9,8 +9,11 @@
                     <Icon :icon="isDaySelected(section) ? 'fluent:checkmark-circle-24-filled' : 'fluent:circle-24-regular'"
                         width="22px" height="22px" />
                 </div>
-                <span class="capture-timeline__header-date">{{ formatDate(section.date) }}</span>
-                <span class="capture-timeline__header-count">{{ section.count.toLocaleString() }}枚</span>
+                <!-- 日付と枚数は文字の大きさが違うので、中央ではなく文字のベースラインでそろえる -->
+                <span class="capture-timeline__header-label">
+                    <span class="capture-timeline__header-date">{{ formatDate(section.date) }}</span>
+                    <span class="capture-timeline__header-count">{{ section.count.toLocaleString() }}枚</span>
+                </span>
             </div>
             <template v-for="tile in visibleTiles(section)" :key="tile.key">
                 <div class="capture-timeline__tile" :style="tile.style">
@@ -753,6 +756,10 @@ defineExpose({ reload, getNeighbor, getKeyboardTarget, revealCapture, getDayCapt
             opacity: 1;
         }
 
+        &-label {
+            display: flex;
+            align-items: baseline;
+        }
         &-date {
             font-size: 15.5px;
             font-weight: 700;
