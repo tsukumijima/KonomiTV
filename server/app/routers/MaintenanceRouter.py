@@ -16,6 +16,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
+from tortoise import connections
 
 from app import logging, schemas
 from app.config import Config
@@ -43,12 +44,15 @@ router = APIRouter(
     prefix = '/api/maintenance',
 )
 
-# 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャンの asyncio.Task インスタンス
+# 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャン・データベースの最適化の asyncio.Task インスタンス
 batch_scan_task: asyncio.Task[None] | None = None
 background_analysis_task: asyncio.Task[None] | None = None
 capture_scan_task: asyncio.Task[None] | None = None
+database_vacuum_task: asyncio.Task[None] | None = None
 # バックグラウンド解析タスクの進捗 (BackgroundAnalysisStatusAPI が参照する)
 background_analysis_status = schemas.MaintenanceTaskStatus()
+# データベースの最適化の進捗 (DatabaseVacuumStatusAPI が参照する)
+database_vacuum_status = schemas.MaintenanceTaskStatus()
 
 
 async def GetCurrentAdminUserOrLocal(
@@ -437,6 +441,77 @@ async def CaptureScanStatusAPI():
     """
 
     return CaptureScanTask().batch_scan_status
+
+
+@router.post(
+    '/database-vacuum/run',
+    summary = 'データベース最適化 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def DatabaseVacuumAPI(
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
+):
+    """
+    データベースを VACUUM で再構築し、テーブルごとに連続したページへ並べ直す。<br>
+    大量のキャプチャや録画を登録した後に、検索や一覧の表示が遅くなった場合に利用する。<br>
+    実行中はほかの API リクエストがデータベースの処理を待つため、完了するまでサーバーが応答しなくなる。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    global database_vacuum_task
+
+    async def DatabaseVacuum():
+        global database_vacuum_task
+        logging.info('Database vacuum has started.')
+        timestamp = time.time()
+        database_vacuum_status.is_running = True
+
+        # サーバー全体で共有している DB 接続で VACUUM を実行する
+        ## 同じ接続を使うことで、実行中のほかの処理は失敗せずに VACUUM の完了を待つ
+        ## 別のプロセスで動く番組情報の更新は、実行中に書き込もうとすると SQLITE_BUSY で失敗し、次回の更新で書き込まれる
+        try:
+            connection = connections.get('default')
+            page_size = (await connection.execute_query_dict('PRAGMA page_size'))[0]['page_size']
+            before_page_count = (await connection.execute_query_dict('PRAGMA page_count'))[0]['page_count']
+            await connection.execute_script('VACUUM')
+            after_page_count = (await connection.execute_query_dict('PRAGMA page_count'))[0]['page_count']
+        finally:
+            database_vacuum_status.is_running = False
+            database_vacuum_task = None  # 再度新しいタスクを作成できるように None にする
+
+        # VACUUM が完了した
+        logging.info(
+            f'Database vacuum has finished. ({round(time.time() - timestamp, 1)} sec, '
+            f'{before_page_count * page_size / 1024 / 1024:.1f} MiB -> {after_page_count * page_size / 1024 / 1024:.1f} MiB)'
+        )
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if database_vacuum_task is None:
+        database_vacuum_task = asyncio.create_task(DatabaseVacuum())
+        # タスクの実行が完了するまで待機
+        await database_vacuum_task
+    else:
+        logging.warning('[MaintenanceRouter][DatabaseVacuumAPI] Database vacuum is already running.')
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Database vacuum is already running',
+        )
+
+
+@router.get(
+    '/database-vacuum/status',
+    summary = 'データベース最適化進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def DatabaseVacuumStatusAPI():
+    """
+    データベースの最適化が実行中かどうかを取得する。<br>
+    最適化の進捗は件数で表せないため、processed_count と total_count は常に 0 になる。<br>
+    実行中もデータベースを参照せずに応答する。
+    """
+
+    return database_vacuum_status
 
 
 @router.post(
