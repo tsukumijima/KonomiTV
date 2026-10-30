@@ -35,7 +35,7 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
 import CaptureScrubber, { IScrubberMark } from '@/components/Captures/CaptureScrubber.vue';
 import { CaptureSelection } from '@/components/Captures/CaptureSelection';
@@ -72,6 +72,10 @@ const emit = defineEmits<{
 // 見出しの高さ・タイルの間隔・タイルの最小の幅 (px)
 const HEADER_HEIGHT = 48;
 const SECTION_GAP = 14;
+// 画面の上端から、固定のヘッダーに隠れずに見え始める位置までの高さ (px)
+const REVEAL_TOP_MARGIN = 72;
+// 画面の下端から、複数選択中の下部のバーに隠れずに見える位置までの高さ (px)
+const REVEAL_BOTTOM_MARGIN = 96;
 // ブラウザが扱える要素の高さには上限 (Chrome では約 3,355 万 px) があり、百万枚規模ではそれを超える
 // そのため要素の高さはこの値までにとどめ、要素の上端に当たるタイムラインの位置 (baseOffset) をずらしながら、その範囲だけを描画する
 const MAX_DOM_HEIGHT = 8_000_000;
@@ -430,7 +434,7 @@ const scrollToContentY = (y: number) => {
     // 移る先が要素の範囲の真ん中に来るよう、先に要素の上端に当たる位置をずらしてから、ページをスクロールする
     baseOffset.value = centerBaseOffset(y);
     // 固定ヘッダーの下に日の見出しが来るよう、少しだけ手前に合わせる
-    window.scrollTo({ top: Math.max(0, rootTop + y - baseOffset.value - 72) });
+    window.scrollTo({ top: Math.max(0, rootTop + y - baseOffset.value - REVEAL_TOP_MARGIN) });
     // ずらしたあとのページのスクロール位置が前と同じでもスクロールのイベントは届かないので、描画する範囲を取り直す
     onScroll();
 };
@@ -469,6 +473,39 @@ const formatDate = (date: string) => {
 };
 
 /**
+ * 日の読み込みを始め、読み終わったその日のキャプチャを返す
+ * 読み込みに時間がかかっても終わるまで待ち、読み込み中を0件と取り違えて端に着いたと判定するのを防ぐ
+ * @param date 日付 (YYYY-MM-DD)
+ * @returns その日のキャプチャ (読み込めなかったときは undefined)
+ */
+const waitForDay = async (date: string) => {
+    // 順番待ちになった日は、画面に見えていないと読み込まずに外されるので、空きができ次第この日の読み込みを始めるよう呼び直す
+    let result = await loadDay(date);
+    while (result === 'Queued') {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        result = await loadDay(date);
+    }
+    // 読み込めなかった日は、端に着いたのではなく分からないだけなので、次に送るときに読み直せるよう undefined を返す
+    if (result === 'Failed') {
+        return undefined;
+    }
+    return loadedDays.value.get(date) ?? [];
+};
+
+/**
+ * キャプチャが並んでいる日を、タイムラインの日付の軸の日時から求める
+ * @param capture キャプチャ
+ * @returns 日付 (YYYY-MM-DD 、日時がないときは null)
+ */
+const dateOf = (capture: ICapture) => {
+    const time = props.axis === 'CapturedAt' ? capture.captured_at : capture.broadcast_at;
+    if (time === null) {
+        return null;
+    }
+    return dayjs(time).subtract(props.dayStartHour, 'hour').format('YYYY-MM-DD');
+};
+
+/**
  * 拡大表示の前後の移動に使う、隣のキャプチャを返す
  * 日の境目では隣の日を読み込んでから返すので、拡大表示のまま日をまたいで送れる
  * 削除やお気に入りから外したことで一覧から外れたキャプチャからも、並びの上で隣にあるキャプチャへ送れる
@@ -477,22 +514,6 @@ const formatDate = (date: string) => {
  * @returns 隣のキャプチャ (端なら null、隣の日を読み込めず分からないときは undefined)
  */
 const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture | null | undefined> => {
-
-    // 日の読み込みを始め、読み終わったその日のキャプチャを返す
-    // 読み込みに時間がかかっても終わるまで待ち、読み込み中を0件と取り違えて端に着いたと判定するのを防ぐ
-    const waitForDay = async (date: string) => {
-        // 順番待ちになった日は、画面に見えていないと読み込まずに外されるので、空きができ次第この日の読み込みを始めるよう呼び直す
-        let result = await loadDay(date);
-        while (result === 'Queued') {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            result = await loadDay(date);
-        }
-        // 読み込めなかった日は、端に着いたのではなく分からないだけなので、次に送るときに読み直せるよう undefined を返す
-        if (result === 'Failed') {
-            return undefined;
-        }
-        return loadedDays.value.get(date) ?? [];
-    };
 
     // 隣の日の、送る向きの端のキャプチャを返す
     const getEdgeOfDay = async (section: ITimelineSection | undefined) => {
@@ -514,10 +535,10 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
     // 今のキャプチャがある日を、タイムラインの日付の軸の日時から求める
     const timeOf = (item: ICapture) => props.axis === 'CapturedAt' ? item.captured_at : item.broadcast_at;
     const time = timeOf(capture);
-    if (time === null) {
+    const date = dateOf(capture);
+    if (time === null || date === null) {
         return null;
     }
-    const date = dayjs(time).subtract(props.dayStartHour, 'hour').format('YYYY-MM-DD');
 
     // その日ごと一覧から外れたときは、送る向きにある一番近い日の端から返す (日は新しい順に並ぶ)
     const index = sections.value.findIndex(section => section.date === date);
@@ -559,6 +580,44 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
 };
 
 /**
+ * キャプチャのタイルが画面に見えるところまでスクロールする (拡大表示を閉じたとき)
+ * すでに見えているときはスクロールしない
+ * @param capture キャプチャ
+ */
+const revealCapture = async (capture: ICapture) => {
+    if (rootRef.value === null) {
+        return;
+    }
+
+    // タイルのタイムラインの先頭からの位置を求める
+    const date = dateOf(capture);
+    const section = sections.value.find(item => item.date === date);
+    const position = date === null ? -1 : (loadedDays.value.get(date)?.findIndex(item => item.id === capture.id) ?? -1);
+    if (section === undefined || position === -1) {
+        return;
+    }
+    const { columns, rowHeight, tileHeight } = grid.value;
+    const tileTop = section.top + HEADER_HEIGHT + Math.floor(position / columns) * rowHeight;
+
+    // 画面の上端 (固定のヘッダーの下) と下端に収まっていれば、そのままにする
+    const rootTop = rootRef.value.getBoundingClientRect().top + window.scrollY;
+    const pageTop = rootTop + tileTop - baseOffset.value;
+    const visibleTop = window.scrollY + REVEAL_TOP_MARGIN;
+    const visibleBottom = window.scrollY + window.innerHeight - REVEAL_BOTTOM_MARGIN;
+    if (pageTop >= visibleTop && pageTop + tileHeight <= visibleBottom) {
+        return;
+    }
+
+    // 上にはみ出していれば日の見出しごと上端に、下にはみ出していれば下端に合わせる
+    if (pageTop < visibleTop) {
+        scrollToContentY(tileTop - HEADER_HEIGHT);
+    } else {
+        scrollToContentY(tileTop + tileHeight - (window.innerHeight - REVEAL_TOP_MARGIN - REVEAL_BOTTOM_MARGIN));
+    }
+    await nextTick();
+};
+
+/**
  * 読み込み済みのキャプチャを差し替える (お気に入りやタグを変えたとき)
  * @param updated 更新後のキャプチャ
  */
@@ -577,7 +636,7 @@ const replaceCapture = (updated: ICapture) => {
 
 const getProgram = (capture_program_id: number | null) => capture_program_id === null ? null : programs.get(capture_program_id) ?? null;
 
-defineExpose({ reload, getNeighbor, replaceCapture, getProgram });
+defineExpose({ reload, getNeighbor, revealCapture, replaceCapture, getProgram });
 
 </script>
 <style lang="scss" scoped>

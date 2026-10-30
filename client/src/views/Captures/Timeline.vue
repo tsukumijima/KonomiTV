@@ -43,7 +43,7 @@
         </template>
 
         <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="onDeleted" />
-        <CaptureLightbox :capture="openedCapture" :program-hint="openedProgram" :navigate="navigate"
+        <CaptureLightbox :capture="openedCapture" :program-hint="openedProgram" :navigate="navigate" :reveal="reveal"
             @update:capture="openedCapture = $event" @updated="onUpdated([$event])" @deleted="onDeleted" />
     </CapturePage>
 </template>
@@ -254,6 +254,7 @@ const openCapture = (capture: ICapture) => {
     openedCapture.value = capture;
 };
 const navigate = async (capture: ICapture, delta: 1 | -1) => timelineRef.value?.getNeighbor(capture, delta) ?? null;
+const reveal = async (capture: ICapture) => timelineRef.value?.revealCapture(capture);
 
 // お気に入り・タグの変更は、表示中の一覧に反映する
 // お気に入りやタグで絞り込んでいる一覧から外れたキャプチャがあれば、一覧を取り直す

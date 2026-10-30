@@ -145,6 +145,7 @@ import { useRouter } from 'vue-router';
 
 import CaptureInfo from '@/components/Captures/CaptureInfo.vue';
 import CaptureTagDialog from '@/components/Captures/CaptureTagDialog.vue';
+import { findTileImage } from '@/components/Captures/CaptureTransition';
 import Message from '@/message';
 import Captures, { ICapture, ICaptureDetail, ICaptureProgram, ICaptureTag } from '@/services/Captures';
 import Videos from '@/services/Videos';
@@ -159,6 +160,8 @@ const props = defineProps<{
     programHint?: ICaptureProgram | null;
     // 前後のキャプチャを返す関数 (一覧によって前後のたどり方が違うので、一覧側から渡す)
     navigate: (capture: ICapture, delta: 1 | -1) => Promise<ICapture | null | undefined>;
+    // 閉じる前に、一覧の中でそのキャプチャのタイルが見える位置までスクロールさせる関数 (一覧によってスクロールの仕方が違うので、一覧側から渡す)
+    reveal?: (capture: ICapture) => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -320,8 +323,37 @@ const trackStyle = computed(() => ({
 }));
 const backdropOpacity = computed(() => Math.max(0, 1 - Math.abs(dismissY.value) / 500));
 
-const close = () => {
-    emit('update:capture', null);
+// 閉じるときは、開くときの逆に、1枚表示の画像が一覧のタイルの位置まで縮んでいくように見せる
+// 一覧のタイルを先に画面に見える位置までスクロールさせてから、View Transitions API で2つの画像の位置と大きさをつなぐ
+let isClosing = false;
+const close = async () => {
+    const current = props.capture;
+    if (current === null || isClosing) {
+        return;
+    }
+    // 対応していないブラウザと、動きを減らす設定のときは、そのまま閉じる
+    if (document.startViewTransition === undefined || window.matchMedia('(prefers-reduced-motion: reduce)').matches === true) {
+        emit('update:capture', null);
+        return;
+    }
+    isClosing = true;
+    await props.reveal?.(current);
+    let tileImage: HTMLImageElement | null = null;
+    const transition = document.startViewTransition(async () => {
+        // 閉じた後の画面では、フェードアウト中の1枚表示を隠し、名前を戻る先のタイルの画像へ渡す
+        document.documentElement.classList.add('capture-lightbox-closing');
+        emit('update:capture', null);
+        await nextTick();
+        tileImage = findTileImage(current.id);
+        tileImage?.style.setProperty('view-transition-name', 'capture-lightbox-image');
+    });
+    try {
+        await transition.finished;
+    } finally {
+        (tileImage as HTMLImageElement | null)?.style.removeProperty('view-transition-name');
+        document.documentElement.classList.remove('capture-lightbox-closing');
+        isClosing = false;
+    }
 };
 
 // 前後へ送る (矢印キー・矢印ボタン・スワイプで共通)
@@ -512,7 +544,7 @@ const onStageTouchEnd = (event: TouchEvent) => {
     } else if (track.verticalTarget === 'Dismiss') {
         // 十分に下へ引いたか、素早く払ったら閉じる
         if (dismissY.value > 120 || track.velocityY > 0.5) {
-            close();
+            void close();
         }
         dismissY.value = 0;
     }
@@ -595,7 +627,7 @@ const onStageClick = () => {
     if (Date.now() - lastTouchTime < 800) {
         return;
     }
-    close();
+    void close();
 };
 
 
@@ -778,11 +810,12 @@ onBeforeUnmount(() => window.removeEventListener('popstate', onPopState));
 // 番組のキャプチャの一覧から同じ番組を開いたときのように、移る先が今の画面と同じなら、普通に閉じて積んだ履歴を戻す
 const leaveTo = (path: string) => {
     if (router.resolve(path).fullPath === router.currentRoute.value.fullPath) {
-        close();
+        void close();
         return;
     }
+    // 別の画面へ移るときは、一覧のタイルへ戻るアニメーションをせずにすぐ閉じる
     hasHistoryEntry = false;
-    close();
+    emit('update:capture', null);
     void router.replace(path);
 };
 
@@ -804,7 +837,7 @@ const onKeyDown = (event: KeyboardEvent) => {
     switch (event.key) {
         case 'ArrowLeft': void move(-1); break;
         case 'ArrowRight': void move(1); break;
-        case 'Escape': close(); break;
+        case 'Escape': void close(); break;
         case 'f': case 'F': void toggleFavorite(); break;
         case 't': case 'T': openTagDialog(); break;
         case 'i': case 'I': setInfoOpen(!isInfoOpen.value); break;
@@ -1082,6 +1115,10 @@ onBeforeUnmount(() => {
 // View Transitions API の疑似要素は文書の最上位にできるので、スコープなしのスタイルで指定する
 .capture-lightbox__image--current {
     view-transition-name: capture-lightbox-image;
+}
+// 一覧のタイルへ戻りながら閉じるときは、閉じた後の画面にフェードアウト中の1枚表示が写らないよう隠す (close() を参照)
+html.capture-lightbox-closing .capture-lightbox {
+    display: none;
 }
 ::view-transition-group(capture-lightbox-image) {
     animation-duration: 0.3s;
