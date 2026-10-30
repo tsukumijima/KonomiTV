@@ -468,6 +468,9 @@ KonomiTV が扱う失敗には、性質がまったく異なる2種類がある�
 ### Vue / TypeScript コード
 
 - **コードの編集後には、必ず `yarn lint; yarn typecheck` コマンドで、ESLint によるコードリンターと TypeScript による型チェッカーを実行すること**
+- **入力欄の Enter キーで送信・作成・検索などを行う処理では、IME で入力中の文字を確定する Enter キーを絶対に送信として扱わないこと。必ず `Utils.isIMEComposing(event)` (`event.isComposing` と、macOS の Safari 向けの `keyCode === 229` を見る) が true のときは何もしないようにする**
+  - 日本語を入力する利用者は、変換を確定するたびに Enter キーを押す。判定がないと、macOS では変換を確定した瞬間にタグの作成や検索が実行されてしまう
+  - 確定の Enter キーを離したときにも発火する `@keyup.enter` は使わず、`@keydown.enter` で受け取って判定する。`@keydown.enter.prevent` のように修飾子で既定の動作を止めると変換の確定まで妨げることがあるため、送信するときだけ処理の中で止める
 - **`window.confirm()` / `window.alert()` などのブラウザ標準ダイアログは絶対に使用しないこと。Vuetify で既存 UI と一貫したダイアログを実装する。標準ダイアログで済ませるのは妥協・甘え・ボケナス実装であり、KonomiTV の UI として許容しない**
 - **ダイアログ (v-dialog) は、新しく見た目を考えずに、同じ種類の既存のダイアログを開いて余白・色・ボタンの並びをそのまま合わせること。とくに余白 (マージン・パディング) の一貫性を最優先する**
   - 確認や入力のダイアログの手本: `components/Videos/RecordedProgram.vue` の削除確認、`views/Settings/Twitter.vue` のアカウント連携。見出しは `<v-card-title class="d-flex justify-center pt-6 font-weight-bold">` 、本文は `<v-card-text class="pt-2 pb-0">` 、ボタンの列は `<v-card-actions class="pt-4 px-6 pb-6">` に `<v-spacer>` を配置して右寄せにする
