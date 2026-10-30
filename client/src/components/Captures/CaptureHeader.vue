@@ -131,9 +131,16 @@
                         </template>
                         <v-list-item-title class="ml-3">画像をアップロード</v-list-item-title>
                     </v-list-item>
+                    <v-list-item @click="isShortcutDialogOpen = true">
+                        <template #prepend>
+                            <Icon icon="fluent:keyboard-20-regular" width="20px" />
+                        </template>
+                        <v-list-item-title class="ml-3">キーボードショートカット</v-list-item-title>
+                    </v-list-item>
                 </v-list>
             </v-menu>
             <input ref="fileInputRef" type="file" accept="image/jpeg,image/png" multiple hidden @change="onFilesSelected">
+            <CaptureShortcutDialog v-model:show="isShortcutDialogOpen" />
         </div>
 
         <!-- 検索結果では、別の画面へ移るタブの代わりに、検索語を探す範囲の絞り込みを出す -->
@@ -182,6 +189,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import CaptureShortcutDialog from '@/components/Captures/CaptureShortcutDialog.vue';
 import Message from '@/message';
 import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureChannel, ICaptureFilter, ICaptureTag } from '@/services/Captures';
 import Maintenance, { IMaintenanceTaskStatus } from '@/services/Maintenance';
@@ -403,6 +411,22 @@ const clearFilters = () => {
     emit('update:filter', next);
 };
 
+// キーボードショートカットの一覧 (視聴画面と同じく、／(？) キーでも開く)
+const isShortcutDialogOpen = ref(false);
+const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== '/' && event.key !== '?') {
+        return;
+    }
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+    }
+    event.preventDefault();
+    isShortcutDialogOpen.value = true;
+};
+
 // 手元の画像のアップロード (メタデータのない画像でも、ファイルの更新日時を撮影日時として扱う)
 // メニューから選んだファイルと、画面にドロップしたファイルの両方をここで送る
 const uploadFiles = async (files: File[]) => {
@@ -504,6 +528,7 @@ onMounted(() => {
     window.addEventListener('dragover', onDragOver);
     window.addEventListener('dragleave', onDragLeave);
     window.addEventListener('drop', onDrop);
+    window.addEventListener('keydown', onKeyDown);
 });
 onBeforeUnmount(() => {
     if (scanTimer !== null) {
@@ -513,6 +538,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('dragover', onDragOver);
     window.removeEventListener('dragleave', onDragLeave);
     window.removeEventListener('drop', onDrop);
+    window.removeEventListener('keydown', onKeyDown);
 });
 
 </script>

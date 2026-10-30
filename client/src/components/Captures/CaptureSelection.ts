@@ -17,6 +17,10 @@ export function useCaptureSelection() {
     // Shift キーでの範囲選択の起点にする、最後にクリックしたキャプチャの ID
     const anchorId = ref<number | null>(null);
 
+    // キーボードで移動する起点にする、最後に選んだか矢印キーで移動したキャプチャの ID
+    // Shift キーと矢印キーで範囲を広げている間は、範囲選択の起点は動かさずにこちらだけを動かす (エクスプローラーや Finder と同じ)
+    const cursorId = ref<number | null>(null);
+
     // 選択中かどうか (1件でも選んでいれば選択モードとして扱う)
     const isSelecting = computed(() => selected.value.size > 0);
     const count = computed(() => selected.value.size);
@@ -41,6 +45,7 @@ export function useCaptureSelection() {
                 }
                 selected.value = next;
                 anchorId.value = capture.id;
+                cursorId.value = capture.id;
                 return;
             }
         }
@@ -52,6 +57,50 @@ export function useCaptureSelection() {
         }
         selected.value = next;
         anchorId.value = capture.id;
+        cursorId.value = capture.id;
+    };
+
+    /**
+     * 1枚のキャプチャだけを選んだ状態にする (矢印キーでの移動など)
+     * @param capture キャプチャ
+     */
+    const selectOnly = (capture: ICapture) => {
+        selected.value = new Map([[capture.id, capture]]);
+        anchorId.value = capture.id;
+        cursorId.value = capture.id;
+    };
+
+    /**
+     * 範囲選択の起点から指定したキャプチャまでだけを選んだ状態にする (Shift キーと矢印キーでの範囲選択)
+     * @param capture 範囲の終わりのキャプチャ
+     * @param ordered 画面での並び順のキャプチャ
+     */
+    const selectRange = (capture: ICapture, ordered: ICapture[]) => {
+        const from = ordered.findIndex(item => item.id === anchorId.value);
+        const to = ordered.findIndex(item => item.id === capture.id);
+        // 起点が並びの中に見つからないときは、移動先から範囲選択を始め直す
+        if (from === -1 || to === -1) {
+            selectOnly(capture);
+            return;
+        }
+        const next = new Map<number, ICapture>();
+        for (const item of ordered.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+            next.set(item.id, item);
+        }
+        selected.value = next;
+        cursorId.value = capture.id;
+    };
+
+    /**
+     * キーボードで移動する起点のキャプチャを返す
+     * 起点のキャプチャが選択から外れているときは、最後に選んだキャプチャを返す
+     * @returns キャプチャ (何も選んでいないときは null)
+     */
+    const getCursor = () => {
+        if (cursorId.value !== null && selected.value.has(cursorId.value)) {
+            return selected.value.get(cursorId.value)!;
+        }
+        return [...selected.value.values()].at(-1) ?? null;
     };
 
     /**
@@ -74,9 +123,10 @@ export function useCaptureSelection() {
     const clear = () => {
         selected.value = new Map();
         anchorId.value = null;
+        cursorId.value = null;
     };
 
-    return { selected, isSelecting, count, isSelected, toggle, setMany, clear };
+    return { selected, isSelecting, count, isSelected, toggle, selectOnly, selectRange, getCursor, setMany, clear };
 }
 
 export type CaptureSelection = ReturnType<typeof useCaptureSelection>;

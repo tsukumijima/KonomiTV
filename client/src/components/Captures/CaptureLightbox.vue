@@ -822,12 +822,22 @@ const leaveTo = (path: string) => {
 
 // ---------- キーボードとページのスクロール ----------
 
-// キーボードの操作 (左右で前後、Esc で閉じる、F でお気に入り、T でタグ、I で情報)
+// キーボードの操作 (左右で前後、Esc と Space で閉じる、F でお気に入り、T でタグ、I で情報、Delete で削除)
 const onKeyDown = (event: KeyboardEvent) => {
     if (props.capture === null || isTagDialogOpen.value || isDeleteConfirmOpen.value) {
         return;
     }
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+    // ショートカットの一覧など、上に重なったダイアログの中で押されたキーは、そのダイアログに任せる
+    if (event.target instanceof Element && event.target.closest('.v-overlay__content') !== null) {
+        return;
+    }
+    // Mac のキーボードには Delete キーがないため、Finder と同じく Command+Backspace でも削除できるようにする
+    if (event.key === 'Backspace' && event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        requestDelete();
         return;
     }
     // Ctrl・Command・Alt と一緒に押したキーは、ページ内検索 (Ctrl+F) などのブラウザのショートカットとしてブラウザに任せる
@@ -838,6 +848,9 @@ const onKeyDown = (event: KeyboardEvent) => {
         case 'ArrowLeft': void move(-1); break;
         case 'ArrowRight': void move(1); break;
         case 'Escape': void close(); break;
+        // macOS のクイックルックと同じく、一覧で Space を押して開いたら、もう一度 Space を押すと閉じる
+        case ' ': void close(); break;
+        case 'Delete': requestDelete(); break;
         case 'f': case 'F': void toggleFavorite(); break;
         case 't': case 'T': openTagDialog(); break;
         case 'i': case 'I': setInfoOpen(!isInfoOpen.value); break;

@@ -580,7 +580,72 @@ const getNeighbor = async (capture: ICapture, delta: 1 | -1): Promise<ICapture |
 };
 
 /**
- * キャプチャのタイルが画面に見えるところまでスクロールする (拡大表示を閉じたとき)
+ * 矢印キーで移動する先のキャプチャを返す (エクスプローラーや Finder のサムネイル表示と同じ動き)
+ * 左右は並びの前後へ、上下は同じ列の上下の行へ移り、日の境目では隣の日の同じ列へ移る
+ * @param capture 今のキャプチャ
+ * @param direction 矢印キーの向き
+ * @returns 移動先のキャプチャ (端なら null、隣の日を読み込めず分からないときは undefined)
+ */
+const getKeyboardTarget = async (capture: ICapture, direction: 'Left' | 'Right' | 'Up' | 'Down'): Promise<ICapture | null | undefined> => {
+
+    // 左右は、拡大表示の前後の移動と同じく並びの前後へ移る
+    if (direction === 'Left' || direction === 'Right') {
+        return getNeighbor(capture, direction === 'Right' ? 1 : -1);
+    }
+
+    // 今のキャプチャがある日と、その日の中での位置を求める
+    const date = dateOf(capture);
+    const index = sections.value.findIndex(section => section.date === date);
+    if (date === null || index === -1) {
+        return null;
+    }
+    const captures = await waitForDay(date);
+    if (captures === undefined) {
+        return undefined;
+    }
+    const position = captures.findIndex(item => item.id === capture.id);
+    if (position === -1) {
+        return null;
+    }
+    const { columns } = grid.value;
+    const column = position % columns;
+    const lastRowStart = Math.floor((captures.length - 1) / columns) * columns;
+
+    // 下へは同じ列の次の行へ移り、次の行がその列まで届いていなければその行の最後へ移る
+    // 最後の行からは、次の日の最初の行の同じ列へ移る
+    if (direction === 'Down') {
+        if (position < lastRowStart) {
+            return captures[Math.min(position + columns, captures.length - 1)];
+        }
+        const nextSection = sections.value[index + 1];
+        if (nextSection === undefined) {
+            return null;
+        }
+        const nextCaptures = await waitForDay(nextSection.date);
+        if (nextCaptures === undefined) {
+            return undefined;
+        }
+        return nextCaptures[Math.min(column, nextCaptures.length - 1)] ?? null;
+    }
+
+    // 上へは同じ列の前の行へ移り、最初の行からは前の日の最後の行の同じ列 (届いていなければその行の最後) へ移る
+    if (position >= columns) {
+        return captures[position - columns];
+    }
+    const previousSection = sections.value[index - 1];
+    if (previousSection === undefined) {
+        return null;
+    }
+    const previousCaptures = await waitForDay(previousSection.date);
+    if (previousCaptures === undefined) {
+        return undefined;
+    }
+    const previousLastRowStart = Math.floor((previousCaptures.length - 1) / columns) * columns;
+    return previousCaptures[Math.min(previousLastRowStart + column, previousCaptures.length - 1)] ?? null;
+};
+
+/**
+ * キャプチャのタイルが画面に見えるところまでスクロールする (矢印キーでの移動や、拡大表示を閉じたとき)
  * すでに見えているときはスクロールしない
  * @param capture キャプチャ
  */
@@ -618,6 +683,16 @@ const revealCapture = async (capture: ICapture) => {
 };
 
 /**
+ * キャプチャが並んでいる日の、読み込み済みのキャプチャを返す (Ctrl+A でその日をすべて選ぶとき)
+ * @param capture キャプチャ
+ * @returns その日のキャプチャ
+ */
+const getDayCaptures = (capture: ICapture) => {
+    const date = dateOf(capture);
+    return date === null ? [] : (loadedDays.value.get(date) ?? []);
+};
+
+/**
  * 読み込み済みのキャプチャを差し替える (お気に入りやタグを変えたとき)
  * @param updated 更新後のキャプチャ
  */
@@ -636,7 +711,7 @@ const replaceCapture = (updated: ICapture) => {
 
 const getProgram = (capture_program_id: number | null) => capture_program_id === null ? null : programs.get(capture_program_id) ?? null;
 
-defineExpose({ reload, getNeighbor, revealCapture, replaceCapture, getProgram });
+defineExpose({ reload, getNeighbor, getKeyboardTarget, revealCapture, getDayCaptures, orderedLoaded, replaceCapture, getProgram });
 
 </script>
 <style lang="scss" scoped>

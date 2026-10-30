@@ -42,14 +42,14 @@
                 :selection="selection" @open="openCapture" @reloading="onReloading" @loaded="onLoaded" @updated="onUpdated([$event])" />
         </template>
 
-        <CaptureSelectionBar :selection="selection" @updated="onUpdated" @deleted="onDeleted" />
+        <CaptureSelectionBar ref="selectionBarRef" :selection="selection" @updated="onUpdated" @deleted="onDeleted" />
         <CaptureLightbox :capture="openedCapture" :program-hint="openedProgram" :navigate="navigate" :reveal="reveal"
-            @update:capture="openedCapture = $event" @updated="onUpdated([$event])" @deleted="onDeleted" />
+            @update:capture="onLightboxCaptureChange" @updated="onUpdated([$event])" @deleted="onDeleted" />
     </CapturePage>
 </template>
 <script lang="ts" setup>
 
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import CaptureHeader from '@/components/Captures/CaptureHeader.vue';
@@ -58,6 +58,7 @@ import CapturePage from '@/components/Captures/CapturePage.vue';
 import { useCaptureSelection } from '@/components/Captures/CaptureSelection';
 import CaptureSelectionBar from '@/components/Captures/CaptureSelectionBar.vue';
 import CaptureTimeline from '@/components/Captures/CaptureTimeline.vue';
+import { findTileImage, openWithTransition } from '@/components/Captures/CaptureTransition';
 import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureFilter } from '@/services/Captures';
 import useSettingsStore from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
@@ -256,6 +257,118 @@ const openCapture = (capture: ICapture) => {
 const navigate = async (capture: ICapture, delta: 1 | -1) => timelineRef.value?.getNeighbor(capture, delta) ?? null;
 const reveal = async (capture: ICapture) => timelineRef.value?.revealCapture(capture);
 
+// 拡大表示で前後へ送ったときは、表示していた1枚だけを選んでいる状態なら、macOS のクイックルックと同じく選択も送った先へ移す
+// 閉じたあとに矢印キーで続けて移動するときの起点を、最後に見ていたキャプチャにするため
+// 表示していたキャプチャと別のキャプチャを選んでいるとき (拡大表示で削除して、選択に別の1枚だけが残ったときなど) は、選択を変更しない
+const onLightboxCaptureChange = (capture: ICapture | null) => {
+    const shown = openedCapture.value;
+    if (capture !== null && shown !== null && selection.count.value === 1 && selection.isSelected(shown)) {
+        selection.selectOnly(capture);
+    }
+    openedCapture.value = capture;
+};
+
+
+// ---------- キーボードでの操作 ----------
+
+// 何かを選んでいる間は、エクスプローラーや Finder のサムネイル表示と同じく、キーボードで選択を動かして操作できるようにする
+// 何も選んでいないときの矢印キーと Space は、ブラウザの既定の動作 (ページのスクロール) に任せる
+const selectionBarRef = ref<InstanceType<typeof CaptureSelectionBar> | null>(null);
+let isMovingByKeyboard = false;
+const moveByKeyboard = async (direction: 'Left' | 'Right' | 'Up' | 'Down', extend: boolean) => {
+    const cursor = selection.getCursor();
+    // 隣の日を読み込んでいる間にキーが押し続けられても、移動を重ねずに1つずつ進める
+    if (cursor === null || timelineRef.value === null || isMovingByKeyboard) {
+        return;
+    }
+    isMovingByKeyboard = true;
+    try {
+        const target = await timelineRef.value.getKeyboardTarget(cursor, direction);
+        // 隣の日を読み込んでいる間に選択が解除・変更されたときは、押した時点の移動先を反映せずに終える
+        if (target === null || target === undefined || selection.getCursor()?.id !== cursor.id || timelineRef.value === null) {
+            return;
+        }
+        // Shift キーを押しているときは、範囲選択の起点から移動先までを選び、押していないときは移動先の1枚だけを選ぶ
+        if (extend) {
+            selection.selectRange(target, timelineRef.value.orderedLoaded());
+        } else {
+            selection.selectOnly(target);
+        }
+        await timelineRef.value.revealCapture(target);
+    } finally {
+        isMovingByKeyboard = false;
+    }
+};
+const onKeyDown = (event: KeyboardEvent) => {
+    // 拡大表示の中のキーは拡大表示 (CaptureLightbox.vue) が扱い、入力欄やメニュー・ダイアログを開いている間は何もしない
+    if (openedCapture.value !== null || selection.isSelecting.value === false) {
+        return;
+    }
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+    if (document.querySelector('.v-overlay--active') !== null) {
+        return;
+    }
+    const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+    const cursor = selection.getCursor();
+    if (cursor === null) {
+        return;
+    }
+    switch (event.key) {
+        case 'ArrowLeft':
+        case 'ArrowRight':
+        case 'ArrowUp':
+        case 'ArrowDown': {
+            if (isCtrlOrCmd || event.altKey) {
+                return;
+            }
+            void moveByKeyboard(event.key.replace('Arrow', '') as 'Left' | 'Right' | 'Up' | 'Down', event.shiftKey);
+            break;
+        }
+        // macOS のクイックルックと同じく、Space で選んでいるキャプチャを開く (もう一度 Space を押すと閉じる)
+        case ' ':
+        case 'Enter': {
+            if (isCtrlOrCmd || event.altKey || event.shiftKey) {
+                return;
+            }
+            openWithTransition(findTileImage(cursor.id), () => openCapture(cursor));
+            break;
+        }
+        // Mac のキーボードには Delete キーがないため、Finder と同じく Command+Backspace でも削除できるようにする
+        case 'Delete': {
+            selectionBarRef.value?.requestDelete();
+            break;
+        }
+        case 'Backspace': {
+            if (event.metaKey === false) {
+                return;
+            }
+            selectionBarRef.value?.requestDelete();
+            break;
+        }
+        // 全選択は、選んでいるキャプチャがある日のキャプチャだけにする (日付の見出しのチェックと同じ範囲)
+        // 絞り込みなしで十数万枚をまとめて選び、そのまま削除してしまう事故を防ぐため
+        case 'a':
+        case 'A': {
+            if (isCtrlOrCmd === false) {
+                return;
+            }
+            selection.setMany(timelineRef.value?.getDayCaptures(cursor) ?? [], true);
+            break;
+        }
+        case 'Escape': {
+            selection.clear();
+            break;
+        }
+        default:
+            return;
+    }
+    event.preventDefault();
+};
+onMounted(() => window.addEventListener('keydown', onKeyDown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
+
 // お気に入り・タグの変更は、表示中の一覧に反映する
 // お気に入りやタグで絞り込んでいる一覧から外れたキャプチャがあれば、一覧を取り直す
 const onUpdated = (captures: ICapture[]) => {
@@ -265,6 +378,8 @@ const onUpdated = (captures: ICapture[]) => {
             openedCapture.value = capture;
         }
     }
+    // 選択が持っている内容も、まだ選ばれているキャプチャの分だけ新しい状態に差し替える (Space で開き直したときに古い状態で開かないようにするため)
+    selection.setMany(captures.filter(capture => selection.isSelected(capture)), true);
     const filterTagIds = filter.value.tag_ids ?? [];
     for (const capture of captures) {
         const isUnfavorited = filter.value.is_favorite === true && capture.is_favorite === false;
@@ -275,7 +390,10 @@ const onUpdated = (captures: ICapture[]) => {
         }
     }
 };
-const onDeleted = () => {
+// 削除したキャプチャは選択からも外す (拡大表示で削除したときも、選択に残ったまま一括の操作に送らないようにするため)
+const onDeleted = (capture_ids: number[]) => {
+    const deletedIds = new Set(capture_ids);
+    selection.setMany([...selection.selected.value.values()].filter(capture => deletedIds.has(capture.id)), false);
     void timelineRef.value?.reload();
 };
 
