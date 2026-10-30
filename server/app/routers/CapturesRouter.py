@@ -95,7 +95,10 @@ class CaptureFilters(BaseModel):
     event_id: int | None = None
     start_time: datetime | None = None
     is_favorite: bool | None = None
-    tag_id: int | None = None
+    tag_ids: list[int] | None = None
+    channel_ids: list[str] | None = None
+    start_date: Date | None = None
+    end_date: Date | None = None
     is_caption_composited: bool | None = None
     is_comment_composited: bool | None = None
     has_caption_text: bool | None = None
@@ -188,7 +191,12 @@ async def SerializeCaptures(rows: list[dict[str, Any]], user: User | None) -> li
     return captures
 
 
-async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple[list[str], list[Any]]:
+async def BuildCaptureWhere(
+    filters: CaptureFilters,
+    user: User | None,
+    axis: Literal['captured_at', 'broadcast_at'],
+    day_start_hour: int,
+) -> tuple[list[str], list[Any]]:
     """
     絞り込みの条件から、キャプチャの一覧の WHERE 句の条件を作る
     場所・お気に入り・タグでの絞り込みは EXISTS で行い、キャプチャの行が増えないようにする
@@ -196,6 +204,8 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
     Args:
         filters (CaptureFilters): 絞り込みの条件
         user (User | None): 閲覧しているユーザー
+        axis (Literal['captured_at', 'broadcast_at']): 期間で絞り込むときに使う日時の列 (タイムラインの時間の軸)
+        day_start_hour (int): 期間の日付の境目とする時刻 (28時間表記なら 4)
 
     Returns:
         tuple[list[str], list[Any]]: WHERE 句の条件と、バインドする値
@@ -245,7 +255,8 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
             )
         conditions.append(await BuildPersonalCaptureCondition('capture_favorites', 'user_id', user.id))
         params.append(user.id)
-    if filters.tag_id is not None:
+    # 複数のタグを指定した場合は、すべてのタグが付いているキャプチャに絞る
+    for tag_id in sorted(set(filters.tag_ids or [])):
         if user is None:
             raise HTTPException(
                 status_code = status.HTTP_401_UNAUTHORIZED,
@@ -253,9 +264,33 @@ async def BuildCaptureWhere(filters: CaptureFilters, user: User | None) -> tuple
                 headers = {'WWW-Authenticate': 'Bearer'},
             )
         # ほかのユーザーのタグで絞り込めないよう、所有者をチェックしてから条件にする
-        await GetOwnedTag(filters.tag_id, user)
-        conditions.append(await BuildPersonalCaptureCondition('capture_tag_items', 'tag_id', filters.tag_id))
-        params.append(filters.tag_id)
+        await GetOwnedTag(tag_id, user)
+        conditions.append(await BuildPersonalCaptureCondition('capture_tag_items', 'tag_id', tag_id))
+        params.append(tag_id)
+
+    # チャンネルで絞り込む (1枚のキャプチャは1つのチャンネルにしか属さないので、複数のチャンネルはどれかに当てはまれば含める)
+    ## チャンネルの放送回を数千行の capture_programs の中で先に探し、当てはまった放送回の ID で絞り込む
+    channel_ids = sorted(set(filters.channel_ids or []))
+    if len(channel_ids) > 0:
+        placeholders = ', '.join('?' for _ in channel_ids)
+        conditions.append(f"""
+            c.capture_program_id IN (
+                SELECT p3.id FROM capture_programs p3
+                JOIN channels ch3 ON ch3.network_id = p3.network_id AND ch3.service_id = p3.service_id
+                WHERE ch3.id IN ({placeholders})
+            )
+        """.strip())
+        params.extend(channel_ids)
+
+    # 期間で絞り込む (開始日の境目の時刻から、終了日の翌日の境目の時刻までの範囲に絞る)
+    if filters.start_date is not None:
+        start = datetime.combine(filters.start_date, datetime.min.time(), JST) + timedelta(hours=day_start_hour)
+        conditions.append(f'c.{axis} >= ?')
+        params.append(SQLDateTime(start))
+    if filters.end_date is not None:
+        end = datetime.combine(filters.end_date, datetime.min.time(), JST) + timedelta(days=1, hours=day_start_hour)
+        conditions.append(f'c.{axis} < ?')
+        params.append(SQLDateTime(end))
 
     # 字幕・コメントを画像に合成したかどうかで絞り込む
     if filters.is_caption_composited is not None:
@@ -671,14 +706,13 @@ async def CapturesAPI(
     # 本人のお気に入りとタグの状態を含むので、共有のキャッシュに入れさせない
     response.headers['Cache-Control'] = 'private, no-store'
 
-    conditions, params = await BuildCaptureWhere(filters, user)
-
     # 放送日時の順では、放送日時の分からないキャプチャ (番組の情報がないもの) を除く
+    axis: Literal['captured_at', 'broadcast_at'] = 'captured_at'
     if order.startswith('BroadcastAt'):
         axis = 'broadcast_at'
+    conditions, params = await BuildCaptureWhere(filters, user, axis, day_start_hour)
+    if axis == 'broadcast_at':
         conditions.append('c.broadcast_at IS NOT NULL')
-    else:
-        axis = 'captured_at'
 
     # 日付を指定された場合は、その日の境目の時刻から24時間の範囲に絞る
     if date is not None:
@@ -975,18 +1009,16 @@ async def CaptureSectionsAPI(
     if can_cache is True and cache_key in scanner.sections_cache:
         return scanner.sections_cache[cache_key]
 
-    conditions, params = await BuildCaptureWhere(filters, user)
-
     # 集計する日時の列 (放送日時の軸では、放送日時の分からないキャプチャを除く)
-    if axis == 'CapturedAt':
-        column = 'captured'
-    else:
-        column = 'broadcast'
-    conditions.append(f'c.{column}_at IS NOT NULL')
+    column: Literal['captured_at', 'broadcast_at'] = 'captured_at'
+    if axis == 'BroadcastAt':
+        column = 'broadcast_at'
+    conditions, params = await BuildCaptureWhere(filters, user, column, day_start_hour)
+    conditions.append(f'c.{column} IS NOT NULL')
 
     # 日時を日本時間に直してから、日付の境目の時刻の分だけずらした日付で数える
     ## DB の日時は +09:00 付きで保存されていて、SQLite の date() は UTC に直して扱うので、9時間を足して日本時間に戻す
-    date_expression = f"date(c.{column}_at, '+9 hours', '-{day_start_hour} hours')"
+    date_expression = f"date(c.{column}, '+9 hours', '-{day_start_hour} hours')"
 
     # 放送回の列 (p.) を条件に使う場合のみ、capture_programs テーブルを JOIN する
     ## JOIN しない場合は、captures テーブルの行を読み込まずに、日時と ID のインデックスだけを走査して件数を数えられる
@@ -1012,6 +1044,39 @@ async def CaptureSectionsAPI(
         scanner.sections_cache[cache_key] = result
 
     return result
+
+
+@router.get(
+    '/channels',
+    summary = 'キャプチャチャンネル一覧 API',
+    response_description = '利用できるキャプチャがあるチャンネルのリスト。',
+    response_model = list[schemas.CaptureChannel],
+)
+async def CaptureChannelsAPI():
+    """
+    利用できるキャプチャが1枚以上あるチャンネルを、チャンネル一覧 API と同じリモコン番号の順に一覧する。<br>
+    キャプチャの一覧のチャンネルでの絞り込みに使う。
+    """
+
+    # 数千行の放送回のうち、利用できるキャプチャがあるものだけを見て、そのチャンネルを重複なく取得する
+    rows = await connections.get('default').execute_query_dict(f"""
+        SELECT
+            ch.id,
+            ch.display_channel_id,
+            ch.name,
+            ch.type
+        FROM channels ch
+        WHERE EXISTS (
+            SELECT 1 FROM capture_programs p
+            WHERE p.network_id = ch.network_id AND p.service_id = ch.service_id AND EXISTS (
+                SELECT 1 FROM captures c
+                WHERE c.capture_program_id = p.id AND {CAPTURE_AVAILABLE_CONDITION}
+            )
+        )
+        ORDER BY ch.remocon_id, ch.channel_number, ch.id
+    """)
+
+    return [schemas.CaptureChannel.model_validate(row) for row in rows]
 
 
 @router.get(
