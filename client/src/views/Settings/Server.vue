@@ -431,6 +431,28 @@
         </div>
         <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
             <div class="settings__item">
+                <div class="settings__item-heading">データベースを最適化</div>
+                <div class="settings__item-label">
+                    KonomiTV のデータベースを再構築し、キャプチャや録画番組の検索・一覧表示を高速化します。<br>
+                    キャプチャフォルダや録画フォルダの初回スキャンが完了した後、検索や一覧表示が遅い場合にのみ実行してみてください。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>最適化中は、処理完了まで KonomiTV にアクセスできなくなります。</strong>視聴中のセッションは切断されません。<br>
+                    大量のキャプチャや録画ファイルが保存されている環境では、処理完了まで数分以上かかることがあります。<br>
+                </div>
+            </div>
+            <div v-if="database_vacuum_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>データベースを最適化しています...</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded indeterminate />
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                :disabled="database_vacuum_status.is_running" @click="runDatabaseVacuum()">
+                <Icon icon="fluent:database-arrow-right-20-regular" height="20px" />
+                <span class="ml-2">データベースを最適化</span>
+            </v-btn>
+            <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
                 <div class="settings__item-label">
                     KonomiTV サーバーを再起動します。サーバー設定の変更を反映するには再起動が必要です。<br>
@@ -593,6 +615,7 @@ async function updateDatabase() {
 const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
 const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
 const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const database_vacuum_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
 let task_status_timer: number | null = null;
 // この画面を離れたか (離れたあとに返ってきた進捗で、次の取得を予約しないため)
 let is_unmounted = false;
@@ -603,10 +626,11 @@ let is_task_status_failed = false;
 async function updateTaskStatuses() {
     task_status_timer = null;
     const show_error = is_task_status_failed === false;
-    const [batch_scan, background_analysis, capture_scan] = await Promise.all([
+    const [batch_scan, background_analysis, capture_scan, database_vacuum] = await Promise.all([
         Maintenance.fetchBatchScanStatus(show_error),
         Maintenance.fetchBackgroundAnalysisStatus(show_error),
         Maintenance.fetchCaptureScanStatus(show_error),
+        Maintenance.fetchDatabaseVacuumStatus(show_error),
     ]);
     if (is_unmounted === true) {
         return;
@@ -621,13 +645,17 @@ async function updateTaskStatuses() {
     if (capture_scan !== null) {
         capture_scan_status.value = capture_scan;
     }
-    is_task_status_failed = batch_scan === null || background_analysis === null || capture_scan === null;
+    if (database_vacuum !== null) {
+        database_vacuum_status.value = database_vacuum;
+    }
+    is_task_status_failed = batch_scan === null || background_analysis === null || capture_scan === null || database_vacuum === null;
     // 最後に分かった進捗でどれかが実行中なら、完了するまで取り続ける
     // 取得に失敗したときは、サーバーの復旧を待つよう5秒の間隔を空けて取り直す (起動時に自動で始まったタスクも、完了したらボタンを戻すため)
     const is_running = (
         batch_scan_status.value.is_running === true ||
         background_analysis_status.value.is_running === true ||
-        capture_scan_status.value.is_running === true
+        capture_scan_status.value.is_running === true ||
+        database_vacuum_status.value.is_running === true
     );
     if (is_running === true) {
         let interval = 1000;
@@ -730,6 +758,28 @@ async function runCaptureScan() {
             'キャプチャフォルダの一括スキャンが完了しました。\n' +
             'すべてのキャプチャがデータベースに同期されているはずです。'
         );
+    }
+}
+
+// データベースを最適化する関数
+async function runDatabaseVacuum() {
+    Message.info(
+        'データベースを最適化しています...\n' +
+        '最適化中は、処理完了まで KonomiTV にアクセスできなくなります。'
+    );
+    database_vacuum_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
+    const result = Maintenance.runDatabaseVacuum();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    const is_succeeded = await result;
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
+        Message.success('データベースの最適化が完了しました。');
     }
 }
 

@@ -257,6 +257,57 @@ class Maintenance {
 
 
     /**
+     * データベースを最適化する
+     * @returns 最適化に成功した場合は true、失敗した場合は false
+     */
+    static async runDatabaseVacuum(): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post('/maintenance/database-vacuum/run', undefined, {
+            // データベースが大きい環境では数十分かかることがあるのでタイムアウトを1日に設定
+            timeout: 24 * 60 * 60 * 1000,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                case 'Database vacuum is already running':
+                    APIClient.showGenericError(response, 'データベースの最適化は既に実行中です。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, 'データベースを最適化できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * データベースの最適化の進捗を取得する
+     * @param show_error 取得できなかったときにエラーを表示するか (失敗が続く間に取り直すときは false にして、通知を最初の1回にとどめる)
+     * @returns 進捗 (取得できなかった場合は null)
+     */
+    static async fetchDatabaseVacuumStatus(show_error: boolean = true): Promise<IMaintenanceTaskStatus | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IMaintenanceTaskStatus>('/maintenance/database-vacuum/status');
+
+        // エラー処理
+        if (response.type === 'error') {
+            if (show_error === true) {
+                APIClient.showGenericError(response, 'データベースの最適化の進捗を取得できませんでした。');
+            }
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
      * サーバーを再起動する
      */
     static async restartServer(): Promise<boolean> {
