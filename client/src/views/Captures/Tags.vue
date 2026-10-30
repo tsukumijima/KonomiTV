@@ -19,12 +19,16 @@
             <Icon icon="line-md:loading-twotone-loop" width="48px" height="48px" />
         </div>
         <template v-else>
-            <div class="capture-tags__create">
-                <v-text-field v-model="newTagName" color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable"
-                    hide-details flat placeholder="新しいタグの名前 (例: 作品名、キャラクター名、名シーン)" maxlength="100"
-                    @keydown.enter.prevent="createTag" />
-                <v-btn color="primary" variant="flat" height="48" class="capture-tags__create-button"
-                    :disabled="newTagName.trim() === ''" @click="createTag">
+            <!-- 番組別のタブの検索欄と同じ位置・見た目で、タグの名前での絞り込みを配置する -->
+            <!-- タグの作成は、絞り込みの入力と取り違えないよう、右のボタンからダイアログで行う -->
+            <div class="capture-tags__toolbar">
+                <v-text-field v-model="queryInput" class="capture-tags__search" color="primary" bg-color="background-lighten-1"
+                    variant="solo" density="comfortable" hide-details flat clearable placeholder="タグの名前で絞り込む">
+                    <template #prepend-inner>
+                        <Icon icon="fluent:search-20-regular" width="18px" class="text-text-darken-1" />
+                    </template>
+                </v-text-field>
+                <v-btn color="primary" variant="flat" height="48" class="capture-tags__create-button" @click="startCreate">
                     <Icon icon="fluent:add-12-filled" width="18px" />
                     <span class="ml-1">タグを作成</span>
                 </v-btn>
@@ -42,10 +46,15 @@
             <div v-else-if="tags.length === 0" class="capture-empty">
                 <Icon class="capture-empty__icon" icon="fluent:tag-multiple-20-regular" width="54px" height="54px" />
                 <div class="capture-empty__message">タグはまだありません。</div>
-                <div class="capture-empty__sub">キャプチャの詳細や上の入力欄から、タグを作成して付与できます。<br>1枚のキャプチャに複数のタグを付与することもできます。</div>
+                <div class="capture-empty__sub">キャプチャの詳細や「タグを作成」ボタンから、タグを作成して付与できます。<br>1枚のキャプチャに複数のタグを付与することもできます。</div>
+            </div>
+            <div v-else-if="filteredTags.length === 0" class="capture-empty">
+                <Icon class="capture-empty__icon" icon="fluent:search-20-regular" width="54px" height="54px" />
+                <div class="capture-empty__message">条件に一致するタグはありません。</div>
+                <div class="capture-empty__sub">検索キーワードを消去すると、他のタグも表示されます。</div>
             </div>
             <div class="capture-tags__list">
-                <router-link v-for="tag in tags" :key="tag.id" v-ripple class="capture-tag-card" :to="`/captures/tags/${tag.id}`">
+                <router-link v-for="tag in filteredTags" :key="tag.id" v-ripple class="capture-tag-card" :to="`/captures/tags/${tag.id}`">
                     <Icon class="capture-tag-card__icon" icon="fluent:tag-20-filled" width="22px" />
                     <div class="capture-tag-card__body">
                         <div class="capture-tag-card__name">{{ tag.name }}</div>
@@ -74,6 +83,27 @@
         </template>
 
         <!-- 見出し・余白・ボタンの並びは、ほかの画面の入力欄のあるダイアログ (Twitter.vue のアカウント連携など) と同じ作りにする -->
+        <v-dialog max-width="480" :model-value="isCreateOpen" @update:model-value="isCreateOpen = false">
+            <v-card>
+                <v-card-title class="d-flex justify-center pt-6 font-weight-bold">タグを作成</v-card-title>
+                <v-card-text class="pt-2 pb-0">
+                    <v-text-field v-model="newTagName" class="mt-4" color="primary" variant="outlined" hide-details
+                        label="タグの名前" placeholder="作品名、キャラクター名、名シーンなど" maxlength="100" autofocus
+                        @keydown.enter.prevent="createTag" />
+                </v-card-text>
+                <v-card-actions class="pt-6 px-6 pb-6">
+                    <v-spacer></v-spacer>
+                    <v-btn color="text" variant="text" height="40" @click="isCreateOpen = false">
+                        <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
+                        <span class="ml-1">キャンセル</span>
+                    </v-btn>
+                    <v-btn color="secondary" variant="flat" height="40" class="px-3" :disabled="newTagName.trim() === ''" @click="createTag">
+                        <Icon icon="fluent:add-16-filled" width="18px" height="18px" />
+                        <span class="ml-1">タグを作成</span>
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
         <v-dialog max-width="480" :model-value="renamingTag !== null" @update:model-value="renamingTag = null">
             <v-card>
                 <v-card-title class="d-flex justify-center pt-6 font-weight-bold">タグの名前を変更</v-card-title>
@@ -118,7 +148,7 @@
 </template>
 <script lang="ts" setup>
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import CaptureHeader from '@/components/Captures/CaptureHeader.vue';
 import CapturePage from '@/components/Captures/CapturePage.vue';
@@ -134,7 +164,21 @@ const isLoading = ref(true);
 const isLoadFailed = ref(false);
 // 前回確認したログイン状態を初期値とし、ログイン済みならタグの作成フォームをすぐに表示する
 const isLoggedIn = ref(userStore.is_logged_in);
+
+// タグの名前での絞り込み (タグの一覧は取得済みなので、入力するたびに画面の中で絞り込む)
+// 録画番組の検索と同じく、空白で区切った語をすべて含むタグに絞る
+const queryInput = ref<string | null>('');
+const filteredTags = computed(() => {
+    const keywords = (queryInput.value ?? '').toLowerCase().split(/\s+/).filter(keyword => keyword !== '');
+    return tags.value.filter(tag => keywords.every(keyword => tag.name.toLowerCase().includes(keyword)));
+});
+
+const isCreateOpen = ref(false);
 const newTagName = ref('');
+const startCreate = () => {
+    newTagName.value = '';
+    isCreateOpen.value = true;
+};
 const renamingTag = ref<ICaptureTag | null>(null);
 const renameInput = ref('');
 const deletingTag = ref<ICaptureTag | null>(null);
@@ -150,8 +194,10 @@ const createTag = async () => {
     if (name === '') {
         return;
     }
+    // 作成できなかったとき (同じ名前のタグがあるときなど) は、入力した名前を直せるよう、ダイアログを開いたままにする
     const tag = await Captures.createTag(name);
     if (tag !== null) {
+        isCreateOpen.value = false;
         newTagName.value = '';
         Message.success(`タグ「${tag.name}」を作成しました。`);
         await load();
@@ -203,15 +249,30 @@ onMounted(async () => {
 <style lang="scss" scoped>
 
 .capture-tags {
-    &__create {
+    // 検索欄の高さ・幅・文字の大きさと下の余白は、番組別のタブの検索欄 (Programs.vue) にそろえる
+    &__toolbar {
         display: flex;
         gap: 10px;
-        max-width: 640px;
-        margin-bottom: 20px;
-        &-button {
-            border-radius: 7px;
-            letter-spacing: 0;
+        margin-bottom: 16px;
+        @include smartphone-horizontal {
+            gap: 8px;
         }
+        @include smartphone-vertical {
+            gap: 8px;
+        }
+        :deep(.v-field__input) {
+            font-size: 14px !important;
+        }
+    }
+    &__search {
+        flex: 0 1 420px;
+        min-width: 0;
+    }
+    &__create-button {
+        flex-shrink: 0;
+        margin-left: auto;
+        border-radius: 7px;
+        letter-spacing: 0;
     }
     &__list {
         display: grid;

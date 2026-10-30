@@ -522,7 +522,14 @@ class Captures {
     static async createTag(name: string): Promise<ICaptureTag | null> {
         const response = await APIClient.post<ICaptureTag>('/captures/tags', { name });
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'タグを作成できませんでした。');
+            switch (response.data.detail) {
+                case 'Capture tag name already exists':
+                    Message.error('同じ名前のタグがすでにあります。別の名前を入力してください。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, 'タグを作成できませんでした。');
+                    break;
+            }
             return null;
         }
         return response.data;
@@ -538,7 +545,14 @@ class Captures {
     static async renameTag(tag_id: number, name: string): Promise<ICaptureTag | null> {
         const response = await APIClient.put<ICaptureTag>(`/captures/tags/${tag_id}`, { name });
         if (response.type === 'error') {
-            APIClient.showGenericError(response, 'タグの名前を変更できませんでした。');
+            switch (response.data.detail) {
+                case 'Capture tag name already exists':
+                    Message.error('同じ名前のタグがすでにあります。別の名前を入力してください。');
+                    break;
+                default:
+                    APIClient.showGenericError(response, 'タグの名前を変更できませんでした。');
+                    break;
+            }
             return null;
         }
         return response.data;
