@@ -34,7 +34,7 @@
                             <Icon :icon="isInfoOpen ? 'fluent:info-24-filled' : 'fluent:info-24-regular'" width="24px" />
                         </div>
                         <!-- その他の操作 (録画番組のメニューと同じく、取り消せない削除は区切り線の下に赤で置き、押し間違えにくくする) -->
-                        <v-menu v-if="canSetThumbnail || isAdmin" location="bottom end" :z-index="2400">
+                        <v-menu location="bottom end" :z-index="2400">
                             <template #activator="{ props: menuProps }">
                                 <div v-ripple class="capture-lightbox__button" v-bind="menuProps">
                                     <Icon icon="fluent:more-vertical-24-filled" width="24px" />
@@ -47,8 +47,8 @@
                                     </template>
                                     <v-list-item-title class="ml-3">録画番組のサムネイルにする</v-list-item-title>
                                 </v-list-item>
-                                <v-divider v-if="canSetThumbnail && isAdmin"></v-divider>
-                                <v-list-item v-if="isAdmin" class="capture-lightbox__menu-item--danger" @click="isDeleteConfirmOpen = true">
+                                <v-divider v-if="canSetThumbnail"></v-divider>
+                                <v-list-item class="capture-lightbox__menu-item--danger" @click="requestDelete">
                                     <template #prepend>
                                         <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
                                     </template>
@@ -102,7 +102,10 @@
                 </aside>
 
                 <CaptureTagDialog v-model:show="isTagDialogOpen" :captures="[capture]" @updated="onTagsUpdated" />
-                <v-dialog max-width="520" :model-value="isDeleteConfirmOpen" @update:model-value="isDeleteConfirmOpen = $event">
+                <!-- キーボードだけでも続けて削除できるよう、確認のダイアログを開いたら削除のボタンにフォーカスを当て、Enter キーで確定できるようにする -->
+                <!-- Tab キーでキャンセルのボタンへ移ってから Enter キーを押すと、キャンセルになる -->
+                <v-dialog max-width="520" :model-value="isDeleteConfirmOpen" @update:model-value="isDeleteConfirmOpen = $event"
+                    @after-enter="deleteButtonRef?.$el.focus()">
                     <v-card>
                         <v-card-title class="d-flex justify-center pt-6 font-weight-bold">このキャプチャを削除しますか？</v-card-title>
                         <v-card-text class="pt-2 pb-0">
@@ -117,7 +120,7 @@
                                 <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                                 <span class="ml-1">キャンセル</span>
                             </v-btn>
-                            <v-btn color="error" variant="flat" height="40" class="px-3" @click="deleteCapture">
+                            <v-btn ref="deleteButtonRef" color="error" variant="flat" height="40" class="px-3" @click="deleteCapture">
                                 <Icon icon="fluent:delete-16-regular" width="18px" height="18px" />
                                 <span class="ml-1">キャプチャを削除</span>
                             </v-btn>
@@ -137,7 +140,7 @@ let isInfoOpenRemembered = true;
 </script>
 <script lang="ts" setup>
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ComponentPublicInstance, computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import CaptureInfo from '@/components/Captures/CaptureInfo.vue';
@@ -179,6 +182,8 @@ const EASING = 'cubic-bezier(0.26, 0.68, 0.55, 0.99)';
 
 const isTagDialogOpen = ref(false);
 const isDeleteConfirmOpen = ref(false);
+// 確認のダイアログの削除のボタン (開いたときにフォーカスを当てるため)
+const deleteButtonRef = ref<ComponentPublicInstance | null>(null);
 const detail = ref<ICaptureDetail | null>(null);
 const tags = ref<ICaptureTag[]>([]);
 
@@ -663,6 +668,15 @@ const onTagsUpdated = async (captures: ICapture[]) => {
         emit('updated', updated);
     }
     tags.value = (await Captures.fetchTags()) ?? tags.value;
+};
+
+// 削除は管理者だけができるが、項目は誰にでも表示し、管理者でなければ押したときにログインし直す必要があることを伝える
+const requestDelete = () => {
+    if (!isAdmin.value) {
+        Message.warning('キャプチャを削除するには管理者権限が必要です。\n管理者アカウントでログインし直してください。');
+        return;
+    }
+    isDeleteConfirmOpen.value = true;
 };
 
 const deleteCapture = async () => {

@@ -14,26 +14,18 @@
             <div v-ripple class="capture-selection-bar__button" v-ftooltip.top="'タグを付ける'" @click="openTagDialog">
                 <Icon icon="fluent:tag-24-regular" width="22px" />
             </div>
-            <!-- 取り消せない削除は、よく押すお気に入りやタグの隣に置かず、1枚表示と同じく︙のメニューに赤で置く -->
-            <v-menu v-if="isAdmin" location="top end">
-                <template #activator="{ props: menuProps }">
-                    <div v-ripple class="capture-selection-bar__button" v-bind="menuProps">
-                        <Icon icon="fluent:more-vertical-24-filled" width="22px" />
-                    </div>
-                </template>
-                <v-list density="compact" bg-color="background-lighten-1">
-                    <v-list-item class="capture-selection-bar__menu-item--danger" @click="isDeleteConfirmOpen = true">
-                        <template #prepend>
-                            <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
-                        </template>
-                        <v-list-item-title class="ml-3">キャプチャを削除</v-list-item-title>
-                    </v-list-item>
-                </v-list>
-            </v-menu>
+            <!-- 削除は右端に置き、誤って押したときは確認のダイアログでキャンセルできるようにする -->
+            <div v-ripple class="capture-selection-bar__button capture-selection-bar__button--danger" v-ftooltip.top="'キャプチャを削除'"
+                @click="requestDelete">
+                <Icon icon="fluent:delete-24-regular" width="22px" />
+            </div>
         </div>
     </transition>
     <CaptureTagDialog v-model:show="isTagDialogOpen" :captures="selectedList" @updated="onTagsUpdated" />
-    <v-dialog max-width="520" :model-value="isDeleteConfirmOpen" @update:model-value="isDeleteConfirmOpen = $event">
+    <!-- キーボードだけでも続けて削除できるよう、確認のダイアログを開いたら削除のボタンにフォーカスを当て、Enter キーで確定できるようにする -->
+    <!-- Tab キーでキャンセルのボタンへ移ってから Enter キーを押すと、キャンセルになる -->
+    <v-dialog max-width="520" :model-value="isDeleteConfirmOpen" @update:model-value="isDeleteConfirmOpen = $event"
+        @after-enter="deleteButtonRef?.$el.focus()">
         <v-card>
             <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
                 {{ selection.count.value.toLocaleString() }}枚のキャプチャを削除しますか？
@@ -50,7 +42,7 @@
                     <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                     <span class="ml-1">キャンセル</span>
                 </v-btn>
-                <v-btn color="error" variant="flat" height="40" class="px-3" :loading="isDeleting" @click="deleteSelected">
+                <v-btn ref="deleteButtonRef" color="error" variant="flat" height="40" class="px-3" :loading="isDeleting" @click="deleteSelected">
                     <Icon icon="fluent:delete-16-regular" width="18px" height="18px" />
                     <span class="ml-1">キャプチャを削除</span>
                 </v-btn>
@@ -60,7 +52,7 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, ref } from 'vue';
+import { ComponentPublicInstance, computed, ref } from 'vue';
 
 import { CaptureSelection } from '@/components/Captures/CaptureSelection';
 import CaptureTagDialog from '@/components/Captures/CaptureTagDialog.vue';
@@ -83,6 +75,8 @@ const isAdmin = computed(() => userStore.user?.is_admin === true);
 const isTagDialogOpen = ref(false);
 const isDeleteConfirmOpen = ref(false);
 const isDeleting = ref(false);
+// 確認のダイアログの削除のボタン (開いたときにフォーカスを当てるため)
+const deleteButtonRef = ref<ComponentPublicInstance | null>(null);
 
 const selectedList = computed(() => [...props.selection.selected.value.values()]);
 const allFavorite = computed(() => selectedList.value.length > 0 && selectedList.value.every(capture => capture.is_favorite === true));
@@ -124,7 +118,23 @@ const onTagsUpdated = (captures: ICapture[]) => {
     emit('updated', captures);
 };
 
+// 削除は管理者だけができるが、ボタンは誰にでも表示し、管理者でなければ押したときにログインし直す必要があることを伝える
+const requestDelete = () => {
+    if (selectedList.value.length === 0) {
+        return;
+    }
+    if (!isAdmin.value) {
+        Message.warning('キャプチャを削除するには管理者権限が必要です。\n管理者アカウントでログインし直してください。');
+        return;
+    }
+    isDeleteConfirmOpen.value = true;
+};
+
 const deleteSelected = async () => {
+    // 削除の途中で Enter キーが続けて押されたときは、最初の削除だけを送る
+    if (isDeleting.value) {
+        return;
+    }
     isDeleting.value = true;
     const ids = selectedList.value.map(capture => capture.id);
     const result = await Captures.deleteCaptures(ids);
@@ -143,6 +153,9 @@ const deleteSelected = async () => {
     props.selection.setMany(selectedList.value.filter(capture => deletedIds.has(capture.id)), false);
     emit('deleted', result.deleted_capture_ids);
 };
+
+// キーボードの Delete キーからも、ボタンを押したときと同じ確認を経て削除できるようにする
+defineExpose({ requestDelete });
 
 </script>
 <style lang="scss" scoped>
@@ -183,11 +196,11 @@ const deleteSelected = async () => {
         &:hover {
             background: rgba(var(--v-theme-text), 0.08);
         }
+        // 取り消せない削除は、ほかの操作と見分けられるよう赤で表示する
+        &--danger {
+            color: rgb(var(--v-theme-error-lighten-1));
+        }
     }
-}
-
-.capture-selection-bar__menu-item--danger {
-    color: rgb(var(--v-theme-error)) !important;
 }
 
 .capture-selection-bar-slide-enter-active, .capture-selection-bar-slide-leave-active {
