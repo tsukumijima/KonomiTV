@@ -139,7 +139,12 @@ const reset = () => {
     void loadMore();
 };
 
-const applyQuery = () => {
+// event は入力欄で Enter キーを押したときだけ渡される
+const applyQuery = (event?: KeyboardEvent) => {
+    // IME で入力中の文字を確定する Enter キーでは絞り込まない
+    if (event !== undefined && Utils.isIMEComposing(event)) {
+        return;
+    }
     const query = { ...route.query, query: queryInput.value?.trim() || undefined };
     void router.replace({ query });
 };

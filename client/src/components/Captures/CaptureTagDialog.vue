@@ -35,9 +35,9 @@
                 <div class="capture-tag-dialog__create">
                     <v-text-field v-model="newTagName" class="capture-tag-dialog__create-field"
                         color="primary" variant="outlined" density="compact" hide-details
-                        placeholder="新しいタグの名前" maxlength="100" @keydown.enter.prevent="createTag" />
+                        placeholder="新しいタグの名前" maxlength="100" @keydown.enter="createTag" />
                     <v-btn class="capture-tag-dialog__create-button px-3" color="secondary" variant="flat" height="40"
-                        :disabled="newTagName.trim() === '' || isBusy" @click="createTag">
+                        :disabled="newTagName.trim() === '' || isBusy" @click="createTag()">
                         <Icon icon="fluent:add-12-filled" width="18px" height="18px" />
                         <span class="ml-1">追加</span>
                     </v-btn>
@@ -51,6 +51,7 @@
 import { ref, watch } from 'vue';
 
 import Captures, { ICapture, ICaptureTag } from '@/services/Captures';
+import Utils from '@/utils';
 
 
 const props = defineProps<{
@@ -129,7 +130,12 @@ const toggleTag = async (tag: ICaptureTag, targets: ICapture[] = workingCaptures
 };
 
 // 新しいタグを作り、開いているキャプチャにそのまま付ける
-const createTag = async () => {
+// event は入力欄で Enter キーを押したときだけ渡される
+const createTag = async (event?: KeyboardEvent) => {
+    // IME で入力中の文字を確定する Enter キーでは作成しない
+    if (event !== undefined && Utils.isIMEComposing(event)) {
+        return;
+    }
     const name = newTagName.value.trim();
     if (name === '' || isBusy.value) {
         return;

@@ -6,7 +6,7 @@
                 <Icon icon="fluent:search-20-filled" height="20px" />
             </div>
             <input ref="searchInputRef" v-model="searchText" type="search" name="capture-search" enterkeyhint="search"
-                placeholder="キャプチャを検索..." @keydown.enter.prevent="submitSearch" @keydown.esc="closeSearch">
+                placeholder="キャプチャを検索..." @keydown.enter="submitSearch" @keydown.esc="closeSearch">
             <div v-ripple class="capture-header__search-close" @click="closeSearch">
                 <Icon icon="fluent:dismiss-20-filled" height="24px" />
             </div>
@@ -194,7 +194,7 @@ import Message from '@/message';
 import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureChannel, ICaptureFilter, ICaptureTag } from '@/services/Captures';
 import Maintenance, { IMaintenanceTaskStatus } from '@/services/Maintenance';
 import useUserStore from '@/stores/UserStore';
-import { dayjs } from '@/utils';
+import Utils, { dayjs } from '@/utils';
 
 
 /** 絞り込みのうち、ヘッダーで切り替えるもの (キャプチャの種類と番組情報の有無) */
@@ -257,7 +257,11 @@ const openSearch = async () => {
 const closeSearch = () => {
     isSearchOpen.value = false;
 };
-const submitSearch = () => {
+const submitSearch = (event: KeyboardEvent) => {
+    // IME で入力中の文字を確定する Enter キーでは検索しない
+    if (Utils.isIMEComposing(event)) {
+        return;
+    }
     const query = searchText.value.trim();
     if (query === '') {
         return;

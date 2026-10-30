@@ -91,6 +91,18 @@ export default class Utils {
 
 
     /**
+     * キーボードのイベントが、IME で入力中の文字を変換・確定するためのキー操作かどうかを返す
+     * Enter キーで送信や作成を行う入力欄では、このメソッドが true を返すときは何もしない
+     * macOS の Safari は確定の Enter キーで isComposing を false にするため、keyCode が 229 のときも入力中として扱う
+     * @param event キーボードのイベント
+     * @returns IME で入力中のキー操作なら true
+     */
+    static isIMEComposing(event: KeyboardEvent): boolean {
+        return event.isComposing === true || event.keyCode === 229;
+    }
+
+
+    /**
      * 28 時間表記を適用する
      * 与えられた文字列内の時刻表記 (HH:mm / HH:mm:ss / YYYY/MM/DD (dd) HH:mm[:ss] / YYYY/MM/DD HH:mm[:ss]) を検出し、
      * 0〜3 時台を 24〜27 に置換する。日付・曜日を含む場合は 1 日前に補正する。

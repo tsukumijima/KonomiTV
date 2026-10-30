@@ -89,7 +89,7 @@
                 <v-card-text class="pt-2 pb-0">
                     <v-text-field v-model="newTagName" class="mt-4" color="primary" variant="outlined" hide-details
                         label="タグの名前" placeholder="作品名、キャラクター名、名シーンなど" maxlength="100" autofocus
-                        @keydown.enter.prevent="createTag" />
+                        @keydown.enter="createTag" />
                 </v-card-text>
                 <v-card-actions class="pt-6 px-6 pb-6">
                     <v-spacer></v-spacer>
@@ -97,7 +97,7 @@
                         <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                         <span class="ml-1">キャンセル</span>
                     </v-btn>
-                    <v-btn color="secondary" variant="flat" height="40" class="px-3" :disabled="newTagName.trim() === ''" @click="createTag">
+                    <v-btn color="secondary" variant="flat" height="40" class="px-3" :disabled="newTagName.trim() === ''" @click="createTag()">
                         <Icon icon="fluent:add-16-filled" width="18px" height="18px" />
                         <span class="ml-1">タグを作成</span>
                     </v-btn>
@@ -109,7 +109,7 @@
                 <v-card-title class="d-flex justify-center pt-6 font-weight-bold">タグの名前を変更</v-card-title>
                 <v-card-text class="pt-2 pb-0">
                     <v-text-field v-model="renameInput" class="mt-4" color="primary" variant="outlined" hide-details
-                        label="タグの名前" maxlength="100" autofocus @keydown.enter.prevent="renameTag" />
+                        label="タグの名前" maxlength="100" autofocus @keydown.enter="renameTag" />
                 </v-card-text>
                 <v-card-actions class="pt-6 px-6 pb-6">
                     <v-spacer></v-spacer>
@@ -117,7 +117,7 @@
                         <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
                         <span class="ml-1">キャンセル</span>
                     </v-btn>
-                    <v-btn color="secondary" variant="flat" height="40" class="px-3" :disabled="renameInput.trim() === ''" @click="renameTag">
+                    <v-btn color="secondary" variant="flat" height="40" class="px-3" :disabled="renameInput.trim() === ''" @click="renameTag()">
                         <Icon icon="fluent:rename-16-regular" width="18px" height="18px" />
                         <span class="ml-1">名前を変更</span>
                     </v-btn>
@@ -155,6 +155,7 @@ import CapturePage from '@/components/Captures/CapturePage.vue';
 import Message from '@/message';
 import Captures, { ICaptureTag } from '@/services/Captures';
 import useUserStore from '@/stores/UserStore';
+import Utils from '@/utils';
 
 
 const userStore = useUserStore();
@@ -189,7 +190,12 @@ const load = async () => {
     tags.value = result ?? [];
 };
 
-const createTag = async () => {
+// event は入力欄で Enter キーを押したときだけ渡される
+const createTag = async (event?: KeyboardEvent) => {
+    // IME で入力中の文字を確定する Enter キーでは作成しない
+    if (event !== undefined && Utils.isIMEComposing(event)) {
+        return;
+    }
     const name = newTagName.value.trim();
     if (name === '') {
         return;
@@ -208,7 +214,12 @@ const startRename = (tag: ICaptureTag) => {
     renamingTag.value = tag;
     renameInput.value = tag.name;
 };
-const renameTag = async () => {
+// event は入力欄で Enter キーを押したときだけ渡される
+const renameTag = async (event?: KeyboardEvent) => {
+    // IME で入力中の文字を確定する Enter キーでは変更しない
+    if (event !== undefined && Utils.isIMEComposing(event)) {
+        return;
+    }
     if (renamingTag.value === null || renameInput.value.trim() === '') {
         return;
     }

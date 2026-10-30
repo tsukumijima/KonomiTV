@@ -18,7 +18,7 @@
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="username"
                             :rules="[username_validation]"
-                            @keyup.enter="register()">
+                            @keydown.enter="onFieldEnter">
                         </v-text-field>
                         <v-text-field style="margin-top: 10px;" color="primary" variant="outlined"
                             placeholder="パスワード"
@@ -28,7 +28,7 @@
                             :rules="[password_validation]"
                             :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
                             @click:appendInner="password_showing = !password_showing"
-                            @keyup.enter="register()">
+                            @keydown.enter="onFieldEnter">
                         </v-text-field>
                         <v-btn class="register-button mt-5" color="secondary" variant="flat" width="100%" height="56"
                             @click="register()">
@@ -95,6 +95,13 @@ export default defineComponent({
         }
     },
     methods: {
+        // 入力欄で Enter キーを押したときにアカウントを作成する (IME で入力中の文字を確定する Enter キーでは何もしない)
+        onFieldEnter(event: KeyboardEvent) {
+            if (Utils.isIMEComposing(event)) {
+                return;
+            }
+            void this.register();
+        },
         async register() {
 
             // すべてのバリデーションが通過したときのみ
