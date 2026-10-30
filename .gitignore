@@ -154,6 +154,7 @@ docker-compose.yaml
 
 # user files
 server/data/*.*
+server/data/offline-downloads/
 server/data/account-icons/*.*
 server/data/thumbnails/*.*
 server/data/thumbnails/old/*.*

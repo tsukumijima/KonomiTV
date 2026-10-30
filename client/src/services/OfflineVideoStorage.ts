@@ -90,10 +90,17 @@ export default class OfflineVideoStorage {
     }
 
     /** 同じ録画番組の実行中ジョブがなければ、新しいジョブを追加する */
-    static async putJobIfVideoIdle(job: IOfflineDownloadJob): Promise<void> {
+    static async putJobIfVideoIdle(job: IOfflineDownloadJob, retryJobID: string | null = null): Promise<IOfflineDownloadJob[]> {
         const database = await this.openDatabase();
         const transaction = database.transaction(this.JOB_STORE_NAME, 'readwrite');
         const jobs = await transaction.store.getAll();
+
+        // 再試行は指定した失敗ジョブが残っている場合だけ受け付け、連打や別タブからの古い要求を無効化する。
+        if (retryJobID !== null && jobs.some(existingJob => existingJob.job_id === retryJobID &&
+            existingJob.video_id === job.video_id && existingJob.state === 'Failed') === false) {
+            await transaction.done;
+            throw new Error('この保存ジョブはすでに再試行または削除されています。');
+        }
 
         // 検査と追加を同じトランザクションへ入れ、別タブ同士の保存開始を直列化する
         if (jobs.some(existingJob => existingJob.video_id === job.video_id &&
@@ -103,13 +110,13 @@ export default class OfflineVideoStorage {
         }
 
         // 再保存を始める録画では過去の失敗・キャンセル表示を削除し、新しいジョブの進捗を一覧へ表示する
-        await Promise.all(jobs
-            .filter(existingJob => existingJob.video_id === job.video_id &&
-                ['Failed', 'Cancelled'].includes(existingJob.state))
-            .map(existingJob => transaction.store.delete(existingJob.job_id)));
+        const removedJobs = jobs.filter(existingJob => existingJob.video_id === job.video_id &&
+            ['Failed', 'Cancelled'].includes(existingJob.state));
+        await Promise.all(removedJobs.map(existingJob => transaction.store.delete(existingJob.job_id)));
         await transaction.store.put(job);
         await transaction.done;
         this.eventTarget.dispatchEvent(new Event('change'));
+        return removedJobs;
     }
 
     /** 実行中のジョブだけを更新する */
@@ -146,6 +153,8 @@ export default class OfflineVideoStorage {
             state: 'Completed',
             downloaded_bytes: video.size_bytes,
         };
+        // 完了後はプレイリストが確定情報となるため、再開用のセグメント一覧を重複保持しない。
+        delete completedJob.resume;
         await transaction.objectStore(this.VIDEO_STORE_NAME).put(video);
 
         // 保存世代の切り替え後は過去の保存ジョブを削除し、今回の完了状態だけを一覧へ残す
@@ -176,6 +185,10 @@ export default class OfflineVideoStorage {
         }
         job.state = state;
         job.error = error;
+        // 受信途中だった分を進捗から除外し、失敗後には端末へ保存できた容量だけを表示する。
+        if (state === 'Failed' && job.resume !== undefined) {
+            job.downloaded_bytes = job.resume.segments.reduce((total, segment) => total + segment.size, 0);
+        }
         await transaction.store.put(job);
         await transaction.done;
         this.eventTarget.dispatchEvent(new Event('change'));
