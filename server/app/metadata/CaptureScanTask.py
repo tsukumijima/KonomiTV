@@ -1313,18 +1313,11 @@ class CaptureScanTask:
             # すべての場所のファイルを削除する
             for file in files:
                 try:
-                    # 登録したあとに別の内容に置き換わっていたら、削除せずに中断する
-                    file_stat = await anyio.Path(file.file_path).stat()
-                    is_replaced = (
-                        file_stat.st_size != file.file_size or
-                        datetime.fromtimestamp(file_stat.st_ctime, JST) != file.file_created_at or
-                        datetime.fromtimestamp(file_stat.st_mtime, JST) != file.file_modified_at
-                    )
-                    if is_replaced is True:
-                        return False
-
-                    # 移動の照合はファイル名・サイズ・更新日時だけで行うため、同じ属性の別の画像に付け替わっていることがある
-                    ## 取り消せない削除の前に中身のハッシュを照合し、別の画像なら読んだ内容で登録し直して、削除を中断する
+                    # 登録したあとに別の内容に置き換わっていたり、移動の照合 (ファイル名・サイズ・更新日時だけで行う) で
+                    # 同じ属性の別の画像に付け替わっていたりすることがあるため、取り消せない削除の前に中身のハッシュを照合する
+                    ## 別の画像なら読んだ内容で登録し直して、削除を中断する
+                    ## 照合には中身のハッシュだけを使う (SMB などのネットワーク上の保存先では、アップロードの直後に記録した作成日時と更新日時が、
+                    ## 保存先のサーバーが確定した日時と食い違うことがあり、日時で照合すると中身が同じでも削除できなくなるため)
                     data = await anyio.Path(file.file_path).read_bytes()
                     digest = await asyncio.to_thread(lambda: hashlib.sha256(data).digest())
                     if digest != bytes(capture.file_hash):
