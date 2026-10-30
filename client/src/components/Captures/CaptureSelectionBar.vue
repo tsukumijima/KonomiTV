@@ -154,8 +154,8 @@ const deleteSelected = async () => {
     emit('deleted', result.deleted_capture_ids);
 };
 
-// キーボードの Delete キーからも、ボタンを押したときと同じ確認を経て削除できるようにする
-defineExpose({ requestDelete });
+// キーボードの F キー・T キー・Delete キーからも、ボタンを押したときと同じ操作ができるようにする
+defineExpose({ toggleFavorite, openTagDialog, requestDelete });
 
 </script>
 <style lang="scss" scoped>

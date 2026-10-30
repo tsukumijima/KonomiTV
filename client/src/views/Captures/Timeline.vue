@@ -357,6 +357,23 @@ const onKeyDown = (event: KeyboardEvent) => {
             selection.setMany(timelineRef.value?.getDayCaptures(cursor) ?? [], true);
             break;
         }
+        // 拡大表示と同じく、F キーで選んでいるキャプチャをお気に入りに追加・お気に入りから外し、T キーでタグを付ける
+        case 'f':
+        case 'F': {
+            if (isCtrlOrCmd || event.altKey) {
+                return;
+            }
+            void selectionBarRef.value?.toggleFavorite();
+            break;
+        }
+        case 't':
+        case 'T': {
+            if (isCtrlOrCmd || event.altKey) {
+                return;
+            }
+            selectionBarRef.value?.openTagDialog();
+            break;
+        }
         case 'Escape': {
             selection.clear();
             break;

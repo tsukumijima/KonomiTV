@@ -78,6 +78,8 @@ const shortcutGroups: { name: string; icon: string; shortcuts: IShortcut[] }[] =
             { name: '選択する範囲を広げる', alternatives: [[{name: 'Shift', icon: false}, ARROW_KEYS]] },
             { name: '選択しているキャプチャを拡大表示する', alternatives: [[{name: 'Space', icon: false}], [{name: 'Enter', icon: false}]] },
             { name: '同じ日付のキャプチャをすべて選択する', alternatives: [[{name: Utils.CtrlOrCmd(), icon: false}, {name: 'A', icon: false}]] },
+            { name: '選択しているキャプチャをお気に入りに追加する / 外す', alternatives: [[{name: 'F', icon: false}]] },
+            { name: '選択しているキャプチャにタグを付ける', alternatives: [[{name: 'T', icon: false}]] },
             { name: '選択しているキャプチャを削除する', alternatives: DELETE_KEYS },
             { name: '選択を解除する', alternatives: [[{name: 'Esc', icon: false}]] },
         ],
