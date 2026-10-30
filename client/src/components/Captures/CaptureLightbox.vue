@@ -358,8 +358,23 @@ const close = async () => {
 
 // 前後へ送る (矢印キー・矢印ボタン・スワイプで共通)
 // 隣の画像を今の位置まで滑らせてから、表示中のキャプチャを差し替える
-const move = async (delta: 1 | -1) => {
-    if (props.capture === null || isSliding.value) {
+// 送るアニメーションの途中でもう一度押されたら、途中の送りをすぐに完了させてから、続けて次へ送る
+// 連打されたときも押した回数だけ順に送れるよう、送り始めるまでの処理は1回ずつ順番に行う
+let moveQueue: Promise<void> = Promise.resolve();
+// 送るアニメーションの途中のときに、その送りをすぐに完了させる関数
+let finishSlide: (() => Promise<void>) | null = null;
+const move = (delta: 1 | -1) => {
+    moveQueue = moveQueue.then(() => startSlide(delta));
+    return moveQueue;
+};
+const startSlide = async (delta: 1 | -1) => {
+    if (props.capture === null) {
+        return;
+    }
+    if (finishSlide !== null) {
+        await finishSlide();
+    }
+    if (props.capture === null) {
         return;
     }
     // 送り始めたときのキャプチャ (待っている間に閉じたり別のキャプチャを開いたりしたら、送るのをやめるため)
@@ -386,21 +401,32 @@ const move = async (delta: 1 | -1) => {
     isFollowingFinger.value = false;
     const width = stageRef.value?.clientWidth ?? window.innerWidth;
     dragX.value = -delta * (width + SLIDE_GAP);
-    await new Promise(resolve => window.setTimeout(resolve, 300));
-    // 滑らせている間に閉じたり別のキャプチャを開いたりしたら、隣へ差し替えずに位置だけを戻して終える
-    if (props.capture?.id !== current.id) {
-        isSliding.value = false;
+
+    // アニメーションが終わったとき (途中でもう一度押されたときはその時点) に、表示中のキャプチャを隣へ差し替える
+    let isFinished = false;
+    const finish = async () => {
+        if (isFinished) {
+            return;
+        }
+        isFinished = true;
+        finishSlide = null;
+        // 滑らせている間に閉じたり別のキャプチャを開いたりしたら、隣へ差し替えずに位置だけを戻して終える
+        if (props.capture?.id !== current.id) {
+            isSliding.value = false;
+            dragX.value = 0;
+            return;
+        }
+        // 差し替えと同時に位置を戻す (隣の画像がそのまま中央の枠へ移るので、見た目は動かない)
+        isSnapping.value = true;
+        emit('update:capture', neighbor);
         dragX.value = 0;
-        return;
-    }
-    // 差し替えと同時に位置を戻す (隣の画像がそのまま中央の枠へ移るので、見た目は動かない)
-    isSnapping.value = true;
-    emit('update:capture', neighbor);
-    dragX.value = 0;
-    await nextTick();
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    isSnapping.value = false;
-    isSliding.value = false;
+        await nextTick();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        isSnapping.value = false;
+        isSliding.value = false;
+    };
+    finishSlide = finish;
+    window.setTimeout(() => void finish(), 300);
 };
 
 
