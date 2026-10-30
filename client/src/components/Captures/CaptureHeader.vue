@@ -38,7 +38,7 @@
                 <Icon icon="fluent:search-20-filled" height="24px" />
             </div>
             <!-- 並べ替えと絞り込みは、一覧の見え方を変える操作としてまとめ、1つのボタンから開く -->
-            <v-menu v-if="showTimelineControls" location="bottom end" :close-on-content-click="false">
+            <v-menu v-if="showTimelineControls" location="bottom end" :close-on-content-click="false" @update:model-value="onFilterMenuToggle">
                 <template #activator="{ props: menuProps }">
                     <v-btn class="capture-header__view-button" variant="flat" color="background-lighten-1" height="34"
                         :class="{'capture-header__view-button--active': activeFilterCount > 0}" v-bind="menuProps">
@@ -57,6 +57,45 @@
                                 @click="$emit('update:axis', choice.value)">
                                 {{ choice.label }}
                             </div>
+                        </div>
+                    </div>
+                    <div class="capture-header__filter-divider"></div>
+                    <!-- タグ・お気に入りはアカウントごとのものなので、ログインしていないときは選ぼうとした時点でログインを案内する -->
+                    <div class="capture-header__filter-row">
+                        <span class="capture-header__filter-label">タグ (すべて付いているもの)</span>
+                        <v-autocomplete :model-value="filter.tag_ids ?? []" :items="tagChoices" item-title="name" item-value="id"
+                            color="primary" variant="outlined" density="compact" multiple chips closable-chips hide-details
+                            placeholder="タグを選択" :no-data-text="tags === null ? 'タグの一覧を読み込めませんでした' : 'タグがありません'" :readonly="!isLoggedIn"
+                            @click="warnIfLoggedOut" @update:model-value="updateFilterValue('tag_ids', $event)" />
+                    </div>
+                    <div v-if="!lockFavorite" class="capture-header__filter-row">
+                        <span class="capture-header__filter-label">お気に入り</span>
+                        <div class="capture-header__filter-choices">
+                            <div v-for="choice in favoriteChoices" :key="String(choice.value)" v-ripple
+                                class="capture-header__filter-choice"
+                                :class="{'capture-header__filter-choice--active': (filter.is_favorite ?? null) === choice.value}"
+                                @click="updateFavorite(choice.value)">
+                                {{ choice.label }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="capture-header__filter-row">
+                        <span class="capture-header__filter-label">チャンネル</span>
+                        <v-autocomplete :model-value="filter.channel_ids ?? []" :items="channelChoices" item-title="label" item-value="id"
+                            color="primary" variant="outlined" density="compact" multiple chips closable-chips hide-details
+                            placeholder="チャンネルを選択" :no-data-text="channels === null ? 'チャンネルの一覧を読み込めませんでした' : 'チャンネルがありません'"
+                            @update:model-value="updateFilterValue('channel_ids', $event)" />
+                    </div>
+                    <div class="capture-header__filter-row">
+                        <span class="capture-header__filter-label">期間 ({{ axis === 'BroadcastAt' ? '放送日' : '撮影日' }})</span>
+                        <div class="capture-header__filter-period">
+                            <v-text-field :model-value="filter.start_date ?? ''" type="date" color="primary" variant="outlined"
+                                density="compact" hide-details :max="filter.end_date ?? undefined"
+                                @update:model-value="updateFilterValue('start_date', $event || null)" />
+                            <span>〜</span>
+                            <v-text-field :model-value="filter.end_date ?? ''" type="date" color="primary" variant="outlined"
+                                density="compact" hide-details :min="filter.start_date ?? undefined"
+                                @update:model-value="updateFilterValue('end_date', $event || null)" />
                         </div>
                     </div>
                     <div class="capture-header__filter-divider"></div>
@@ -116,6 +155,14 @@
             </router-link>
         </div>
 
+        <!-- 使っている絞り込みの条件だけをチップで並べ、× でその条件を解除できるようにする -->
+        <div v-if="showTimelineControls && activeFilterChips.length > 0" class="capture-header__active-filters">
+            <v-chip v-for="chip in activeFilterChips" :key="chip.key" class="capture-header__active-filter" color="primary"
+                variant="tonal" size="small" closable @click:close="chip.clear()">
+                {{ chip.label }}
+            </v-chip>
+        </div>
+
         <!-- 画像のファイルを画面に持ってきている間に出す、ドロップしてアップロードするための枠 -->
         <Teleport to="body">
             <transition name="capture-drop-fade">
@@ -132,12 +179,14 @@
 </template>
 <script lang="ts" setup>
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import Message from '@/message';
-import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureFilter } from '@/services/Captures';
+import Captures, { CaptureQueryTarget, CaptureTimelineAxis, ICapture, ICaptureChannel, ICaptureFilter, ICaptureTag } from '@/services/Captures';
 import Maintenance, { IMaintenanceTaskStatus } from '@/services/Maintenance';
+import useUserStore from '@/stores/UserStore';
+import { dayjs } from '@/utils';
 
 
 /** 絞り込みのうち、ヘッダーで切り替えるもの (キャプチャの種類と番組情報の有無) */
@@ -153,6 +202,10 @@ const props = withDefaults(defineProps<{
     axis?: CaptureTimelineAxis;
     filter?: ICaptureFilter;
     queryTargets?: CaptureQueryTarget[];
+    // お気に入りの画面では、お気に入りであることが画面の前提なので、お気に入りの絞り込みを出さない
+    lockFavorite?: boolean;
+    // タグの画面では、そのタグが画面の前提なので、重ねて選ぶタグの選択肢から外す
+    excludedTagId?: number | null;
 }>(), {
     total: null,
     showTimelineControls: false,
@@ -161,6 +214,8 @@ const props = withDefaults(defineProps<{
     axis: 'CapturedAt',
     filter: () => ({}),
     queryTargets: () => [],
+    lockFavorite: false,
+    excludedTagId: null,
 });
 
 const emit = defineEmits<{
@@ -230,13 +285,118 @@ const filterOptions: { key: CaptureTypeFilterKey; label: string; choices: { labe
     { key: 'has_caption_text', label: '字幕テキスト', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
     { key: 'has_metadata', label: '番組情報', choices: [{ label: 'すべて', value: null }, { label: 'あり', value: true }, { label: 'なし', value: false }] },
 ];
-const activeFilterCount = computed(() => filterOptions.filter(option => props.filter[option.key] !== null && props.filter[option.key] !== undefined).length);
-
 const updateFilter = (key: CaptureTypeFilterKey, value: boolean | null) => {
     emit('update:filter', { ...props.filter, [key]: value });
 };
+const updateFilterValue = <K extends 'tag_ids' | 'channel_ids' | 'start_date' | 'end_date'>(key: K, value: ICaptureFilter[K]) => {
+    emit('update:filter', { ...props.filter, [key]: value });
+};
+
+// お気に入りの絞り込み (お気に入りに追加したものだけに絞るか、絞らないかの2択)
+const favoriteChoices: { label: string; value: boolean | null }[] = [
+    { label: 'すべて', value: null },
+    { label: 'お気に入りのみ', value: true },
+];
+const userStore = useUserStore();
+const isLoggedIn = computed(() => userStore.is_logged_in);
+const warnIfLoggedOut = () => {
+    if (isLoggedIn.value === false) {
+        Message.warning('お気に入りやタグで絞り込むには、ログインが必要です。\nアカウントにログインしてから、もう一度お試しください。');
+    }
+};
+const updateFavorite = (value: boolean | null) => {
+    if (value === true && isLoggedIn.value === false) {
+        warnIfLoggedOut();
+        return;
+    }
+    emit('update:filter', { ...props.filter, is_favorite: value });
+};
+
+// タグとチャンネルの選択肢 (チップに出す名前にも使う)
+const tags = ref<ICaptureTag[] | null>(null);
+const channels = ref<ICaptureChannel[] | null>(null);
+const tagChoices = computed(() => (tags.value ?? []).filter(tag => tag.id !== props.excludedTagId));
+// NHK BS のサブチャンネルのように同じ名前のチャンネルが複数あるときは、「NHK BS (Ch: 102)」のようにチャンネル番号を添えて見分けられるようにする
+const channelChoices = computed(() => {
+    const list = channels.value ?? [];
+    return list.map((channel) => {
+        const isDuplicated = list.some(other => other.id !== channel.id && other.name === channel.name);
+        const number = Number(channel.display_channel_id.replace(/^[a-z]+/, ''));
+        return { id: channel.id, label: isDuplicated ? `${channel.name} (Ch: ${number})` : channel.name };
+    });
+});
+// 選択肢の取得に失敗していたら、絞り込みのメニューを開いたときに取得し直す
+// タグはログインしていないと取得できないので、ログインしているときだけ取得し直す
+const onFilterMenuToggle = (isOpen: boolean) => {
+    if (isOpen && (channels.value === null || (isLoggedIn.value && tags.value === null))) {
+        void loadFilterChoices();
+    }
+};
+
+// 親の画面がログイン状態を確認し終えたら、アカウントごとのタグの選択肢を取得し直す
+watch(isLoggedIn, () => {
+    if (props.showTimelineControls) {
+        void loadFilterChoices();
+    }
+});
+const loadFilterChoices = async () => {
+    const [tagResult, channelResult] = await Promise.all([
+        isLoggedIn.value ? Captures.fetchTags() : Promise.resolve(null),
+        Captures.fetchChannels(),
+    ]);
+    tags.value = tagResult;
+    channels.value = channelResult;
+};
+
+// 使っている絞り込みの条件のチップ (並びは絞り込みのメニューの並びに合わせる)
+const formatDate = (value: string) => dayjs(value).format('YYYY/MM/DD');
+const activeFilterChips = computed(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    for (const tagId of props.filter.tag_ids ?? []) {
+        const name = tags.value?.find(tag => tag.id === tagId)?.name ?? 'タグ';
+        chips.push({
+            key: `tag-${tagId}`,
+            label: `タグ: ${name}`,
+            clear: () => updateFilterValue('tag_ids', (props.filter.tag_ids ?? []).filter(id => id !== tagId)),
+        });
+    }
+    if (props.lockFavorite === false && props.filter.is_favorite === true) {
+        chips.push({ key: 'favorite', label: 'お気に入りのみ', clear: () => updateFavorite(null) });
+    }
+    for (const channelId of props.filter.channel_ids ?? []) {
+        const name = channelChoices.value.find(channel => channel.id === channelId)?.label ?? channelId;
+        chips.push({
+            key: `channel-${channelId}`,
+            label: `チャンネル: ${name}`,
+            clear: () => updateFilterValue('channel_ids', (props.filter.channel_ids ?? []).filter(id => id !== channelId)),
+        });
+    }
+    if (props.filter.start_date || props.filter.end_date) {
+        const start = props.filter.start_date ? formatDate(props.filter.start_date) : '';
+        const end = props.filter.end_date ? formatDate(props.filter.end_date) : '';
+        chips.push({
+            key: 'period',
+            label: `期間: ${start} 〜 ${end}`,
+            clear: () => emit('update:filter', { ...props.filter, start_date: null, end_date: null }),
+        });
+    }
+    for (const option of filterOptions) {
+        const value = props.filter[option.key];
+        if (value === null || value === undefined) {
+            continue;
+        }
+        const choice = option.choices.find(item => item.value === value);
+        chips.push({ key: option.key, label: `${option.label}: ${choice?.label ?? ''}`, clear: () => updateFilter(option.key, null) });
+    }
+    return chips;
+});
+const activeFilterCount = computed(() => activeFilterChips.value.length);
+
 const clearFilters = () => {
-    const next = { ...props.filter };
+    const next: ICaptureFilter = { ...props.filter, tag_ids: [], channel_ids: [], start_date: null, end_date: null };
+    if (props.lockFavorite === false) {
+        next.is_favorite = null;
+    }
     for (const option of filterOptions) {
         next[option.key] = null;
     }
@@ -333,6 +493,10 @@ const refreshScanStatus = async () => {
     }
 };
 onMounted(() => {
+    // 絞り込みの選択肢と、URL から復元した条件のチップに出す名前を取得する
+    if (props.showTimelineControls) {
+        void loadFilterChoices();
+    }
     void refreshScanStatus();
     scanTimer = window.setInterval(refreshScanStatus, 10 * 1000);
     // ドロップは画面のどこで受けてもよいので、ウインドウ全体で受け取る
@@ -672,9 +836,24 @@ onBeforeUnmount(() => {
         }
     }
 
+    // 使っている絞り込みの条件のチップ (タブの行の下に、折り返して並べる)
+    &__active-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: -4px;
+        margin-bottom: 14px;
+    }
+    &__active-filter {
+        user-select: none;
+    }
+
     &__filter {
         width: 340px;
         max-width: calc(100vw - 24px);
+        // 絞り込みの項目が画面の高さに収まらないときは、メニューの中をスクロールさせる
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
         padding: 14px 16px 8px;
         &-row {
             margin-bottom: 12px;
@@ -701,6 +880,13 @@ onBeforeUnmount(() => {
                 background: rgb(var(--v-theme-primary));
                 color: rgb(var(--v-theme-text));
             }
+        }
+        // 期間の開始日と終了日は、間に「〜」を挟んで横に並べる
+        &-period {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
         }
         &-divider {
             height: 1px;

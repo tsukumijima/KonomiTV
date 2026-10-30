@@ -129,7 +129,12 @@ export interface ICaptureFilter {
     event_id?: number | null;
     start_time?: string | null;
     is_favorite?: boolean | null;
-    tag_id?: number | null;
+    // 複数のタグはすべて付いているキャプチャに、複数のチャンネルはどれかに当てはまるキャプチャに絞る
+    tag_ids?: number[] | null;
+    channel_ids?: string[] | null;
+    // 期間 (YYYY-MM-DD) はタイムラインの時間の軸で比べ、終了日もその日の分まで含める
+    start_date?: string | null;
+    end_date?: string | null;
     is_caption_composited?: boolean | null;
     is_comment_composited?: boolean | null;
     has_caption_text?: boolean | null;
@@ -267,14 +272,14 @@ class Captures {
      * @param filter 絞り込みの条件
      * @returns クエリパラメータ
      */
-    private static buildFilterParams(filter: ICaptureFilter): Record<string, string | number | boolean | string[]> {
-        const params: Record<string, string | number | boolean | string[]> = {};
+    private static buildFilterParams(filter: ICaptureFilter): Record<string, string | number | boolean | (string | number)[]> {
+        const params: Record<string, string | number | boolean | (string | number)[]> = {};
         for (const [key, value] of Object.entries(filter)) {
             // 空の配列 (検索語を探す範囲を1つも選んでいない) も、指定なしとして送らない
             if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
                 continue;
             }
-            params[key] = value as string | number | boolean | string[];
+            params[key] = value as string | number | boolean | (string | number)[];
         }
         return params;
     }
@@ -294,7 +299,7 @@ class Captures {
         filter?: ICaptureFilter;
     } = {}): Promise<ICaptures | null> {
 
-        const params: Record<string, string | number | boolean | string[]> = {
+        const params: Record<string, string | number | boolean | (string | number)[]> = {
             ...this.buildFilterParams(options.filter ?? {}),
             order: options.order ?? 'CapturedAtDesc',
             limit: options.limit ?? 100,
@@ -309,7 +314,7 @@ class Captures {
 
         const response = await APIClient.get<ICaptures>('/captures', {
             params,
-            // 検索語を探す範囲のリストを FastAPI が受け付ける &query_targets=A&query_targets=B の形式にエンコードする
+            // 検索語を探す範囲やタグなどのリストを FastAPI が受け付ける &query_targets=A&query_targets=B の形式にエンコードする
             paramsSerializer: {
                 indexes: null,
             },
@@ -367,20 +372,34 @@ class Captures {
         filter?: ICaptureFilter;
     } = {}): Promise<ICaptureSections | null> {
 
-        const params: Record<string, string | number | boolean | string[]> = {
+        const params: Record<string, string | number | boolean | (string | number)[]> = {
             ...this.buildFilterParams(options.filter ?? {}),
             axis: options.axis ?? 'CapturedAt',
             day_start_hour: options.day_start_hour ?? 0,
         };
         const response = await APIClient.get<ICaptureSections>('/captures/sections', {
             params,
-            // 検索語を探す範囲のリストを FastAPI が受け付ける &query_targets=A&query_targets=B の形式にエンコードする
+            // 検索語を探す範囲やタグなどのリストを FastAPI が受け付ける &query_targets=A&query_targets=B の形式にエンコードする
             paramsSerializer: {
                 indexes: null,
             },
         });
         if (response.type === 'error') {
             APIClient.showGenericError(response, 'キャプチャの日付ごとの件数を取得できませんでした。');
+            return null;
+        }
+        return response.data;
+    }
+
+
+    /**
+     * 利用できるキャプチャがあるチャンネルの一覧を取得する (チャンネルでの絞り込みの選択肢に使う)
+     * @returns チャンネルの一覧 (失敗時は null)
+     */
+    static async fetchChannels(): Promise<ICaptureChannel[] | null> {
+        const response = await APIClient.get<ICaptureChannel[]>('/captures/channels');
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, 'キャプチャのあるチャンネルの一覧を取得できませんでした。');
             return null;
         }
         return response.data;
