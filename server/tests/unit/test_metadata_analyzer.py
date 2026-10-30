@@ -4,6 +4,7 @@ from typing import Any
 
 from syrupy.assertion import SnapshotAssertion
 
+from app.constants import PROCESS_POOL_CONTEXT
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from tests.conftest import FIXTURES_DIR
 
@@ -22,7 +23,7 @@ def AnalyzeRecording(file_name: str) -> dict[str, Any]:
     # 本番の RecordedScanTask と同じく、別のプロセスで解析する
     ## 地デジのチャンネル番号の計算では、解析するプロセスが自分で DB に接続して閉じる
     analyzer = MetadataAnalyzer(FIXTURES_DIR / 'recorded' / file_name)
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT) as executor:
         recorded_program = executor.submit(analyzer.analyze).result()
     assert recorded_program is not None
     return recorded_program.model_dump(

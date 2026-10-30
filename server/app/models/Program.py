@@ -19,7 +19,7 @@ from tortoise.models import Model as TortoiseModel
 
 from app import logging
 from app.config import Config, LoadConfig
-from app.constants import DATABASE_CONFIG, HTTPX_CLIENT, JST
+from app.constants import DATABASE_CONFIG, HTTPX_CLIENT, JST, PROCESS_POOL_CONTEXT
 from app.models.Channel import Channel
 from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL, ShutdownProcessPoolExecutor
@@ -100,7 +100,7 @@ class Program(TortoiseModel):
             # マルチプロセス実行用の Executor を初期化
             ## ProcessPoolExecutor のコンテキストマネージャーは、キャンセル時にも __exit__() で子プロセスの終了を同期的に待つ
             ## 番組情報更新中に API リクエストやバックグラウンドタスクがキャンセルされても、イベントループ全体を止めないように明示的に閉じる
-            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
             should_wait_executor = True
             try:
                 # Mirakurun バックエンド

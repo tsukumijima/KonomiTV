@@ -1,6 +1,8 @@
 
 import base64
 import hashlib
+import multiprocessing
+import multiprocessing.context
 import os
 import pkgutil
 import secrets
@@ -90,6 +92,20 @@ LIBRARY_PATH = {
     'psisiarc': str(LIBRARY_DIR / 'psisiarc/psisiarc') + LIBRARY_EXTENSION,
     'psisimux': str(LIBRARY_DIR / 'psisimux/psisimux') + LIBRARY_EXTENSION,
 }
+
+# 番組情報の更新・録画の解析・サムネイルの生成を行う ProcessPoolExecutor の子プロセスの起動方式
+## Linux では forkserver 方式で起動する
+## Python 3.13 までの Linux の既定は fork で、スレッドが動いているサーバープロセスを丸ごと複製するため、
+## 別のスレッドがロックを保持した瞬間に複製されると、子プロセスがそのロックを待ち続けて停止することがある
+## forkserver は、スレッドを持たない専用のプロセスから子プロセスを複製する
+## 子プロセス側の処理は Windows (spawn) と同じく、サーバー設定の読み込みと DB への接続を子プロセス自身で行うように実装されている
+## リロードモードのサーバー本体は Uvicorn が spawn 方式で起動した子プロセスで動き、親で設定したプロセス全体の既定の起動方式は引き継がれないため、
+## set_start_method() ではなく、ProcessPoolExecutor の mp_context に渡して起動方式を明示する
+PROCESS_POOL_CONTEXT: multiprocessing.context.BaseContext
+if sys.platform == 'linux':
+    PROCESS_POOL_CONTEXT = multiprocessing.get_context('forkserver')
+else:
+    PROCESS_POOL_CONTEXT = multiprocessing.get_context('spawn')
 
 # データベース (Tortoise ORM) の設定
 __model_list = [name for _, name, _ in pkgutil.iter_modules(path=['app/models'])]

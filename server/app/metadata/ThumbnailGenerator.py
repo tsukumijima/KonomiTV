@@ -24,7 +24,13 @@ from tortoise import Tortoise, connections
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
-from app.constants import DATABASE_CONFIG, LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.constants import (
+    DATABASE_CONFIG,
+    LIBRARY_PATH,
+    PROCESS_POOL_CONTEXT,
+    STATIC_DIR,
+    THUMBNAILS_DIR,
+)
 from app.models.RecordedVideo import RecordedVideo
 from app.utils import ShutdownProcessPoolExecutor
 
@@ -371,7 +377,7 @@ class ThumbnailGenerator:
         ## リクエスト切断時に ProcessPoolExecutor.__exit__() が同期的に子プロセス終了を待つとイベントループが止まるため、
         ## コンテキストマネージャーは使わず、キャンセル時だけ待機なしで終了処理に入る
         loop = asyncio.get_running_loop()
-        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
         should_wait_executor = True
         try:
             success = await loop.run_in_executor(
@@ -1424,7 +1430,7 @@ class ThumbnailGenerator:
         ## anyio.Path は同期関数では実行できないため、pathlib.Path に変換して渡す
         ## キャンセル時に同期的な終了待機へ入るとイベントループ全体が止まるため、Executor は明示的に閉じる
         loop = asyncio.get_running_loop()
-        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
         should_wait_executor = True
         try:
             success = await loop.run_in_executor(

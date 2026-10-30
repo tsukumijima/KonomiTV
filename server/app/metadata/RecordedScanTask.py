@@ -18,7 +18,7 @@ from watchfiles import Change, awatch
 
 from app import logging, schemas
 from app.config import Config
-from app.constants import JST, THUMBNAILS_DIR
+from app.constants import JST, PROCESS_POOL_CONTEXT, THUMBNAILS_DIR
 from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.MetadataAnalyzer import MetadataAnalyzer
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -924,7 +924,7 @@ class RecordedScanTask:
                 ## コンテキストマネージャーはキャンセル時にも子プロセス終了を同期的に待つため、イベントループ上では使わない
                 ## 正常完了時は明示的に待ってクリーンアップし、リクエスト切断時だけ待機なしで解放処理へ進める
                 loop = asyncio.get_running_loop()
-                executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+                executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
                 should_wait_executor = True
                 try:
                     recorded_program = await loop.run_in_executor(executor, analyzer.analyze)
