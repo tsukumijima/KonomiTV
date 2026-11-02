@@ -48,6 +48,16 @@ class ClientSettings(BaseModel):
     saved_twitter_hashtags: list[str] = []
     mylist: list[dict[str, Any]] = []
     watched_history: list[dict[str, Any]] = []
+    # 放送予定は放送局・イベント ID・開始時刻で識別するため、サーバー固有の DB 連番 ID に依存しない。
+    program_reminders: list[dict[str, Any]] = []
+    program_recommendation_rules: list[dict[str, Any]] = []
+    program_recommendation_enabled: bool = False
+    program_recommendation_notify_by_default: bool = True
+    program_reminder_notifications_enabled: bool = True
+    program_reminder_notify_on_discovery: bool = True
+    # 単位は分。秒単位の指定も保存できるよう、1/60 分の小数を受け付ける。
+    program_reminder_lead_times: list[Annotated[float, Field(ge=0, allow_inf_nan=False)]] = [1440, 180, 5]
+    # program_reminder_notices: 同期無効 (お知らせは端末ごとに表示する)
     # lshaped_screen_crop_enabled: 同期無効
     # lshaped_screen_crop_zoom_level: 同期無効
     # lshaped_screen_crop_x_position: 同期無効
