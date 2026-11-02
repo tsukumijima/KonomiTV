@@ -1,11 +1,13 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 
 import type { IProgramRecommendationRule, IProgramReminder, IProgramReminderCandidate } from '@/services/ProgramReminders';
 
+import Message from '@/message';
 import Programs, { IProgramDefault, type ITimeTable } from '@/services/Programs';
 import useProgramRemindersStore from '@/stores/ProgramRemindersStore';
-import useSettingsStore from '@/stores/SettingsStore';
+import useSettingsStore, { getLocalStorageSettings, setLocalStorageSettings } from '@/stores/SettingsStore';
 import { dayjs } from '@/utils';
 import {
     collectProgramReminderNotices, deduplicateProgramRecommendationRules, getProgramRecommendationReasons,
@@ -297,6 +299,168 @@ describe('番組表の通信と設定の競合', () => {
         vi.setSystemTime(start - 3600_000);
     });
     afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+
+    it('保存容量を超えた番組の追加を戻し、既存番組と同時に変更したマイリストを保存する', async () => {
+        const settings = useSettingsStore();
+        settings.settings.program_reminders = [structuredClone(reminder)];
+        settings.persistClientSettings();
+        const errorMessage = vi.spyOn(Message, 'error').mockImplementation(() => {});
+        settings.settings.program_reminders.push({ ...structuredClone(reminder), key: 'too-large',
+            program: { ...candidate.program, description: 'あ'.repeat(6_000_000) } });
+        settings.settings.mylist = [{ type: 'RecordedProgram', id: 42, created_at: start }];
+        expect(() => settings.persistClientSettings()).not.toThrow();
+        expect(settings.settings.program_reminders).toEqual([reminder]);
+        expect(getLocalStorageSettings().program_reminders).toEqual([reminder]);
+        expect(getLocalStorageSettings().mylist).toEqual(settings.settings.mylist);
+        expect(settings.local_save_error).toContain('保存済みの内容に戻しました');
+        expect(errorMessage).toHaveBeenCalledOnce();
+        settings.settings.last_synced_at += 1;
+        settings.persistClientSettings();
+        expect(settings.local_save_error).not.toBeNull();
+        const fetch = vi.spyOn(Programs, 'fetchTimeTable').mockResolvedValue(null);
+        const store = useProgramRemindersStore();
+        await store.refresh();
+        expect(fetch).not.toHaveBeenCalled();
+        await store.refresh(true);
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(settings.local_save_error).toBeNull();
+    });
+
+    it('ほかの設定も容量を超える場合は、保存済みの設定全体を維持する', () => {
+        const settings = useSettingsStore();
+        const saved = getLocalStorageSettings();
+        vi.spyOn(Message, 'error').mockImplementation(() => {});
+        settings.settings.saved_twitter_hashtags = ['あ'.repeat(6_000_000)];
+        expect(() => settings.persistClientSettings()).not.toThrow();
+        expect(settings.settings).toEqual(saved);
+        expect(getLocalStorageSettings()).toEqual(saved);
+        expect(settings.local_save_error).toContain('保存済みの内容を保持');
+    });
+
+    it('保存失敗の復旧と条件の整理が再帰せず、同時変更した通知条件も保存済みの状態に戻す', async () => {
+        const settings = useSettingsStore();
+        useProgramRemindersStore();
+        vi.spyOn(Message, 'error').mockImplementation(() => {});
+        const stopSaving = settings.$subscribe(() => settings.persistClientSettings());
+        try {
+            settings.$patch({ settings: {
+                program_recommendation_rules: [structuredClone(rule)],
+                program_reminders: [{ ...structuredClone(reminder),
+                    program: { ...candidate.program, description: 'あ'.repeat(6_000_000) } }],
+                mylist: [{ type: 'RecordedProgram', id: 42, created_at: start }],
+            } });
+            await nextTick();
+            expect(settings.settings.program_recommendation_rules).toEqual([]);
+            expect(settings.settings.program_reminders).toEqual([]);
+            expect(getLocalStorageSettings().mylist).toHaveLength(1);
+            expect(Message.error).toHaveBeenCalledOnce();
+        } finally {
+            stopSaving();
+        }
+    });
+
+    it('別タブの通知変更を取り込んでも、同時に保存されたマイリストと視聴履歴を巻き戻さない', async () => {
+        const settings = useSettingsStore();
+        const store = useProgramRemindersStore();
+        const saved = JSON.parse(JSON.stringify(settings.settings)) as typeof settings.settings;
+        saved.mylist = [{ type: 'RecordedProgram', id: 42, created_at: start }];
+        saved.watched_history = [{ video_id: 42, last_playback_position: 123, created_at: start, updated_at: start }];
+        saved.program_reminders = [{ ...structuredClone(reminder), keyword_matches: [] }];
+        saved.last_synced_at = 100;
+        setLocalStorageSettings(saved);
+        const stopSaving = settings.$subscribe((_mutation, state) => setLocalStorageSettings(state.settings));
+        try {
+            store.syncLocalSettings();
+            await nextTick();
+            expect(settings.settings.mylist).toEqual(saved.mylist);
+            expect(getLocalStorageSettings()).toEqual(saved);
+        } finally {
+            stopSaving();
+        }
+    });
+
+    it.each(['LocalStorage', 'Server'])('直前に%sから届いた通知予定を10分待たずに確認する', async source => {
+        const settings = useSettingsStore();
+        settings.settings.program_reminder_lead_times = [5];
+        vi.setSystemTime(start - 6 * 60_000);
+        const fetch = vi.spyOn(Programs, 'fetchTimeTable').mockResolvedValue({
+            channels: [{ channel: candidate.channel as ITimeTable['channels'][number]['channel'],
+                programs: [{ ...candidate.program, reservation: null }], subchannels: null }],
+            date_range: { earliest: candidate.program.start_time, latest: candidate.program.end_time },
+        });
+        const store = useProgramRemindersStore();
+        await store.refresh(true);
+        expect(store.verifiedKeys).toEqual([]);
+        vi.setSystemTime(start - 5 * 60_000);
+        if (source === 'LocalStorage') {
+            const saved = JSON.parse(JSON.stringify(settings.settings)) as typeof settings.settings;
+            saved.program_reminders = [structuredClone(reminder)];
+            setLocalStorageSettings(saved);
+            store.syncLocalSettings();
+        } else {
+            // サーバー同期と同じく、SettingsStore の配列を置き換える。
+            settings.settings.program_reminders = [structuredClone(reminder)];
+        }
+        await store.refresh();
+        store.checkNotices();
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(settings.settings.program_reminder_notices.map(notice => notice.message)).toContain('5分前');
+        await store.refresh();
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(['disabled', 'stale', 'failed'])('通知の生成が%sでも、期限切れの履歴だけを削除する', mode => {
+        const settings = useSettingsStore();
+        const notices = collectProgramReminderNotices([reminder], [], [reminder.key], [], [60], false, start - 3600_000);
+        settings.settings.program_reminder_notices = [
+            { ...notices[0], id: 'expired', end_time: dayjs(start).subtract(9, 'day').format() },
+            { ...notices[0], id: 'recent' },
+        ];
+        settings.settings.program_reminders = [{ ...structuredClone(reminder),
+            program: { ...candidate.program, end_time: dayjs(start).subtract(9, 'day').format() } }];
+        const store = useProgramRemindersStore();
+        store.lastCheckedAt = mode === 'stale' ? start - 3600_000 - 16 * 60_000 : start - 3600_000;
+        settings.settings.program_reminder_notifications_enabled = mode !== 'disabled';
+        store.error = mode === 'failed' ? '通信に失敗' : null;
+        store.checkNotices();
+        expect(settings.settings.program_reminder_notices.map(notice => notice.id)).toEqual(['recent']);
+        expect(store.unreadCount).toBe(1);
+        expect(store.latestNotices).toEqual([]);
+        expect(store.reminders).toEqual([]);
+    });
+
+    it('同期で同じ番組の時刻が変わったら未確認へ戻し、失敗した同じ予定を毎秒再取得しない', async () => {
+        const settings = useSettingsStore();
+        settings.settings.program_reminders = [structuredClone(reminder)];
+        const fetch = vi.spyOn(Programs, 'fetchTimeTable').mockResolvedValue({
+            channels: [{ channel: candidate.channel as ITimeTable['channels'][number]['channel'],
+                programs: [{ ...candidate.program, reservation: null }], subchannels: null }],
+            date_range: { earliest: candidate.program.start_time, latest: candidate.program.end_time },
+        });
+        const store = useProgramRemindersStore();
+        await store.refresh();
+        expect(store.verifiedKeys).toEqual([reminder.key]);
+        settings.settings.program_reminders[0].program.start_time = dayjs(start).add(10, 'minute').format();
+        expect(store.verifiedKeys).toEqual([]);
+        fetch.mockResolvedValue(null);
+        await store.refresh();
+        expect(fetch).toHaveBeenCalledTimes(2);
+        vi.advanceTimersByTime(1000);
+        await store.refresh();
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(store.verifiedKeys).toEqual([]);
+    });
+
+    it('手動登録は録画予約情報を保存せず、番組表の更新が失敗しても混入させない', async () => {
+        vi.spyOn(Programs, 'fetchTimeTable').mockResolvedValue(null);
+        const store = useProgramRemindersStore();
+        const program = { ...candidate.program, reservation: { record_settings: { recording_folders: ['private-path'] } } };
+        store.addManual(program, candidate.channel);
+        await Promise.resolve();
+        expect(store.reminders[0].program).not.toHaveProperty('reservation');
+        expect(store.reminders[0].program).toEqual(candidate.program);
+        expect(program.reservation).toBeDefined();
+    });
 
     it('既存の重複条件と参照を整理しても、番組・通知状態・お知らせ・通知設定を保持する', () => {
         const settings = useSettingsStore();

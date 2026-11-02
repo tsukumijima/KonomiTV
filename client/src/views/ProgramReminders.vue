@@ -23,6 +23,9 @@
                     <v-alert v-if="reminderStore.error" type="warning" variant="tonal" class="mt-4">
                         {{reminderStore.error}}
                     </v-alert>
+                    <v-alert v-if="settingsStore.local_save_error" type="error" variant="tonal" class="mt-4">
+                        {{settingsStore.local_save_error}}
+                    </v-alert>
                     <v-tabs v-model="activeView" color="secondary" class="reminders-tabs mt-4">
                         <v-tab value="Scheduled"><span>通知予定</span><span class="reminders-tab-count">（{{reminderStore.scheduledReminders.length}}）</span></v-tab>
                         <v-tab value="Candidates"><span>番組候補</span><span class="reminders-tab-count">（{{reminderStore.candidateReminders.length}}）</span></v-tab>

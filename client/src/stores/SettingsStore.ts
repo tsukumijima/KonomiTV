@@ -6,6 +6,7 @@ import { toRaw } from 'vue';
 import type { IProgramReminderNotice } from '@/services/ProgramReminders';
 import type { IBlueskyReplyThreadState, ITwitterReplyThreadState } from '@/utils/TweetUtils';
 
+import Message from '@/message';
 import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
 import Utils from '@/utils';
 
@@ -618,9 +619,57 @@ const useSettingsStore = defineStore('settings', {
         // 設定データを Store の state のデフォルト値として返す
         return {
             settings: normalized_settings,
+            // 保存に失敗した変更を成功と表示せず、手動の再試行まで自動追加を止める。
+            local_save_error: null as string | null,
         };
     },
     actions: {
+
+        /** 別タブで保存した設定全体を取り込み、古いマイリストなどの再保存を防ぐ。 */
+        syncClientSettingsFromLocalStorage(): void {
+            const saved = getNormalizedLocalClientSettings(getLocalStorageSettings());
+            if (isEqual(this.settings, saved) === false) {
+                this.$patch({ settings: saved });
+            }
+        },
+
+        /**
+         * 現在の設定を保存する。容量不足でも既存の番組を切り捨てず、ほかの設定の保存を続ける。
+         * @param retryAfterFailure 本人が再試行した場合だけ、保存成功時に自動追加の停止を解除する
+         */
+        persistClientSettings(retryAfterFailure: boolean = false): void {
+            const saved = getNormalizedLocalClientSettings(getLocalStorageSettings());
+            try {
+                setLocalStorageSettings(this.settings);
+                // サーバー同期の時刻更新だけで停止を解除すると、容量不足の追加を繰り返してしまう。
+                if (retryAfterFailure) {
+                    this.local_save_error = null;
+                }
+                return;
+            } catch (error) {
+                console.error('Failed to persist client settings:', error);
+                // LocalStorage.setItem() の失敗では元の値が残る。番組と関連する設定の変更を一緒に戻し、
+                // マイリストや視聴履歴など、同時に変更した他の設定を保存できるか試す。
+                const fallback = { ...this.settings };
+                for (const key of Object.keys(ILocalClientSettingsDefault)) {
+                    if (key.startsWith('program_reminder') || key.startsWith('program_recommendation')) {
+                        fallback[key] = saved[key];
+                    }
+                }
+                let message = '設定を保存できませんでした。保存済みの内容を保持しています。ブラウザの空き容量や保存設定を確認してください。';
+                try {
+                    setLocalStorageSettings(fallback);
+                    this.settings = fallback;
+                    message = '番組・通知設定の変更を保存できなかったため、保存済みの内容に戻しました。ほかの設定は保存しました。ブラウザの空き容量を確認してから「更新」で再試行してください。';
+                } catch {
+                    this.settings = saved;
+                }
+                if (this.local_save_error !== message) {
+                    Message.error(message, 15);
+                }
+                this.local_save_error = message;
+            }
+        },
 
         /**
          * エクスポートした JSON ファイルから設定データをインポートする (既存の設定はすべて上書きされる)

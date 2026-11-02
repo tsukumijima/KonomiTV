@@ -12,7 +12,7 @@
                         { name: '番組を探す', path: '/tv/search', disabled: true },
                     ]" />
                     <div class="program-search-container__body">
-                        <div class="program-search-container__filters">
+                        <div v-if="isSearchSupported" class="program-search-container__filters">
                             <ProgramSearchFilters
                                 v-model:condition="searchCondition"
                                 :channels="allChannels"
@@ -27,10 +27,10 @@
                             hide-sort
                             :is-loading="isLoading"
                             :show-empty-message="hasSearched"
-                            :filter-button-label="shouldShowFilterDrawerButton ? '絞り込み' : undefined"
+                            :filter-button-label="isSearchSupported && shouldShowFilterDrawerButton ? '絞り込み' : undefined"
                             empty-icon="fluent:search-20-regular"
                             :empty-message="emptyMessage"
-                            :empty-sub-message="searchFailed ? '「検索」からもう一度お試しください。' : '別のキーワードや絞り込み条件で検索をお試しください。'"
+                            :empty-sub-message="!isSearchSupported ? '番組表から番組を選んで、通知を登録できます。' : searchFailed ? '「検索」からもう一度お試しください。' : '別のキーワードや絞り込み条件で検索をお試しください。'"
                             keep-deleted-items
                             compact-reservations-on-tablet-horizontal
                             is-program-search-result
@@ -45,7 +45,7 @@
         <div class="program-search-filter-drawer__scrim"
             :class="{ 'program-search-filter-drawer__scrim--visible': isFilterDrawerOpen }"
             @click="isFilterDrawerOpen = false"></div>
-        <aside class="program-search-filter-drawer"
+        <aside v-if="isSearchSupported" class="program-search-filter-drawer"
             :class="{ 'program-search-filter-drawer--visible': isFilterDrawerOpen }">
             <ProgramSearchFilters
                 v-model:condition="searchCondition"
@@ -70,12 +70,15 @@ import { IChannel, ILiveChannel } from '@/services/Channels';
 import Programs, { IProgram, IProgramSearchCondition } from '@/services/Programs';
 import Reservations, { IRecordSettings, IRecordSettingsDefault, IReservation } from '@/services/Reservations';
 import useChannelsStore from '@/stores/ChannelsStore';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils, { dayjs } from '@/utils';
 
 const route = useRoute();
 const router = useRouter();
 const channelsStore = useChannelsStore();
+const serverSettingsStore = useServerSettingsStore();
+const isSearchSupported = computed(() => !serverSettingsStore.is_loaded || serverSettingsStore.server_settings.general.backend === 'EDCB');
 
 const createDefaultSearchCondition = (): IProgramSearchCondition => {
     return {
@@ -136,9 +139,10 @@ const channelMap = computed(() => {
 const sortedPrograms = computed(() => {
     // 検索結果画面では、サーバーからの返却順に依存せず、常に放送時刻が近い順に並び替える
     // サーバーからの返却結果も基本的には時刻順になっているはずだが、念のため
-    return [...programs.value].sort((firstProgram, secondProgram) => {
-        return dayjs(firstProgram.start_time).valueOf() - dayjs(secondProgram.start_time).valueOf();
-    });
+    return programs.value
+        .map(program => ({ program, startTime: dayjs(program.start_time).valueOf() }))
+        .sort((firstProgram, secondProgram) => firstProgram.startTime - secondProgram.startTime)
+        .map(item => item.program);
 });
 
 const displayReservations = computed<IReservation[]>(() => {
@@ -162,6 +166,9 @@ const resultTitle = computed(() => {
 });
 
 const emptyMessage = computed(() => {
+    if (!isSearchSupported.value) {
+        return '番組検索は EDCB バックエンドで利用できます。';
+    }
     if (searchFailed.value) {
         return '番組を読み込めませんでした。';
     }
@@ -192,6 +199,19 @@ const searchPrograms = async () => {
     isLoading.value = true;
     isSearching.value = true;
     hasSearched.value = true;
+    // URL 変更やヘッダーからの再検索でも、EDCB 専用 API を呼ぶ前に確認する。
+    const serverSettings = await serverSettingsStore.fetchServerSettingsOnce();
+    if (revision !== searchRevision) {
+        return;
+    }
+    if (serverSettings === null || serverSettings.general.backend !== 'EDCB') {
+        programs.value = [];
+        totalPrograms.value = 0;
+        searchFailed.value = serverSettings === null;
+        isLoading.value = false;
+        isSearching.value = false;
+        return;
+    }
     searchCondition.value.keyword = searchCondition.value.keyword ?? '';
     searchCondition.value.exclude_keyword = searchCondition.value.exclude_keyword ?? '';
     searchedKeyword.value = searchCondition.value.keyword;
@@ -336,6 +356,10 @@ const createMockReservation = (program: IProgram): IReservation => {
 };
 
 const updateReservedProgramIds = async () => {
+    const serverSettings = await serverSettingsStore.fetchServerSettingsOnce();
+    if (serverSettings === null || serverSettings.general.backend !== 'EDCB') {
+        return;
+    }
     // 既存予約を取得し、検索結果上でも予約済み番組の丸ボタンを押せない状態にする
     const reservations = await Reservations.fetchReservations();
     if (reservations !== null) {
@@ -344,16 +368,22 @@ const updateReservedProgramIds = async () => {
 };
 
 onMounted(async () => {
+    const serverSettings = await serverSettingsStore.fetchServerSettingsOnce();
     // ユーザー情報とチャンネル一覧を先に取得し、検索結果カードが予約操作とロゴ表示を行える状態にする
     const userStore = useUserStore();
     await Promise.all([
         userStore.fetchUser(),
         channelsStore.update(),
-        updateReservedProgramIds(),
-        Reservations.fetchDefaultRecordSettings().then((recordSettings) => {
-            defaultRecordSettings.value = recordSettings;
-        }),
     ]);
+
+    if (serverSettings?.general.backend === 'EDCB') {
+        await Promise.all([
+            updateReservedProgramIds(),
+            Reservations.fetchDefaultRecordSettings().then((recordSettings) => {
+                defaultRecordSettings.value = recordSettings;
+            }),
+        ]);
+    }
 
     syncConditionFromRoute();
 

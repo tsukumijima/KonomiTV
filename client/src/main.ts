@@ -19,7 +19,6 @@ import useSettingsStore, {
     getLocalStorageSettings,
     getNormalizedLocalClientSettings,
     hashClientSettings,
-    setLocalStorageSettings,
 } from '@/stores/SettingsStore';
 import Utils from '@/utils';
 
@@ -142,7 +141,7 @@ settings_store.$subscribe(async () => {
 
         // 設定データを LocalStorage に保存
         console.trace('Client Settings Changed:', diff(current_saved_settings, settings_store.settings));
-        setLocalStorageSettings(settings_store.settings);
+        settings_store.persistClientSettings();
 
         // このクライアントの設定をサーバーに同期する (ログイン時かつ同期が有効な場合のみ実行される)
         await settings_store.syncClientSettingsToServer();
@@ -152,7 +151,7 @@ settings_store.$subscribe(async () => {
     } else if (current_saved_settings.last_synced_at < settings_store.settings.last_synced_at) {
 
         // 設定データを LocalStorage に保存
-        setLocalStorageSettings(settings_store.settings);
+        settings_store.persistClientSettings();
     }
 
 }, {detached: true});

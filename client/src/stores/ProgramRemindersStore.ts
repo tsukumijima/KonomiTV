@@ -5,7 +5,7 @@ import type { IChannel } from '@/services/Channels';
 import type { IProgramRecommendationRule, IProgramReminder, IProgramReminderCandidate, IProgramReminderNotice } from '@/services/ProgramReminders';
 
 import Programs, { type IProgram } from '@/services/Programs';
-import useSettingsStore, { getLocalStorageSettings, getNormalizedLocalClientSettings } from '@/stores/SettingsStore';
+import useSettingsStore from '@/stores/SettingsStore';
 import { dayjs } from '@/utils';
 import {
     collectProgramReminderNotices, deduplicateProgramRecommendationRules, getProgramRecommendationReasons,
@@ -26,6 +26,7 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
     const now = ref(dayjs().valueOf());
     const latestNotices = ref<IProgramReminderNotice[]>([]);
     let lastAttemptAt = 0;
+    let lastAttemptSignature = '';
     let changedKeys: string[] = [];
 
     const reminders = computed(() => settingsStore.settings.program_reminders);
@@ -43,6 +44,9 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
 
     // 保存済み・同期で受け取った重複条件を整理し、削除前の条件も通知予定へ保存する。
     watch(() => settingsStore.settings.program_recommendation_rules, rules => {
+        if (settingsStore.local_save_error !== null) {
+            return;
+        }
         const uniqueRules = deduplicateProgramRecommendationRules(rules);
         const updated = reminders.value.map(reminder => ({
             ...reminder, keyword_matches: getProgramReminderKeywords(reminder, rules),
@@ -54,40 +58,46 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
         }
     }, { deep: true, immediate: true });
 
-    /** 同じブラウザのほかのタブで変更した、通知と視聴の状態を読み取る。 */
+    /** 番組表で確認した放送回と時刻を識別し、同期後の再確認に使う。 */
+    function getVerificationSignature(reminder: IProgramReminder): string {
+        return JSON.stringify([reminder.key, reminder.program.id, reminder.channel.id,
+            reminder.program.start_time, reminder.program.end_time]);
+    }
+
+    // 同じキーでも別端末から放送時刻が変わって届いた場合は、再確認前の自動切り替えを防ぐ。
+    watch(() => scheduledReminders.value.map(getVerificationSignature), (signatures, previousSignatures) => {
+        const previous = new Set(previousSignatures);
+        const unchangedSignatures = new Set(signatures.filter(signature => previous.has(signature)));
+        const validKeys = new Set(scheduledReminders.value.filter(reminder =>
+            unchangedSignatures.has(getVerificationSignature(reminder))).map(reminder => reminder.key));
+        verifiedKeys.value = verifiedKeys.value.filter(key => validKeys.has(key));
+    }, { flush: 'sync' });
+
+    /** 同じブラウザのほかのタブで保存した設定全体を取り込む。 */
     function syncLocalSettings(): void {
-        const saved = getNormalizedLocalClientSettings(getLocalStorageSettings());
-        const reminderSettings = {
-            program_reminders: saved.program_reminders,
-            program_recommendation_rules: saved.program_recommendation_rules,
-            program_recommendation_enabled: saved.program_recommendation_enabled,
-            program_recommendation_notify_by_default: saved.program_recommendation_notify_by_default,
-            program_reminder_notifications_enabled: saved.program_reminder_notifications_enabled,
-            program_reminder_notify_on_discovery: saved.program_reminder_notify_on_discovery,
-            program_reminder_lead_times: saved.program_reminder_lead_times,
-            program_reminder_notices: saved.program_reminder_notices,
-            program_reminder_auto_switch_enabled: saved.program_reminder_auto_switch_enabled,
-            program_reminder_auto_switch_handled: saved.program_reminder_auto_switch_handled,
-        };
-        const hasChanges = Object.entries(reminderSettings).some(([key, value]) =>
-            JSON.stringify(settingsStore.settings[key]) !== JSON.stringify(value));
-        if (hasChanges) {
-            settingsStore.$patch({ settings: reminderSettings });
-        }
+        settingsStore.syncClientSettingsFromLocalStorage();
     }
 
     /** アプリを開いている間に、最大10分間隔で番組表を更新する。 */
     async function refresh(force = false): Promise<void> {
         now.value = dayjs().valueOf();
+        if (force && settingsStore.local_save_error !== null) {
+            settingsStore.persistClientSettings(true);
+        }
         const settings = settingsStore.settings;
         const hasActiveRules = settings.program_recommendation_enabled && settings.program_recommendation_rules.some(rule => rule.is_enabled);
-        if (isLoading.value || (!force && !hasActiveRules && scheduledReminders.value.length === 0)) {
+        if (isLoading.value || (!force && (settingsStore.local_save_error !== null ||
+            (!hasActiveRules && scheduledReminders.value.length === 0)))) {
             return;
         }
-        if (!force && now.value - lastAttemptAt < 10 * 60_000) {
+        // 新規同期・通知の再開・時刻変更は10分の取得間隔を待たず、一度確認する。
+        // 取得に失敗した同じ予定を毎秒再試行しないよう、試行済みの組も記録する。
+        const signature = JSON.stringify(scheduledReminders.value.map(getVerificationSignature).sort());
+        if (!force && signature === lastAttemptSignature && now.value - lastAttemptAt < 10 * 60_000) {
             return;
         }
         lastAttemptAt = now.value;
+        lastAttemptSignature = signature;
         isLoading.value = true;
         try {
             // 番組表 API は EDCB / Mirakurun 共通。配信対象局と番組を同時に取得する。
@@ -123,6 +133,7 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
                 currentSettings.program_reminders = reconciled.reminders;
             }
             verifiedKeys.value = reconciled.verifiedKeys;
+            lastAttemptSignature = JSON.stringify(scheduledReminders.value.map(getVerificationSignature).sort());
             changedKeys = reconciled.changedKeys;
             matchingCount.value = reconciled.matchingCount;
             lastCheckedAt.value = dayjs().valueOf();
@@ -140,9 +151,11 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
             return;
         }
         const existing = reminders.value.find(reminder => isSameReminderBroadcast(reminder.program, program));
+        // 番組表から渡される ITimeTableProgram の録画予約情報を設定同期へ持ち込まない。
+        const { reservation: _reservation, ...programWithoutReservation } = program as IProgram & { reservation?: unknown };
         const reminder: IProgramReminder = {
             key: existing?.key ?? getProgramReminderKey(program),
-            program: JSON.parse(JSON.stringify(program)),
+            program: JSON.parse(JSON.stringify(programWithoutReservation)),
             channel: { id: channel.id, name: channel.name, display_channel_id: channel.display_channel_id },
             source: 'Manual', status: 'Scheduled', reasons: ['自分で選んだ番組'],
             created_at: existing?.created_at ?? currentTime,
@@ -198,12 +211,22 @@ const useProgramRemindersStore = defineStore('program-reminders', () => {
     function checkNotices(): void {
         now.value = dayjs().valueOf();
         const settings = settingsStore.settings;
-        if (!settings.program_reminder_notifications_enabled || lastCheckedAt.value === null ||
-            error.value !== null || now.value - lastCheckedAt.value > 15 * 60_000) {
-            return;
+        // 保存期間の処理は通知の有効・無効や番組表の通信状態に依存させない。
+        const retainedReminders = reminders.value.filter(reminder =>
+            dayjs(reminder.program.end_time).valueOf() > now.value - 7 * 86400_000);
+        if (retainedReminders.length !== reminders.value.length) {
+            settings.program_reminders = retainedReminders;
         }
         const retainedNotices = settings.program_reminder_notices.filter(notice =>
             dayjs(notice.end_time).valueOf() > now.value - 7 * 86400_000);
+        if (retainedNotices.length !== settings.program_reminder_notices.length) {
+            settings.program_reminder_notices = retainedNotices;
+        }
+        if (!settings.program_reminder_notifications_enabled || lastCheckedAt.value === null ||
+            settingsStore.local_save_error !== null || error.value !== null || now.value - lastCheckedAt.value > 15 * 60_000) {
+            latestNotices.value = [];
+            return;
+        }
         const newNotices = collectProgramReminderNotices(
             reminders.value, retainedNotices, verifiedKeys.value, changedKeys,
             settings.program_reminder_lead_times, settings.program_reminder_notify_on_discovery, now.value,
