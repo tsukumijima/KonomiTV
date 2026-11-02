@@ -3,6 +3,7 @@ import { isEqual, hash } from 'ohash';
 import { defineStore } from 'pinia';
 import { toRaw } from 'vue';
 
+import type { IProgramReminderNotice } from '@/services/ProgramReminders';
 import type { IBlueskyReplyThreadState, ITwitterReplyThreadState } from '@/utils/TweetUtils';
 
 import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
@@ -44,6 +45,9 @@ export interface ITwitterPanelPostTarget {
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
  */
 export interface ILocalClientSettings extends IClientSettings {
+    program_reminder_notices: IProgramReminderNotice[];
+    program_reminder_auto_switch_enabled: boolean;
+    program_reminder_auto_switch_handled: { id: string; end_time: string }[];
     last_synced_at: number;
     showed_panel_last_time: boolean;
     selected_twitter_panel_account: {kind: 'Twitter' | 'Bluesky' | 'Linked'; id: number;} | null;
@@ -166,6 +170,20 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     mylist: [],
     // 「ビデオをみる」の視聴履歴
     watched_history: [],
+
+    // 見たい放送予定と、自動で番組を探すための好みの条件
+    program_reminders: [],
+    program_recommendation_rules: [],
+    program_recommendation_enabled: false,
+    program_recommendation_notify_by_default: true,
+    program_reminder_notifications_enabled: true,
+    program_reminder_notify_on_discovery: true,
+    program_reminder_lead_times: [1440, 180, 5],
+    // お知らせの既読・表示済み状態は、この端末だけで保持する
+    program_reminder_notices: [],
+    // 自動切り替えの利用と取り消しは、操作している端末だけで保持する
+    program_reminder_auto_switch_enabled: false,
+    program_reminder_auto_switch_handled: [],
 
     // ***** L字画面のクロップ設定 *****
 
@@ -373,6 +391,14 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'saved_twitter_hashtags',
     'mylist',
     'watched_history',
+    'program_reminders',
+    'program_recommendation_rules',
+    'program_recommendation_enabled',
+    'program_recommendation_notify_by_default',
+    'program_reminder_notifications_enabled',
+    'program_reminder_notify_on_discovery',
+    'program_reminder_lead_times',
+    // program_reminder_notices: 同期無効
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
     // lshaped_screen_crop_x_position: 同期無効

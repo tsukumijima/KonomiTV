@@ -16,6 +16,7 @@
             <Icon icon="material-symbols:install-desktop-rounded" height="20px" class="mr-1" />
             アプリとしてインストール
         </v-btn>
+        <ProgramReminderBadge class="ml-3" />
         <div class="mr-3 mr-md-6"></div>
     </header>
 </template>
@@ -25,6 +26,7 @@ import { pwaInstallHandler } from 'pwa-install-handler';
 import { onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
+import ProgramReminderBadge from '@/components/Programs/ProgramReminderBadge.vue';
 import Utils from '@/utils';
 
 const props = defineProps<{

@@ -6,10 +6,14 @@
             <component :is="Component" />
         </router-view>
         <Snackbars />
+        <ProgramReminderNotifications />
+        <ProgramReminderAutoSwitch />
     </v-app>
 </template>
 <script lang="ts" setup>
 
+import ProgramReminderAutoSwitch from '@/components/Programs/ProgramReminderAutoSwitch.vue';
+import ProgramReminderNotifications from '@/components/Programs/ProgramReminderNotifications.vue';
 import Snackbars from '@/components/Snackbars.vue';
 
 </script>

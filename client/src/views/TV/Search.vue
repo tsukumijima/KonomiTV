@@ -9,7 +9,7 @@
                     <Breadcrumbs :crumbs="[
                         { name: 'ホーム', path: '/' },
                         { name: 'テレビをみる', path: '/tv/' },
-                        { name: '検索結果', path: `/tv/search?query=${encodeURIComponent(searchCondition.keyword)}`, disabled: true },
+                        { name: '番組を探す', path: '/tv/search', disabled: true },
                     ]" />
                     <div class="program-search-container__body">
                         <div class="program-search-container__filters">
@@ -30,7 +30,7 @@
                             :filter-button-label="shouldShowFilterDrawerButton ? '絞り込み' : undefined"
                             empty-icon="fluent:search-20-regular"
                             :empty-message="emptyMessage"
-                            :empty-sub-message="'別のキーワードや絞り込み条件で検索をお試しください。'"
+                            :empty-sub-message="searchFailed ? '「検索」からもう一度お試しください。' : '別のキーワードや絞り込み条件で検索をお試しください。'"
                             keep-deleted-items
                             compact-reservations-on-tablet-horizontal
                             is-program-search-result
@@ -110,6 +110,8 @@ const currentPage = ref(1);
 const isLoading = ref(false);
 const isSearching = ref(false);
 const hasSearched = ref(false);
+const searchFailed = ref(false);
+const hasSearchFilters = ref(false);
 const isFilterDrawerOpen = ref(false);
 const defaultRecordSettings = ref<IRecordSettings | null>(null);
 const reservationMap = ref<Map<string, IReservation>>(new Map());
@@ -118,6 +120,8 @@ const viewportRevision = ref(0);
 
 // フォーム検索で URL を更新した直後の watch 再実行を抑え、同じ検索 API が二重に走るのを避ける
 let isRouteUpdatingFromSearch = false;
+// 新しい条件で再検索したときは、最後に開始した検索の結果を表示する。
+let searchRevision = 0;
 
 const allChannels = computed<ILiveChannel[]>(() => {
     // チャンネル種別ごとの配列を検索結果用の1本の配列に変換する
@@ -146,6 +150,9 @@ const displayReservations = computed<IReservation[]>(() => {
 });
 
 const resultTitle = computed(() => {
+    if (!hasSearchFilters.value) {
+        return '放送予定';
+    }
     if (Utils.isSmartphoneVertical() === true) {
         return '検索結果';
     }
@@ -155,6 +162,9 @@ const resultTitle = computed(() => {
 });
 
 const emptyMessage = computed(() => {
+    if (searchFailed.value) {
+        return '番組を読み込めませんでした。';
+    }
     return searchedKeyword.value.trim() !== ''
         ? `「${Utils.escapeHTML(searchedKeyword.value)}」に一致する番組は<br class='d-sm-none'>見つかりませんでした。`
         : '条件に一致する番組は<br class="d-sm-none">見つかりませんでした。';
@@ -178,20 +188,32 @@ const syncConditionFromRoute = () => {
 };
 
 const searchPrograms = async () => {
+    const revision = ++searchRevision;
     isLoading.value = true;
     isSearching.value = true;
     hasSearched.value = true;
     searchCondition.value.keyword = searchCondition.value.keyword ?? '';
     searchCondition.value.exclude_keyword = searchCondition.value.exclude_keyword ?? '';
     searchedKeyword.value = searchCondition.value.keyword;
+    searchFailed.value = false;
+    const condition = structuredClone(toRaw(searchCondition.value));
+    // 入力途中のフォームではなく、実行した条件に合わせて一覧の見出しを切り替える。
+    hasSearchFilters.value = condition.keyword.trim() !== '' || condition.exclude_keyword.trim() !== '' ||
+        condition.service_ranges !== null || condition.genre_ranges !== null || condition.date_ranges !== null ||
+        condition.duration_range_min !== null || condition.duration_range_max !== null || condition.broadcast_type !== 'All';
 
-    const result = await Programs.searchPrograms(searchCondition.value);
+    const result = await Programs.searchPrograms(condition);
+    if (revision !== searchRevision) {
+        return;
+    }
     if (result !== null) {
         programs.value = result.programs;
         totalPrograms.value = result.total;
+        currentPage.value = Math.min(currentPage.value, Math.max(1, Math.ceil(result.total / 30)));
     } else {
         programs.value = [];
         totalPrograms.value = 0;
+        searchFailed.value = true;
     }
 
     isLoading.value = false;
@@ -335,10 +357,8 @@ onMounted(async () => {
 
     syncConditionFromRoute();
 
-    // query パラメータがある検索結果 URL は、空文字でも全件検索として扱う
-    if (typeof route.query.query === 'string') {
-        await searchPrograms();
-    }
+    // 条件未指定で開いたときも、放送予定を取得して番組選びを始められるようにする。
+    await searchPrograms();
 
     window.addEventListener('resize', handleViewportResize);
 });
