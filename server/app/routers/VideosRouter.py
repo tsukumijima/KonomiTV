@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import pathlib
+import re
 from datetime import datetime
 from email.utils import parsedate
 from typing import Annotated, Any, Literal, cast
@@ -152,6 +153,59 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
 
     # Pydantic モデルに変換して返す
     return schemas.RecordedProgram.model_validate(recorded_program_dict)
+
+
+async def GetRecordedProgramIDsSortedByFilePath(
+    where_clause: str,
+    params: list[Any],
+    order: Literal['file_path_asc', 'file_path_desc'],
+) -> list[int]:
+    """
+    条件に一致する録画番組の ID を、録画ファイルのパスの自然順に並べて取得する
+    パスに含まれる数字の並びは数値として比較し (「#9」→「#10」の順になる) 、それ以外の文字は大文字と小文字を区別せずに比較する
+
+    Args:
+        where_clause (str): rv.status != 'Missing' に AND で続ける WHERE 句 (条件がなければ空文字列)
+        params (list[Any]): WHERE 句のプレースホルダーに渡すパラメータ
+        order (Literal['file_path_asc', 'file_path_desc']): 昇順か降順か
+
+    Returns:
+        list[int]: 並べ替えた録画番組の ID のリスト
+    """
+
+    # 条件に一致する録画番組の ID と録画ファイルのパスだけを取得する
+    ## SQLite には自然順の比較がないため、並べ替えは取得後に Python で行う
+    ## 検索の条件が局名を参照するため、channels テーブルも JOIN する
+    query = f"""
+        SELECT
+            rp.id AS rp_id,
+            rv.file_path
+        FROM recorded_programs rp
+        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        LEFT JOIN channels ch ON rp.channel_id = ch.id
+        WHERE rv.status != 'Missing' {where_clause}
+    """
+    conn = connections.get('default')
+    rows = await conn.execute_query(query, params)
+
+    def SortByNaturalOrder() -> list[int]:
+        # パスを数字の並びとそれ以外に分割し、数字の並びだけを数値として比較する
+        ## re.split() に () 付きのパターンを渡すと、奇数番目に数字の並び、偶数番目にそれ以外の文字列が入るため、同じ位置どうしは必ず同じ型で比較される
+        ## 自然順で同じになるパス (「01」と「1」など) は、元のパスと ID の順で並べる
+        sort_keys: list[tuple[list[int | str], str, int]] = []
+        for row in rows[1]:
+            parts: list[int | str] = []
+            for index, part in enumerate(re.split(r'(\d+)', row['file_path'])):
+                if index % 2 == 1:
+                    parts.append(int(part))
+                else:
+                    parts.append(part.casefold())
+            sort_keys.append((parts, row['file_path'], row['rp_id']))
+        sort_keys.sort(reverse=(order == 'file_path_desc'))
+        return [sort_key[2] for sort_key in sort_keys]
+
+    # 録画が数万件あるとイベントループを止めるほどの CPU 時間がかかるため、並べ替えはスレッドで行う
+    return await asyncio.to_thread(SortByNaturalOrder)
 
 
 async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
@@ -325,16 +379,28 @@ async def GetThumbnailResponse(
     response_model = schemas.RecordedPrograms,
 )
 async def VideosAPI(
-    order: Annotated[Literal['desc', 'asc', 'ids'], Query(description='ソート順序 (desc or asc or ids) 。ids を指定すると、ids パラメータで指定された順序を維持する。')] = 'desc',
+    order: Annotated[Literal['desc', 'asc', 'ids', 'file_path_asc', 'file_path_desc'], Query(description='ソート順序 (desc or asc or ids or file_path_asc or file_path_desc) 。ids を指定すると、ids パラメータで指定された順序を維持する。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
     ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
-):
+) -> schemas.RecordedPrograms:
     """
     すべての録画番組を一度に 30 件ずつ取得する。<br>
-    order には "desc" か "asc" か "ids" を指定する。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
+    order には "desc" か "asc" か "ids" か "file_path_asc" か "file_path_desc" を指定する。"desc" と "asc" は番組の開始時刻順、"file_path_asc" と "file_path_desc" は録画ファイルのパスの自然順 (数字は数値として比較する) に並べる。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
     """
+
+    # 録画ファイルのパスの自然順では、条件に一致する録画番組の ID を自然順に並べ、表示するページの ID の順序を維持して取得する
+    if order == 'file_path_asc' or order == 'file_path_desc':
+        where_clause = ''
+        where_params: list[Any] = []
+        if ids is not None:
+            where_clause = f'AND rp.id IN ({",".join(["?" for _ in ids])})'
+            where_params = [*ids]
+        sorted_ids = await GetRecordedProgramIDsSortedByFilePath(where_clause, where_params, order)
+        result = await VideosAPI(order='ids', page=1, ids=sorted_ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE])
+        result.total = len(sorted_ids)
+        return result
 
     # 生 SQL クエリを構築
     ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
@@ -526,13 +592,13 @@ async def VideosAPI(
 )
 async def VideosSearchAPI(
     query: Annotated[str, Query(description='検索キーワード。title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。')] = '',
-    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    order: Annotated[Literal['desc', 'asc', 'file_path_asc', 'file_path_desc'], Query(description='ソート順序 (desc or asc or file_path_asc or file_path_desc) 。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
-):
+) -> schemas.RecordedPrograms:
     """
     指定されたキーワードで録画番組を一度に 30 件ずつ検索する。<br>
     キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
-    order には "desc" か "asc" を指定する。<br>
+    order には "desc" か "asc" か "file_path_asc" か "file_path_desc" を指定する。"desc" と "asc" は番組の開始時刻順、"file_path_asc" と "file_path_desc" は録画ファイルのパスの自然順 (数字は数値として比較する) に並べる。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     半角または全角スペースで区切ることで、複数のキーワードによる AND 検索が可能。
     """
@@ -581,6 +647,13 @@ async def VideosSearchAPI(
     where_clause, params, keywords = BuildSearchConditions(query)
     if not keywords:  # キーワードが空の場合は全件取得と同じ挙動にする
         return await VideosAPI(order=order, page=page)
+
+    # 録画ファイルのパスの自然順では、検索条件に一致する録画番組の ID を自然順に並べ、表示するページの ID の順序を維持して取得する
+    if order == 'file_path_asc' or order == 'file_path_desc':
+        sorted_ids = await GetRecordedProgramIDsSortedByFilePath(f'AND {where_clause}', params, order)
+        result = await VideosAPI(order='ids', page=1, ids=sorted_ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE])
+        result.total = len(sorted_ids)
+        return result
 
     # 生 SQL クエリを構築
     ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
