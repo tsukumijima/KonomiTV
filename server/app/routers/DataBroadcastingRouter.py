@@ -8,7 +8,7 @@ from typing import Annotated
 
 import httpx2 as httpx
 from fastapi import APIRouter, HTTPException, Path, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from ping3 import ping
 
 from app import logging, schemas
@@ -99,6 +99,10 @@ async def BMLBrowserRequestGETProxyAPI(
             detail = 'Request URL must be http or https URL',
         )
 
+    # パスパラメータにはクエリ文字列が含まれないため、リクエスト URL のクエリ文字列を付け直す
+    if request.url.query:
+        request_url = f'{request_url}?{request.url.query}'
+
     logging.debug(f'Request URL: {request_url}')
 
     headers = {
@@ -150,7 +154,9 @@ async def BMLBrowserRequestGETProxyAPI(
     ]
     response_headers = {key: value for key, value in response.headers.items() if key.lower() in allowed_response_headers}
 
-    return StreamingResponse(response.iter_bytes(), headers=response_headers)
+    # レスポンスボディは読み込み済みなので、ステータスコードとともにそのまま返す
+    ## データ放送ブラウザはステータスコードを見てコンテンツの動作を分岐するため、送信先のステータスコードを維持する
+    return Response(content=response.content, status_code=response.status_code, headers=response_headers)
 
 
 @router.post(
@@ -211,6 +217,10 @@ async def BMLBrowserRequestPOSTProxyAPI(
             detail = 'Request body must be a percent-encoded Denbun parameter',
         )
 
+    # パスパラメータにはクエリ文字列が含まれないため、リクエスト URL のクエリ文字列を付け直す
+    if request.url.query:
+        request_url = f'{request_url}?{request.url.query}'
+
     logging.debug(f'Request URL: {request_url}')
     logging.debug(f'Request body: {body!r}')
 
@@ -259,7 +269,9 @@ async def BMLBrowserRequestPOSTProxyAPI(
     ]
     response_headers = {key: value for key, value in response.headers.items() if key.lower() in allowed_response_headers}
 
-    return StreamingResponse(response.iter_bytes(), headers=response_headers)
+    # レスポンスボディは読み込み済みなので、ステータスコードとともにそのまま返す
+    ## データ放送ブラウザはステータスコードを見てコンテンツの動作を分岐するため、送信先のステータスコードを維持する
+    return Response(content=response.content, status_code=response.status_code, headers=response_headers)
 
 
 @router.get(
