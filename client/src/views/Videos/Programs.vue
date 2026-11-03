@@ -12,7 +12,7 @@
                         { name: '録画番組一覧', path: '/videos/programs', disabled: true },
                     ]" />
                     <RecordedProgramList
-                        title="録画番組一覧"
+                        :title="Utils.isSmartphoneVertical() ? '録画番組' : '録画番組一覧'"
                         :programs="programs"
                         :total="total_programs"
                         :page="current_page"
@@ -40,6 +40,7 @@ import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
 import { IRecordedProgram, SortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 import useUserStore from '@/stores/UserStore';
+import Utils from '@/utils';
 
 // ルーター
 const route = useRoute();
@@ -54,7 +55,7 @@ const is_loading = ref(true);
 const current_page = ref(1);
 
 // 並び順
-const sort_order = ref<'desc' | 'asc'>('desc');
+const sort_order = ref<SortOrder>('desc');
 
 // 録画番組を取得
 const fetchPrograms = async () => {
@@ -79,7 +80,7 @@ const updatePage = async (page: number) => {
 };
 
 // 並び順を更新
-const updateSortOrder = async (order: 'desc' | 'asc') => {
+const updateSortOrder = async (order: SortOrder) => {
     sort_order.value = order;
     current_page.value = 1;  // ページを1に戻す
     is_loading.value = true;
@@ -100,7 +101,7 @@ watch(() => route.query, async (newQuery) => {
     }
     // ソート順を同期
     if (newQuery.order) {
-        sort_order.value = newQuery.order as 'desc' | 'asc';
+        sort_order.value = newQuery.order as SortOrder;
     }
     await fetchPrograms();
 }, { deep: true });
@@ -116,7 +117,7 @@ onMounted(async () => {
         current_page.value = parseInt(route.query.page as string);
     }
     if (route.query.order) {
-        sort_order.value = route.query.order as 'desc' | 'asc';
+        sort_order.value = route.query.order as SortOrder;
     }
 
     // 録画番組を取得

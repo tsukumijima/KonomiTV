@@ -3,8 +3,8 @@ import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import Utils, { CommentUtils } from '@/utils';
 
-/** ソート順序を表す型 */
-export type SortOrder = 'desc' | 'asc';
+/** ソート順序を表す型 (desc / asc は番組の開始時刻順、file_path_asc / file_path_desc は録画ファイルのパスの自然順) */
+export type SortOrder = 'desc' | 'asc' | 'file_path_asc' | 'file_path_desc';
 
 /** マイリストのソート順序を表す型 */
 export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'recorded_desc' | 'recorded_asc';
@@ -193,12 +193,12 @@ class Videos {
 
     /**
      * 録画番組一覧を取得する
-     * @param order ソート順序 ('desc' or 'asc' or 'ids')
+     * @param order ソート順序 ('desc' or 'asc' or 'file_path_asc' or 'file_path_desc' or 'ids')
      * @param page ページ番号
      * @param ids 録画番組の ID のリスト
      * @returns 録画番組一覧情報 or 録画番組一覧情報の取得に失敗した場合は null
      */
-    static async fetchVideos(order: 'desc' | 'asc' | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
+    static async fetchVideos(order: SortOrder | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos', {
@@ -227,11 +227,11 @@ class Videos {
     /**
      * 録画番組を検索する
      * @param query 検索キーワード
-     * @param order ソート順序 ('desc' or 'asc')
+     * @param order ソート順序 ('desc' or 'asc' or 'file_path_asc' or 'file_path_desc')
      * @param page ページ番号
      * @returns 検索結果の録画番組一覧情報 or 検索に失敗した場合は null
      */
-    static async searchVideos(query: string, order: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
+    static async searchVideos(query: string, order: SortOrder = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos/search', {
