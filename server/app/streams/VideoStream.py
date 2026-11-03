@@ -115,27 +115,14 @@ class VideoStream:
         session_id: str,
         recorded_program: RecordedProgram,
         quality: QUALITY_TYPES,
-        encoding_options: StreamEncodingOptions | None = None,
-        is_new_session_allowed: bool = False,
+        encoding_options: StreamEncodingOptions,
     ) -> VideoStream:
 
         # まだ同じセッション ID のインスタンスがないときだけ、インスタンスを生成する
+        ## どの API も URL の品質文字列から録画番組・画質・追加オプションを受け取るため、プレイリスト以外の API からも作成できる
+        ## 通信断で SESSION_TIMEOUT を超えてセッションが破棄された後も、プレイヤーはプレイリストを取得し直さずに
+        ## 同じ session_id でセグメントや Keep-Alive を要求し続けるため、その要求からセッションを作り直して再生を継続させる
         if session_id not in cls.__instances:
-
-            # 録画視聴セッションは、プレイリスト API での初回作成時だけ新規作成を許可する
-            ## セグメント取得や Keep-Alive が未知の session_id を指定した場合に、初期化情報の欠けたセッションを作らない
-            if is_new_session_allowed is False or encoding_options is None:
-                # まだ VideoStream インスタンスが存在しないため、ここだけは要求された品質からログの接頭辞を組み立てる
-                ## 追加オプションが渡されている場合は、セッション不在のエラーログにも同じ品質文字列を出す
-                requested_encoding_options = encoding_options or StreamEncodingOptions()
-                logging.error(
-                    f'[Video: {recorded_program.id}/{session_id}/{quality}{requested_encoding_options.buildSuffix()}] '
-                    f'Session does not exist.'
-                )
-                raise HTTPException(
-                    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail = 'Session does not exist',
-                )
 
             # 新しい録画視聴セッションのインスタンスを生成する
             instance = super().__new__(cls)
@@ -204,20 +191,19 @@ class VideoStream:
             # 録画番組 ID と画質が一致するか確認
             if instance.recorded_program.id != recorded_program.id or instance.quality != quality:
                 # 既存セッション側と要求側の品質を両方出し、session_id 再利用ミスをログから判別しやすくする
-                requested_encoding_options = encoding_options or StreamEncodingOptions()
                 logging.error(
                     f'{instance.log_prefix} Session exists but program_id or quality mismatch. '
                     f'[program_id: {recorded_program.id}, '
-                    f'quality: {quality}{requested_encoding_options.buildSuffix()}]'
+                    f'quality: {quality}{encoding_options.buildSuffix()}]'
                 )
                 raise HTTPException(
                     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail = 'Session exists but program_id or quality mismatch',
                 )
 
-            # プレイリスト再取得時に同じ session_id で別の追加オプションが指定された場合は異常として扱う
+            # 同じ session_id で別の追加オプションが指定された場合は異常として扱う
             ## session_id は録画視聴セッションを識別する値なので、初回作成時と異なるオプションを後から混ぜるとエンコード状態が曖昧になる
-            if encoding_options is not None and instance.encoding_options != encoding_options:
+            if instance.encoding_options != encoding_options:
                 logging.error(
                     f'{instance.log_prefix} Session exists but encoding options mismatch. '
                     f'[is_hevc_10bit_enabled: {encoding_options.is_hevc_10bit_enabled}, '
@@ -237,8 +223,7 @@ class VideoStream:
         session_id: str,
         recorded_program: RecordedProgram,
         quality: QUALITY_TYPES,
-        encoding_options: StreamEncodingOptions | None = None,
-        is_new_session_allowed: bool = False,
+        encoding_options: StreamEncodingOptions,
     ) -> None:
         """
         録画視聴セッションのインスタンスを取得する
@@ -247,8 +232,7 @@ class VideoStream:
             session_id (str): セッション ID
             recorded_program (RecordedProgram): 録画番組の情報
             quality (QUALITY_TYPES): 映像の品質 (1080p-60fps ~ 240p)
-            encoding_options (StreamEncodingOptions | None): ベース画質に追加するエンコードオプション
-            is_new_session_allowed (bool): セッションが存在しない場合に新規作成を許可するかどうか
+            encoding_options (StreamEncodingOptions): ベース画質に追加するエンコードオプション
         """
 
         # インスタンス変数の型ヒントを定義

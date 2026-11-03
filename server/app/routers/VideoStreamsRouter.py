@@ -106,7 +106,6 @@ async def VideoHLSPlaylistAPI(
         recorded_program,
         stream_quality.quality,
         stream_quality.encoding_options,
-        is_new_session_allowed = True,
     )
 
     # 映像・主音声と副音声は同じエンコード結果を共有し、プレイリストの種類だけをこの API で切り替える
@@ -163,13 +162,12 @@ async def VideoHLSSegmentAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
-    ## /playlist を経由しない場合でも、必要な情報 (recorded_program, encoding_options) は揃っているため、
-    ## セッションが SESSION_TIMEOUT で破棄された後の最初のリクエストがこの API であっても再作成できるようにする
-    ## ref: シークの方向によってセッション復帰の可否が変わってしまっていた問題 (巻き戻しでは復帰しないが、10秒送りでは復帰する)
     assert stream_quality.quality != 'original'
     video_stream = VideoStream(
-        session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options,
-        is_new_session_allowed = True,
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
     )
 
     # セグメントを取得（キャッシュキーはブラウザキャッシュ避けのための ID なので特に使わない）
@@ -238,7 +236,12 @@ async def VideoHLSBufferAPI(
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
     assert stream_quality.quality != 'original'
-    video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
+    video_stream = VideoStream(
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
+    )
 
     # バッファ範囲の変更を監視し、変更があればバッファ範囲をイベントストリームとして出力する
     async def generator():
@@ -299,11 +302,12 @@ async def VideoHLSKeepAliveAPI(
     """
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
-    ## /segment と同様、セッションが破棄された直後の Keep-Alive でも再作成できるようにする (詳細は VideoHLSSegmentAPI 側のコメント参照)
     assert stream_quality.quality != 'original'
     video_stream = VideoStream(
-        session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options,
-        is_new_session_allowed = True,
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
     )
 
     # セッションのアクティブ状態を維持する
@@ -354,7 +358,6 @@ async def VideoOfflineStreamAPI(
             recorded_program,
             stream_quality.quality,
             stream_quality.encoding_options,
-            is_new_session_allowed = True,
         )
         video_stream.getVirtualPlaylist()
 
