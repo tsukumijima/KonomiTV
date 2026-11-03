@@ -27,6 +27,10 @@
                         <Icon icon="fluent:cloud-arrow-down-16-regular" width="26px" />
                         <span class="ml-4">オフライン保存</span>
                     </v-btn>
+                    <v-btn variant="flat" class="settings-navigation__button" to="/reminders/">
+                        <Icon icon="fluent:alert-20-regular" width="26px" />
+                        <span class="ml-4">見たい番組</span>
+                    </v-btn>
                     <v-btn variant="flat" class="settings-navigation__button" to="/mylist/">
                         <Icon icon="ic:round-playlist-play" width="26px" />
                         <span class="ml-4">マイリスト</span>

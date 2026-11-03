@@ -1,4 +1,6 @@
 
+import type { IProgramRecommendationRule, IProgramReminder } from '@/services/ProgramReminders';
+
 import APIClient from '@/services/APIClient';
 import { getSyncableClientSettings, ITimeTableGenreColors, TimeTableSizeOption } from '@/stores/SettingsStore';
 
@@ -32,6 +34,15 @@ export interface IClientSettings {
         created_at: number;
         updated_at: number;
     }[];
+    program_reminders: IProgramReminder[];
+    program_recommendation_rules: IProgramRecommendationRule[];
+    program_recommendation_enabled: boolean;
+    program_recommendation_notify_by_default: boolean;
+    program_reminder_notifications_enabled: boolean;
+    program_reminder_notify_on_discovery: boolean;
+    // 単位は分。秒単位の設定は 1/60 分の小数として保存する。
+    program_reminder_lead_times: number[];
+    // program_reminder_notices: 同期無効 (お知らせは端末ごとに表示する)
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
     // lshaped_screen_crop_x_position: 同期無効

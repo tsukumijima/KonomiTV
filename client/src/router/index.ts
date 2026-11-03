@@ -60,6 +60,11 @@ const router = createRouter({
             component: () => import('@/views/TimeTable.vue'),
         },
         {
+            path: '/reminders/',
+            name: 'Program Reminders',
+            component: () => import('@/views/ProgramReminders.vue'),
+        },
+        {
             path: '/reservations/',
             name: 'Reservations',
             component: () => import('@/views/Reservations/Home.vue'),

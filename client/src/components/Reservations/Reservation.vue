@@ -19,6 +19,7 @@
                         variant="flat">
                         <Icon :icon="programSearchActionIcon" width="18px" height="18px" />
                     </v-btn>
+                    <span class="reservation__priority-label">録画予約</span>
                 </div>
                 <div v-else class="reservation__priority">
                     <div class="reservation__priority-badge">{{ reservation.record_settings.priority }}</div>
@@ -127,6 +128,10 @@
                         約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
                     </div>
                 </div>
+                <!-- 検索一覧から、録画予約と区別した操作でリマインドを登録する。 -->
+                <div v-if="isProgramSearchResult" class="mt-2 mb-1">
+                    <ProgramReminderButton :program="reservation.program" :channel="reservation.channel" size="small" />
+                </div>
             </div>
         </div>
     </div>
@@ -135,6 +140,7 @@
 
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+import ProgramReminderButton from '@/components/Programs/ProgramReminderButton.vue';
 import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
 import Utils, { ProgramUtils, dayjs } from '@/utils';
@@ -529,6 +535,7 @@ const handleSwitchClick = (event: Event) => {
 
     &__program-search-action {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         width: 42px;

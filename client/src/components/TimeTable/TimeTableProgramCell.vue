@@ -43,6 +43,8 @@
                     <Icon icon="fluent:info-12-regular" width="16px" />
                     <span>番組詳細</span>
                 </v-btn>
+                <ProgramReminderButton :program="program" :channel="channel"
+                    class="timetable-program-cell__action-button" size="small" />
                 <!-- 録画予約ボタン: 予約なしの場合は追加、予約ありの場合は有効/無効切替 -->
                 <v-btn variant="flat" size="small"
                     class="timetable-program-cell__action-button"
@@ -63,6 +65,7 @@
 
 import { computed, nextTick, ref, watch } from 'vue';
 
+import ProgramReminderButton from '@/components/Programs/ProgramReminderButton.vue';
 import { ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore from '@/stores/TimeTableStore';

@@ -10,7 +10,8 @@
         "build": "vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
         "lint": "eslint . --fix --ignore-path .gitignore",
-        "typecheck": "vue-tsc --noEmit"
+        "typecheck": "vue-tsc --noEmit",
+        "test:reminders": "vitest run --config vitest.config.mts"
     },
     "engines": {
         "node": ">=22.21.1"
@@ -67,6 +68,7 @@
         "eslint-plugin-unused-imports": "^3.2.0",
         "eslint-plugin-vue": "^9.27.0",
         "eslint-plugin-vuetify": "^2.4.0",
+        "jsdom": "^30.1.3",
         "network-information-types": "^0.1.1",
         "run-script-os": "^1.1.6",
         "sass": "1.77.6",
@@ -75,6 +77,7 @@
         "vite-plugin-comlink": "^5.0.1",
         "vite-plugin-pwa": "^0.21.2",
         "vite-plugin-vuetify": "^2.0.4",
+        "vitest": "^5.0.5",
         "vue-tsc": "^2.0.29"
     },
     "browserslist": [

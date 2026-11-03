@@ -859,9 +859,10 @@ const clearChannels = () => {
 };
 
 const resetFilters = () => {
-    // 検索語だけはヘッダーと共有しているため残し、絞り込みだけを初期状態へ戻す
+    // 検索語と絞り込みをまとめて初期状態へ戻し、放送予定の全件表示へ切り替える。
     localCondition.value = {
         ...localCondition.value,
+        keyword: '',
         exclude_keyword: '',
         is_title_only: false,
         is_case_sensitive: false,
@@ -880,6 +881,7 @@ const resetFilters = () => {
     selectedGenreKeys.value = new Set();
     expandedGenreKeys.value = new Set();
     dateRanges.value = [];
+    emitSearch();
 };
 
 const addDateRange = () => {

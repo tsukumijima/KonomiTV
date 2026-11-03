@@ -55,6 +55,8 @@
                     </span>
                 </div>
                 <!-- 番組情報 -->
+                <ProgramReminderButton class="mb-4"
+                    :program="reservation?.program ?? program" :channel="reservation?.channel ?? channel" />
                 <ReservationProgramInfo
                     :reservation="reservation"
                     :program="program"
@@ -187,6 +189,7 @@
 
 import { ref, computed, watch, onMounted } from 'vue';
 
+import ProgramReminderButton from '@/components/Programs/ProgramReminderButton.vue';
 import ReservationProgramInfo from '@/components/Reservations/ReservationProgramInfo.vue';
 import ReservationRecordingSettings from '@/components/Reservations/ReservationRecordingSettings.vue';
 import Message from '@/message';
