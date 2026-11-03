@@ -316,8 +316,9 @@ async def BMLBrowserInternetStatusAPI(
     ip_address = str(addresses[0])
 
     # ICMP を使用する場合は ping3 ライブラリで ICMP パケットのレスポンス時間を取得
+    ## ping3 の ping() は応答かタイムアウトまで処理をブロックするため、イベントループを止めないよう別スレッドで実行する
     if is_icmp is True:
-        response_time = ping(ip_address, timeout=int(timeout_milliseconds / 1000))
+        response_time = await asyncio.to_thread(ping, ip_address, timeout=int(timeout_milliseconds / 1000))
         success = response_time is not None
 
     # ICMP を使用しない場合は名前解決にかかった時間をレスポンス時間とする
