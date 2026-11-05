@@ -573,13 +573,20 @@ class Program(TortoiseModel):
                             ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
                             ## strip() では明示的に半角スペースと改行のみを指定している
                             head_hankaku = TSInformation.formatString(head).replace('◇', '').strip(' \r\n')  # ◇ を取り除く
+                            text_hankaku = TSInformation.formatString(text).strip()
+                            ## 2つ目以降の項目で見出しが空 (空白と重複防止のタブ文字だけ) の場合、直前の項目の本文の続きとしてつなげる
+                            ## WOWOW などは長い本文を、見出しが空白だけの別の項目に分けて送出するため、
+                            ## 「番組内容」として扱うと本来の番組内容を上書きしてしまう
+                            if head_hankaku.strip() == '' and len(detail) > 0:
+                                last_head = list(detail.keys())[-1]
+                                detail[last_head] += text_hankaku
+                                continue
+                            ## 先頭の項目の見出しが空の場合、固定で「番組内容」としておく
+                            if head_hankaku.strip() == '':
+                                head_hankaku = '番組内容'
                             ## ないとは思うが、万が一この状態で見出しが衝突しうる場合は、見出しの後ろにタブ文字を付加する
                             while head_hankaku in detail.keys():
                                 head_hankaku += '\t'
-                            ## 見出しが空の場合、固定で「番組内容」としておく
-                            if head_hankaku == '':
-                                head_hankaku = '番組内容'
-                            text_hankaku = TSInformation.formatString(text).strip()
                             detail[head_hankaku] = text_hankaku
 
                             # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
