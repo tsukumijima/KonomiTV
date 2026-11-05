@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import os
 import shutil
+import stat
 import subprocess
 import time
 from collections.abc import Callable
@@ -14,6 +15,7 @@ from zoneinfo import ZoneInfo
 import aiofiles
 import emoji
 import ifaddr
+import psutil
 import rich
 import ruamel.yaml
 import ruamel.yaml.scalarstring
@@ -511,6 +513,87 @@ def IsGitInstalled() -> bool:
     # shutil.which() で git コマンドが PATH に存在するか確認
     # Windows / Linux 両方で動作する
     return shutil.which('git') is not None
+
+
+def KillProcessesUnderDirectory(directory: Path, timeout: float = 15.0) -> None:
+    """
+    指定したフォルダ配下の実行ファイルから起動されたプロセスの終了を待ち、timeout 秒経っても残っているプロセスを強制終了する
+    Windows サービスの停止要求は、サーバー本体 (仮想環境の python.exe) や NVEncC などの子プロセスの終了を待たずに完了するため、
+    その直後にファイルを上書き・削除すると、実行中のプロセスに開かれている .exe・.dll・.pyd が PermissionError で削除できない
+    サービスの停止後にこの関数を呼び、KonomiTV のフォルダ内のファイルを使うプロセスがすべて終了してから更新・削除を行う
+
+    Args:
+        directory (Path): KonomiTV のインストールフォルダ
+        timeout (float): 自然に終了するのを待つ秒数
+    """
+
+    directory_prefix = os.path.normcase(str(directory.resolve())) + os.sep
+
+    # インストーラー自身とその親プロセスは、インストールフォルダ内から実行されていても対象から除外する
+    excluded_pids = {os.getpid()}
+    for parent in psutil.Process().parents():
+        excluded_pids.add(parent.pid)
+
+    def GetProcessesUnderDirectory() -> list[psutil.Process]:
+        processes: list[psutil.Process] = []
+        for process in psutil.process_iter(['pid', 'exe']):
+            # 権限の都合で実行ファイルのパスを取得できないプロセス (システムのプロセスなど) は exe が None になる
+            executable_path = process.info['exe']
+            if executable_path is None or process.info['pid'] in excluded_pids:
+                continue
+            if os.path.normcase(executable_path).startswith(directory_prefix):
+                processes.append(process)
+        return processes
+
+    # 停止処理中のプロセスが自然に終了するのを待つ
+    deadline = time.monotonic() + timeout
+    while len(GetProcessesUnderDirectory()) > 0 and time.monotonic() < deadline:
+        time.sleep(0.5)
+
+    # timeout 秒経っても残っているプロセスを強制終了し、終了を待つ
+    remaining_processes = GetProcessesUnderDirectory()
+    for process in remaining_processes:
+        try:
+            process.kill()
+        except psutil.NoSuchProcess:
+            pass  # 一覧を取得した後に終了したプロセス
+    psutil.wait_procs(remaining_processes, timeout=10)
+
+
+def RemoveDirectory(directory: Path) -> None:
+    """
+    フォルダを中のファイルごと削除する
+    読み取り専用属性のファイル (.git/ 以下など) は、属性を外してから削除する
+    Windows ではウイルス対策ソフトのスキャンなどでファイルが一時的にロックされることがあるため、削除できなければ約10秒間再試行する
+    それでも削除できない場合は、ロックされているファイルと対処方法を記載した PermissionError を送出する
+
+    Args:
+        directory (Path): 削除するフォルダ (存在しない場合は何もしない)
+    """
+
+    if directory.exists() is False:
+        return
+
+    # 読み取り専用属性のファイルを削除できるようにする
+    # ref: https://stackoverflow.com/a/4829285/17124142
+    ## 属性を外しても削除できない場合 (ロックされている場合) は、ここで送出された PermissionError を下で捕捉して再試行する
+    def OnRemoveError(function: Callable[[str], Any], path: str, exception: BaseException) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        function(path)
+
+    retry_count = 20
+    for retry in range(retry_count):
+        try:
+            shutil.rmtree(directory, onexc=OnRemoveError)
+            return
+        except PermissionError as ex:
+            if retry == retry_count - 1:
+                raise PermissionError(
+                    f'{ex.filename} を削除できませんでした。'
+                    'このファイルを使用しているプログラム (KonomiTV のサービスやエンコーダーなど) を終了するか、'
+                    'PC を再起動してから、もう一度やり直してください。'
+                ) from ex
+            time.sleep(0.5)
 
 
 def RemoveEmojiIfLegacyTerminal(text: str) -> str:

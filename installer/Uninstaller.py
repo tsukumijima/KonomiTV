@@ -1,11 +1,9 @@
 
 import os
 import platform
-import shutil
-import stat
 import subprocess
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from rich import print
 from rich.padding import Padding
@@ -17,6 +15,8 @@ from Utils import (
     CustomPrompt,
     IsDockerComposeV2,
     IsDockerInstalled,
+    KillProcessesUnderDirectory,
+    RemoveDirectory,
     RunSubprocess,
     ShowPanel,
     ShowSubProcessErrorLog,
@@ -150,6 +150,10 @@ def Uninstaller() -> None:
             )
             return  # 処理中断
 
+        # サービスの停止要求はサーバー本体やエンコーダーの終了を待たずに完了するため、
+        # KonomiTV のフォルダ内のファイルを使うプロセスがすべて終了するまで待つ (残っていれば強制終了する)
+        KillProcessesUnderDirectory(uninstall_path)
+
         # Windows サービスをアンインストール
         print(Padding('Windows サービスをアンインストールしています…', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
@@ -261,13 +265,8 @@ def Uninstaller() -> None:
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
-        # .git/ 以下の読み取り専用ファイルを削除できるようにする
-        # ref: https://stackoverflow.com/a/4829285/17124142
-        ## Python 3.12 以降は onerror が非推奨になったため、例外オブジェクトを受け取る onexc を使う
-        def on_rm_error(func: Any, path: str, exc: BaseException):
-            os.chmod(path, stat.S_IWRITE)
-            os.unlink(path)
-        shutil.rmtree(uninstall_path, onexc=on_rm_error)
+        # .git/ 以下の読み取り専用ファイルや、一時的にロックされたファイルも削除できるようにする
+        RemoveDirectory(uninstall_path)
 
     # アンインストール完了
     ShowPanel([
