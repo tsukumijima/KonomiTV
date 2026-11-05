@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.parse
@@ -79,6 +80,28 @@ def Installer(version: str) -> None:
 
     # ARM デバイスかどうか
     is_arm_device = platform.machine() == 'aarch64'
+
+    # Windows: スマートアプリコントロールが有効な場合は、ここで終了する
+    ## スマートアプリコントロールは、Microsoft が安全と判定できない署名のないプログラムの実行をブロックする
+    ## KonomiTV が同梱する Python・FFmpeg・各エンコーダーなどは署名がないため、有効なままではインストール途中や起動時に必ず失敗する
+    ## 状態はレジストリの VerifiedAndReputablePolicyState に記録されている (0: オフ・1: オン・2: 評価モード)
+    ## 評価モードではブロックされないため続行する (スマートアプリコントロールが存在しない Windows 10 ではキー自体が存在しない)
+    ## ref: https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/overview
+    if sys.platform == 'win32':
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\CI\Policy') as key:
+                smart_app_control_state = winreg.QueryValueEx(key, 'VerifiedAndReputablePolicyState')[0]
+        except FileNotFoundError:
+            smart_app_control_state = 0
+        if smart_app_control_state == 1:
+            ShowPanel([
+                '[yellow]お使いの PC ではスマートアプリコントロールが有効になっているため、KonomiTV をインストールできません。[/yellow]',
+                'KonomiTV が利用する Python・FFmpeg・エンコーダーなどのプログラムは、スマートアプリコントロールによって実行がブロックされます。',
+                '[cyan]設定 → プライバシーとセキュリティ → Windows セキュリティ → アプリとブラウザーの制御 → スマートアプリコントロールの設定[/cyan]',
+                'から「オフ」に変更してから、もう一度インストーラーを実行してください。',
+            ])
+            return  # 処理中断
 
     # Linux: Docker がインストールされている場合、Docker + Docker Compose を使ってインストールするかを訊く
     if platform_type == 'Linux':
