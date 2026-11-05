@@ -657,6 +657,11 @@ export default defineComponent({
                         top: -1.5px;
                         flex-shrink: 0;
                         align-items: center;
+                        // 横幅が足りない狭い画面では、勢いと視聴数を途中で折り返さず、重要度の低い視聴数を次の行へ送って隠す
+                        // 高さを1行分 (line-height と同じ 1.5em) に固定し、はみ出した2行目以降を表示しない
+                        flex-wrap: wrap;
+                        height: 1.5em;
+                        overflow: hidden;
                         margin-top: 2px;
                         font-size: 12px;
                         color: rgb(var(--v-theme-text-darken-1));
@@ -677,6 +682,7 @@ export default defineComponent({
                         &-force, &-viewers {
                             display: flex;
                             align-items: center;
+                            white-space: nowrap;
                             @include smartphone-horizontal {
                                 span:nth-child(2), span:nth-child(4) {
                                     display: none;
