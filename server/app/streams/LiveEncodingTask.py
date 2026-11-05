@@ -111,9 +111,9 @@ class LiveEncodingTask:
         if network_id == 0x0004 and service_id in [103, 191, 192, 193, 211]:
             return True
 
-        # BS4K・CS4K (放送終了) は 4K 放送なのでフル HD 扱いとする
+        # BS4K・CS4K (放送終了)・ケーブル4K (デジタル放送高度リマックス) は 4K 放送なのでフル HD 扱いとする
         # 現在の KonomiTV は 1920×1080 以上の解像度へのエンコードをサポートしていない
-        if network_id == 0x000B or network_id == 0x000C:
+        if network_id in [0x000B, 0x000C, 0xFFFA]:
             return True
 
         return False
@@ -123,6 +123,7 @@ class LiveEncodingTask:
         quality: QUALITY_TYPES,
         channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
         is_fullhd_channel: bool,
+        is_4k_channel: bool,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
@@ -131,6 +132,7 @@ class LiveEncodingTask:
             quality (QUALITY_TYPES): 映像の品質
             channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
+            is_4k_channel (bool): 4K (3840×2160・60p プログレッシブ) 放送が実施されているチャンネルかどうか
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -190,9 +192,9 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
-        ## BS4K の映像は 10bit のため、8bit しか扱えない H.264 High Profile・H.265 Main Profile 向けに 8bit (yuv420p) へ変換する
-        if channel_type == "BS4K":
+        ## 4K 放送 (BS4K・ケーブル4K) は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        ## 4K 放送の映像は 10bit のため、8bit しか扱えない H.264 High Profile・H.265 Main Profile 向けに 8bit (yuv420p) へ変換する
+        if is_4k_channel is True:
             options.append(f'-vf scale={video_width}:{video_height},format=yuv420p')
             options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
         else:
@@ -277,6 +279,7 @@ class LiveEncodingTask:
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
         channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
         is_fullhd_channel: bool,
+        is_4k_channel: bool,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -286,6 +289,7 @@ class LiveEncodingTask:
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
             channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
+            is_4k_channel (bool): 4K (3840×2160・60p プログレッシブ) 放送が実施されているチャンネルかどうか
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -307,8 +311,8 @@ class LiveEncodingTask:
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
         options.append(f'--input-format mpegts --input-probesize {input_probesize}K --input-analyze {input_analyze}')
-        ## BS4K 以外では 29.97fps (59.94i) を指定する
-        if channel_type != 'BS4K':
+        ## 4K 放送以外では 29.97fps (59.94i) を指定する
+        if is_4k_channel is False:
             options.append('--fps 30000/1001')
         ## 入力を指定する
         options.append('--input -')
@@ -320,9 +324,9 @@ class LiveEncodingTask:
             options.append('--avhw')
         ## 入力途中の解像度変更に備えて、デコーダー/入力サーフェスの最大確保解像度を指定する
         ## --output-res は出力側の固定解像度であり、こちらは入力側の上限なので併用する
-        ## BS4K は入力が 4K のため 3840×2160、それ以外のチャンネルは HD 上限の 1920×1080 とする
+        ## 4K 放送 (BS4K・ケーブル4K) は入力が 4K のため 3840×2160、それ以外のチャンネルは HD 上限の 1920×1080 とする
         ## (画質プリセットの出力解像度とは独立で、入力に現れうる最大解像度を確保する必要がある)
-        if channel_type == 'BS4K':
+        if is_4k_channel is True:
             options.append('--adapt-resolution 3840x2160')
         else:
             options.append('--adapt-resolution 1920x1080')
@@ -413,8 +417,8 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
-        if channel_type == "BS4K":
+        ## 4K 放送 (BS4K・ケーブル4K) は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        if is_4k_channel is True:
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
         else:
             ## インターレース映像として読み込む
@@ -692,6 +696,11 @@ class LiveEncodingTask:
         # フル HD 放送が行われているチャンネルかを取得
         is_fullhd_channel = self.isFullHDChannel(channel.network_id, channel.service_id)
 
+        # 4K 放送 (BS4K・CS4K・ケーブル4K) が行われているチャンネルかを取得
+        ## 放送波の PSI/SI から映像の解像度を取得する手段がないので、フル HD 放送の判定と同様にネットワーク ID で決め打ちしている
+        ## ケーブルテレビの高度ケーブル自主放送 (0xFFF7) には H.265 の 1080i の HD チャンネルも含まれるため、4K 放送としては扱わない
+        is_4k_channel = channel.network_id in [0x000B, 0x000C, 0xFFFA]
+
         ## ラジオチャンネルでは HW エンコードの意味がないため、FFmpeg に固定する
         if channel.is_radiochannel is True:
             ENCODER_TYPE = 'FFmpeg'
@@ -745,7 +754,7 @@ class LiveEncodingTask:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
                 assert self.live_stream.quality != 'original'
-                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, channel.type, is_fullhd_channel)
+                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, channel.type, is_fullhd_channel, is_4k_channel)
             logging.info(f'{self.live_stream.log_prefix} FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -773,7 +782,7 @@ class LiveEncodingTask:
 
             # オプションを取得
             assert self.live_stream.quality != 'original'
-            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, channel.type, is_fullhd_channel)
+            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, channel.type, is_fullhd_channel, is_4k_channel)
             logging.info(f'{self.live_stream.log_prefix} {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
