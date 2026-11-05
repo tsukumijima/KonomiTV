@@ -399,9 +399,12 @@ class Program(TortoiseModel):
                 program.video_codec = None
                 program.video_resolution = None
                 if 'video' in program_info:
+                    # stream_content は Mirakurun が EIT の値をそのまま返すため、H.265 (0x09) や事業者定義の値など
+                    # ariblib の定義にない値も入りうる
+                    # 定義にない値で例外を送出すると全チャンネルの番組情報の更新が止まるため、'Unknown' として扱う
                     if program_info['video']['streamContent'] is not None:
-                        program.video_type = ariblib.constants.COMPONENT_TYPE \
-                            [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
+                        component_types = ariblib.constants.COMPONENT_TYPE.get(program_info['video']['streamContent'], {})
+                        program.video_type = component_types.get(program_info['video']['componentType'], 'Unknown')
                     else:
                         program.video_type = 'Unknown'
                     program.video_codec = program_info['video']['type']
@@ -442,7 +445,8 @@ class Program(TortoiseModel):
                                 program.secondary_audio_language = program.secondary_audio_language + '+副音声'  # 副音声で固定
 
                 ## Mirakurun 3.8 以下向け（フォールバック）
-                else:
+                ## 音声コンポーネント記述子をまだ受信していない番組には audios も audio も存在しないため、その場合は空のままにする
+                elif 'audio' in program_info:
 
                     ## 主音声
                     ## 副音声の情報は常に存在しないため省略
