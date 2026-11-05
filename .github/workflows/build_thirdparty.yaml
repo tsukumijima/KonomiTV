@@ -17,7 +17,7 @@ on:
 # 各サードパーティーライブラリのバージョン
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
-  ## ref: https://github.com/indygreg/python-build-standalone/releases
+  ## ref: https://github.com/astral-sh/python-build-standalone/releases
   PYTHON_TAG: '20261021'
   PYTHON_MAJOR_VERSION: '3.13'
   PYTHON_VERSION: '3.13.17'
@@ -171,7 +171,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -fSL -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
+          curl -fSL -o python.tar.gz https://github.com/astral-sh/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-x86_64-pc-windows-msvc-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
           Rename-Item thirdparty/Python/LICENSE.txt License.txt
@@ -506,7 +506,7 @@ jobs:
         run: |
 
           # Python 本体のダウンロード
-          curl -fSL -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
+          curl -fSL -o python.tar.gz https://github.com/astral-sh/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz
           tar xvf python.tar.gz
           mv python/ thirdparty/Python/
 

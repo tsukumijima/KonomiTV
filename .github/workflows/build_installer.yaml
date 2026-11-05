@@ -15,7 +15,7 @@ on:
 
 env:
   # Python のバージョン (Python Standalone Builds のリリースを指定する)
-  ## ref: https://github.com/indygreg/python-build-standalone/releases
+  ## ref: https://github.com/astral-sh/python-build-standalone/releases
   PYTHON_TAG: '20260901'
   PYTHON_MAJOR_VERSION: '3.13'
   PYTHON_VERSION: '3.13.15'
@@ -101,7 +101,7 @@ jobs:
                 zlib1g \
                 zlib1g-dev
           # Python Standalone Builds をダウンロードしてインストール
-          RUN curl -L -o python.tar.gz https://github.com/indygreg/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz && \
+          RUN curl -L -o python.tar.gz https://github.com/astral-sh/python-build-standalone/releases/download/${{ env.PYTHON_TAG }}/cpython-${{ env.PYTHON_VERSION }}+${{ env.PYTHON_TAG }}-${{ matrix.python_arch_name }}-unknown-linux-gnu-install_only_stripped.tar.gz && \
               tar xvf python.tar.gz && \
               cp -r python/* /usr/local/ && \
               rm -rf python python.tar.gz
