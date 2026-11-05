@@ -54,11 +54,13 @@
 
     .v-btn.bottom-navigation-button {
         flex-basis: 0;  // 均等に割り振る
-        min-width: 75px !important;
+        min-width: 0 !important;
         padding: 0 !important;
         color: rgb(var(--v-theme-text-darken-1)) !important;
         font-weight: bold;
-        font-size: 10.5px;
+        // 通常は 10.5px とし、ボタンの幅 ((画面幅 - 左右の余白 16px) / 5) に最も長い6文字のラベル (「テレビをみる」など) が
+        // 収まらない狭い画面では、ラベルが2行に折り返さないよう、ボタンの幅に合わせて文字を小さくする
+        font-size: min(10.5px, calc((100vw - 16px) / 5 / 6.4));
 
         &.v-btn--active {
             color: rgb(var(--v-theme-primary)) !important;
