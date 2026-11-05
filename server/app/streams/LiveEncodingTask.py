@@ -191,8 +191,9 @@ class LiveEncodingTask:
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
         ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        ## BS4K の映像は 10bit のため、8bit しか扱えない H.264 High Profile・H.265 Main Profile 向けに 8bit (yuv420p) へ変換する
         if channel_type == "BS4K":
-            options.append(f'-vf scale={video_width}:{video_height}')
+            options.append(f'-vf scale={video_width}:{video_height},format=yuv420p')
             options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
         else:
             ## インターレース解除 (60i → 60p (フレームレート: 60fps))
