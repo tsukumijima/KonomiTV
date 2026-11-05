@@ -464,9 +464,73 @@ class TSKeyFrameSeeker:
         """
 
         if codec == 'H.264' and isinstance(pes, H264PES):
+            # H.264 は IDR (NAL unit type 5) に加えて、recovery point SEI を伴う I スライスで始まる非 IDR ピクチャも
+            # ランダムアクセスフレームとして扱う
+            # IDR を使わず、recovery point SEI でデコード開始点を示す放送 (Open GOP) では、IDR だけを見ると
+            # 録画全体からキーフレームが1つも見つからず、録画を再生できない
+            # ref: ITU-T H.264 D.2.8 Recovery point SEI message semantics
+            has_recovery_point_sei = False
             for ebsp in pes.ebsps:
-                if len(ebsp) > 0 and (ebsp[0] & 0x1F) == 0x05:
+                if len(ebsp) == 0:
+                    continue
+                nal_unit_type = ebsp[0] & 0x1F
+
+                # IDR は常にキーフレームとして扱う
+                if nal_unit_type == 0x05:
                     return True
+
+                # SEI (NAL unit type 6) に含まれる SEI メッセージを順に読み、recovery point (payloadType 6) があるかを調べる
+                # payloadType と payloadSize は、0xFF が続く間は 255 ずつ加算する可変長の値
+                if nal_unit_type == 0x06:
+                    # emulation prevention byte (0x000003 の 03) を取り除いた RBSP を読む
+                    rbsp = ebsp[1:].replace(b'\x00\x00\x03', b'\x00\x00')
+                    index = 0
+                    while index < len(rbsp) and rbsp[index] != 0x80:  # 0x80 は rbsp_trailing_bits
+                        payload_type = 0
+                        while index < len(rbsp) and rbsp[index] == 0xFF:
+                            payload_type += 255
+                            index += 1
+                        if index >= len(rbsp):
+                            break
+                        payload_type += rbsp[index]
+                        index += 1
+                        payload_size = 0
+                        while index < len(rbsp) and rbsp[index] == 0xFF:
+                            payload_size += 255
+                            index += 1
+                        if index >= len(rbsp):
+                            break
+                        payload_size += rbsp[index]
+                        index += 1
+                        if payload_type == 6:
+                            has_recovery_point_sei = True
+                            break
+                        index += payload_size
+
+                # recovery point SEI の後に続く非 IDR スライス (NAL unit type 1) の slice_type が I ならキーフレームとして扱う
+                # スライスヘッダーの先頭は first_mb_in_slice と slice_type の2つの指数ゴロム符号 (ue(v))
+                elif nal_unit_type == 0x01 and has_recovery_point_sei is True:
+                    bits = ''.join(f'{byte:08b}' for byte in ebsp[1:9].replace(b'\x00\x00\x03', b'\x00\x00'))
+
+                    def ReadUnsignedExpGolomb(position: int) -> tuple[int, int] | None:
+                        leading_zero_bits = 0
+                        while position + leading_zero_bits < len(bits) and bits[position + leading_zero_bits] == '0':
+                            leading_zero_bits += 1
+                        code_end = position + leading_zero_bits * 2 + 1
+                        # 録画の欠損でスライスヘッダーが途中で切れている場合は、値を読み取れない
+                        if code_end > len(bits):
+                            return None
+                        return int(bits[position + leading_zero_bits:code_end], 2) - 1, code_end
+
+                    first_mb_in_slice = ReadUnsignedExpGolomb(0)
+                    if first_mb_in_slice is None:
+                        return False
+                    slice_type_code = ReadUnsignedExpGolomb(first_mb_in_slice[1])
+                    if slice_type_code is None:
+                        return False
+                    slice_type = slice_type_code[0]
+                    # slice_type の 2・7 は I スライス、4・9 は SI スライス
+                    return slice_type in (2, 4, 7, 9)
             return False
 
         if codec == 'H.265' and isinstance(pes, H265PES):
