@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from io import BufferedReader, BytesIO
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 import ariblib
 import ariblib.event
@@ -475,7 +475,7 @@ class TSInfoAnalyzer:
                 for event_data in eit.events:
                     try:
                         # EIT 内のイベントを取得
-                        event: Any = ariblib.event.Event(eit, event_data)
+                        event = ariblib.event.Event(eit, event_data)
                     except (IndexError, ValueError, TypeError, AttributeError) as ex:
                         # 破損したイベントをスキップ
                         corrupted_events += 1
@@ -489,15 +489,15 @@ class TSInfoAnalyzer:
 
                     # デフォルトで毎回設定されている情報
                     ## イベント ID
-                    event_id = int(event.event_id)
+                    event_id = event.event_id
                     ## 番組開始時刻 (タイムゾーンを日本時間 (+9:00) に設定)
                     ## 注意: present の duration が None (終了時間未定) の場合のみ、following の start_time が None になることがある
                     if event.start_time is not None:
-                        start_time = NormalizeToJSTDatetime(cast(datetime, event.start_time))
+                        start_time = NormalizeToJSTDatetime(event.start_time)
                     ## 番組長 (秒)
                     ## 注意: 臨時ニュースなどで放送時間未定の場合は None になる
                     if event.duration is not None:
-                        duration = cast(timedelta, event.duration).total_seconds()
+                        duration = event.duration.total_seconds()
                     ## 番組終了時刻を start_time と duration から算出
                     if start_time is not None and duration is not None:
                         end_time = start_time + timedelta(seconds=duration)
@@ -517,7 +517,7 @@ class TSInfoAnalyzer:
                     if hasattr(event, 'detail'):
                         detail = {}
                         # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
-                        for head, text in cast(dict[str, str], event.detail).items():
+                        for head, text in event.detail.items():
                             # 見出しと本文
                             ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
                             ## strip() では明示的に半角スペースと改行のみを指定している
