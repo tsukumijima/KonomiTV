@@ -282,21 +282,31 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         // 番組詳細
         // 拡張形式イベント記述子が送出されていない場合はデフォルト値の {} がセットされる
         // ariblib/event.py での実装と server/app/metadata/TSInfoAnalyzer.py での実装をマージしたもの
-        const detail_array: {head: string, raw_text: Uint8Array}[] = [];
+        // raw_texts は、文字符号の状態を初期状態に戻してから別々にデコードする本文の断片の配列
+        const detail_array: {head: string, raw_texts: Uint8Array[]}[] = [];
         for (const extended_event_descriptor of extended_event_descriptors) {
             // 一応 items 内の item が複数あることを想定してループしているが、運用上は1つしか存在しないはず (?)
             for (const item of extended_event_descriptor.items) {
-                // 項目名が空の場合は本文を直前の項目につなげ、先頭なら項目名なしの詳細として追加する
+                // 項目名が空の場合は本文を直前の項目の最後の断片にバイナリレベルでつなげ、先頭なら項目名なしの詳細として追加する
                 // ref: ARIB TR-B14 第四分冊 第四編 第1部 4.4.3
                 if (item.itemDescription.length === 0) {
                     const previous_detail = detail_array[detail_array.length - 1];
                     if (previous_detail === undefined) {
-                        detail_array.push({head: '', raw_text: item.item});
+                        detail_array.push({head: '', raw_texts: [item.item]});
                     } else {
-                        previous_detail.raw_text = concatBuffers([previous_detail.raw_text, item.item]);
+                        const last_index = previous_detail.raw_texts.length - 1;
+                        previous_detail.raw_texts[last_index] = concatBuffers([previous_detail.raw_texts[last_index], item.item]);
                     }
+                    continue;
+                }
+                let head = ProgramUtils.formatString(decodeSIText(item.itemDescription));
+                // 項目名が空白だけの項目 (WOWOW など) は、本文を直前の項目に別の断片として追加する
+                // WOWOW などは長い本文を、項目名が空白だけの別の項目に分けて送出するため、
+                // 別の項目として扱うと、本文の続きが「番組内容」などの別の見出しで表示されてしまう
+                const previous_detail = detail_array[detail_array.length - 1];
+                if (head.trim() === '' && previous_detail !== undefined) {
+                    previous_detail.raw_texts.push(item.item);
                 } else {
-                    let head = ProgramUtils.formatString(decodeSIText(item.itemDescription));
                     // 項目名が重複する場合はタブ文字を追加して区別する
                     const original_head = head;
                     let tab_suffix = '';
@@ -304,7 +314,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                         tab_suffix += '\t';
                     }
                     head += tab_suffix;
-                    detail_array.push({head: head, raw_text: item.item});
+                    detail_array.push({head: head, raw_texts: [item.item]});
                 }
             }
         }
@@ -322,7 +332,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 head_hankaku += '\t';
             }
             // 本文
-            const text_hankaku = ProgramUtils.formatString(decodeSIText(detail.raw_text)).trim();
+            const text_hankaku = ProgramUtils.formatString(detail.raw_texts.map(raw_text => decodeSIText(raw_text)).join('')).trim();
             // この時点で番組概要が空の場合、番組詳細の最初の本文を概要として使う
             // 空でまったく情報がないよりかは良いはず
             if (program.description.trim() === '') {

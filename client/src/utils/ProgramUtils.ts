@@ -521,7 +521,7 @@ export class ProgramUtils {
 
     /**
      * formatString() で使用する変換マップを取得する
-     * server/app/utils/TSInformation.py の TSInfoAnalyzer.__buildFormatStringTranslationMap() と同等の処理を行う
+     * server/app/utils/TSInformation.py の TSInformation.__buildFormatStringTranslationMap() と同等の処理を行う
      * @returns 変換マップ
      */
     private static buildFormatStringTranslationMap(): {[key: string]: string} {
