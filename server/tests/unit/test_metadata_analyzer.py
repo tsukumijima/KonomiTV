@@ -70,6 +70,25 @@ def test_analyze_recording_read_within_recording_start_margin() -> None:
     assert result['start_time'] == '2025-06-10T02:00:00+09:00'
 
 
+def test_analyze_bdav_partial_ts_recording(snapshot_json: SnapshotAssertion) -> None:
+    """
+    BD に BDAV 形式で記録された録画データ (192 バイトのパケットのパーシャル TS) でも、SDT・EIT・TOT の代わりに SIT から、
+    チャンネル情報・番組情報 (番組詳細を含む)・録画開始時刻を解析でき、映像・音声の情報も 188 バイトのパケットの TS と同じく取得できる
+    このファイルは、地デジを DR 録画して BD に記録した録画の途中を切り出したもので、PSI/SI は PAT・PMT・SIT だけを含む
+    """
+
+    result = AnalyzeRecording('terrestrial-bdav-partial-ts.m2ts')
+    assert result['channel']['name'] == 'OBS大分放送'
+    assert result['channel']['remocon_id'] == 3
+    assert result['title'] == 'かぼすタイム'
+    assert result['start_time'] == '2011-02-12T09:25:00+09:00'
+    assert result['duration'] == 7200.0
+    assert result['detail'] == {'出演者': '【司会】石川 正史,舘原 美幸'}
+    assert result['recorded_video']['recording_start_time'] is not None
+    assert result['recorded_video']['video_codec'] == 'MPEG-2'
+    assert result == snapshot_json
+
+
 def test_analyze_mp4_recording_with_psi_archive() -> None:
     """
     TS をエンコードした MP4 の録画データでも、録画の横に置いた PSI/SI 書庫 (.psc) から、元の TS と同じ番組情報を解析できる

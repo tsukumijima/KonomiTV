@@ -686,8 +686,13 @@ class VideoEncodingTask:
                     if current_segment.source_file_position is None:
                         raise RuntimeError(f'Source file position is not resolved. [sequence: {current_sequence}]')
 
+                    # ファイル上の TS パケットサイズ (188 または 192) を取得する
+                    ## BD に BDAV 形式で記録された録画 (.m2ts) は、188 バイトの TS パケットの前に4バイトの TP_extra_header が付いた 192 バイトのパケットで構成されている
+                    source_packet_size = self.video_stream.ts_stream_info.packet_size \
+                        if self.video_stream.ts_stream_info is not None else ts.PACKET_SIZE
+
                     # セグメント開始位置から遡る範囲を計算（最大 5000 パケット、ただしファイル先頭は超えない）
-                    max_lookback_bytes = 188 * 5000  # 5000 パケット分
+                    max_lookback_bytes = source_packet_size * 5000  # 5000 パケット分
                     search_start_pos = max(0, current_segment.source_file_position - max_lookback_bytes)
                     search_end_pos = current_segment.source_file_position
 
@@ -707,6 +712,8 @@ class VideoEncodingTask:
                     closest_pmt_distance = float('inf')
 
                     # TS パケットを1つずつ処理
+                    ## 192 バイトのパケットでは、同期バイトは各パケットの先頭の TP_extra_header (4バイト) の後ろにある
+                    ## tsreadex には TP_extra_header を除いた 188 バイトの TS パケットを渡す
                     offset = 0
                     while offset + 188 <= len(search_data):
                         # 同期バイトを探す
@@ -714,12 +721,12 @@ class VideoEncodingTask:
                             offset += 1
                             continue
 
-                        # 188 バイト先 (必要であればさらに 188 バイト先) の同期バイトを確認し、TS パケット境界であるか検証する
+                        # 1パケット先 (必要であればさらに1パケット先) の同期バイトを確認し、TS パケット境界であるか検証する
                         is_aligned = True
-                        next_offset = offset + 188
+                        next_offset = offset + source_packet_size
                         if next_offset < len(search_data) and search_data[next_offset] != ts.SYNC_BYTE[0]:
                             is_aligned = False
-                        second_offset = offset + 376
+                        second_offset = offset + source_packet_size * 2
                         if is_aligned is True and second_offset < len(search_data) and search_data[second_offset] != ts.SYNC_BYTE[0]:
                             is_aligned = False
                         if is_aligned is False:
@@ -776,7 +783,7 @@ class VideoEncodingTask:
                                         closest_pmt_distance = distance
                                     break
 
-                        offset += 188
+                        offset += source_packet_size
 
                     # PAT/PMT が両方見つかった場合のみ使用
                     if closest_pat_packet is not None and closest_pmt_packet is not None:
@@ -912,6 +919,16 @@ class VideoEncodingTask:
                                                 offset = keyframe_position.source_file_position,
                                                 dts = keyframe_position.source_start_dts,
                                             ))
+                                    # BD に BDAV 形式で記録された録画 (192 バイトのパケット) は、各パケットの先頭の TP_extra_header (4バイト) を取り除き、
+                                    # 先頭に付加した PAT/PMT と同じ 188 バイトの TS パケットにそろえて tsreadex に渡す
+                                    ## パケットの長さが途中で変わると、tsreadex はパケットの区切りを取り直すまでのパケットを読み捨ててしまう
+                                    ## TSKeyFrameCollector には元ファイル上の位置を数えさせるため、取り除く前のチャンクを渡している
+                                    if packet_size != ts.PACKET_SIZE:
+                                        header_size = packet_size - ts.PACKET_SIZE
+                                        chunk = b''.join(
+                                            chunk[packet_offset + header_size:packet_offset + packet_size]
+                                            for packet_offset in range(0, len(chunk) - packet_size + 1, packet_size)
+                                        )
                                     if WriteAllToPipe(tsreadex_stdin_write, chunk) is False:
                                         break
                             except BrokenPipeError:

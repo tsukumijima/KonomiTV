@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import ariblib
 import typer
 from biim.mpeg2ts import ts
 
@@ -31,9 +32,19 @@ def main(
     replace_video: bool = typer.Option(False, '--replace-video', help='Replace the video stream with a low bitrate H.264 stream using tsreplace.'),
     video_bitrate: str = typer.Option('120k', '--video-bitrate', help='Target bitrate of the replaced video stream.'),
 ):
-    # 切り出す範囲を TS パケットの境界にそろえる
-    start = start // ts.PACKET_SIZE * ts.PACKET_SIZE
-    length = length // ts.PACKET_SIZE * ts.PACKET_SIZE
+    # 録画のファイル上の TS パケットサイズを、KonomiTV の解析処理と同じく ariblib で判定する
+    ## BD に BDAV 形式で記録された録画 (.m2ts) は、188 バイトの TS パケットの前に4バイトの TP_extra_header が付いた 192 バイトのパケットで構成されている
+    with ariblib.tsopen(input_path) as input_ts:
+        packet_size = input_ts.packet_size
+
+    # tsreplace は 188 バイトのパケットの TS しか受け付けないため、192 バイトのパケットの録画は映像を差し替えずに切り出す
+    if replace_video is True and packet_size != ts.PACKET_SIZE:
+        typer.echo(f'--replace-video only supports 188-byte packets, but the input has {packet_size}-byte packets.', err=True)
+        raise typer.Exit(code=1)
+
+    # 切り出す範囲をファイル上の TS パケットの境界にそろえる
+    start = start // packet_size * packet_size
+    length = length // packet_size * packet_size
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)

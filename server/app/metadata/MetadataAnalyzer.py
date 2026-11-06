@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal, cast
 
 import typer
+from ariblib.packet import TransportStreamFile
 from biim.mpeg2ts import ts
 from pydantic import BaseModel, field_validator
 from rich import print
@@ -284,7 +285,7 @@ class MetadataAnalyzer:
         full_probe, sample_probe, end_ts_offset = result
         logging.debug(f'{self.recorded_file_path}: FFprobe analysis completed.')
 
-        # MPEG-TS の TS パケットサイズが 188 以外であれば弾く（BDAV 等は非対応）
+        # MPEG-TS の TS パケットサイズが 188 と 192 (BD に BDAV 形式で記録された録画) 以外であれば弾く (204 等は非対応)
         if full_probe.format.format_name == 'mpegts':
             try:
                 sizes: list[int] = []
@@ -292,8 +293,8 @@ class MetadataAnalyzer:
                     if stream.ts_packetsize is None:
                         continue
                     sizes.append(int(stream.ts_packetsize))
-                if len(sizes) > 0 and any(size != 188 for size in sizes):
-                    first_bad = next(size for size in sizes if size != 188)
+                if len(sizes) > 0 and any(size not in (188, 192) for size in sizes):
+                    first_bad = next(size for size in sizes if size not in (188, 192))
                     logging.warning(f'{self.recorded_file_path}: Unsupported TS packet size detected: {first_bad} bytes.')
                     return None
             except Exception as ex:
@@ -481,10 +482,13 @@ class MetadataAnalyzer:
         ## 現状 ariblib は先頭が sync_byte でない or 途中で同期が壊れる (破損した TS パケットが存在する) TS ファイルを想定していないため、
         ## ariblib に入力する録画ファイルは必ず正常な TS ファイルである必要がある
         ## ファイルの末尾の TS パケットだけ破損してるだけなら再生できるのでファイルサイズはチェックせず、ファイルの先頭が sync_byte であるかだけチェックする
-        ## ファイルの先頭1バイトだけを読み込んで sync_byte をチェックする
+        ## ファイルの最初の TS パケットの先頭1バイトだけを読み込んで sync_byte をチェックする
+        ## 192 バイトのパケットでは、先頭の4バイトの TP_extra_header の後ろに TS パケットが続く
         if container_format == 'MPEG-TS':
+            packet_size = self.__detectTSPacketSize()
             with self.recorded_file_path.open('rb') as f:
-                if f.read(1)[0] != 0x47:
+                f.seek(packet_size - ts.PACKET_SIZE)
+                if f.read(1) != ts.SYNC_BYTE:
                     logging.warning(f'{self.recorded_file_path}: sync_byte is missing. ignored.')
                     return None
 
@@ -654,7 +658,9 @@ class MetadataAnalyzer:
             return False
 
         # 末尾がゼロ埋めされた TS は、analyze() と同じく、有効な TS データの終了位置までを対象にしたハッシュで登録されている
+        packet_size = self.__detectTSPacketSize()
         with self.recorded_file_path.open('rb') as f:
+            f.seek(packet_size - ts.PACKET_SIZE)
             if f.read(1) != ts.SYNC_BYTE:
                 return False
         duration_result = self.__calculateTSFileDuration()
@@ -665,6 +671,21 @@ class MetadataAnalyzer:
             return self.__calculateFileHash(end_ts_offset) == file_hash
         except ValueError:
             return False
+
+
+    def __detectTSPacketSize(self) -> int:
+        """
+        録画ファイルの先頭から、ファイル上の TS パケットのバイト数を判定する
+        BD に BDAV 形式で記録された録画 (.m2ts) は、188 バイトの TS パケットの前に4バイトの TP_extra_header が付いた
+        192 バイトのパケットで構成されている
+        TSInfoAnalyzer が番組情報の解析に使う ariblib と同じ方法で判定し、シークする位置の計算を一致させる
+
+        Returns:
+            int: 192 バイトのパケットと判定したときは 192、それ以外は 188
+        """
+
+        with self.recorded_file_path.open('rb') as f:
+            return TransportStreamFile.detect_packet_size(f.read(TransportStreamFile.M2TS_PACKET_SIZE * 2))
 
 
     def __calculateFileHash(self, end_ts_offset: int | None, chunk_size: int = 1024 * 1024, num_chunks: int = 3) -> str:
@@ -746,19 +767,24 @@ class MetadataAnalyzer:
             # ファイルサイズを取得
             file_size = self.recorded_file_path.stat().st_size
 
+            # ファイル上の TS パケットサイズ (188 または 192) と、各パケットの先頭の TP_extra_header の長さ (188 バイトのパケットでは 0)
+            ## 192 バイトのパケットでは、先頭の4バイトの TP_extra_header の後ろに 188 バイトの TS パケットが続く
+            packet_size = self.__detectTSPacketSize()
+            header_size = packet_size - ts.PACKET_SIZE
+
             with self.recorded_file_path.open('rb') as f:
                 # --- 先頭ブロックからの PCR 抽出 ---
                 # 基本的にはファイル先頭の最初の TS パケットから PCR を取得する
                 f.seek(0)
                 head_data = f.read(search_block_size)
-                # 先頭ブロックが TS 同期バイト (0x47) で始まっていない場合、1バイトずつ探索して
+                # 先頭ブロックの最初の TS パケットが TS 同期バイト (0x47) で始まっていない場合、1バイトずつ探索して
                 # 最初の同期バイトの位置を特定する
-                if head_data and head_data[0] != ts.SYNC_BYTE[0]:
+                if len(head_data) > header_size and head_data[header_size] != ts.SYNC_BYTE[0]:
                     logging.info('Head data is not aligned; searching for sync byte...')
                     corrected_offset = None
-                    for idx in range(len(head_data)):
+                    for idx in range(header_size, len(head_data)):
                         if head_data[idx] == ts.SYNC_BYTE[0]:
-                            corrected_offset = idx
+                            corrected_offset = idx - header_size
                             break
                     if corrected_offset is not None:
                         head_data = head_data[corrected_offset:]
@@ -767,8 +793,8 @@ class MetadataAnalyzer:
                         return None
 
                 first_timestamp: float | None = None
-                for i in range(0, len(head_data), ts.PACKET_SIZE):
-                    packet = head_data[i : i + ts.PACKET_SIZE]
+                for i in range(0, len(head_data), packet_size):
+                    packet = head_data[i + header_size : i + packet_size]
                     if len(packet) < ts.PACKET_SIZE:
                         break
                     if packet[0] != ts.SYNC_BYTE[0]:
@@ -810,24 +836,24 @@ class MetadataAnalyzer:
                 start_offset = valid_data_end - search_block_size
                 if start_offset < 0:
                     start_offset = 0
-                # TS パケット境界に合わせるため、start_offset を ts.PACKET_SIZE の倍数に補正
-                start_offset = (start_offset // ts.PACKET_SIZE) * ts.PACKET_SIZE
+                # TS パケット境界に合わせるため、start_offset をファイル上の TS パケットサイズの倍数に補正
+                start_offset = (start_offset // packet_size) * packet_size
                 f.seek(start_offset)
                 tail_chunk = f.read(valid_data_end - start_offset)
 
                 # --- TS パケット同期の調整 ---
-                # 読み込んだ tail_chunk の先頭が TS 同期バイト (0x47) でない場合、同期位置を調整する
+                # 読み込んだ tail_chunk の最初の TS パケットが TS 同期バイト (0x47) で始まっていない場合、同期位置を調整する
                 offset_in_chunk = 0
-                if tail_chunk and tail_chunk[0] != ts.SYNC_BYTE[0]:
-                    for idx in range(len(tail_chunk)):
+                if len(tail_chunk) > header_size and tail_chunk[header_size] != ts.SYNC_BYTE[0]:
+                    for idx in range(header_size, len(tail_chunk)):
                         if tail_chunk[idx] == ts.SYNC_BYTE[0]:
-                            offset_in_chunk = idx
+                            offset_in_chunk = idx - header_size
                             break
 
                 # --- tail_chunk 内の TS パケットから有効な PCR 値を収集 ---
                 valid_pcrs: list[float] = []
-                for j in range(offset_in_chunk, len(tail_chunk) - ts.PACKET_SIZE + 1, ts.PACKET_SIZE):
-                    packet = tail_chunk[j : j + ts.PACKET_SIZE]
+                for j in range(offset_in_chunk, len(tail_chunk) - packet_size + 1, packet_size):
+                    packet = tail_chunk[j + header_size : j + packet_size]
                     if packet[0] != ts.SYNC_BYTE[0]:
                         continue
                     pcr_val = ts.pcr(packet)
@@ -870,9 +896,11 @@ class MetadataAnalyzer:
             bool: 映像 PID または映像コーデックが途中で変化している場合は True
         """
 
+        # サンプルの位置は、ファイル上の TS パケットサイズ (188 または 192) の倍数にそろえる
+        packet_size = self.__detectTSPacketSize()
         file_size = self.recorded_file_path.stat().st_size
         effective_size = min(end_ts_offset, file_size) if end_ts_offset is not None else file_size
-        if effective_size < ts.PACKET_SIZE * 100:
+        if effective_size < packet_size * 100:
             return False
 
         stream_infos: list[tuple[float, TSStreamInfo]] = []
@@ -884,14 +912,14 @@ class MetadataAnalyzer:
             if sample_ratio == 0.98:
                 sample_offset = ClosestMultiple(
                     max(effective_size - self.MAX_STREAM_SCAN_BYTES, 0),
-                    ts.PACKET_SIZE,
+                    packet_size,
                 )
             else:
-                sample_offset = ClosestMultiple(int(effective_size * sample_ratio), ts.PACKET_SIZE)
-            if sample_offset > effective_size - ts.PACKET_SIZE:
-                sample_offset = ClosestMultiple(max(effective_size - ts.PACKET_SIZE, 0), ts.PACKET_SIZE)
-            if sample_offset > effective_size - ts.PACKET_SIZE:
-                sample_offset = max(sample_offset - ts.PACKET_SIZE, 0)
+                sample_offset = ClosestMultiple(int(effective_size * sample_ratio), packet_size)
+            if sample_offset > effective_size - packet_size:
+                sample_offset = ClosestMultiple(max(effective_size - packet_size, 0), packet_size)
+            if sample_offset > effective_size - packet_size:
+                sample_offset = max(sample_offset - packet_size, 0)
 
             # 小さな録画では先頭サンプルだけでファイル全体を読めるため、末尾サンプルが同じ offset になることがある
             ## 同じ位置を重複して読むと検出力は増えず、判定材料の件数だけが水増しされるのでスキップする
@@ -950,7 +978,7 @@ class MetadataAnalyzer:
                 (KonomiTV で再生可能なファイルではない場合は None が返される)
         """
 
-        def ClearLeadingPartialAACFrames(sample_data: bytes) -> bytes:
+        def ClearLeadingPartialAACFrames(sample_data: bytes, packet_size: int) -> bytes:
             """
             録画ファイルの途中から切り出した TS サンプルについて、音声ストリームごとに、
             先頭の AAC (ADTS) フレームより前に残っている、ヘッダーが切り落とされたフレームの残りを 0x00 で埋める
@@ -960,6 +988,7 @@ class MetadataAnalyzer:
 
             Args:
                 sample_data (bytes): 録画ファイルから TS パケット単位で切り出したサンプル
+                packet_size (int): ファイル上の TS パケットサイズ (188 または 192)
 
             Returns:
                 bytes: 先頭の AAC フレームより前の音声データを 0x00 で埋めたサンプル (TS の構造と長さは元のサンプルのまま)
@@ -1004,11 +1033,13 @@ class MetadataAnalyzer:
 
             # 音声ストリームの PID ごとに、最初の PES 以降の ES のバイト列と、各バイトのサンプル内での位置を集める
             ## 音声の PES は stream_id が 0xC0 ~ 0xDF なので、PMT を読まずに PES ヘッダーから音声ストリームを判別できる
+            ## 192 バイトのパケットでは、先頭の4バイトの TP_extra_header の後ろに 188 バイトの TS パケットが続く
             sample = bytearray(sample_data)
             sample_view = memoryview(sample)
             audio_es_data: dict[int, bytearray] = {}
             audio_es_positions: dict[int, list[int]] = {}
-            for packet_offset in range(0, len(sample) - ts.PACKET_SIZE + 1, ts.PACKET_SIZE):
+            for file_packet_offset in range(0, len(sample) - packet_size + 1, packet_size):
+                packet_offset = file_packet_offset + packet_size - ts.PACKET_SIZE
                 packet = sample_view[packet_offset:packet_offset + ts.PACKET_SIZE]
                 if packet[0] != ts.SYNC_BYTE[0] or ts.has_payload(packet) is False:
                     continue
@@ -1109,15 +1140,18 @@ class MetadataAnalyzer:
         try:
             # MPEG-TS 形式の場合のみ実行
             if 'mpegts' in (full_probe.format.format_name or '').lower():
+                # ファイル上の TS パケットサイズ (188 または 192) を判定する
+                ## 192 バイトのパケットのサンプルも、FFprobe はパケットサイズを判定して解析できる
+                packet_size = self.__detectTSPacketSize()
                 # ファイルを開く
                 with open(self.recorded_file_path, 'rb') as f:
                     # 25%位置にシーク (TS パケットサイズに合わせて切り出す)
                     file_size = self.recorded_file_path.stat().st_size
-                    offset = ClosestMultiple(int(file_size * 0.25), ts.PACKET_SIZE)
+                    offset = ClosestMultiple(int(file_size * 0.25), packet_size)
                     f.seek(offset)
                     # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                     ## サンプルとして FFprobe に渡すデータが30秒より短いと正確に解析できないことがある
-                    sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, ts.PACKET_SIZE)  # TS パケットサイズに合わせて切り出す
+                    sample_size = ClosestMultiple(18 * 1024 * 1024 * 30 // 8, packet_size)  # TS パケットサイズに合わせて切り出す
                     sample_data = f.read(sample_size)
                     # サンプルデータが全てゼロ埋めされているかチェック
                     if sample_data and all(byte == 0 for byte in sample_data):
@@ -1129,7 +1163,7 @@ class MetadataAnalyzer:
                         # ゼロ埋め領域を除いた有効データ範囲から再度サンプルを取得
                         # 有効データ範囲の25%位置にシーク
                         _, end_ts_offset = duration_result
-                        offset = ClosestMultiple(int(end_ts_offset * 0.25), ts.PACKET_SIZE)
+                        offset = ClosestMultiple(int(end_ts_offset * 0.25), packet_size)
                         f.seek(offset)
                         # 30秒程度のデータを読み込む (ビットレートを 18Mbps と仮定)
                         sample_size = min(sample_size, end_ts_offset - offset)  # 有効データ範囲を超えないようにする
@@ -1137,7 +1171,7 @@ class MetadataAnalyzer:
 
                     # サンプルの先頭に残る、ヘッダーが切り落とされた AAC フレームの残りを消す
                     ## FFprobe が残りの中の偶然の 0xFFF を ADTS ヘッダーと取り違え、誤った音声の情報を返すのを防ぐ
-                    sample_data = ClearLeadingPartialAACFrames(sample_data)
+                    sample_data = ClearLeadingPartialAACFrames(sample_data, packet_size)
 
                     # 録画ファイルから切り出したサンプルを標準入力から FFprobe に渡して解析
                     args_sample = [
