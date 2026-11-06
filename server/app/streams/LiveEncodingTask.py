@@ -193,7 +193,7 @@ class LiveEncodingTask:
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
         ## 4K 放送 (BS4K・ケーブル4K) は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
-        ## 4K 放送の映像は 10bit のため、8bit しか扱えない H.264 High Profile・H.265 Main Profile 向けに 8bit (yuv420p) へ変換する
+        ## 4K 放送の映像は 10bit のため、8bit しか扱えない H.264 High Profile / H.265 Main Profile 向けに 8bit (yuv420p) へ変換する
         if is_4k_channel is True:
             options.append(f'-vf scale={video_width}:{video_height},format=yuv420p')
             options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
