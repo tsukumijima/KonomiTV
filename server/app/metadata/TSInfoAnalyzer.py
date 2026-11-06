@@ -455,6 +455,15 @@ class TSInfoAnalyzer:
         secondary_audio_type: str | None = None
         secondary_audio_language: str | None = None
 
+        # 番組情報を取得する EIT のサービス ID
+        ## 地デジのワンセグ (部分受信サービス) の番組情報は L-EIT (PID 0x27) で送られるが、
+        ## psisiarc の "arib-data" で作成した PSI/SI 書庫は L-EIT を含まない
+        ## ワンセグはフルセグと同じ番組を放送しているため、フルセグのサービスの EIT も番組情報として使う
+        ## 地デジのサービス ID のサービス種別 (0x0180 のビット) が 3 (部分受信サービス) なら、0 (テレビ型) にした ID がフルセグのサービス
+        eit_service_ids = {channel.service_id}
+        if channel.type == 'GR' and (channel.service_id & 0x0180) == 0x0180:
+            eit_service_ids.add(channel.service_id & ~0x0180)
+
         # TS から EIT (Event Information Table) を抽出
         count: int = 0
         corrupted_events: int = 0  # 破損したイベント数をカウント
@@ -462,7 +471,7 @@ class TSInfoAnalyzer:
 
             # section_number と service_id が一致したときだけ
             # サービス ID が必要な理由は、CS などで同じトランスポートストリームに含まれる別チャンネルの番組情報になることを防ぐため
-            if eit.section_number == eit_section_number and eit.service_id == channel.service_id:
+            if eit.section_number == eit_section_number and eit.service_id in eit_service_ids:
                 # TSID / ONID も一致する場合のみ採用する
                 ## EIT は service_id だけでなく TSID / ONID も持つため、誤検出を避けるため一致条件に含める
                 if channel.transport_stream_id is not None and eit.transport_stream_id != channel.transport_stream_id:
