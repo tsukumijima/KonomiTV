@@ -332,7 +332,14 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
                 head_hankaku += '\t';
             }
             // 本文
-            const text_hankaku = ProgramUtils.formatString(detail.raw_texts.map(raw_text => decodeSIText(raw_text)).join('')).trim();
+            // 断片の分割位置には改行が含まれないため、続きの断片が「【」で始まる見出しのときだけ改行を挟んでつなげる
+            // (WOWOW では本文の中の「【」は常に行頭にあり、それ以外の分割位置は語や列挙の途中になっている)
+            const decoded_texts = detail.raw_texts.map(raw_text => decodeSIText(raw_text));
+            let text = decoded_texts[0];
+            for (const continued_text of decoded_texts.slice(1)) {
+                text += (continued_text.startsWith('【') ? '\n' : '') + continued_text;
+            }
+            const text_hankaku = ProgramUtils.formatString(text).trim();
             // この時点で番組概要が空の場合、番組詳細の最初の本文を概要として使う
             // 空でまったく情報がないよりかは良いはず
             if (program.description.trim() === '') {
