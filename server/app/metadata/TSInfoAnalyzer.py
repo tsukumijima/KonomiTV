@@ -13,7 +13,7 @@ from ariblib.descriptors import (
     ServiceDescriptor,
     TSInformationDescriptor,
 )
-from ariblib.packet import payload, payload_unit_start_indicator, pid
+from ariblib.packet import pid
 from ariblib.sections import (
     ActualNetworkNetworkInformationSection,
     ActualStreamPresentFollowingEventInformationSection,
@@ -127,17 +127,9 @@ class TSInfoAnalyzer:
             except Exception:
                 pass
 
-            # TODO: 物理ファイル以外を受け取れるよう ariblib を変更すべき
-            # このやり方は ariblib の内部実装を仮定しているのでよくない
-            class TransportStreamFileWorkaround(ariblib.TransportStreamFile):
-                def __init__(self, stream: Any):
-                    BufferedReader.__init__(self, stream)
-                    self.chunk_size = 1
-                    self._callbacks = dict()
-
             # コンストラクタは失敗しない設計なので packets が空でも入力する
             # ここで self.end_ts_offset に 0 がセットされた時、TSInfoAnalyzer.analyze() は常に None を返す
-            self.ts = TransportStreamFileWorkaround(BytesIO(packets))
+            self.ts = ariblib.tsopen(BytesIO(packets), chunk=1)
             self.end_ts_offset = len(packets)
 
 
@@ -201,88 +193,31 @@ class TSInfoAnalyzer:
             tuple[datetime, datetime]: 録画開始時刻と録画終了時刻 (取得できなかった場合は None)
         """
 
-        # MPEG-TS の場合: ariblib.packet のユーティリティと TimeOffsetSection を使って単一パスで解析する
+        # MPEG-TS の場合: TOT の送出時刻から、TOT が届くまでの経過時間を引いて録画開始時刻を求める
         if self.recorded_video.container_format == 'MPEG-TS':
             try:
                 # 誤動作防止のため必ず最初にシークを戻す
                 self.ts.seek(0)
 
-                buffer = bytearray()
-                first_pcr_sec: float | None = None
-                current_pcr_sec: float | None = None
-                # PSI セクション開始時点 (PUSI) の PCR 値を保持し、そのセクションに対する経過時間算出に用いる
-                pcr_at_section_start_sec: float | None = None
+                # 録画開始時点の PCR として、ファイルの最初に現れる PCR を取得する
+                ## pcrs() は PCR をマイクロ秒単位の timedelta で返すため、90kHz 単位の値に戻して扱う
+                ## (90kHz の1単位は約 11 マイクロ秒なので、丸めれば元の値に戻る)
+                first_pcr_timedelta = next(self.ts.pcrs(), None)
+                if first_pcr_timedelta is None:
+                    return None
+                first_pcr = round(first_pcr_timedelta.total_seconds() * ts.HZ)
 
-                # end_ts_offset 以降はゼロ埋めである可能性が高いため、読み取りを制限する
-                read_bytes = 0
-                while True:
-                    packet = self.ts.read(ts.PACKET_SIZE)
-                    if packet is None or len(packet) < ts.PACKET_SIZE:
-                        break
-                    read_bytes += ts.PACKET_SIZE
-                    if read_bytes > self.end_ts_offset:
-                        break
-
-                    # PCR を追跡
-                    pcr_val = ts.pcr(packet)
-                    if pcr_val is not None:
-                        current_pcr_sec = pcr_val / ts.HZ
-                        if first_pcr_sec is None:
-                            first_pcr_sec = current_pcr_sec
-
-                    # TOT (PID 0x14) のセクション組み立て
-                    if pid(packet) != 0x14:
+                self.ts.seek(0)
+                for tot in self.ts.sections(TimeOffsetSection):
+                    # TOT の先頭を含むパケットより前に PCR が現れていない場合は、経過時間を求められないため次の TOT を使う
+                    if tot.pcr is None or tot.JST_time is None:
                         continue
-
-                    prev, current = payload(packet)
-                    if payload_unit_start_indicator(packet):
-                        # まず、直前まで構築していたセクションを prev で完結させる
-                        if buffer:
-                            buffer.extend(prev)
-                        # セクション長に従い切り出して TimeOffsetSection として解釈
-                        while buffer and buffer[0] != 0xFF:
-                            try:
-                                if buffer[0] == 0x73:  # TimeOffsetSection の table_id
-                                    section = TimeOffsetSection(buffer[:])
-                                    if section.isfull():
-                                        # 経過時間は「当該セクションの開始時 PCR - 最初の PCR」で算出する
-                                        if (first_pcr_sec is not None) and (pcr_at_section_start_sec is not None):
-                                            elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
-                                            assert section.JST_time is not None
-                                            jst_time = NormalizeToJSTDatetime(section.JST_time)
-                                            recording_start_time = jst_time - timedelta(seconds=elapsed)
-                                            recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
-                                            return (recording_start_time, recording_end_time)
-                                # 次セクションへ
-                                next_start = ((buffer[1] & 0x0F) << 8 | buffer[2]) + 3
-                                buffer[:] = buffer[next_start:]
-                            except Exception:
-                                break
-                        # 新しいセクション (current) を開始する。開始時点の PCR を保存する
-                        buffer[:] = current
-                        pcr_at_section_start_sec = current_pcr_sec
-                    elif not buffer:
-                        continue
-                    else:
-                        buffer.extend(current)
-
-                # 残ったバッファを片付ける
-                if buffer and buffer[0] == 0x73:
-                    try:
-                        section = TimeOffsetSection(buffer[:])
-                        if section.isfull():
-                            # ファイル末尾でセクションが完結した場合も、当該セクション開始時の PCR を使う
-                            if (first_pcr_sec is None) or (pcr_at_section_start_sec is None):
-                                pass
-                            else:
-                                elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
-                                assert section.JST_time is not None
-                                jst_time = NormalizeToJSTDatetime(section.JST_time)
-                                recording_start_time = jst_time - timedelta(seconds=elapsed)
-                                recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
-                                return (recording_start_time, recording_end_time)
-                    except Exception:
-                        pass
+                    # 経過時間は「TOT の先頭を含むパケットの時点の PCR - 最初の PCR」で算出する
+                    elapsed = max(tot.pcr / ts.HZ - first_pcr / ts.HZ, 0.0)
+                    jst_time = NormalizeToJSTDatetime(tot.JST_time)
+                    recording_start_time = jst_time - timedelta(seconds=elapsed)
+                    recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
+                    return (recording_start_time, recording_end_time)
 
             except Exception as ex:
                 logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS:', exc_info=ex)
@@ -299,6 +234,8 @@ class TSInfoAnalyzer:
             first_tot_time: datetime | None = None
             last_tot_time: datetime | None = None
             for tot in self.ts.sections(TimeOffsetSection):
+                if tot.JST_time is None:
+                    continue
                 if first_tot_time is None:
                     first_tot_time = NormalizeToJSTDatetime(tot.JST_time)
                 last_tot_time = NormalizeToJSTDatetime(tot.JST_time)
@@ -785,56 +722,42 @@ class TSInfoAnalyzer:
             return None
 
         # PMT から映像・音声 PID を取得
-        ## ariblib の ProgramMapSection は _pids クラス属性がデフォルトで定義されていないため、
-        ## 動的に追加してから sections() メソッドを使用する
         service_pid_map: dict[int, dict[str, set[int]]] = {}
 
         # ファイルの 20% 位置にシークしてから PMT を解析する
         ## Mirakurun/mirakc では録画開始直後はサービス分離が完了しておらず、古い PMT 情報が含まれている場合がある
         ## ファイルの 20% 位置であれば、サービス分離が完了した後の正しい PMT を取得できる可能性が高い
-        ## ariblib の sections() メソッドは内部キャッシュを持っておりシーク位置を尊重しないため、
-        ## 新しいファイルハンドルを開いて 20% 位置から読み込む必要がある
         effective_size = min(self.end_ts_offset, self.recorded_video.file_size)
         pmt_seek_offset = ClosestMultiple(int(effective_size * 0.2), ts.PACKET_SIZE)
+        self.ts.seek(pmt_seek_offset)
 
-        # ProgramMapSection._pids が存在しない場合は空リストで初期化
-        if not hasattr(ProgramMapSection, '_pids'):
-            ProgramMapSection._pids = []  # type: ignore[attr-defined]
-        original_pmt_pids = ProgramMapSection._pids  # type: ignore[attr-defined]
-        pmt_pids_to_use = list(service_pmt_pid_map.values())
-        ProgramMapSection._pids = pmt_pids_to_use  # type: ignore[attr-defined]
-        try:
-            # 20% 位置から始まる新しいファイルハンドルを開いて PMT を解析
-            ## サービス分離済みのファイルでは特定のサービスの PMT しか存在しないため、
-            ## 一定回数 PMT を確認したら終了する
-            with ariblib.tsopen(self.recorded_video.file_path, chunk=1000) as pmt_ts:
-                pmt_ts.seek(pmt_seek_offset)
-                pmt_check_count = 0
-                max_pmt_checks = len(service_pmt_pid_map) * 3  # 各サービスにつき最大3回のチェック
-                for pmt in pmt_ts.sections(ProgramMapSection):
-                    pmt_check_count += 1
-                    service_id = int(pmt.program_number)
-                    if service_id not in service_pmt_pid_map:
-                        continue
-                    # 既にこのサービスの PMT を取得済みならスキップ
-                    if service_id in service_pid_map:
-                        # すべてのサービスを確認済みか、一定回数チェックしたら終了
-                        if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
-                            break
-                        continue
-                    video_pids = {int(p) for p in pmt.video_pids()}
-                    audio_pids = {int(p) for p in pmt.audio_pids()}
-                    if len(video_pids) == 0 and len(audio_pids) == 0:
-                        continue
-                    service_pid_map[service_id] = {
-                        'video_pids': video_pids,
-                        'audio_pids': audio_pids,
-                    }
-                    # すべてのサービスを確認済みか、一定回数チェックしたら終了
-                    if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
-                        break
-        finally:
-            ProgramMapSection._pids = original_pmt_pids  # type: ignore[attr-defined]
+        # PAT から得た PMT の PID を指定して PMT を解析
+        ## サービス分離済みのファイルでは特定のサービスの PMT しか存在しないため、
+        ## 一定回数 PMT を確認したら終了する
+        pmt_check_count = 0
+        max_pmt_checks = len(service_pmt_pid_map) * 3  # 各サービスにつき最大3回のチェック
+        for pmt in self.ts.sections(ProgramMapSection, pids=service_pmt_pid_map.values()):
+            pmt_check_count += 1
+            service_id = int(pmt.program_number)
+            if service_id not in service_pmt_pid_map:
+                continue
+            # 既にこのサービスの PMT を取得済みならスキップ
+            if service_id in service_pid_map:
+                # すべてのサービスを確認済みか、一定回数チェックしたら終了
+                if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
+                    break
+                continue
+            video_pids = {int(p) for p in pmt.video_pids()}
+            audio_pids = {int(p) for p in pmt.audio_pids()}
+            if len(video_pids) == 0 and len(audio_pids) == 0:
+                continue
+            service_pid_map[service_id] = {
+                'video_pids': video_pids,
+                'audio_pids': audio_pids,
+            }
+            # すべてのサービスを確認済みか、一定回数チェックしたら終了
+            if len(service_pid_map) == len(service_pmt_pid_map) or pmt_check_count >= max_pmt_checks:
+                break
 
         if len(service_pid_map) == 0:
             return None
