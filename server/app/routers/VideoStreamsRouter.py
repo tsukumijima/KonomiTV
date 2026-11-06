@@ -416,10 +416,15 @@ async def VideoOfflineStreamAPI(
             video_stream.getVirtualPlaylist()
             # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する
             metadata = OfflineVideoStreamMetadata(
-                video_id=recorded_program.id, file_hash=recorded_video.file_hash, quality=quality,
-                duration_seconds=recorded_video.duration, resume_version=1 if resumable else None,
-                resume_token=current_token, start_sequence=0, segment_count=len(video_stream.segments),
-                download_id=(download_id or uuid.uuid4().hex) if resumable else None,
+                video_id = recorded_program.id,
+                file_hash = recorded_video.file_hash,
+                quality = quality,
+                duration_seconds = recorded_video.duration,
+                resume_version = 1 if resumable else None,
+                resume_token = current_token,
+                start_sequence = 0,
+                segment_count = len(video_stream.segments),
+                download_id = (download_id or uuid.uuid4().hex) if resumable else None,
             )
             if resumable:
                 cached_download = await OfflineVideoDownload.create(video_stream, metadata, OFFLINE_VIDEO_STREAM_SEMAPHORE)

@@ -71,8 +71,12 @@ class OfflineVideoDownload:
         self._task: asyncio.Task[None] | None = None
 
     @classmethod
-    async def create(cls, stream: VideoStream, metadata: OfflineVideoStreamMetadata,
-        semaphore: asyncio.Semaphore) -> OfflineVideoDownload:
+    async def create(
+        cls,
+        stream: VideoStream,
+        metadata: OfflineVideoStreamMetadata,
+        semaphore: asyncio.Semaphore,
+    ) -> OfflineVideoDownload:
         """
         一時保存の容量を予約し、通信接続から独立した変換タスクを開始する。
 
@@ -107,7 +111,11 @@ class OfflineVideoDownload:
             pending = sum(max(0, job.manifest.reserved_bytes - sum(s.size for s in job.manifest.segments)) for job in cls._active.values())
             if occupied + reserved > cls.MAX_CACHE_BYTES or reserved + pending + cls.MIN_FREE_BYTES > free:
                 raise HTTPException(507, 'Insufficient space for offline download cache')
-            manifest = OfflineVideoDownloadManifest(metadata=metadata, expires_at=time.time() + cls.RETENTION_SECONDS, reserved_bytes=reserved)
+            manifest = OfflineVideoDownloadManifest(
+                metadata = metadata,
+                expires_at = time.time() + cls.RETENTION_SECONDS,
+                reserved_bytes = reserved,
+            )
             job = cls(metadata.download_id, manifest)
             await directory.mkdir()
             await job._writeManifest(manifest)
