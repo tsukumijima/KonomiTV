@@ -130,10 +130,10 @@ wheels = [
 
 [[package]]
 name = "ariblib"
-version = "0.1.4"
-source = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" }
+version = "0.2.0"
+source = { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.2.0/ariblib-0.2.0-py3-none-any.whl" }
 wheels = [
-    { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl", hash = "sha256:ac3bb62ef2998811c23b00d6d9648dcde4c1df9d4e0c5a79385cb04b0bfb2310" },
+    { url = "https://github.com/tsukumijima/ariblib/releases/download/v0.2.0/ariblib-0.2.0-py3-none-any.whl", hash = "sha256:9fec48d8dba1079e328ba30925373907fe963dbef0c2bace5901b7d248f2c4d8" },
 ]
 
 [[package]]
@@ -867,7 +867,7 @@ requires-dist = [
     { name = "aerich", specifier = "==0.10.1" },
     { name = "aiofiles", specifier = ">=24.1.0" },
     { name = "aiohttp", specifier = ">=3.12.14" },
-    { name = "ariblib", url = "https://github.com/tsukumijima/ariblib/releases/download/v0.1.4/ariblib-0.1.4-py3-none-any.whl" },
+    { name = "ariblib", url = "https://github.com/tsukumijima/ariblib/releases/download/v0.2.0/ariblib-0.2.0-py3-none-any.whl" },
     { name = "atproto", specifier = "==0.0.68" },
     { name = "av", specifier = ">=19.0.0,<20.0.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
