@@ -51,6 +51,15 @@ uv run python -m misc.FixtureTSFileConverter <元の録画ファイル> tests/fi
 - 用途:
   - 番組情報を読む位置が録画開始マージンに入る録画でも、録画開始時刻から1分以内に始まる次の番組を録画対象として選ぶことを確認する回帰テスト
 
+### terrestrial-psc-sidecar.mp4 / terrestrial-psc-sidecar.psc
+
+- 元データ: `terrestrial-tsreplace-h264.ts` (NHK総合1・東京 / 2019/08/09)
+  - `terrestrial-psc-sidecar.mp4` は、映像と音声を再エンコードせずに MP4 にコピーしたもの (`ffmpeg -i terrestrial-tsreplace-h264.ts -map 0:v:0 -map 0:a:0 -c copy -movflags +faststart terrestrial-psc-sidecar.mp4`)
+  - `terrestrial-psc-sidecar.psc` は、同じ TS から psisiarc で作成した PSI/SI 書庫 (`psisiarc -r arib-data terrestrial-tsreplace-h264.ts terrestrial-psc-sidecar.psc`)
+  - TS を MP4 にエンコードし、元の TS から作成した書庫を録画の横に置く、実際の録画環境と同じ構成にしている
+- 用途:
+  - MP4 の録画で、PSI/SI 書庫から番組情報・チャンネル情報・録画開始/終了時刻を解析できることを、元の TS の解析結果と比べて確認するテスト
+
 ## captures/
 
 | ファイル | 内容 |

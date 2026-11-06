@@ -1,5 +1,6 @@
 
 import concurrent.futures
+from datetime import datetime
 from typing import Any
 
 from syrupy.assertion import SnapshotAssertion
@@ -67,3 +68,26 @@ def test_analyze_recording_read_within_recording_start_margin() -> None:
     result = AnalyzeRecording('terrestrial-recording-start-margin.ts')
     assert result['title'] == 'あおほし'
     assert result['start_time'] == '2025-06-10T02:00:00+09:00'
+
+
+def test_analyze_mp4_recording_with_psi_archive() -> None:
+    """
+    TS をエンコードした MP4 の録画データでも、録画の横に置いた PSI/SI 書庫 (.psc) から、元の TS と同じ番組情報を解析できる
+    このファイルは、terrestrial-tsreplace-h264.ts の映像と音声を MP4 にコピーし、同じ TS から psisiarc で作成した書庫を並べたもの
+    """
+
+    ts_result = AnalyzeRecording('terrestrial-tsreplace-h264.ts')
+    mp4_result = AnalyzeRecording('terrestrial-psc-sidecar.mp4')
+    assert mp4_result['recorded_video']['container_format'] == 'MPEG-4'
+
+    # 番組情報とチャンネル情報は、元の TS から解析したものとすべて一致する
+    for key in ts_result:
+        if key == 'recorded_video':
+            continue
+        assert mp4_result[key] == ts_result[key], key
+
+    # 録画開始・終了時刻は、書庫に記録された TOT の時刻と送出時刻から求めるため、TS の PCR から求めた値との差は1秒未満になる
+    for key in ('recording_start_time', 'recording_end_time'):
+        ts_time = datetime.fromisoformat(ts_result['recorded_video'][key])
+        mp4_time = datetime.fromisoformat(mp4_result['recorded_video'][key])
+        assert abs((mp4_time - ts_time).total_seconds()) < 1, key
