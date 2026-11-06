@@ -89,8 +89,9 @@ class TSInfoAnalyzer:
                         nonlocal last_time_sec, last_tot_time_sec
                         last_time_sec = time_sec
                         if pid in (0x12, 0x26, 0x27):
-                            # EIT は 20% の位置から 60 秒間だけ
-                            if time_sec < self.recorded_video.duration * 0.2 or time_sec > self.recorded_video.duration * 0.2 + 60:
+                            # EIT は 20% の位置から末尾まで
+                            ## 放送時間未定で始まった番組の番組長は途中で確定するため、確定した番組長を後ろの EIT から探せるようにする
+                            if time_sec < self.recorded_video.duration * 0.2:
                                 return True
                         elif pid == 0x14:
                             # 録画時刻の解析の精度を上げるため
@@ -601,14 +602,14 @@ class TSInfoAnalyzer:
                     # EIT から取得できるすべての情報を取得できたら抜ける
                     ## 一回の EIT ですべての情報 (Descriptor) が降ってくるとは限らない
                     ## 副音声情報は副音声がない番組では当然取得できないので、除外している
+                    ## 番組長が未定 (放送時間未定) の番組は、100 回読んでも確定しなければ打ち切り、後で録画の末尾から確定した番組長を探す
                     if all([
                         event_id is not None,
                         title is not None,
                         description is not None,
                         detail is not None,
                         start_time is not None,
-                        end_time is not None,
-                        duration is not None,
+                        duration is not None or count >= 100,
                         is_free is not None,
                         genres is not None,
                         primary_audio_type is not None,
@@ -642,6 +643,78 @@ class TSInfoAnalyzer:
             ## PSI/SI 書庫から生成した仮想 TS ファイルには映像/音声が含まれていないため、それ以外の形式の場合はシークしない
             if self.recorded_video.container_format == 'MPEG-TS' and count % 100 == 0:
                 self.ts.seek(ts.PACKET_SIZE * 1000000, 1)  # 188MB (188 * 1000000 バイト) 進める
+
+        # 放送時間未定で始まった番組では、録画の末尾に近い EIT から、その番組の確定した番組長を探す
+        ## 番組長は放送の途中で確定し、確定した後の EIT[p/f] には確定した値が入る
+        ## 録画の末尾には録画終了マージンとして次の番組が入るため、event_id が同じ EIT だけを対象にする
+        if duration is None and event_id is not None and start_time is not None and is_following is False:
+            target_event_id = event_id
+            target_start_time = start_time
+
+            # 対象の番組の最後の EIT のイベントの有無と開始時刻・番組長、対象の番組より後に始まった別の番組の最も早い開始時刻
+            target_found = False
+            last_target_start_time: datetime | None = None
+            last_target_duration: timedelta | None = None
+            next_start_time: datetime | None = None
+
+            def ScanEndTimeCandidates(stop_offset: int | None) -> None:
+                """
+                現在の位置から stop_offset (None なら末尾) までの EIT[p/f] の現在の番組を読み、
+                対象の番組の最後のイベントと、対象の番組より後に始まった別の番組の開始時刻を記録する
+
+                Args:
+                    stop_offset (int | None): 読み終える位置のバイト数 (None なら末尾まで読む)
+                """
+                nonlocal target_found, last_target_start_time, last_target_duration, next_start_time
+                for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
+                    if stop_offset is not None and self.ts.tell() > stop_offset:
+                        break
+                    if eit.section_number != 0 or eit.service_id not in eit_service_ids:
+                        continue
+                    if channel.transport_stream_id is not None and eit.transport_stream_id != channel.transport_stream_id:
+                        continue
+                    if channel.network_id is not None and eit.original_network_id != channel.network_id:
+                        continue
+                    for event_data in eit.events:
+                        if event_data.event_id == target_event_id:
+                            target_found = True
+                            last_target_start_time = event_data.start_time
+                            last_target_duration = event_data.duration
+                            continue
+                        # 対象の番組の後に始まった別の番組が、現在の番組として流れている
+                        if event_data.start_time is None:
+                            continue
+                        event_start_time = NormalizeToJSTDatetime(event_data.start_time)
+                        if event_start_time > target_start_time and (next_start_time is None or event_start_time < next_start_time):
+                            next_start_time = event_start_time
+
+            if self.recorded_video.container_format == 'MPEG-TS':
+                # 録画の末尾から約 9.4MB ずつ前へ戻りながら読み、対象の番組の EIT が初めて見つかった区間で打ち切る
+                ## その区間の最後の EIT が、録画の中で最も新しい対象の番組の情報になる
+                window_size = ts.PACKET_SIZE * 50000
+                lower_offset = ClosestMultiple(int(self.end_ts_offset * 0.2), ts.PACKET_SIZE)
+                window_offset = ClosestMultiple(max(self.end_ts_offset - window_size, lower_offset), ts.PACKET_SIZE)
+                while target_found is False:
+                    self.ts.seek(window_offset)
+                    ScanEndTimeCandidates(window_offset + window_size)
+                    if window_offset <= lower_offset:
+                        break
+                    window_offset = ClosestMultiple(max(window_offset - window_size, lower_offset), ts.PACKET_SIZE)
+            else:
+                # PSI/SI 書庫から生成した仮想 TS ファイルには 20% の位置から末尾までの EIT が入っているので、すべて読む
+                self.ts.seek(0)
+                ScanEndTimeCandidates(None)
+
+            # 対象の番組の最後の EIT で番組長が確定していれば、その開始時刻と番組長を使う
+            if last_target_start_time is not None and last_target_duration is not None:
+                start_time = NormalizeToJSTDatetime(last_target_start_time)
+                duration = last_target_duration.total_seconds()
+                end_time = start_time + timedelta(seconds=duration)
+            # 番組長が確定しないまま次の番組に切り替わった場合は、次の番組の開始時刻を番組終了時刻にする
+            elif next_start_time is not None:
+                end_time = next_start_time
+                duration = (end_time - start_time).total_seconds()
+            # どちらでもない (番組長の確定を待たずに録画が終わった) 場合は、後続の処理で録画終了時刻を番組終了時刻にする
 
         # この時点でタイトルを取得できていない場合（タイムアウト発生時）、フォールバックとして拡張子を除いたファイル名をフォーマットした上でタイトルとして使用する
         if title is None:
