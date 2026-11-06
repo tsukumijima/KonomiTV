@@ -16,6 +16,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
+from tortoise import connections
 
 from app import logging, schemas
 from app.config import Config
@@ -25,6 +26,7 @@ from app.constants import (
     RESTART_REQUIRED_LOCK_PATH,
     THUMBNAILS_DIR,
 )
+from app.metadata.CaptureScanTask import CaptureScanTask
 from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -42,9 +44,15 @@ router = APIRouter(
     prefix = '/api/maintenance',
 )
 
-# 録画フォルダの一括スキャン・バックグラウンド解析タスクの asyncio.Task インスタンス
+# 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャン・データベースの最適化の asyncio.Task インスタンス
 batch_scan_task: asyncio.Task[None] | None = None
 background_analysis_task: asyncio.Task[None] | None = None
+capture_scan_task: asyncio.Task[None] | None = None
+database_vacuum_task: asyncio.Task[None] | None = None
+# バックグラウンド解析タスクの進捗 (BackgroundAnalysisStatusAPI が参照する)
+background_analysis_status = schemas.MaintenanceTaskStatus()
+# データベースの最適化の進捗 (DatabaseVacuumStatusAPI が参照する)
+database_vacuum_status = schemas.MaintenanceTaskStatus()
 
 
 async def GetCurrentAdminUserOrLocal(
@@ -56,10 +64,12 @@ async def GetCurrentAdminUserOrLocal(
     KonomiTV の Windows サービスからサーバーをシャットダウンするために必要
     """
 
-    # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 である場合、Windows サービスプロセスからのアクセスと見なす
+    # HTTP リクエストの Host ヘッダーが 127.0.0.77:7010 で、かつ Akebi HTTPS Server を経由していない場合、Windows サービスプロセスからのアクセスと見なす
     ## 通常アクセス時の Host ヘッダーは 192-168-1-11.local.konomi.tv:7000 のような形式になる
+    ## Host ヘッダーは外部からも自由に指定できるため、Akebi が中継したリクエストに必ず付ける X-Forwarded-For ヘッダーの有無で、
+    ## Akebi を経由した外部からのアクセスではなく、同じ PC から 127.0.0.77:7010 に直接アクセスされたことを確認する
     valid_host = f'127.0.0.77:{Config().server.port + 10}'
-    if request.headers.get('host', '').strip() == valid_host:
+    if request.headers.get('host', '').strip() == valid_host and 'x-forwarded-for' not in request.headers:
         return None
 
     # それ以外である場合、管理者ユーザーでログインしているかを確認する
@@ -179,7 +189,7 @@ async def UpdateDatabaseAPI():
 
 
 @router.post(
-    '/run-batch-scan',
+    '/batch-scan/run',
     summary = '録画フォルダ一括スキャン API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -198,11 +208,14 @@ async def BatchScanAPI():
         logging.info('Manual batch scan of recording folders has started.')
 
         # 一括スキャンを実行
-        await RecordedScanTask().runBatchScan()
+        ## 起動時の自動スキャンの実行中に呼ばれた場合も runBatchScan() が 429 で失敗するので、失敗したときも None に戻す
+        try:
+            await RecordedScanTask().runBatchScan()
+        finally:
+            batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
 
         # 一括スキャンが完了した
         logging.info('Manual batch scan of recording folders has finished.')
-        batch_scan_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
     ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
@@ -218,8 +231,23 @@ async def BatchScanAPI():
         )
 
 
+@router.get(
+    '/batch-scan/status',
+    summary = '録画フォルダ一括スキャン進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def BatchScanStatusAPI():
+    """
+    録画フォルダの一括スキャンの進捗を取得する。<br>
+    サーバーの起動時に自動で実行される一括スキャンの進捗も取得できる。<br>
+    total_count は登録済みの録画ファイルの件数を元にした目安で、新しく見つかった録画ファイルの分だけ途中で増えることがある。
+    """
+
+    return RecordedScanTask().batch_scan_status
+
+
 @router.post(
-    '/run-background-analysis',
+    '/background-analysis/run',
     summary = 'バックグラウンド解析タスク手動実行 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
@@ -233,68 +261,95 @@ async def BackgroundAnalysisAPI():
     global background_analysis_task
 
     async def BackgroundAnalysis():
-        global background_analysis_task
+        global background_analysis_task, background_analysis_status
         logging.info('Manual background analysis has started.')
 
-        # CM 区間情報やサムネイルが未生成の録画ファイルを取得
-        ## 再生開始位置はオンデマンドで解決できるため、重い key_frames は取得しない
-        video_rows = await RecordedVideo.filter(status='Recorded').values(
-            'id',
-            'recorded_program_id',
-            'file_path',
-            'file_hash',
-            'duration',
-            'cm_sections',
-        )
+        # 録画ファイルを取得する前から実行中にして、ボタンを無効にする
+        ## 例外で途中で終わった場合も実行中の状態とタスクの参照を解除し、次の解析を実行できるようにする
+        background_analysis_status = schemas.MaintenanceTaskStatus(is_running=True)
+        try:
+            # CM 区間情報やサムネイルが未生成の録画ファイルを取得
+            ## 再生開始位置はオンデマンドで解決できるため、重い key_frames は取得しない
+            video_rows = await RecordedVideo.filter(status='Recorded').values(
+                'id',
+                'recorded_program_id',
+                'file_path',
+                'file_hash',
+                'duration',
+                'cm_sections',
+            )
+            background_analysis_status.total_count = len(video_rows)
 
-        # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
-        ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
-        ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
-        for video_row in video_rows:
-            file_path = anyio.Path(video_row['file_path'])
-            try:
-                if not await file_path.is_file():
-                    logging.warning(f'{file_path}: File not found. Skipping...')
+            # 各録画ファイルに対して直列にバックグラウンド解析タスクを実行
+            ## HDD は並列アクセスが遅いため、随時直列に実行していった方が結果的に早いことが多い
+            ## すべて直列なので ProcessLimiter や DriveIOLimiter での制限は掛けていない
+            ## 1件の失敗で残りの録画の解析を止めずに続け、失敗した件数を数えておく
+            failed_count = 0
+            for video_row in video_rows:
+                background_analysis_status.processed_count += 1
+                file_path = anyio.Path(video_row['file_path'])
+                try:
+                    if not await file_path.is_file():
+                        logging.warning(f'{file_path}: File not found. Skipping...')
+                        continue
+
+                    # CM 区間検出とサムネイル生成を同時に実行
+                    tasks: list[Coroutine[Any, Any, None]] = []
+
+                    # CM 区間情報が未解析の場合、タスクに追加
+                    ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
+                    ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
+                    if video_row['cm_sections'] is None:
+                        tasks.append(CMSectionsDetector(
+                            file_path = anyio.Path(video_row['file_path']),
+                            duration_sec = video_row['duration'],
+                        ).detectAndSave())
+
+                    # サムネイルが未生成の場合、タスクに追加
+                    # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
+                    thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}_tile.webp'
+                    thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}.webp'
+                    if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
+                        # 録画番組情報を取得
+                        db_recorded_program = await RecordedProgram.all() \
+                            .select_related('recorded_video') \
+                            .select_related('channel') \
+                            .get_or_none(id=video_row['recorded_program_id'])
+                        if db_recorded_program is not None:
+                            # RecordedProgram モデルを schemas.RecordedProgram に変換
+                            recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
+                            tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
+
+                    # タスクが存在する場合、同時実行
+                    ## 片方が失敗しても、もう片方が終わるまで待ってから失敗を伝え、次の録画の解析と重ならないようにする
+                    if tasks:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for result in results:
+                            if isinstance(result, BaseException):
+                                raise result
+
+                # 実装側の誤りは、残りの録画でも同じく失敗するので、受け止めずにその場で止める
+                except (AttributeError, ImportError, NameError, TypeError):
+                    raise
+                # 録画ごとの失敗 (壊れた録画や読めないファイルなど) は、記録して次の録画へ進む
+                except Exception as ex:
+                    logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
+                    failed_count += 1
                     continue
 
-                # CM 区間検出とサムネイル生成を同時に実行
-                tasks: list[Coroutine[Any, Any, None]] = []
+            # 解析に失敗した録画があれば、完了したと伝えずに失敗を返す
+            if failed_count > 0:
+                logging.error(f'Manual background analysis failed for {failed_count} recorded files.')
+                raise HTTPException(
+                    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail = 'Background analysis failed for some recorded files',
+                )
 
-                # CM 区間情報が未解析の場合、タスクに追加
-                ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
-                ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
-                if video_row['cm_sections'] is None:
-                    tasks.append(CMSectionsDetector(
-                        file_path = anyio.Path(video_row['file_path']),
-                        duration_sec = video_row['duration'],
-                    ).detectAndSave())
-
-                # サムネイルが未生成の場合、タスクに追加
-                # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
-                thumbnail_tile_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}_tile.webp'
-                thumbnail_path = anyio.Path(str(THUMBNAILS_DIR)) / f'{video_row["file_hash"]}.webp'
-                if (not await thumbnail_tile_path.is_file()) or (not await thumbnail_path.is_file()):
-                    # 録画番組情報を取得
-                    db_recorded_program = await RecordedProgram.all() \
-                        .select_related('recorded_video') \
-                        .select_related('channel') \
-                        .get_or_none(id=video_row['recorded_program_id'])
-                    if db_recorded_program is not None:
-                        # RecordedProgram モデルを schemas.RecordedProgram に変換
-                        recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
-                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave())
-
-                # タスクが存在する場合、同時実行
-                if tasks:
-                    await asyncio.gather(*tasks)
-
-            except Exception as ex:
-                logging.error(f'{file_path}: Error in background analysis:', exc_info=ex)
-                continue
-
-        # すべての録画ファイルのバックグラウンド解析が完了した
-        logging.info('Manual background analysis has finished processing all recorded files.')
-        background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
+            # すべての録画ファイルのバックグラウンド解析が完了した
+            logging.info('Manual background analysis has finished processing all recorded files.')
+        finally:
+            background_analysis_status.is_running = False
+            background_analysis_task = None  # 再度新しいタスクを作成できるように None にする
 
     # タスクが実行中でない場合、新しくタスクを作成して実行
     ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
@@ -308,6 +363,155 @@ async def BackgroundAnalysisAPI():
             status_code = status.HTTP_429_TOO_MANY_REQUESTS,
             detail = 'Background analysis task is already running',
         )
+
+
+@router.get(
+    '/background-analysis/status',
+    summary = 'バックグラウンド解析タスク進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def BackgroundAnalysisStatusAPI():
+    """
+    バックグラウンド解析タスクの進捗を取得する。
+    """
+
+    return background_analysis_status
+
+
+@router.post(
+    '/capture-scan/run',
+    summary = 'キャプチャフォルダ一括スキャン API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def CaptureScanAPI():
+    """
+    キャプチャの保存先フォルダ内の全画像をスキャンし、追加・変更があった画像のみを解析して DB に永続化する。<br>
+    見つからなくなった画像は Missing にし、1週間たっても戻らなければ DB から削除する。<br>
+    このメンテナンス機能は管理者ユーザーでなくてもアクセスできる。
+    """
+
+    global capture_scan_task
+
+    async def CaptureScan():
+        global capture_scan_task
+        logging.info('Manual batch scan of capture folders has started.')
+
+        # 一括スキャンを実行
+        ## 起動時の自動スキャンの実行中に呼ばれた場合も runBatchScan() が 429 で失敗するので、失敗したときも None に戻す
+        try:
+            is_complete = await CaptureScanTask().runBatchScan()
+        finally:
+            capture_scan_task = None  # 再度新しいタスクを作成できるように None にする
+
+        # 読めなかった保存先や、途中で失敗した処理があったときは、完了したと伝えずに失敗を返す
+        if is_complete is False:
+            logging.warning('Manual batch scan of capture folders could not scan some folders completely.')
+            raise HTTPException(
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail = 'Some capture folders could not be scanned completely',
+            )
+
+        # 一括スキャンが完了した
+        logging.info('Manual batch scan of capture folders has finished.')
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if capture_scan_task is None:
+        capture_scan_task = asyncio.create_task(CaptureScan())
+        # タスクの実行が完了するまで待機
+        await capture_scan_task
+    else:
+        logging.warning('[MaintenanceRouter][CaptureScanAPI] Batch scan of capture folders is already running.')
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Batch scan of capture folders is already running',
+        )
+
+
+@router.get(
+    '/capture-scan/status',
+    summary = 'キャプチャフォルダ一括スキャン進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def CaptureScanStatusAPI():
+    """
+    キャプチャフォルダの一括スキャンの進捗を取得する。<br>
+    サーバーの起動時に自動で実行される一括スキャンの進捗も取得できる。<br>
+    total_count は登録済みのキャプチャのファイル数を元にした目安で、新しく見つかった画像の分だけ途中で増えることがある。
+    """
+
+    return CaptureScanTask().batch_scan_status
+
+
+@router.post(
+    '/database-vacuum/run',
+    summary = 'データベース最適化 API',
+    status_code = status.HTTP_204_NO_CONTENT,
+)
+async def DatabaseVacuumAPI(
+    current_user: Annotated[User, Depends(GetCurrentAdminUser)],
+):
+    """
+    データベースを VACUUM で再構築し、テーブルごとに連続したページへ並べ直す。<br>
+    大量のキャプチャや録画を登録した後に、検索や一覧の表示が遅くなった場合に利用する。<br>
+    実行中はほかの API リクエストがデータベースの処理を待つため、完了するまでサーバーが応答しなくなる。<br>
+    JWT エンコードされたアクセストークンがリクエストの Authorization: Bearer に設定されていて、かつ管理者アカウントでないとアクセスできない。
+    """
+
+    global database_vacuum_task
+
+    async def DatabaseVacuum():
+        global database_vacuum_task
+        logging.info('Database vacuum has started.')
+        timestamp = time.time()
+        database_vacuum_status.is_running = True
+
+        # サーバー全体で共有している DB 接続で VACUUM を実行する
+        ## 同じ接続を使うことで、実行中のほかの処理は失敗せずに VACUUM の完了を待つ
+        ## 別のプロセスで動く番組情報の更新は、実行中に書き込もうとすると SQLITE_BUSY で失敗し、次回の更新で書き込まれる
+        try:
+            connection = connections.get('default')
+            page_size = (await connection.execute_query_dict('PRAGMA page_size'))[0]['page_size']
+            before_page_count = (await connection.execute_query_dict('PRAGMA page_count'))[0]['page_count']
+            await connection.execute_script('VACUUM')
+            after_page_count = (await connection.execute_query_dict('PRAGMA page_count'))[0]['page_count']
+        finally:
+            database_vacuum_status.is_running = False
+            database_vacuum_task = None  # 再度新しいタスクを作成できるように None にする
+
+        # VACUUM が完了した
+        logging.info(
+            f'Database vacuum has finished. ({round(time.time() - timestamp, 1)} sec, '
+            f'{before_page_count * page_size / 1024 / 1024:.1f} MiB -> {after_page_count * page_size / 1024 / 1024:.1f} MiB)'
+        )
+
+    # タスクが実行中でない場合、新しくタスクを作成して実行
+    ## asyncio.create_task() で実行することで、API への HTTP コネクションが切断されてもタスクが継続される
+    if database_vacuum_task is None:
+        database_vacuum_task = asyncio.create_task(DatabaseVacuum())
+        # タスクの実行が完了するまで待機
+        await database_vacuum_task
+    else:
+        logging.warning('[MaintenanceRouter][DatabaseVacuumAPI] Database vacuum is already running.')
+        raise HTTPException(
+            status_code = status.HTTP_429_TOO_MANY_REQUESTS,
+            detail = 'Database vacuum is already running',
+        )
+
+
+@router.get(
+    '/database-vacuum/status',
+    summary = 'データベース最適化進捗取得 API',
+    response_model = schemas.MaintenanceTaskStatus,
+)
+async def DatabaseVacuumStatusAPI():
+    """
+    データベースの最適化が実行中かどうかを取得する。<br>
+    最適化の進捗は件数で表せないため、processed_count と total_count は常に 0 になる。<br>
+    実行中もデータベースを参照せずに応答する。
+    """
+
+    return database_vacuum_status
 
 
 @router.post(

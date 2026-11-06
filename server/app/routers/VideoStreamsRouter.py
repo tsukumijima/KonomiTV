@@ -43,10 +43,11 @@ async def ValidateVideoID(video_id: Annotated[int, Path(description='録画番�
     recorded_program = await RecordedProgram.filter(id=video_id).get_or_none() \
         .select_related('recorded_video') \
         .select_related('channel')
-    if recorded_program is None:
+    # 録画ファイルが見つからなくなった (Missing の) 録画番組は再生できないので、存在しない録画番組と同じく扱う
+    if recorded_program is None or recorded_program.recorded_video.status == 'Missing':
         logging.error(f'[VideoStreamsRouter][ValidateVideoID] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified video_id was not found',
         )
 
@@ -62,7 +63,7 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
     if stream_quality is None:
         logging.error(f'[VideoStreamsRouter][ValidateQuality] Specified quality was not found. [quality: {quality}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified quality was not found',
         )
 
@@ -70,7 +71,7 @@ async def ValidateQuality(quality: Annotated[str, Path(description='映像の品
     if stream_quality.quality == 'original':
         logging.error(f'[VideoStreamsRouter][ValidateQuality] Original quality is not available for HLS playlist. [quality: {quality}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Original quality is not available for HLS playlist',
         )
 
@@ -110,7 +111,6 @@ async def VideoHLSPlaylistAPI(
         recorded_program,
         stream_quality.quality,
         stream_quality.encoding_options,
-        is_new_session_allowed = True,
     )
 
     # 映像・主音声と副音声は同じエンコード結果を共有し、プレイリストの種類だけをこの API で切り替える
@@ -168,7 +168,12 @@ async def VideoHLSSegmentAPI(
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
     assert stream_quality.quality != 'original'
-    video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
+    video_stream = VideoStream(
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
+    )
 
     # セグメントを取得（キャッシュキーはブラウザキャッシュ避けのための ID なので特に使わない）
     try:
@@ -176,7 +181,7 @@ async def VideoHLSSegmentAPI(
     except ValueError as ex:
         logging.error(f'{video_stream.log_prefix} Failed to get segment. [sequence: {sequence}, audio: {audio}]', exc_info=ex)
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = f'Failed to get segment. [audio: {audio}]',
         ) from ex
     # エンコードや入力位置の解決に失敗した場合は、再生クライアントへ原因を区別できるレスポンスを返す
@@ -192,7 +197,7 @@ async def VideoHLSSegmentAPI(
             f'[sequence: {sequence}]'
         )
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified sequence segment was not found',
         )
 
@@ -236,7 +241,12 @@ async def VideoHLSBufferAPI(
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
     assert stream_quality.quality != 'original'
-    video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
+    video_stream = VideoStream(
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
+    )
 
     # バッファ範囲の変更を監視し、変更があればバッファ範囲をイベントストリームとして出力する
     async def generator():
@@ -298,7 +308,12 @@ async def VideoHLSKeepAliveAPI(
 
     # 品質とオプション指定に対応する録画視聴セッションを取得
     assert stream_quality.quality != 'original'
-    video_stream = VideoStream(session_id, recorded_program, stream_quality.quality, stream_quality.encoding_options)
+    video_stream = VideoStream(
+        session_id,
+        recorded_program,
+        stream_quality.quality,
+        stream_quality.encoding_options,
+    )
 
     # セッションのアクティブ状態を維持する
     video_stream.keepAlive()
@@ -393,8 +408,10 @@ async def VideoOfflineStreamAPI(
                 raise HTTPException(499, 'Offline download request was disconnected')
             # 通常再生とは独立したセッションを作り、仮想プレイリスト生成によって全セグメント情報を初期化する
             video_stream = VideoStream(
-                f'offline-{uuid.uuid4().hex}', recorded_program, stream_quality.quality,
-                stream_quality.encoding_options, is_new_session_allowed=True,
+                f'offline-{uuid.uuid4().hex}',
+                recorded_program,
+                stream_quality.quality,
+                stream_quality.encoding_options,
             )
             video_stream.getVirtualPlaylist()
             # Pydantic を通して、クライアントへ渡す JSON の型とフィールドを固定する

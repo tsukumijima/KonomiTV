@@ -70,12 +70,18 @@ import { IChannel, ILiveChannel } from '@/services/Channels';
 import Programs, { IProgram, IProgramSearchCondition } from '@/services/Programs';
 import Reservations, { IRecordSettings, IRecordSettingsDefault, IReservation } from '@/services/Reservations';
 import useChannelsStore from '@/stores/ChannelsStore';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils, { dayjs } from '@/utils';
 
 const route = useRoute();
 const router = useRouter();
 const channelsStore = useChannelsStore();
+const serverSettingsStore = useServerSettingsStore();
+
+// EDCB バックエンドかどうか
+// サーバー設定がまだ取得されていない場合は EDCB と判定しない (デフォルト値が 'EDCB' のため)
+const isEDCBBackend = computed(() => serverSettingsStore.is_loaded === true && serverSettingsStore.server_settings.general.backend === 'EDCB');
 
 const createDefaultSearchCondition = (): IProgramSearchCondition => {
     return {
@@ -322,14 +328,24 @@ const updateReservedProgramIds = async () => {
 };
 
 onMounted(async () => {
-    // ユーザー情報とチャンネル一覧を先に取得し、検索結果カードが予約操作とロゴ表示を行える状態にする
+    // ユーザー情報・チャンネル一覧・既存予約・録画設定の既定値は、検索結果カードの予約操作とロゴ表示に使う
+    // 検索 API はこれらを使わず、取得が完了した時点で検索結果カードの表示も更新されるため、取得を待たずに検索を始める
     const userStore = useUserStore();
-    await Promise.all([
+    void Promise.all([
         userStore.fetchUser(),
         channelsStore.update(),
-        updateReservedProgramIds(),
-        Reservations.fetchDefaultRecordSettings().then((recordSettings) => {
-            defaultRecordSettings.value = recordSettings;
+        // 既存予約と録画設定の既定値は EDCB の録画予約 API から取得するため、EDCB バックエンドの場合のみ取得する
+        // Mirakurun バックエンドでは、検索を実行した時点で番組検索機能が EDCB 専用であることをスナックバーで案内する
+        serverSettingsStore.fetchServerSettingsOnce().then(async () => {
+            if (isEDCBBackend.value === false) {
+                return;
+            }
+            await Promise.all([
+                updateReservedProgramIds(),
+                Reservations.fetchDefaultRecordSettings().then((recordSettings) => {
+                    defaultRecordSettings.value = recordSettings;
+                }),
+            ]);
         }),
     ]);
 

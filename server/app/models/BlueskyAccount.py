@@ -29,7 +29,7 @@ class BlueskyAccount(TortoiseModel):
         table: str = 'bluesky_accounts'
         unique_together = (('user', 'did'),)
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     # KonomiTV のユーザーアカウントと Bluesky アカウントを紐づける
     # ユーザー削除時は認証情報を同時に削除すべきなので cascade を指定
     user: fields.ForeignKeyRelation[User] = \
@@ -92,7 +92,7 @@ class BlueskyAccount(TortoiseModel):
         except InvalidToken as ex:
             logging.error('[BlueskyAccount][decryptSessionString] Failed to decrypt session string:', exc_info=ex)
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Failed to decrypt Bluesky session. Please re-link your Bluesky account.',
             ) from ex
 

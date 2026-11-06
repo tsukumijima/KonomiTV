@@ -25,6 +25,8 @@
                     ] : [
                         { title: '新しい順', value: 'desc' },
                         { title: '古い順', value: 'asc' },
+                        { title: 'ファイル名昇順', value: 'file_path_asc' },
+                        { title: 'ファイル名降順', value: 'file_path_desc' },
                     ]"
                     item-title="title"
                     item-value="value"
@@ -304,8 +306,17 @@ const getOfflineDownloadJob = (videoID: number): IOfflineDownloadJob | null => {
         }
 
         .v-select {
-            width: 103px;
+            width: 152px;
             margin-left: 12px;
+        }
+        // 幅 380px 以下のスマホ縦では、見出しと「ファイル名降順」などの選択肢を1行に収めるため、文字を小さくして幅を詰める
+        &:not(.recorded-program-list__actions--mylist) .v-select {
+            @include smartphone-vertical-short {
+                width: 130px;
+                :deep(.v-field__input), :deep(.v-select__selection-text) {
+                    font-size: 12px !important;
+                }
+            }
         }
         &--mylist {
             .v-select {

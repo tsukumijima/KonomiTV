@@ -21,11 +21,11 @@ class RecordedVideo(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'recorded_videos'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     recorded_program: fields.OneToOneRelation[RecordedProgram] = \
         fields.OneToOneField('models.RecordedProgram', related_name='recorded_video', on_delete=fields.CASCADE)
     recorded_program_id: int
-    status = cast(TortoiseField[Literal['Recording', 'Recorded', 'AnalysisFailed']], fields.CharField(255, db_index=True))
+    status = cast(TortoiseField[Literal['Recording', 'Recorded', 'AnalysisFailed', 'Missing']], fields.CharField(255, db_index=True))
     file_path = fields.TextField()  # ファイルパスは可変長だが、TextField には unique 制約が付けられない
     file_hash = fields.TextField()
     file_size = fields.IntField()
@@ -43,10 +43,10 @@ class RecordedVideo(TortoiseModel):
     video_resolution_width = fields.IntField()
     video_resolution_height = fields.IntField()
     has_video_stream_changes = fields.BooleanField(default=False)
-    primary_audio_codec = cast(TortoiseField[Literal['AAC-LC']], fields.CharField(255))
+    primary_audio_codec = cast(TortoiseField[Literal['AAC-LC', 'HE-AAC']], fields.CharField(255))
     primary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch']], fields.CharField(255))
     primary_audio_sampling_rate = fields.IntField()
-    secondary_audio_codec = cast(TortoiseField[Literal['AAC-LC'] | None], fields.CharField(255, null=True))
+    secondary_audio_codec = cast(TortoiseField[Literal['AAC-LC', 'HE-AAC'] | None], fields.CharField(255, null=True))
     secondary_audio_channel = cast(TortoiseField[Literal['Monaural', 'Stereo', '5.1ch'] | None], fields.CharField(255, null=True))
     secondary_audio_sampling_rate = cast(TortoiseField[int | None], fields.IntField(null=True))
     key_frames = cast(TortoiseField[list[KeyFrame]],
@@ -61,5 +61,7 @@ class RecordedVideo(TortoiseModel):
     thumbnail_info = cast(TortoiseField[ThumbnailInfo | None],
         # None はサムネイル未生成か、旧仕様から移行しきれていないことを表す
         fields.JSONField(default=None, encoder=lambda x: json.dumps(x, ensure_ascii=False), null=True))  # type: ignore
+    # 録画ファイルが最初に見つからなかった時刻 (この時刻から1週間たっても戻らなければ行を削除する)
+    missing_since = cast(TortoiseField[datetime | None], fields.DatetimeField(null=True))
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

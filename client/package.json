@@ -1,6 +1,6 @@
 {
     "name": "KonomiTV",
-    "version": "0.14.1",
+    "version": "0.15.0-dev",
     "private": true,
     "scripts": {
         "akebi": "run-script-os",
@@ -13,7 +13,7 @@
         "typecheck": "vue-tsc --noEmit"
     },
     "engines": {
-        "node": "^20.16.0"
+        "node": ">=22.21.1"
     },
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
@@ -25,13 +25,13 @@
         "comlink": "^4.4.1",
         "copy-image-clipboard": "^2.1.2",
         "dayjs": "^1.11.13",
-        "dplayer": "github:tsukumijima/DPlayer#v1.33.2",
+        "dplayer": "github:tsukumijima/DPlayer#v1.33.4",
         "floating-vue": "^5.2.2",
         "hls.js": "^1.6.9",
         "idb": "^8.0.3",
         "mitt": "^3.0.1",
-        "mpeg2toh264": "github:tsukumijima/mpeg2toh264#69f2a47aa5bbeb8ffce57ecf5408eaa85a59d7d1",
-        "mpegts.js": "github:tsukumijima/mpegts.js#bf4e49d0ff004cf7546237393a62c66e4b926dca",
+        "mpeg2toh264": "github:tsukumijima/mpeg2toh264#9cde78d90944cab1f678d54ea28cee0becb4ef55",
+        "mpegts.js": "github:tsukumijima/mpegts.js#9f6c3dbb661754f0d3e7b42949fbcf698883d480",
         "nanoid": "^5.1.16",
         "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
@@ -51,7 +51,7 @@
     "devDependencies": {
         "@babel/types": "^7.25.4",
         "@iconify/vue": "^4.1.2",
-        "@types/node": "^20.16.0",
+        "@types/node": "^22.20.5",
         "@types/offscreencanvas": "^2019.7.3",
         "@types/readable-stream": "^4.0.15",
         "@types/resize-observer-browser": "^0.1.11",
@@ -71,7 +71,7 @@
         "run-script-os": "^1.1.6",
         "sass": "1.77.6",
         "typescript": "~5.5.4",
-        "vite": "^6.4.3",
+        "vite": "^6.4.4",
         "vite-plugin-comlink": "^5.0.1",
         "vite-plugin-pwa": "^0.21.2",
         "vite-plugin-vuetify": "^2.0.4",

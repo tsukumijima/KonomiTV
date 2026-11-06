@@ -8,7 +8,8 @@
             <!-- 番組表コントロール用スロット -->
             <slot name="timetable-controls"></slot>
             <!-- スマホ縦画面では Navigation が非表示のため、ヘッダー側にバッジを残す -->
-            <OfflineDownloadBadge class="mr-4" />
+            <!-- スマホ横画面では左側の Navigation にオフライン保存の項目と件数が表示されるため、ヘッダーではバッジを非表示にする -->
+            <OfflineDownloadBadge class="offline-download-badge mr-4" />
             <div v-if="showSearchButton" v-ripple class="search-button" @click="activateSearch">
                 <Icon icon="fluent:search-20-filled" height="24px" />
             </div>
@@ -33,6 +34,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 import OfflineDownloadBadge from '@/components/OfflineDownloadBadge.vue';
+import Utils from '@/utils';
 
 // Props の定義
 const props = withDefaults(defineProps<{
@@ -78,11 +80,14 @@ const searchQuery = computed({
 // 番組表ページでは検索ボタンは表示するが、設定/ログイン/登録/キャプチャページでは非表示
 const showSearchButton = computed(() => {
     const path = route.path;
-    return !path.startsWith('/captures') && !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
+    return !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
 });
 
 // 検索プレースホルダー
 const searchPlaceholder = computed(() => {
+    if (route.path.startsWith('/captures')) {
+        return 'キャプチャを検索...';
+    }
     return isVideoSection(route.path)
         ? '録画番組やシリーズを検索...'
         : '放送予定の番組を検索...';
@@ -98,6 +103,9 @@ const isVideoSection = (path: string) => {
 
 // 検索パスを取得
 const getSearchPath = () => {
+    if (route.path.startsWith('/captures')) {
+        return '/captures/search';
+    }
     return isVideoSection(route.path)
         ? '/videos/search'
         : '/tv/search';
@@ -139,7 +147,7 @@ const executeSearch = () => {
 
 // キーボードイベントの処理
 const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && event.isComposing === false) {
+    if (event.key === 'Enter' && Utils.isIMEComposing(event) === false) {
         executeSearch();
     } else if (event.key === 'Escape') {
         deactivateSearch();
@@ -234,6 +242,12 @@ watch(() => props.searchQuery, (searchQueryValue) => {
     }
 
     .v-spacer {
+        @include smartphone-horizontal {
+            display: none;
+        }
+    }
+
+    .offline-download-badge {
         @include smartphone-horizontal {
             display: none;
         }

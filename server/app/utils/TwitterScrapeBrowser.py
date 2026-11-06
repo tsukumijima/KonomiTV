@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Annotated, Any, ClassVar, Literal, TypedDict, cast
 
 import anyio
-import httpx
+import httpx2 as httpx
 import psutil
 from fastapi import UploadFile
 from pydantic import BaseModel, Field
@@ -1845,7 +1845,7 @@ class TwitterScrapeBrowser:
         # requests_cookie_format=False なので cdp.network.Cookie のリストが返される
         # x.com に関連する Cookie をフィルタリング
         twitter_cookies: list[cdp.network.Cookie] = [
-            c for c in all_cookies if isinstance(c, cdp.network.Cookie) and ('x.com' in c.domain)
+            c for c in all_cookies if 'x.com' in c.domain
         ]
 
         # Netscape フォーマットで文字列を構築

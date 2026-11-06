@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, cast
 
-import httpx
+import httpx2 as httpx
 from tortoise import fields
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
@@ -18,6 +18,7 @@ from app.utils import Interlaced
 if TYPE_CHECKING:
     from app.models.AccountLink import AccountLink
     from app.models.BlueskyAccount import BlueskyAccount
+    from app.models.Capture import CaptureFavorite, CaptureTag
     from app.models.TwitterAccount import TwitterAccount
 
 
@@ -27,7 +28,7 @@ class User(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'users'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.TextField()
     password = fields.TextField()
     is_admin = fields.BooleanField()
@@ -37,6 +38,8 @@ class User(TortoiseModel):
     niconico_user_premium = cast(TortoiseField[bool | None], fields.BooleanField(null=True))
     niconico_access_token = cast(TortoiseField[str | None], fields.TextField(null=True))
     niconico_refresh_token = cast(TortoiseField[str | None], fields.TextField(null=True))
+    capture_favorites: fields.ReverseRelation[CaptureFavorite]
+    capture_tags: fields.ReverseRelation[CaptureTag]
     twitter_accounts: fields.ReverseRelation[TwitterAccount]
     bluesky_accounts: fields.ReverseRelation[BlueskyAccount]
     account_links: fields.ReverseRelation[AccountLink]

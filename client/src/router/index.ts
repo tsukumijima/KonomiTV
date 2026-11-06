@@ -70,6 +70,55 @@ const router = createRouter({
             component: () => import('@/views/Reservations/Reservations.vue'),
         },
         {
+            path: '/captures/',
+            name: 'Captures',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Timeline' },
+        },
+        {
+            path: '/captures/favorites/',
+            name: 'Captures Favorites',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Favorites' },
+        },
+        {
+            path: '/captures/search',
+            name: 'Captures Search',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Search' },
+        },
+        {
+            path: '/captures/tags/',
+            name: 'Captures Tags',
+            component: () => import('@/views/Captures/Tags.vue'),
+        },
+        {
+            path: '/captures/tags/:tag_id',
+            name: 'Captures Tag',
+            component: () => import('@/views/Captures/Timeline.vue'),
+            meta: { captureMode: 'Tag' },
+        },
+        {
+            path: '/captures/programs/',
+            name: 'Captures Programs',
+            component: () => import('@/views/Captures/Programs.vue'),
+        },
+        {
+            path: '/captures/programs/:capture_program_id',
+            name: 'Captures Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
+            path: '/captures/recorded/:video_id',
+            name: 'Captures Recorded Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
+            path: '/captures/broadcast',
+            name: 'Captures Broadcast Program',
+            component: () => import('@/views/Captures/Program.vue'),
+        },
+        {
             path: '/mylist/',
             name: 'Mylist',
             component: () => import('@/views/Mylist.vue'),
@@ -169,7 +218,20 @@ const router = createRouter({
     scrollBehavior(to, from, savedPosition) {
         if (savedPosition) {
             // 戻る/進むボタンが押されたときは保存されたスクロール位置を使う
-            return savedPosition;
+            // 一覧の画面はデータを読み込んでからページの高さが決まるので、その位置までスクロールできる高さになるのを待ってから戻す
+            // 高さが足りないまま戻すと先頭に詰められてしまうため (待ちすぎないよう、3秒で打ち切る)
+            const startedAt = performance.now();
+            return new Promise((resolve) => {
+                const restore = () => {
+                    const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    if (scrollableHeight >= savedPosition.top || performance.now() - startedAt > 3000) {
+                        resolve(savedPosition);
+                        return;
+                    }
+                    requestAnimationFrame(restore);
+                };
+                restore();
+            });
         } else {
             // それ以外は常に先頭にスクロールする
             return {top: 0, left: 0};
@@ -186,7 +248,11 @@ router.beforeResolve((to, from, next) => {
         '/tv/watch/',
         '/videos/watch/',
     ];
-    if (document.startViewTransition && !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
+    // キャプチャの画面の中で絞り込みや時間の軸を切り替えたり、1枚表示を開閉したりするときは、パスが変わらずクエリや履歴だけが変わる
+    // このときは画面全体の切り替えの演出を省き、タブなどで別の画面へ移るときだけ演出する
+    const is_same_capture_page = to.path.startsWith('/captures/') && to.path === from.path;
+    if (document.startViewTransition && !is_same_capture_page &&
+        !no_transition_routes.some((route) => to.path.startsWith(route) && from.path.startsWith(route))) {
         document.startViewTransition(() => {
             next();
         });

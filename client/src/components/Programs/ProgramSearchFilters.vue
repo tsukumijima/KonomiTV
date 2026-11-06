@@ -970,7 +970,7 @@ const emitSearch = () => {
 
 const handleSearchKeyDown = (event: KeyboardEvent) => {
     // 日本語入力の変換確定 Enter では検索せず、確定後の通常 Enter だけを検索実行に使う
-    if (event.isComposing === true) {
+    if (Utils.isIMEComposing(event)) {
         return;
     }
     emitSearch();

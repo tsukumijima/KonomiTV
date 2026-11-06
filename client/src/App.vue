@@ -1,5 +1,7 @@
 <template>
     <v-app id="app">
+        <!-- iOS 27 以降で画面上端に付加されるぼかしを抑止するための、描画されない固定要素 -->
+        <div class="ios-top-blur-fix" aria-hidden="true"></div>
         <router-view v-slot="{ Component }">
             <component :is="Component" />
         </router-view>
@@ -131,6 +133,33 @@ html {
     // Safari は Twemoji COLR をうまく描画できない？ので当面無効にする
     @supports (-webkit-touch-callout: none) {
         font-family: 'Open Sans', 'YakuHanJPs', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    }
+}
+
+// iOS 27 以降の Safari / PWA で、プレイヤーやコメントの上部に強制的なぼかしがかかる問題への回避策
+// 画面上端に背景色を持つ固定要素を置くことで、WebKit に固定ヘッダーが存在すると認識させる
+// ref: https://github.com/tsukumijima/KonomiTV/issues/294
+// ref: https://qiita.com/na-trium-144/items/0add98a80ca2391e3f17
+.ios-top-blur-fix {
+    // iOS / iPadOS の WebKit でのみ有効にし、それ以外のブラウザでは要素を表示しない
+    display: none;
+    @supports (-webkit-touch-callout: none) {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        // WebKit の固定ヘッダー判定には 10px を超える高さが必要
+        height: 11px;
+        z-index: 2147483647;
+        // 前面に配置しても、背後のプレイヤーやボタンへのタップを妨げない
+        pointer-events: none;
+        // この背景色は iOS のステータスバー領域にも反映されるため、アプリの背景色に合わせる
+        background-color: rgb(var(--v-theme-background));
+        // 空のテキスト領域に背景をクリップすることで、実際の画面には何も描画しない
+        // opacity: 0 / visibility: hidden / 透明な背景色では WebKit の判定条件を満たせないので使用しない
+        -webkit-background-clip: text;
+        background-clip: text;
     }
 }
 

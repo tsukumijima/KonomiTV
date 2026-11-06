@@ -3,24 +3,34 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import math
 import pathlib
 import random
 import subprocess
 import time
+from collections.abc import Iterator
 from typing import Any, ClassVar, Literal, cast
 
 import anyio
 import av
+import av.error
+import av.video.frame
 import cv2
 import numpy as np
 import typer
 from numpy.typing import NDArray
-from tortoise import Tortoise
+from tortoise import Tortoise, connections
 
 from app import logging, schemas
 from app.config import Config, LoadConfig
-from app.constants import DATABASE_CONFIG, LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
+from app.constants import (
+    DATABASE_CONFIG,
+    LIBRARY_PATH,
+    PROCESS_POOL_CONTEXT,
+    STATIC_DIR,
+    THUMBNAILS_DIR,
+)
 from app.models.RecordedVideo import RecordedVideo
 from app.utils import ShutdownProcessPoolExecutor
 
@@ -58,7 +68,9 @@ class ThumbnailGenerator:
     MIGRATION_BACKUP_DIR_NAME: ClassVar[str] = 'old'
 
     # 顔検出用カスケード分類器のパス
-    HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = pathlib.Path(cv2.__file__).parent / 'data' / 'haarcascade_frontalface_default.xml'
+    ## opencv-contrib-python-headless 5 のパッケージには実写用の XML が含まれないため、実写用も KonomiTV に同梱する
+    ## 実写用の取得元: https://github.com/opencv/opencv_contrib/blob/5.x/modules/xobjdetect/data/haarcascades/haarcascade_frontalface_default.xml
+    HUMAN_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'haarcascade_frontalface_default.xml'
     ANIME_FACE_CASCADE_PATH: ClassVar[pathlib.Path] = STATIC_DIR / 'lbpcascade_animeface.xml'
 
     # 顔検出の設定
@@ -170,6 +182,7 @@ class ThumbnailGenerator:
 
         self.file_path = file_path
         self.container_format = container_format
+        self.file_hash = file_hash
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
@@ -343,57 +356,66 @@ class ThumbnailGenerator:
         1. サブプロセス内で PyAV でフレーム抽出 + スコアリング
         2. サブプロセス内で代表サムネイルを保存
         3. サブプロセス内でタイル画像を生成・保存
+
+        Raises:
+            RuntimeError: フレームの抽出や画像の保存に失敗した場合
         """
 
         start_time = time.time()
         logging.info(f'{self.file_path}: Generating thumbnail... / Face detection mode: {self.face_detection_mode}')
 
+        # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
+        thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
+        if not await thumbnails_dir.is_dir():
+            await thumbnails_dir.mkdir(parents=True, exist_ok=True)
+
+        # 1. 候補オフセットを計算
+        candidate_offsets = self.__calculateCandidateOffsets()
+
+        # 2. フレーム抽出 + タイル画像生成・保存 + 代表サムネイル保存をサブプロセス内で完結させる
+        ## 親プロセスへのフレーム配列転送を避け、メモリ使用量とコピーコストを抑制する
+        ## リクエスト切断時に ProcessPoolExecutor.__exit__() が同期的に子プロセス終了を待つとイベントループが止まるため、
+        ## コンテキストマネージャーは使わず、キャンセル時だけ待機なしで終了処理に入る
+        loop = asyncio.get_running_loop()
+        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
+        should_wait_executor = True
         try:
-            # 万が一出力先ディレクトリが無い場合は作成 (通常存在するはず)
-            thumbnails_dir = anyio.Path(str(THUMBNAILS_DIR))
-            if not await thumbnails_dir.is_dir():
-                await thumbnails_dir.mkdir(parents=True, exist_ok=True)
+            success = await loop.run_in_executor(
+                executor,
+                self._generateAndSaveThumbnails,
+                candidate_offsets,
+                self.tile_rows,
+            )
+        except asyncio.CancelledError:
+            should_wait_executor = False
+            await ShutdownProcessPoolExecutor(executor, is_cancelled=True)
+            raise
+        finally:
+            if should_wait_executor is True:
+                await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
 
-            # 1. 候補オフセットを計算
-            candidate_offsets = self.__calculateCandidateOffsets()
-
-            # 2. フレーム抽出 + タイル画像生成・保存 + 代表サムネイル保存をサブプロセス内で完結させる
-            ## 親プロセスへのフレーム配列転送を避け、メモリ使用量とコピーコストを抑制する
-            ## リクエスト切断時に ProcessPoolExecutor.__exit__() が同期的に子プロセス終了を待つとイベントループが止まるため、
-            ## コンテキストマネージャーは使わず、キャンセル時だけ待機なしで終了処理に入る
-            loop = asyncio.get_running_loop()
-            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
-            should_wait_executor = True
-            try:
-                success = await loop.run_in_executor(
-                    executor,
-                    self._generateAndSaveThumbnails,
-                    candidate_offsets,
-                    self.tile_rows,
+        if not success:
+            # 代表サムネイルはタイルより先に保存しているので、タイルの生成に失敗した場合も revision を進めておく
+            ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、DB の上で今の値に1を足す
+            ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画の revision も一緒に進める
+            await connections.get('default').execute_query("""
+                UPDATE recorded_videos
+                SET thumbnail_info = json_set(
+                    thumbnail_info,
+                    '$.representative.revision',
+                    json_extract(thumbnail_info, '$.representative.revision') + 1
                 )
-            except asyncio.CancelledError:
-                should_wait_executor = False
-                await ShutdownProcessPoolExecutor(executor, is_cancelled=True)
-                raise
-            finally:
-                if should_wait_executor is True:
-                    await ShutdownProcessPoolExecutor(executor, is_cancelled=False)
+                WHERE file_hash = ? AND thumbnail_info IS NOT NULL
+            """, [self.file_hash])
+            # 生成できなかったことを呼び出し元へ伝え、API とバックグラウンド処理がそれぞれ失敗を扱う
+            raise RuntimeError('Thumbnail generation failed. The recording could not be decoded or thumbnail images could not be saved.')
 
-            if not success:
-                logging.error(f'{self.file_path}: Failed to generate thumbnails in subprocess.')
-                return
+        # 3. サムネイル情報を DB に保存
+        await self.__saveThumbnailInfoToDB()
 
-            # 3. サムネイル情報を DB に保存
-            await self.__saveThumbnailInfoToDB()
-
-            logging.info(f'{self.file_path}: Thumbnail generation completed. (Total: {time.time() - start_time:.2f} sec)')
-            logging.debug(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
-            logging.debug(f'Representative -> {self.representative_thumbnail_path.name}')
-
-        except Exception as ex:
-            # 予期せぬエラーのみここでキャッチ
-            logging.error(f'{self.file_path}: Unexpected error in thumbnail generation:', exc_info=ex)
-            return
+        logging.info(f'{self.file_path}: Thumbnail generation completed. (Total: {time.time() - start_time:.2f} sec)')
+        logging.debug(f'Thumbnail tile -> {self.seekbar_thumbnails_tile_path.name}')
+        logging.debug(f'Representative -> {self.representative_thumbnail_path.name}')
 
 
     def __calculateBaseTileInterval(self, duration_sec: float) -> float:
@@ -620,12 +642,12 @@ class ThumbnailGenerator:
 
             # シーケンシャルにフレームを抽出（HDD への負荷を考慮）
             container = av.open(str(self.file_path), format=format_name)
-            # PyAV で video stream が存在しない場合は、明示的にエラーとして扱う
-            if len(container.streams.video) == 0:
-                logging.error(f'{self.file_path}: No video stream found in ThumbnailGenerator.')
-                raise ValueError('No video stream found in ThumbnailGenerator.')
-            video_stream = container.streams.video[0]
             try:
+                # 映像のない入力は録画側の不備として扱い、コンテナを閉じて失敗を返す
+                if len(container.streams.video) == 0:
+                    logging.error(f'{self.file_path}: No video stream found in ThumbnailGenerator.')
+                    return None
+                video_stream = container.streams.video[0]
                 # コンテナは 1 回だけ開き、各フレーム抽出で seek を繰り返す
                 ## MPEG-TS でも実測で問題なければ再オープンを避けられるため、まずは 1 回オープンで検証する
                 # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
@@ -637,14 +659,16 @@ class ThumbnailGenerator:
                         # MPEG-TS では start_time が 0 から始まらないことがあるため、start_time を考慮する必要がある
                         # start_time は pts 単位（90kHz クロックで表現された開始位置）なので、
                         # offset_sec を pts 単位に変換してから start_time を加算する
-                        if video_stream.time_base is None:
-                            # time_base が None の場合はコンテナ形式に応じてフォールバックする
+                        # PyAV 19 以降、time_base は None ではなく未設定を表す AVRational(0, 1) を返すので、偽として判定する
+                        ## 0/1 のまま割り算に使うと ZeroDivisionError になるため、ここで必ず弾く
+                        if not video_stream.time_base:
+                            # time_base が未設定の場合はコンテナ形式に応じてフォールバックする
                             if self.container_format == 'MPEG-TS':
                                 time_base = 1 / 90000
                                 logging.warning(f'{self.file_path}: time_base is None in ThumbnailGenerator, using fallback: {time_base}')
                             else:
                                 logging.error(f'{self.file_path}: time_base is None in ThumbnailGenerator for non-TS container.')
-                                raise ValueError('time_base is None in ThumbnailGenerator for non-TS container.')
+                                raise av.error.InvalidDataError(0, 'time_base is None in ThumbnailGenerator for non-TS container.')
                         else:
                             time_base = float(video_stream.time_base)
                         start_time = video_stream.start_time if video_stream.start_time else 0
@@ -661,9 +685,19 @@ class ThumbnailGenerator:
                         for packet_index, packet in enumerate(container.demux(video_stream)):
                             if packet_index >= self.FRAME_EXTRACTION_MAX_DEMUX_PACKETS:
                                 break
-                            for decoded_frame in packet.decode():
-                                frame = cast(av.VideoFrame, decoded_frame)
-                                break
+                            # 受信状態の悪い TS では、1つのパケットに前のピクチャの片方のフィールドと次の I ピクチャが詰まり、
+                            # デコーダーが "first field missing" でパケットごと捨てることがあるため、そのパケットだけを飛ばして次へ進む
+                            try:
+                                decoded_frames = packet.decode()
+                            except av.error.InvalidDataError:
+                                logging.debug(f'{self.file_path}: Skipped an undecodable packet while extracting frame at {offset_sec:.2f}s.')
+                                continue
+                            # MPEG-2 では skip_frame = 'NONINTRA' でも P フレームが出力され、デコードに失敗した直後の P フレームは
+                            # 参照先が欠けた灰色の画像になるため、I フレームだけを採用する
+                            for decoded_frame in decoded_frames:
+                                if decoded_frame.pict_type == av.video.frame.PictureType.I:
+                                    frame = decoded_frame
+                                    break
                             if frame is not None:
                                 break
 
@@ -705,8 +739,9 @@ class ThumbnailGenerator:
                         if (i + 1) % 50 == 0:
                             logging.debug(f'{self.file_path}: Extracted {i + 1}/{len(candidate_offsets)} frames')
 
-                    except Exception as ex:
+                    except (av.error.FFmpegError, OSError) as ex:
                         # 個別のフレーム抽出エラーは警告にとどめ、黒画像で代替
+                        ## デコード失敗と入出力の失敗だけを録画由来として扱い、コードや依存の不備は呼び出し元へ伝える
                         logging.warning(
                             f'{self.file_path}: Error extracting frame at {offset_sec:.2f}s.',
                             exc_info=ex,
@@ -732,7 +767,7 @@ class ThumbnailGenerator:
                         # 一時的なデマルチプレクサの不調を想定し、念のためコンテナを再オープンして継続
                         try:
                             container.close()
-                        except Exception as close_ex:
+                        except (av.error.FFmpegError, OSError) as close_ex:
                             logging.warning(
                                 f'{self.file_path}: Failed to close container after error.',
                                 exc_info=close_ex,
@@ -741,7 +776,7 @@ class ThumbnailGenerator:
                             container = av.open(str(self.file_path), format=format_name)
                             video_stream = container.streams.video[0]
                             video_stream.codec_context.skip_frame = 'NONINTRA'
-                        except Exception as reopen_ex:
+                        except (av.error.FFmpegError, OSError) as reopen_ex:
                             logging.error(
                                 f'{self.file_path}: Failed to reopen container after error.',
                                 exc_info=reopen_ex,
@@ -755,7 +790,8 @@ class ThumbnailGenerator:
             # フレーム抽出方法に関わらず、共通の代表サムネイル選定処理を適用する
             return (bgr_frames, self.__scoreFrames(bgr_frames))
 
-        except Exception as ex:
+        except (av.error.FFmpegError, OSError) as ex:
+            # 読めない録画は失敗を返すが、スコアリングのコードや OpenCV の不備は例外のまま伝える
             logging.error(f'{self.file_path}: Error in PyAV frame extraction and scoring:', exc_info=ex)
             return None
 
@@ -838,12 +874,33 @@ class ThumbnailGenerator:
             # I フレームのみデコードする設定（FFmpeg の -skip_frame nointra 相当）
             video_stream.codec_context.skip_frame = 'NONINTRA'
 
+            def DecodeIFrames() -> Iterator[av.VideoFrame]:
+                """
+                tsreadex の出力を先頭から順にデコードし、I フレームだけを返す
+
+                Returns:
+                    Iterator[av.VideoFrame]: デコードできた I フレーム
+                """
+                for packet in container_for_read.demux(video_stream):
+                    # 受信状態の悪い TS では、1つのパケットに前のピクチャの片方のフィールドと次の I ピクチャが詰まり、
+                    # デコーダーが "first field missing" でパケットごと捨てることがあるため、そのパケットだけを飛ばして次へ進む
+                    try:
+                        decoded_frames = packet.decode()
+                    except av.error.InvalidDataError:
+                        logging.debug(f'{self.file_path}: Skipped an undecodable packet in tsreadex output.')
+                        continue
+                    # MPEG-2 では skip_frame = 'NONINTRA' でも P フレームが出力され、デコードに失敗した直後の P フレームは
+                    # 参照先が欠けた灰色の画像になるため、I フレームだけを返す
+                    for decoded_frame in decoded_frames:
+                        if decoded_frame.pict_type == av.video.frame.PictureType.I:
+                            yield decoded_frame
+
             first_frame_time: float | None = None
             previous_frame_bgr: NDArray[np.uint8] | None = None
             previous_frame_relative_time: float | None = None
             bgr_frames: list[NDArray[np.uint8]] = []
             next_candidate_index = 0
-            for decoded_frame in container_for_read.decode(video_stream):
+            for decoded_frame in DecodeIFrames():
                 if time.time() - start_time_frame_extraction > self.TSREADEX_FRAME_EXTRACTION_TIMEOUT:
                     logging.error(
                         f'{self.file_path}: tsreadex frame extraction timed out after '
@@ -907,14 +964,15 @@ class ThumbnailGenerator:
             # フレーム抽出方法に関わらず、共通の代表サムネイル選定処理を適用する
             return (bgr_frames, self.__scoreFrames(bgr_frames))
 
-        except Exception as ex:
+        except (av.error.FFmpegError, OSError) as ex:
+            # tsreadex の入出力とデコードの失敗だけを扱い、依存・コードの不備は通常経路と同様に伝える
             logging.error(f'{self.file_path}: Error in tsreadex frame extraction and scoring:', exc_info=ex)
             return None
         finally:
             if container is not None:
                 try:
                     container.close()
-                except Exception as ex:
+                except (av.error.FFmpegError, OSError) as ex:
                     logging.warning(f'{self.file_path}: Failed to close PyAV container.', exc_info=ex)
             if tsreadex_process is not None:
                 if tsreadex_process.returncode is None:
@@ -922,7 +980,7 @@ class ThumbnailGenerator:
                 if tsreadex_process.stdout is not None:
                     try:
                         tsreadex_process.stdout.close()
-                    except Exception as ex:
+                    except OSError as ex:
                         logging.warning(f'{self.file_path}: Failed to close tsreadex stdout pipe.', exc_info=ex)
                 try:
                     tsreadex_process.wait(timeout=5)
@@ -943,15 +1001,33 @@ class ThumbnailGenerator:
 
         start_time_scoring = time.time()
 
+        def LoadFaceCascade(path: pathlib.Path) -> cv2.CascadeClassifier:
+            """
+            同梱の顔検出器を読み込む
+
+            Args:
+                path (pathlib.Path): 顔検出器の XML ファイルのパス
+
+            Returns:
+                cv2.CascadeClassifier: 読み込んだ顔検出器
+            """
+
+            cascade = cv2.CascadeClassifier(str(path))
+            # CascadeClassifier は読めないファイルを渡されても例外を出さずに空の検出器を返すので、読み込めたかを確認する
+            ## 同梱のファイルの入れ忘れやパスの誤りは実装側の誤りなので、何が読めなかったかを示して止める
+            if cascade.empty():
+                raise RuntimeError(f'Face detection cascade file could not be loaded: {path}')
+            return cascade
+
         # 顔検出器のロード (必要な場合のみ)
         face_cascade = None
         auxiliary_face_cascade = None
         if self.face_detection_mode == 'Human':
-            face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+            face_cascade = LoadFaceCascade(self.HUMAN_FACE_CASCADE_PATH)
         elif self.face_detection_mode == 'Anime':
-            face_cascade = cv2.CascadeClassifier(str(self.ANIME_FACE_CASCADE_PATH))
+            face_cascade = LoadFaceCascade(self.ANIME_FACE_CASCADE_PATH)
             # アニメ顔検出時は精度向上のため、実写顔検出器を併用
-            auxiliary_face_cascade = cv2.CascadeClassifier(str(self.HUMAN_FACE_CASCADE_PATH))
+            auxiliary_face_cascade = LoadFaceCascade(self.HUMAN_FACE_CASCADE_PATH)
 
         # 候補区間内のフレームを収集してスコアリング
         # (index, score, found_face) のリスト
@@ -1028,7 +1104,8 @@ class ThumbnailGenerator:
 
             return True
 
-        except Exception as ex:
+        except OSError as ex:
+            # 保存先の入出力エラーだけを失敗値へ変換し、画像処理のコードや依存の不備は例外で伝える
             logging.error(f'{self.file_path}: Error in representative thumbnail saving:', exc_info=ex)
             return False
 
@@ -1085,7 +1162,8 @@ class ThumbnailGenerator:
 
             return True
 
-        except Exception as ex:
+        except OSError as ex:
+            # ファイル・パイプの入出力失敗だけを扱い、タイル構築や OpenCV の不備は例外で伝える
             logging.error(f'{self.file_path}: Error in tile image generation and saving:', exc_info=ex)
             return False
 
@@ -1283,16 +1361,25 @@ class ThumbnailGenerator:
             logging.warning(f'{self.file_path}: RecordedVideo not found for thumbnail metadata update.')
             return
 
+        # 生成中に録画ファイルの中身が変わってレコードのハッシュが変わっていたら、サムネイル情報を書き込まずに終える
+        ## 生成したサムネイルは古いハッシュの名前で保存されているので、今のレコードに情報を付けると参照先のファイルが無い状態になる
+        ## 今の中身のサムネイルは、中身の変化を検知した RecordedScanTask が作り直す
+        if db_recorded_video.file_hash != self.file_hash:
+            logging.warning(f'{self.file_path}: File content changed during thumbnail generation. Skipped thumbnail metadata update.')
+            return
+
         tile_width, tile_height = self.TILE_SCALE
         scoring_width, scoring_height = self.SCORING_SCALE
 
-        # サムネイル情報を DB に保存
-        db_recorded_video.thumbnail_info = schemas.ThumbnailInfo(
+        # サムネイル情報を DB に保存する
+        ## revision は下の UPDATE で今の値に1を足した値に置き換える (初回は 1 スタート)
+        thumbnail_info = schemas.ThumbnailInfo(
             version = self.THUMBNAIL_INFO_VERSION,
             representative = schemas.ThumbnailImageInfo(
                 format = 'WebP',
                 width = scoring_width,
                 height = scoring_height,
+                revision = 1,
             ),
             tile = schemas.ThumbnailTileInfo(
                 format = 'WebP',
@@ -1306,7 +1393,19 @@ class ThumbnailGenerator:
                 interval_sec = self.tile_interval_sec,
             ),
         )
-        await db_recorded_video.save()
+        # 代表サムネイルを作り直したので、revision を今の値に1を足した値にして書き込む
+        ## サムネイルの差し替え API と重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値から進める
+        ## 読み込んでから書き込むまでの間に RecordedScanTask がメタデータを保存し直していても巻き戻さないよう、サムネイル情報の列だけを書き込む
+        ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画にも同じサムネイル情報を書き込み、revision を進める
+        await connections.get('default').execute_query("""
+            UPDATE recorded_videos
+            SET thumbnail_info = json_set(
+                ?,
+                '$.representative.revision',
+                COALESCE(json_extract(thumbnail_info, '$.representative.revision'), 0) + 1
+            )
+            WHERE file_hash = ?
+        """, [json.dumps(thumbnail_info, ensure_ascii=False), self.file_hash])
 
 
     async def migrateFromLegacyTile(self) -> bool:
@@ -1331,7 +1430,7 @@ class ThumbnailGenerator:
         ## anyio.Path は同期関数では実行できないため、pathlib.Path に変換して渡す
         ## キャンセル時に同期的な終了待機へ入るとイベントループ全体が止まるため、Executor は明示的に閉じる
         loop = asyncio.get_running_loop()
-        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+        executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
         should_wait_executor = True
         try:
             success = await loop.run_in_executor(
@@ -1780,8 +1879,9 @@ class ThumbnailGenerator:
         )
 
         # 各クラスタの占有率を計算
+        ## cv2.kmeans() が返すラベルは型の上では小数を含みうるため、np.bincount() に渡す前に整数の配列に変換する (実際には int32 の配列)
         total_pixels = len(labels)
-        ratios = np.bincount(labels.flatten()) / total_pixels
+        ratios = np.bincount(labels.flatten().astype(np.int64)) / total_pixels
 
         # 主要な色の評価
         ## 1. 最大の占有率が大きすぎる場合は単調な画像とみなしスコアを下げる

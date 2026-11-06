@@ -26,7 +26,7 @@ class RecordedProgram(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'recorded_programs'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     recorded_video: fields.OneToOneRelation[RecordedVideo]
     recording_start_margin = fields.FloatField()
     recording_end_margin = fields.FloatField()

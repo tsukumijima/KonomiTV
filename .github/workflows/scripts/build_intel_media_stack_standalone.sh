@@ -91,12 +91,17 @@ ninja -C "${BUILD_DIR}/gmmlib" -j"$(nproc)"
 ninja -C "${BUILD_DIR}/gmmlib" install
 
 # libva
+## VA-API ドライバーは、まず同梱の dri/ (libva.so と同じフォルダからの相対パス) から探し、見つからなければ OS 側の標準の配置先から探す
+## 同梱の libva は QSVEncC だけでなく VCEEncC からも読み込まれるため、同梱していない AMD 用の VA-API ドライバー (Mesa の radeonsi_drv_video.so) は、OS 側にインストールされたものを読み込めるようにしておく必要がある
+## Intel 用の iHD_drv_video.so は同梱の dri/ で先に見つかるため、QSVEncC が OS 側の VA-API ドライバーを読み込むことはない
+## パッチで相対パスに変換されるのは先頭の dri だけで、2つ目以降の絶対パスはそのまま検索に使われる
+## 順に Debian / Ubuntu 系、Fedora 系、Arch Linux 系の配置先
 meson setup "${BUILD_DIR}/libva" "${SRC_ROOT}/libva" \
   --buildtype=release \
   --prefix="${PREFIX_DIR}" \
   --sysconfdir='.' \
   --libdir=lib \
-  -Ddriverdir=dri \
+  -Ddriverdir='dri:/usr/lib/x86_64-linux-gnu/dri:/usr/lib64/dri:/usr/lib/dri' \
   -Dwith_x11=no \
   -Dwith_wayland=no \
   -Dwith_glx=no \

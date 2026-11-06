@@ -260,8 +260,8 @@
             <div class="settings__item">
                 <div class="settings__item-heading">ネットワーク上の録画フォルダの確認間隔 (分)</div>
                 <div class="settings__item-label">
-                    NFS など、録画ファイルの追加・変更をリアルタイムに検知できないネットワークフォルダで使用します。デフォルトは 5 (分) です。<br>
-                    短くすると録画一覧への反映が早くなりますが、保存先への負荷が増えます。<br>
+                    Linux で NFS や SMB (CIFS) などのネットワーク上にある録画フォルダは、ファイルの追加・変更を OS の変更通知で検知できません。そのため、この間隔で定期的にフォルダを確認します。デフォルトは 5 (分) です。<br>
+                    間隔を短くすると録画一覧への反映が早くなりますが、保存先への負荷が増加します。<br>
                 </div>
                 <v-slider class="settings__item-form" color="primary" show-ticks="always" thumb-label hide-details
                     :min="0.5" :max="60" :step="0.5"
@@ -368,8 +368,17 @@
                     <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
                 </div>
             </div>
+            <!-- 実行中は、処理した件数の進み具合をボタンの上に出す -->
+            <div v-if="batch_scan_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>録画フォルダをスキャンしています...</span>
+                    <span>{{ formatTaskProgress(batch_scan_status) }}</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
+                    :indeterminate="batch_scan_status.total_count === 0" :model-value="getTaskProgressPercent(batch_scan_status)" />
+            </div>
             <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
-                @click="runBatchScan()">
+                :disabled="batch_scan_status.is_running" @click="runBatchScan()">
                 <Icon icon="fluent:folder-sync-20-regular" height="20px" />
                 <span class="ml-2">録画フォルダの一括スキャンを手動実行</span>
             </v-btn>
@@ -383,13 +392,66 @@
                     <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
                 </div>
             </div>
+            <div v-if="background_analysis_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>バックグラウンド解析タスクを実行しています...</span>
+                    <span>{{ formatTaskProgress(background_analysis_status) }}</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
+                    :indeterminate="background_analysis_status.total_count === 0" :model-value="getTaskProgressPercent(background_analysis_status)" />
+            </div>
             <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
-                @click="startBackgroundAnalysis()">
+                :disabled="background_analysis_status.is_running" @click="startBackgroundAnalysis()">
                 <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
                 <span class="ml-2">バックグラウンド解析タスクを再実行</span>
             </v-btn>
+            <div class="settings__item">
+                <div class="settings__item-heading">キャプチャフォルダの一括スキャンを手動実行</div>
+                <div class="settings__item-label">
+                    キャプチャの保存先フォルダ内の画像は、通常 KonomiTV サーバーの起動時に自動的にスキャンされます。<br>
+                    キャプチャが KonomiTV に正しく反映されていない場合にのみ実行してください。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。</strong><br>
+                </div>
+            </div>
+            <div v-if="capture_scan_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>キャプチャフォルダをスキャンしています...</span>
+                    <span>{{ formatTaskProgress(capture_scan_status) }}</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
+                    :indeterminate="capture_scan_status.total_count === 0" :model-value="getTaskProgressPercent(capture_scan_status)" />
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                :disabled="capture_scan_status.is_running" @click="runCaptureScan()">
+                <Icon icon="fluent:image-multiple-20-regular" height="20px" />
+                <span class="ml-2">キャプチャフォルダの一括スキャンを手動実行</span>
+            </v-btn>
         </div>
         <div class="settings__content" :class="{'settings__content--disabled': is_disabled}">
+            <div class="settings__item">
+                <div class="settings__item-heading">データベースを最適化</div>
+                <div class="settings__item-label">
+                    KonomiTV のデータベースを再構築し、キャプチャや録画番組の検索・一覧表示を高速化します。<br>
+                    キャプチャフォルダや録画フォルダの初回スキャンが完了した後、検索や一覧表示が遅い場合にのみ実行してみてください。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>最適化中は、処理完了まで KonomiTV にアクセスできなくなります。</strong>視聴中のセッションは切断されません。<br>
+                    大量のキャプチャや録画ファイルが保存されている環境では、処理完了まで数分以上かかることがあります。<br>
+                </div>
+            </div>
+            <div v-if="database_vacuum_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>データベースを最適化しています...</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded indeterminate />
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                :disabled="database_vacuum_status.is_running" @click="runDatabaseVacuum()">
+                <Icon icon="fluent:database-arrow-right-20-regular" height="20px" />
+                <span class="ml-2">データベースを最適化</span>
+            </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading text-error-lighten-1">KonomiTV サーバーを再起動</div>
                 <div class="settings__item-label">
@@ -424,12 +486,12 @@
 </template>
 <script lang="ts" setup>
 
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import AccountManageSettings from '@/components/Settings/AccountManageSettings.vue';
 import ServerLogDialog from '@/components/Settings/ServerLogDialog.vue';
 import Message from '@/message';
-import Maintenance from '@/services/Maintenance';
+import Maintenance, { IMaintenanceTaskStatus } from '@/services/Maintenance';
 import Settings, { IServerSettings, IServerSettingsDefault } from '@/services/Settings';
 import Version from '@/services/Version';
 import useUserStore from '@/stores/UserStore';
@@ -548,14 +610,108 @@ async function updateDatabase() {
     Message.success('データベースを更新しました。');
 }
 
+// 録画フォルダの一括スキャン・バックグラウンド解析タスク・キャプチャフォルダの一括スキャンの進捗
+// サーバーの起動時に自動で走る一括スキャンも、この画面を開いた時点で実行中なら進捗を出す
+const batch_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const background_analysis_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const capture_scan_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+const database_vacuum_status = ref<IMaintenanceTaskStatus>({is_running: false, processed_count: 0, total_count: 0, has_registered_files: false});
+let task_status_timer: number | null = null;
+// この画面を離れたか (離れたあとに返ってきた進捗で、次の取得を予約しないため)
+let is_unmounted = false;
+// 前回の進捗の取得に失敗したか (失敗が続く間は、エラーの通知を最初の1回にとどめて取り直すため)
+let is_task_status_failed = false;
+// 進捗を取得している途中か
+// 取得の途中は task_status_timer が null になるので、その間にタスクの完了後の取り直しが呼ばれても、取得中の結果から次の取得を予約し、進捗の取得を常に1本の連鎖にする
+let is_task_status_updating = false;
+
+// 進捗を取得し、どれかが実行中なら1秒後にもう一度取得する
+async function updateTaskStatuses() {
+    if (is_task_status_updating === true) {
+        return;
+    }
+    is_task_status_updating = true;
+    task_status_timer = null;
+    const show_error = is_task_status_failed === false;
+    const [batch_scan, background_analysis, capture_scan, database_vacuum] = await Promise.all([
+        Maintenance.fetchBatchScanStatus(show_error),
+        Maintenance.fetchBackgroundAnalysisStatus(show_error),
+        Maintenance.fetchCaptureScanStatus(show_error),
+        Maintenance.fetchDatabaseVacuumStatus(show_error),
+    ]);
+    is_task_status_updating = false;
+    if (is_unmounted === true) {
+        return;
+    }
+    // 取得できた進捗だけを反映する
+    if (batch_scan !== null) {
+        batch_scan_status.value = batch_scan;
+    }
+    if (background_analysis !== null) {
+        background_analysis_status.value = background_analysis;
+    }
+    if (capture_scan !== null) {
+        capture_scan_status.value = capture_scan;
+    }
+    if (database_vacuum !== null) {
+        database_vacuum_status.value = database_vacuum;
+    }
+    is_task_status_failed = batch_scan === null || background_analysis === null || capture_scan === null || database_vacuum === null;
+    // 最後に分かった進捗でどれかが実行中なら、完了するまで取り続ける
+    // 取得に失敗したときは、サーバーの復旧を待つよう5秒の間隔を空けて取り直す (起動時に自動で始まったタスクも、完了したらボタンを戻すため)
+    const is_running = (
+        batch_scan_status.value.is_running === true ||
+        background_analysis_status.value.is_running === true ||
+        capture_scan_status.value.is_running === true ||
+        database_vacuum_status.value.is_running === true
+    );
+    if (is_running === true) {
+        let interval = 1000;
+        if (is_task_status_failed === true) {
+            interval = 5000;
+        }
+        task_status_timer = window.setTimeout(updateTaskStatuses, interval);
+    }
+}
+
+// 進捗の表示 (総数がまだ分からないときは、処理した件数だけを出す)
+function formatTaskProgress(task_status: IMaintenanceTaskStatus): string {
+    if (task_status.total_count === 0) {
+        return `${task_status.processed_count.toLocaleString()} 件`;
+    }
+    return `${task_status.processed_count.toLocaleString()} / ${task_status.total_count.toLocaleString()} 件`;
+}
+function getTaskProgressPercent(task_status: IMaintenanceTaskStatus): number {
+    return task_status.total_count === 0 ? 0 : task_status.processed_count / task_status.total_count * 100;
+}
+
+onMounted(() => updateTaskStatuses());
+onBeforeUnmount(() => {
+    is_unmounted = true;
+    if (task_status_timer !== null) {
+        window.clearTimeout(task_status_timer);
+    }
+});
+
 // 録画フォルダの一括スキャンを実行する関数
 async function runBatchScan() {
     Message.info(
         '録画フォルダの一括スキャンを開始しています...\n' +
         '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
     );
-    const result = await Maintenance.runBatchScan();
-    if (result === true) {
+    // 押した直後からボタンを無効にし、サーバーがタスクを始めたころに進捗の取得を始める
+    batch_scan_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
+    const result = Maintenance.runBatchScan();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    const is_succeeded = await result;
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
         Message.success(
             '録画フォルダの一括スキャンが完了しました。\n' +
             'すべての録画ファイルがデータベースに同期されているはずです。'
@@ -569,12 +725,69 @@ async function startBackgroundAnalysis() {
         'バックグラウンド解析タスクを開始しています...\n' +
         '大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。'
     );
-    const result = await Maintenance.startBackgroundAnalysis();
-    if (result === true) {
+    background_analysis_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
+    const result = Maintenance.startBackgroundAnalysis();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    const is_succeeded = await result;
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
         Message.success(
             'バックグラウンド解析タスクの実行が完了しました。\n' +
             'すべての録画番組のメタデータ解析/サムネイル生成が完了しているはずです。'
         );
+    }
+}
+
+// キャプチャフォルダの一括スキャンを実行する関数
+async function runCaptureScan() {
+    Message.info(
+        'キャプチャフォルダの一括スキャンを開始しています...\n' +
+        '大量のキャプチャが保存されている環境では、処理完了まで数時間以上かかることがあります。'
+    );
+    capture_scan_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
+    const result = Maintenance.runCaptureScan();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    const is_succeeded = await result;
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
+        Message.success(
+            'キャプチャフォルダの一括スキャンが完了しました。\n' +
+            'すべてのキャプチャがデータベースに同期されているはずです。'
+        );
+    }
+}
+
+// データベースを最適化する関数
+async function runDatabaseVacuum() {
+    Message.info(
+        'データベースを最適化しています...\n' +
+        '最適化中は、処理完了まで KonomiTV にアクセスできなくなります。'
+    );
+    database_vacuum_status.value = {is_running: true, processed_count: 0, total_count: 0, has_registered_files: false};
+    const result = Maintenance.runDatabaseVacuum();
+    await Utils.sleep(0.5);
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    const is_succeeded = await result;
+    // 完了したら、次の進捗の取得を待たずにすぐ取り直して、ボタンを戻す
+    if (task_status_timer === null) {
+        await updateTaskStatuses();
+    }
+    if (is_succeeded === true) {
+        Message.success('データベースの最適化が完了しました。');
     }
 }
 
@@ -601,3 +814,19 @@ async function shutdownServer() {
 }
 
 </script>
+<style lang="scss" scoped>
+
+// 実行中のタスクの進み具合 (ボタンの上に出す)
+.task-progress {
+    max-width: 100%;
+    &__label {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+        color: rgb(var(--v-theme-text-darken-1));
+        font-size: 13.5px;
+    }
+}
+
+</style>

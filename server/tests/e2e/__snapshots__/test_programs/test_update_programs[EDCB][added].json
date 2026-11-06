@@ -1,0 +1,5634 @@
+{
+  "NID32736-SID1024-EID10233": {
+    "channel_id": "NID32736-SID1024",
+    "description": "なぜ今も心に響く？斉藤和義「やさしくなりたい」の魅力を徹底考察！金子大地&川村エミコが歌詞から物語を紡ぐ。さらに斉藤本人が明かす名曲誕生の舞台裏も！",
+    "detail": {
+      "出演者": "【司会】設楽統(バナナマン),浅野里香,【出演】YOU,川村エミコ,金子大地,スージー鈴木",
+      "番組内容": "斉藤和義の代表曲「やさしくなりたい」を味わい尽くす！社会現象となったドラマ「家政婦のミタ」の主題歌として心に刻まれた名曲。イントロのギター、歌声、歌詞の魅力をひもとき、俳優・金子大地と川村エミコが独自の解釈を披露。考察をもとにオリジナルMVを制作する。さらに斉藤和義本人が、東日本大震災があった2011年、「強くなりたい やさしくなりたい」という言葉に込めた思いを明かす。【司会】設楽統、浅野里香"
+    },
+    "duration": 1620.0,
+    "end_time": "2026-10-29T20:42:00+09:00",
+    "event_id": 10233,
+    "genres": [
+      {
+        "major": "バラエティ",
+        "middle": "音楽バラエティ"
+      },
+      {
+        "major": "音楽",
+        "middle": "国内ロック・ポップス"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "音楽・美術・工芸"
+      }
+    ],
+    "id": "NID32736-SID1024-EID10233",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T20:15:00+09:00",
+    "title": "名曲考察教室 斉藤和義「やさしくなりたい」を金子大地&川村エミコが考察[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID11467": {
+    "channel_id": "NID32736-SID1024",
+    "description": "主役は、炎とあなたです。極上の炎と向き合い、心解きほぐす、穏やかなひとときを。異色トーク番組「魂のタキ火」から、炎、焚(た)き火の映像のみをお送りします。",
+    "detail": {
+      "番組内容": "炎に照らし出されたゲストたちの素顔のトークとともにお送りする「魂のタキ火」。時に都会の片隅で、時に自然の中で。今までの放送の中から、美しい炎の映像を中心にお送りします。どうぞ、心を開放する、穏やかなひとときを。"
+    },
+    "duration": 1500.0,
+    "end_time": "2026-10-29T04:00:00+09:00",
+    "event_id": 11467,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID11467",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T03:35:00+09:00",
+    "title": "魂のタキ火「特別編 癒やしの炎30min」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID11474": {
+    "channel_id": "NID32736-SID1024",
+    "description": "日本一を守る人々に密着する番組のPR▽巨大ボウリング場で日本一の大会。しかしトラブル続出！▽ジャンボたかお&村重杏奈&天野ひろゆき▽11/3(火)夜9:30から",
+    "detail": {
+      "出演者": "【司会】ジャンボたかお,村重杏奈,【出演】天野ひろゆき,【語り】三宅民夫",
+      "番組内容": "日本各地の「イチバン〇〇な場所」や「イチバン〇〇なモノ」を守り続ける人々に密着する番組「イチバンモリ」のPR。今回は日本最大116レーンのボウリング場が舞台です。レーンの裏側では50年前に作られた機械がフル稼働。熟練の技術者が守ります。中高生の全国大会ではトラブルが続出。果たして守りきれるのか！▽ジャンボたかお&村重杏奈&天野ひろゆき▽語りは三宅民夫▽11/3(火)夜9:30から総合テレビで放送！"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-30T02:22:00+09:00",
+    "event_id": 11474,
+    "genres": [
+      {
+        "major": "バラエティ",
+        "middle": "その他"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "ドキュメンタリー全般"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID11474",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T02:21:00+09:00",
+    "title": "1分PR「イチバンモリ」11/3(火)夜9:30から本編放送！",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID11475": {
+    "channel_id": "NID32736-SID1024",
+    "description": "会社を娘・明代(夏川結衣)の夫・純市(勝村政信)に譲ったはずの戸山福太郎(伊東四朗)と近所の老人が、コロナ禍に巻き起こす騒動…そして、家族の物語。",
+    "detail": {
+      "出演者": "【出演】伊東四朗,夏川結衣,勝村政信",
+      "番組内容": "ボードゲーム製作販売会社の社長・戸山福太郎(伊東四朗)は、妻の通夜の席で娘・明代(夏川結衣)の夫・純市(勝村政信)に社長の座を譲る。しばらくは一人旅などしていたが、突然会社に顔を出し、社員を捕まえてはかつての武勇伝を繰り返す。週に二度会社に現れるようになる頃、世間はコロナ禍に。そして福太郎82歳の誕生会が開かれる。集まった同年代の4人は、病気自慢や趣味自慢、それぞれ自慢老害をまき散らすのだが…。"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-30T02:25:00+09:00",
+    "event_id": 11475,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID11475",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T02:24:00+09:00",
+    "title": "毎週土曜夜10時放送中 土曜ドラマ「老害の人」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID11476": {
+    "channel_id": "NID32736-SID1024",
+    "description": "京浜工業地帯を走り、人とモノを運ぶ路線として、日本の経済発展を支えてきたJR鶴見線。沿線にはユニークな駅も多い。鶴見線の魅力を運転席からの風景で伝える。",
+    "detail": {
+      "番組内容": "高架下に昭和初期の面影が残る「国道駅」駅の構内から湾岸の絶景が眺められる「海芝浦駅」特徴的な駅が多く、鉄道ファンにも人気の「JR鶴見線」の魅力を伝える。約10キロの本線と2つの支線を持つ鶴見線は、京浜工業地帯へ人とモノを運ぶ路線として日本の経済発展を支えてきた。昼も夜も迫力ある運転席からの風景をたっぷりと！"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T03:25:00+09:00",
+    "event_id": 11476,
+    "genres": [
+      {
+        "major": "その他",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID11476",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T02:25:00+09:00",
+    "title": "運転席からの風景 JR鶴見線",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID11477": {
+    "channel_id": "NID32736-SID1024",
+    "description": "世界各地の絶景の中を空からゆったりと旅をする紀行番組「空からクルージング」。8Kで撮影した美しい映像を再編集し、フランスのロワール川を源流から河口まで紹介する。",
+    "detail": {
+      "番組内容": "フランス最長の大河、ロワール川を全編ドローン映像で下って行く空の旅。源流である山のふもとの泉からスタート。細い流れが、やがて中世の歴史がつまった町を抜け、牧草地帯を進み、ワイン用のブドウの収穫に出会う。オルレアンの街、ブロワ城やアンボワーズ城など、数々の美しい古城が点在する丘陵をゆっくりと流れ、河口付近のナントという街では、城だけではなく、ユニークな芸術にも出会う。そして旅のゴールは大西洋。"
+    },
+    "duration": 2100.0,
+    "end_time": "2026-10-30T04:00:00+09:00",
+    "event_id": 11477,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID32736-SID1024-EID11477",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T03:25:00+09:00",
+    "title": "空からクルージング特別編「フランス・ロワール川を下る」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID13931": {
+    "channel_id": "NID32736-SID1024",
+    "description": "MLB2026のクライマックス！勝てばともに初のワールドチャンピオンの激闘を2分に凝縮！",
+    "detail": {},
+    "duration": 240.0,
+    "end_time": "2026-10-29T16:00:00+09:00",
+    "event_id": 13931,
+    "genres": [
+      {
+        "major": "スポーツ",
+        "middle": "野球"
+      }
+    ],
+    "id": "NID32736-SID1024-EID13931",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T15:56:00+09:00",
+    "title": "MLB2分ハイライト ワールドシリーズ第5戦「ブルワーズ」対「レイズ」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID13935": {
+    "channel_id": "NID32736-SID1024",
+    "description": "MLB2026決戦のステージ ワールドチャンピオンをかけた激闘をハイライトで放送！",
+    "detail": {},
+    "duration": 3540.0,
+    "end_time": "2026-10-30T00:49:00+09:00",
+    "event_id": 13935,
+    "genres": [
+      {
+        "major": "スポーツ",
+        "middle": "野球"
+      }
+    ],
+    "id": "NID32736-SID1024-EID13935",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T23:50:00+09:00",
+    "title": "MLB2026 ワールドシリーズハイライト 第5戦[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID14023": {
+    "channel_id": "NID32736-SID1024",
+    "description": "イギリスミステリーの名作を総合テレビで放送。舞台は1940年のイギリス。戦争で人々の心がすさむなか、警視正フォイルは信念をつらぬく。毎週日曜夜11時。",
+    "detail": {
+      "番組内容": "第二次世界大戦のさなか、イギリス南部の街ヘイスティングスにも戦争の足音が忍び寄っていた。正義を追い求める警視正フォイルは、専属運転手のサム(サマンサ)とともに、難事件に挑む。主演マイケル・キッチン、フォイルの声は山路和弘。企画・脚本はイギリスの人気ミステリー作家、アンソニー・ホロヴィッツ。"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-29T03:35:00+09:00",
+    "event_id": 14023,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID14023",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T03:34:00+09:00",
+    "title": "1分で『刑事フォイル』",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4180": {
+    "channel_id": "NID32736-SID1024",
+    "description": "みね子(有村架純)はあかね荘に部屋を借りる。乙女寮で一緒に年を越した愛子(和久井映見)からお年玉袋を手渡されたみね子は、その意外な中身を見てびっくりする。",
+    "detail": {
+      "出演者": "【出演】有村架純,木村佳乃,岡山天音,宮原和,髙橋來,和久井映見,白石加代子,古谷一行,宮本信子,【語り】増田明美",
+      "原作・脚本": "【作】岡田惠和",
+      "番組内容": "みね子(有村架純)は鈴子(宮本信子)に保証人になってもらい、あかね荘に部屋を借りる。乙女寮で年末を過ごし、引っ越しは年明けにすることに。愛子(和久井映見)と2人で大掃除をして寮を磨き上げると、もうすぐなくなってしまうのかと悲しい気持ちになる。すると愛子が「寂しい気持ちはあるけど悲しくはない」と話し始める。そして元旦の朝、お年玉袋を手渡されたみね子はその意外な中身を見てびっくりする。",
+      "音楽": "【音楽】宮川彬良"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T12:45:00+09:00",
+    "event_id": 4180,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4180",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T12:30:00+09:00",
+    "title": "【連続テレビ小説】ひよっこ(59)「谷田部みね子ワン、入ります」[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4473": {
+    "channel_id": "NID32736-SID1024",
+    "description": "私たちがふだん暮らしている中に隠れている、さまざまな法則や不思議な構造、面白い考え方を、アニメ、歌、体操、ピタゴラ装置など多彩なコーナーで紹介します。",
+    "detail": {
+      "番組内容": "私たちがふだん暮らしている中には、さまざまな不思議な構造、面白い考え方、法則が隠れている。番組では、「子どもにとっての“なるほど！”」を、アニメ、歌、体操、ピタゴラ装置など、多彩なコーナーで紹介します。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T04:05:00+09:00",
+    "event_id": 4473,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "幼児・小学生"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4473",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T04:00:00+09:00",
+    "title": "ピタゴラスイッチ ミニ▽パタトクカシー▽トンカッチのピタゴラ装置おなやみ相談室[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4474": {
+    "channel_id": "NID32736-SID1024",
+    "description": "がん対策基本法の成立から20年。がんは「不治の病」から「ともに生きる病気」に姿を変えた。法律が必要とされた背景やその後の影響、残された課題を考える。",
+    "detail": {
+      "出演者": "【出演】東京大学病院診療医…中川恵一"
+    },
+    "duration": 600.0,
+    "end_time": "2026-10-29T04:15:00+09:00",
+    "event_id": 4474,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4474",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T04:05:00+09:00",
+    "title": "視点・論点 がん対策基本法20年 “がんと生きる”時代へ[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4475": {
+    "channel_id": "NID32736-SID1024",
+    "description": "関税措置を経済政策の柱とするトランプ政権が目指したとおりにアメリカの製造業は復活したのか。中間選挙を前に、関税政策がもたらした恩恵と悪影響を検証する",
+    "detail": {
+      "出演者": "【キャスター】辻浩平,藤重博貴,山澤里奈",
+      "番組内容": "トランプ政権は製造業復活と貿易赤字解消を目指し、関税措置を経済政策の柱として推進している。一部の銅製品メーカーは関税やデータセンター需要増加を追い風に投資や雇用を拡大する一方、缶メーカーなどでは調達コストの上昇が経営を圧迫している。製造業全体の雇用増加も限定的で、関税の効果には疑問の声もある。中間選挙を前に、関税政策がもたらした恩恵と悪影響を検証する。"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T05:00:00+09:00",
+    "event_id": 4475,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4475",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T04:15:00+09:00",
+    "title": "国際報道2026 米製造業は復活したのか トランプ関税の功罪[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4480": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▼スペイン高速鉄道衝突事故 続報▼米FRB 政策金利を据え置き▼秋田 漫画でチャンスつかんだ2人の中高生▼戦地に送り込まれた飼い犬たちの運命 ほか",
+    "detail": {
+      "出演者": "【キャスター】勝呂恭佑,岩﨑果歩,【気象キャスター】檜山靖洋,晴山紋音"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T06:00:00+09:00",
+    "event_id": 4480,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4480",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T05:00:00+09:00",
+    "title": "NHKニュース おはよう日本 千葉県で震度5弱",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4485": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▼スペイン高速鉄道衝突事故 続報▼自民・維新・国民 比例31議席削減案もとに検討へ▼ここに注目！「北朝鮮 北と南で様相異なる境界」 ほか",
+    "detail": {
+      "出演者": "【キャスター】高井正智,中山果奈,ホルコムジャック和馬,是永千恵,岩﨑果歩,ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T06:30:00+09:00",
+    "event_id": 4485,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4485",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T06:00:00+09:00",
+    "title": "NHKニュース おはよう日本 各地で冷え込み 路面凍結などに注意",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4487": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▼小泉防衛相“米国防長官が防衛費に言及 水準は日本が主体的判断”▼米FRB 政策金利を据え置き▼来週発足「防災庁」ってなに？ ほか",
+    "detail": {
+      "出演者": "【キャスター】高井正智,晴山紋音,中山果奈,ホルコムジャック和馬,是永千恵,岩﨑果歩,ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T07:00:00+09:00",
+    "event_id": 4487,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4487",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T06:30:00+09:00",
+    "title": "NHKニュース おはよう日本 千葉県で震度5弱[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4490": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▼スペイン高速鉄道衝突事故続報▼自民・維新・国民 比例31議席削減案もとに検討へ▼メンバー全員60代「ユニコーン」流 年の重ね方とは▼相次ぐ祭りの事故 どう防ぐ",
+    "detail": {
+      "出演者": "【キャスター】高井正智,中山果奈,ホルコムジャック和馬,是永千恵,ほか"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T07:45:00+09:00",
+    "event_id": 4490,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4490",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T07:00:00+09:00",
+    "title": "NHKニュース おはよう日本 GMO 被害拡大防止へ緊急の対応続く[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4491": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▽どうする？核のゴミ 調査受け入れのまちは",
+    "detail": {
+      "出演者": "【キャスター】高井正智,中山果奈,【気象キャスター】檜山靖洋",
+      "番組内容": "▽どうする？核のゴミ 調査受け入れのまちは"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T08:00:00+09:00",
+    "event_id": 4491,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "交通"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4491",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T07:45:00+09:00",
+    "title": "NHKニュース おはよう首都圏(関東甲信越)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4493": {
+    "channel_id": "NID32736-SID1024",
+    "description": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、黒崎に自らの短編小説を渡すが…。",
+    "detail": {
+      "出演者": "【出演】石橋静河,金子大地,高良健吾,赤堀雅秋,中村優子,瀬戸さおり,北野秀気,斎藤司,愛,誠,井浦新,遠藤憲一",
+      "原作・脚本": "【作】櫻井剛",
+      "番組内容": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、仕事中に直接、黒崎に短編小説を渡すことに。黒崎は珠の突然の行動に驚くが…。一方、珠と一緒に暮らしている保(金子大地)は、下宿先の大家・三好辰五郎(赤堀雅秋)とその娘・マキ(中村優子)から、「珠との関係が、恋仲に発展したのか」と問いただされて…。",
+      "音楽": "【音楽】fox capture plan"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T08:15:00+09:00",
+    "event_id": 4493,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4493",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T08:00:00+09:00",
+    "title": "【連続テレビ小説】ブラッサム(24)第5週「狂騒で、東京」[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4494": {
+    "channel_id": "NID32736-SID1024",
+    "description": "週末のおでかけに！都心からわずか1時間の大人気の道の駅▽絶品！江戸時代から続く「白みりん」&幻の食材「こぼれ梅」▼栗原はるみ「ハーブ香る！チキンのトマト煮」",
+    "detail": {
+      "出演者": "【ゲスト】坂下千里子,ジャンボたかお,【講師】栗原はるみ,【キャスター】博多華丸,博多大吉,浅井理,【リポーター】駒村多恵,大河内惇,小林将純,望月豊,中原真吾",
+      "番組内容": "週末のおでかけに！都心からわずか1時間！大人気の道の駅▽とろける甘さの小かぶ▽絶品！江戸時代から続く「白みりん」&幻の食材「こぼれ梅」▽オシャレな店が続々誕生！その秘訣は「創業スクール」▼大丈夫？AIの医療相談▼ネットで広がる”個人間の精子提供”▼北海道壮瞥町から中継▼栗原はるみの「ハーブ香る！チキンのトマト煮」【ゲスト】坂下千里子、ジャンボたかお【キャスター】博多華丸・大吉、浅井理"
+    },
+    "duration": 6000.0,
+    "end_time": "2026-10-29T09:55:00+09:00",
+    "event_id": 4494,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      },
+      {
+        "major": "拡張",
+        "middle": "中断ニュースあり"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4494",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T08:15:00+09:00",
+    "title": "あさイチ 週末におすすめ！流山&柏おいしいもの▼大丈夫？AIの医療相談[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4505": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【指導】鈴木大輔【ピアノ】能條貴大【実技】吉江晴菜,我喜屋佑衣,福島波奈,杉井勇介",
+    "detail": {
+      "出演者": "【出演】鈴木大輔,能條貴大,吉江晴菜,我喜屋佑衣,福島波奈,杉井勇介",
+      "番組内容": "木曜日はピアノ演奏でお伝えします。(解説放送はこれまでと同じ従来の演奏です)。高齢の方、身体の不自由な方も気軽にでき、椅子に座ったままでも行うことができます。ゆっくりしたテンポでかつ、全身を十分に動かせるように構成しています。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T10:00:00+09:00",
+    "event_id": 4505,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "その他"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4505",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T09:55:00+09:00",
+    "title": "みんなの体操[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4506": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T10:05:00+09:00",
+    "event_id": 4506,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4506",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T10:00:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4507": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【解説委員が深堀り】イスラエル総選挙 政権交代はあるか ▽中東情勢 ▽マドリードで伝統を祝うパレード 出演:横川浩士・荒木さくら",
+    "detail": {
+      "出演者": "【キャスター】荒木さくら,横川浩士",
+      "番組内容": "27日に投票が行われたイスラエルの議会選挙。予想通り、ネタニヤフ首相率いる右派の与党「リクード」と、元軍参謀総長のアイゼンコット氏が率いる中道政党「ヤシャル」との接戦となった。ネタニヤフ連立政権が存続するのか、それとも4年ぶりの政権交代があるのか。イスラエルの選挙から政権発足までのプロセスや政権交代の可能性、中東情勢への影響など中東担当の出川展恒解説委員と深堀りする。"
+    },
+    "duration": 3000.0,
+    "end_time": "2026-10-29T10:55:00+09:00",
+    "event_id": 4507,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4507",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T10:05:00+09:00",
+    "title": "キャッチ！世界のトップニュース イスラエル総選挙 政権交代は[二][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4512": {
+    "channel_id": "NID32736-SID1024",
+    "description": "「絶対晴天！！」うた:P丸様。/「おっちょこブラザーズ」うた:SAKANAMON",
+    "detail": {
+      "番組内容": "「絶対晴天！！」うた:P丸様。動画チャンネル登録者数320万人以上。幅広い層に人気のマルチエンターテイナーP丸様。が初登場！クセつよの楽曲を映像化するのは、王道アニメを手掛ける白組/「おっちょこブラザーズ」うた:SAKANAMON。懐かしいメロディーにのせてお届けするおっちょこちょいでもいいじゃないソング。映像は「南の島のハメハメハ大王」以来、50年ぶりにみんなのうたを手掛けるスタジオ・ノーヴァ。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T11:00:00+09:00",
+    "event_id": 4512,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "国内ロック・ポップス"
+      },
+      {
+        "major": "音楽",
+        "middle": "童謡・キッズ"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "音楽バラエティ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4512",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T10:55:00+09:00",
+    "title": "みんなのうた「絶対晴天！！」/「おっちょこブラザーズ」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4513": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T11:05:00+09:00",
+    "event_id": 4513,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4513",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T11:00:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4514": {
+    "channel_id": "NID32736-SID1024",
+    "description": "和食の魅力はそのままに、自由な発想で新しい和ごはんを提案する京料理人シリーズ。次代を担う京料理人・村田知晴さんが日本の伝統的な食材や料理をモダンにアレンジする。",
+    "detail": {
+      "出演者": "【講師】村田知晴,【アナウンサー】北郷三穂子",
+      "番組内容": "和食の魅力はそのままに、自由な発想で新しい和ごはんを提案する京料理人シリーズ。今回は、日本の伝統的な食材や料理をモダンにアレンジする。しば漬けを使った見た目も華やかな「和風パエリア」、八幡(やわた)巻きにバターとワインをプラスした「豚肉の八幡(やわた)巻きワインソース」、沢煮椀(わん)に洋の食材を加えた「ベーコンとトマトの沢煮椀(わん)風」など。意外性のある組み合わせで、新しい和食のおいしさに！"
+    },
+    "duration": 1500.0,
+    "end_time": "2026-10-29T11:30:00+09:00",
+    "event_id": 4514,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "グルメ・料理"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4514",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T11:05:00+09:00",
+    "title": "きょうの料理「京料理人のモダン和ごはん」[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4518": {
+    "channel_id": "NID32736-SID1024",
+    "description": "長野県野辺山高原に全国でも最高品質の牛乳を生産する牧場があります。家族だけで繁殖から育成、搾乳までを一貫生産。酪農家ならではのユニークな牛乳料理もご紹介します！",
+    "detail": {
+      "出演者": "【司会】天野ひろゆき,久保田祐佳,【ゲスト】小林涼子,【リポーター】大嶋貴志",
+      "番組内容": "長野県南牧村は高原の冷涼な気候を生かした酪農が盛んです。食材ハンター小林涼子さんが訪ねた牧場では理想の乳牛を求めて、種付けから育成、搾乳までの全過程を家族が担う“一貫生産”にこだわり、全国的な品評会でも高い評価を得ています。エサ代の高騰など酪農経営が厳しさを増す中、牧場の生き残りをかけた独自の取り組みも必見！極上ミルクをふんだんに使った地元ならではの特製料理など、牛乳の魅力を再発見する23分です！"
+    },
+    "duration": 1440.0,
+    "end_time": "2026-10-29T11:54:00+09:00",
+    "event_id": 4518,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "グルメ・料理"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "料理バラエティ"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "カルチャー・伝統文化"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4518",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T11:30:00+09:00",
+    "title": "うまいッ！ 家族でつくる最高品質の高原牛乳 長野・南牧村[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4523": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 360.0,
+    "end_time": "2026-10-29T12:00:00+09:00",
+    "event_id": 4523,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4523",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T11:54:00+09:00",
+    "title": "気象情報",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4525": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【キャスター】合原明子",
+    "detail": {
+      "出演者": "【キャスター】合原明子"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T12:15:00+09:00",
+    "event_id": 4525,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4525",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T12:00:00+09:00",
+    "title": "ニュース[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4526": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T12:20:00+09:00",
+    "event_id": 4526,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4526",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T12:15:00+09:00",
+    "title": "ニュース(関東)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4527": {
+    "channel_id": "NID32736-SID1024",
+    "description": "今国会の最大の焦点は、政府が提出した食料品の消費税減税と、所得に応じた「支援金」の支給を柱とした法案の審議です。現状と今後の見通しを解説します。",
+    "detail": {
+      "出演者": "【キャスター】岩渕梢,【解説】成澤良"
+    },
+    "duration": 600.0,
+    "end_time": "2026-10-29T12:30:00+09:00",
+    "event_id": 4527,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4527",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T12:20:00+09:00",
+    "title": "みみより！解説 どうなる？ 消費税減税と「支援金」[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4534": {
+    "channel_id": "NID32736-SID1024",
+    "description": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、黒崎に自らの短編小説を渡すが…。",
+    "detail": {
+      "出演者": "【出演】石橋静河,金子大地,高良健吾,赤堀雅秋,中村優子,瀬戸さおり,北野秀気,斎藤司,愛,誠,井浦新,遠藤憲一",
+      "原作・脚本": "【作】櫻井剛",
+      "番組内容": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、仕事中に直接、黒崎に短編小説を渡すことに。黒崎は珠の突然の行動に驚くが…。一方、珠と一緒に暮らしている保(金子大地)は、下宿先の大家・三好辰五郎(赤堀雅秋)とその娘・マキ(中村優子)から、「珠との関係が、恋仲に発展したのか」と問いただされて…。",
+      "音楽": "【音楽】fox capture plan"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T13:00:00+09:00",
+    "event_id": 4534,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4534",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T12:45:00+09:00",
+    "title": "【連続テレビ小説】ブラッサム(24)第5週「狂騒で、東京」[解][字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4535": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T13:05:00+09:00",
+    "event_id": 4535,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4535",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T13:00:00+09:00",
+    "title": "ニュース[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4536": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【午後1時台】日本列島の「いま」が見える！北から南までNHKの各放送局のニュースを選りすぐって大阪から全国に発信。地域の話題も交えて盛りだくさんでお届けします。",
+    "detail": {
+      "出演者": "【キャスター】鹿島綾乃,【気象予報士】坂下恵理,伊藤雄彦,三條雅幸,二宮直輝,木村穂乃,ほか",
+      "番組内容": "【午後1時台】日本列島の「いま」が見える！北から南までNHKの各地域放送局のお昼のニュースを選りすぐって全国に発信。各地の課題や注目の話題を現地の放送局と結んで深掘りする「列島ニュースアップ」など地域発の情報にこだわって盛りだくさんでお届けします。多彩な日本列島の最新の表情が実感できる情報番組です！"
+    },
+    "duration": 3000.0,
+    "end_time": "2026-10-29T13:55:00+09:00",
+    "event_id": 4536,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4536",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T13:05:00+09:00",
+    "title": "列島ニュース[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4537": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【指導】岡本美佳【ピアノ】細貝柊【実技】舘野伶奈,吉江晴菜,新井庸太,森山雅斗",
+    "detail": {
+      "出演者": "【出演】岡本美佳,細貝柊,舘野伶奈,吉江晴菜,新井庸太,森山雅斗",
+      "番組内容": "木曜日、午後のテレビ体操は「ラジオ体操第2」です。ワンポイント解説は4番目の「胸の運動」をとりあげます。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T14:00:00+09:00",
+    "event_id": 4537,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "その他"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4537",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T13:55:00+09:00",
+    "title": "テレビ体操[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4538": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T14:05:00+09:00",
+    "event_id": 4538,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4538",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T14:00:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4539": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【午後2時台】日本列島の今が多彩に見える！地域の課題を掘り下げたニュース特集から、全国の四季折々の自然や名所をめぐる旅コーナーまで見どころ満載でお届けします。",
+    "detail": {
+      "出演者": "【キャスター】鹿島綾乃,【気象予報士】坂下恵理,伊藤雄彦,三條雅幸,二宮直輝,木村穂乃,ほか",
+      "番組内容": "【午後2時台】「より深く、より多彩に！」。NHK各局が独自の目線で取材したコンテンツを厳選してお伝えします。列島各地のご当地ニュースや地域の課題を掘り下げた特集、全国の四季折々の自然・ご当地名物を訪ねる「列島ぶらり旅」など“列島各地の今”を多彩なラインナップでお届けします。"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T14:50:00+09:00",
+    "event_id": 4539,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4539",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T14:05:00+09:00",
+    "title": "列島ニュース[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4541": {
+    "channel_id": "NID32736-SID1024",
+    "description": "ことし7月の熊本地震から28日で3か月です。生活再建が進む一方で、避難所以外で暮らす人たちへの支援が課題になっています。今後の災害にどう対応すべきか考えます。",
+    "detail": {
+      "出演者": "【解説】池田誠一"
+    },
+    "duration": 600.0,
+    "end_time": "2026-10-29T15:00:00+09:00",
+    "event_id": 4541,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "討論・会談"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4541",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T14:50:00+09:00",
+    "title": "時論公論 熊本地震3か月 “見えない避難者”求められる対策は[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4542": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 420.0,
+    "end_time": "2026-10-29T15:07:00+09:00",
+    "event_id": 4542,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4542",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T15:00:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4543": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 180.0,
+    "end_time": "2026-10-29T15:10:00+09:00",
+    "event_id": 4543,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4543",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T15:07:00+09:00",
+    "title": "ニュース(関東甲信越)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4544": {
+    "channel_id": "NID32736-SID1024",
+    "description": "「iPS細胞」を取り上げる新プロジェクトXを紹介します！▽裁判員裁判の裁判員に選ばれたら…▽気象情報 ほか",
+    "detail": {
+      "出演者": "【キャスター】池田伸子,伊藤海彦,井村丈思,【リポーター】瀬戸光,長谷川史佳,ほか",
+      "番組内容": "新プロジェクトX、今週の放送は「iPS細胞」について その内容を少し先取り▽裁判員に選ばれ、裁判に参加した記者の報告▽福島県飯坂温泉からの中継▽気になる気象は？ ほか"
+    },
+    "duration": 2760.0,
+    "end_time": "2026-10-29T15:56:00+09:00",
+    "event_id": 4544,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4544",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T15:10:00+09:00",
+    "title": "午後LIVE ニュースーン iPS細胞 大発見その時に…[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4553": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T16:05:00+09:00",
+    "event_id": 4553,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4553",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T16:00:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4554": {
+    "channel_id": "NID32736-SID1024",
+    "description": "懐かしの番組「600こちら情報部」▽モーリー・ロバートソンさん在りし日の姿▽高校生のラオス教育支援▽個人向け国債▽災害救助犬 ほか",
+    "detail": {
+      "出演者": "【キャスター】池田伸子,伊藤海彦,井村丈思,【リポーター】瀬戸光",
+      "番組内容": "松本明子さんのリクエストで「600こちら情報部」をお届けします！▽今年亡くなったモーリー・ロバートソンさん生前のトークを▽高校生のラオス支援▽個人向け国債 ほかをお送りします。"
+    },
+    "duration": 3300.0,
+    "end_time": "2026-10-29T17:00:00+09:00",
+    "event_id": 4554,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4554",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T16:05:00+09:00",
+    "title": "午後LIVE ニュースーン 覚えていますか？ [600こちら情報部」[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4555": {
+    "channel_id": "NID32736-SID1024",
+    "description": "歌手、森山良子さん。今年、歌手デビューして60年を迎えました。生出演でライブへのこだわりを伺います！美声グッズもご紹介！",
+    "detail": {
+      "出演者": "【キャスター】池田伸子,伊藤海彦,井村丈思,長谷川史佳,【リポーター】柴田祐規子,ほか",
+      "番組内容": "歌手、森山良子さん。今年、歌手デビューして60年を迎えました。生出演でライブへのこだわりを伺います！美声グッズもご紹介！"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T18:00:00+09:00",
+    "event_id": 4555,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4555",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T17:00:00+09:00",
+    "title": "午後LIVE ニュースーン 歌手デビュー60年！森山良子さん生出演[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4557": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 600.0,
+    "end_time": "2026-10-29T18:10:00+09:00",
+    "event_id": 4557,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4557",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T18:00:00+09:00",
+    "title": "ニュース[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4559": {
+    "channel_id": "NID32736-SID1024",
+    "description": "首都圏の「リアルがみえる」50分！最新ニュースを深掘り！“暮らし”に役立つ情報に！しゅと犬くんはどこにおでかけ？テーマ曲はドリカム“東京magichour”",
+    "detail": {
+      "出演者": "【キャスター】安藤結衣,一橋忠之,【リポーター】浅田春奈,【気象キャスター】船木正人,ほか",
+      "番組内容": "首都圏の「リアルがみえる」50分！独自取材や中継でニュースの真相に迫ります。事件・事故や経済・子育て…幅広いのニュースを深掘りして“暮らし”に役立つ情報に！▽あなたの街のユニークな人を見つける「わがまちスター」▽知られざる魅力に出会う旅「オシたび」▽災害への備えを考える「シュトボー」といった特集も充実！▽しゅと犬くんはどこにお出かけしているのかな？▽テーマ曲はドリカム“東京 magic hour”"
+    },
+    "duration": 3000.0,
+    "end_time": "2026-10-29T19:00:00+09:00",
+    "event_id": 4559,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4559",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T18:10:00+09:00",
+    "title": "首都圏ネットワーク[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4565": {
+    "channel_id": "NID32736-SID1024",
+    "description": "30分できょうが分かる日本、そして世界の今と“これから”を読み解く確かな情報を届けます。 【キャスター】糸井羊司,副島萌生,【気象キャスター】近藤奈央",
+    "detail": {
+      "出演者": "【キャスター】糸井羊司,副島萌生,【気象キャスター】近藤奈央"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T19:30:00+09:00",
+    "event_id": 4565,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4565",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T19:00:00+09:00",
+    "title": "NHKニュース7[二][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4566": {
+    "channel_id": "NID32736-SID1024",
+    "description": "今回のトリセツショーはサケの焼き方を徹底研究！焼きザケを知られざる「ふっくら&ジューシー」にする極意を大発見！フライやムニエルも劇的進化のアレンジ技も紹介",
+    "detail": {
+      "出演者": "【出演】石原さとみ,柴田英嗣,大沢あかね,【声】濱田マリ,峯田茉優,【語り】山路和弘",
+      "番組内容": "みんな大好き、日本人が最も食べている魚・サケを大特集！焼きザケを、驚くほど「ふっくら&ジューシー」にする新常識が判明！”日本一”の漁師が見つけた「塩+○○」の簡単ワザや、お弁当店の冷めてもかたくならないプロの焼き方をトリセツ流にアレンジ！さらに、サケが6000キロも旅して戻る神秘の生態や、知られざる健康パワーもご紹介。焼きザケはもちろんフライやムニエルも格段に進化。新たなサケワールドへようこそ！"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T20:15:00+09:00",
+    "event_id": 4566,
+    "genres": [
+      {
+        "major": "バラエティ",
+        "middle": "その他"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "グルメ・料理"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4566",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T19:30:00+09:00",
+    "title": "あしたが変わるトリセツショー サケが感動の食感！ふっくら&ジューシー[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4569": {
+    "channel_id": "NID32736-SID1024",
+    "description": "【アナウンサー】伊藤海彦",
+    "detail": {
+      "出演者": "【アナウンサー】伊藤海彦"
+    },
+    "duration": 180.0,
+    "end_time": "2026-10-29T20:45:00+09:00",
+    "event_id": 4569,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4569",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T20:42:00+09:00",
+    "title": "#NHK うたでえがおに スゴEフェス",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4570": {
+    "channel_id": "NID32736-SID1024",
+    "description": "きょう1日の首都圏のニュースは？まとめて把握できる15分間。あなたの街のニュースや地域の話題をきめ細かく。あしたの気象情報も詳しくお伝えします。",
+    "detail": {
+      "出演者": "【キャスター】浅田春奈,【気象キャスター】平井信行",
+      "番組内容": "おかえりなさい。夜のひととき、きょう1日の首都圏のニュースがまとめてわかる15分間。あなたの街のニュースや地域の話題をきめ細かくお伝えします。関東各地のあすの気象情報も詳しく。あしたにつながる地域密着型ニュース番組です。"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T21:00:00+09:00",
+    "event_id": 4570,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4570",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T20:45:00+09:00",
+    "title": "首都圏ニュース845[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4571": {
+    "channel_id": "NID32736-SID1024",
+    "description": "電力各社の電気料金は今より高くなるかも？▽不正アクセス対応は▽今年一番の冷え込み▽大リーグWS決着か",
+    "detail": {
+      "出演者": "【キャスター】広内仁,野口葵衣,【スポーツキャスター】吉岡真央,【気象キャスター】斉田季実治",
+      "番組内容": "電力各社の電気料金は今より高くなるかも？▽不正アクセス対応は▽今年一番の冷え込み▽大リーグWS決着か"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T22:00:00+09:00",
+    "event_id": 4571,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4571",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T21:00:00+09:00",
+    "title": "ニュースウオッチ9▽電気料金が高くなるかも？▽不正アクセスへの対応は[二][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4572": {
+    "channel_id": "NID32736-SID1024",
+    "description": "Mrs. GREEN APPLEが大ヒット曲5曲を披露！オーケストラとの共演も！いきもの水野・大泉洋・コロッケ・原菜乃華…ミセスラバーが語るミセスの魅力とは？",
+    "detail": {
+      "出演者": "【出演】Mrs.GREEN APPLE,大泉洋,コロッケ,原菜乃華,水野良樹,東京フィルハーモニー交響楽団,栗田博文",
+      "番組内容": "Mrs. GREEN APPLEを大特集！「Brand New」「共犯」はじめ大ヒット曲5曲をフルサイズでパフォーマンス！「lulu.」「シンデレラ」ではオーケストラとの共演も！さらにミセスの魅力を掘り下げるトークコーナーでは、いきものがかり水野良樹・大泉洋・コロッケ・原菜乃華がVTRで登場。4人が語るミセスの魅力、そしてどうしても聞きたかった質問とは？ミセスの創作の裏側や意外な素顔も明らかに！"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T22:45:00+09:00",
+    "event_id": 4572,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "国内ロック・ポップス"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4572",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T22:00:00+09:00",
+    "title": "SONGS スペシャル Mrs. GREEN APPLE[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4574": {
+    "channel_id": "NID32736-SID1024",
+    "description": "青子(松井玲奈)と龍生(一ノ瀬颯)が手がけた一輪挿しが桜陶祭に並ぶ。二人は展示方法にもアイデアを出し合い、どちらの一輪挿しも好評を得るのだった。",
+    "detail": {
+      "出演者": "【出演】松井玲奈,一ノ瀬颯,藤間爽子,安藤玉恵,西田尚美",
+      "原作・脚本": "【原作】小玉ユキ,【脚本】泉澤陽子",
+      "番組内容": "桜陶祭に向け、居残りで作業する青子(松井玲奈)。龍生(一ノ瀬颯)からの思いがけない差し入れに驚きながらも、少しずつ二人の距離は縮まっていき、一緒に見上げた星空から青子は新しいアイデアをひらめく。いよいよ桜陶祭本番。一輪挿しの展示方法に青子と龍生はアイデアを出し合い、絵付けの青、白磁の白はどちらも好評を得るのだった。青子は龍生の過去の作品を見てみたいと思うのだが…",
+      "音楽": "【音楽】秦基博,福廣秀一朗"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T23:00:00+09:00",
+    "event_id": 4574,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4574",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-29T22:45:00+09:00",
+    "title": "【夜ドラ】青の花 器の森(4)[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4575": {
+    "channel_id": "NID32736-SID1024",
+    "description": "料理人たちの間で話題！「日本一くさい」にんにくとは？「黒にんにく」が海外の有名シェフを魅了？青森・田子町で聞いた！アイデア活用法！",
+    "detail": {
+      "出演者": "【司会】所ジョージ,木村佳乃,【ゲスト】高城れに,杉浦太陽,杏林大学教授…岡田洋二,ほか",
+      "番組内容": "「日本一くさい」と言われるにんにくはどうやって出来た？生産者は海外を飛び回る貿易会社の元経営者だった！料理人たちの驚きの使い方は？他の食材には無い風味に魅了された海外の有名シェフは「黒にんにく」をどう使うのか？青森・田子町で聞いたアイデア活用法。にんにくの今を深掘り！！"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T23:30:00+09:00",
+    "event_id": 4575,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "トークバラエティ"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4575",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T23:00:00+09:00",
+    "title": "所さん！事件ですよ“日本一くさい”にんにくとは？有名シェフが夢中の食材[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4581": {
+    "channel_id": "NID32736-SID1024",
+    "description": "イスラエルで議会選挙が行われ与野党ともに過半数には届かない見込みです。中東情勢を大きく左右し、日本の経済にも影響を与えるイスラエルの選挙について解説します。",
+    "detail": {
+      "出演者": "【解説】出川展恒"
+    },
+    "duration": 600.0,
+    "end_time": "2026-10-29T23:40:00+09:00",
+    "event_id": 4581,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "討論・会談"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4581",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T23:30:00+09:00",
+    "title": "時論公論 イスラエル総選挙 政権交代はあるか？[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4582": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 300.0,
+    "end_time": "2026-10-29T23:45:00+09:00",
+    "event_id": 4582,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4582",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T23:40:00+09:00",
+    "title": "ニュース・気象情報[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID4583": {
+    "channel_id": "NID32736-SID1024",
+    "description": "北アルプスの奥大日岳(2611m)草紅葉に染まる湿原を巡り、立山連峰を望みながらの稜線歩きを楽しむ！ミヤマリンドウなど秋の花や野イチゴなどの実りも登山道を彩る！",
+    "detail": {
+      "出演者": "【出演】佐伯知彦,【語り】鈴木麻里子",
+      "番組内容": "称名滝から急な尾根道を登り、緑の湿原・大日平へ、ラムサール条約に登録された国内の湿原の中で最も標高の高い所にあるため、秋の色づきも早い！さらに岩場の急登を越え、大日岳(2501m)の山頂へ、稜線の先には大日連峰最高峰の奥大日岳(2611m)、その向こうには剱立山連峰が望める。大日連峰の稜線を辿り、奥大日岳へ富山湾の向こうに能登半島まで望む大展望が広がる！案内は立山で代々ガイドを務める佐伯知彦さん。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T23:50:00+09:00",
+    "event_id": 4583,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID32736-SID1024-EID4583",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-29T23:45:00+09:00",
+    "title": "にっぽん百名山ミニ 5min「秋 大日岳」[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5020": {
+    "channel_id": "NID32736-SID1024",
+    "description": "英理子(吉田羊)とるり(南沙良)は、山岸(小久保寿人)のスマホから、ある決定的なデータを発見する。一方、復帰してくるはずの寺田(加藤清史郎)は会社に姿を現さず…",
+    "detail": {
+      "出演者": "【出演】吉田羊,南沙良,加藤清史郎,小久保寿人,前川泰之,春海四方,信太昌之,鳥谷宏之,玉田真也,宮下咲,夏子,横溝菜帆,本間剛,浅野千鶴,荒木秀行,大場みなみ,山中良弘,田中直樹,尾美としのり",
+      "原作・脚本": "【脚本】あさか友恵",
+      "番組内容": "英理子(吉田羊)とるり(南沙良)は、山岸(小久保寿人)のスマホから、ある決定的なデータを発見する。英理子は寺田(加藤清史郎)の訴えを軽んじた自分の判断を悔い、山岸をプロジェクトから外すと安西(尾美としのり)に宣言。山岸抜きでプロジェクトを成功させるため、後任探しに奔走する。一方、休暇明けで復帰のはずが、出社してこない寺田。るりはその身を案じ、寺田のマンションを訪れるが…",
+      "音楽": "【音楽】yuma yamaguchi"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-30T01:35:00+09:00",
+    "event_id": 5020,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "その他"
+      },
+      {
+        "major": "その他",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5020",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-30T00:50:00+09:00",
+    "title": "【ドラマ10】会社員(3)[解][字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5023": {
+    "channel_id": "NID32736-SID1024",
+    "description": "稀代のスケーターが引退を決めた。スピードスケートの髙木美帆選手、10個のオリンピックメダルは日本女子最多。最後の最後まで挑戦を続けた日々を本人の言葉で振り返る。",
+    "detail": {
+      "出演者": "【出演】髙木美帆",
+      "番組内容": "中学生でオリンピックに初出場し、長年日本スケート界をけん引。NHKのカメラは17年にわたり、髙木選手の姿を記録してきた。そこには歓喜の瞬間だけでなく、挫折や葛藤する様子があった。現役生活の最終盤、胸にあったのはミラノ・コルティナ大会1500メートルでの金メダル。悲願達成に向けて試行錯誤を続け、本番では攻めの姿勢を貫いた。現役生活を終えた直後にロングインタビュー。競技人生の締めくくりにあった思いは。"
+    },
+    "duration": 2760.0,
+    "end_time": "2026-10-30T02:21:00+09:00",
+    "event_id": 5023,
+    "genres": [
+      {
+        "major": "スポーツ",
+        "middle": "マリン・ウィンタースポーツ"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5023",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T01:35:00+09:00",
+    "title": "スポーツ×ヒューマン選 髙木美帆 The Final 1500m[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5033": {
+    "channel_id": "NID32736-SID1024",
+    "description": "「ダーウィンが来た！」の名作を10分に凝縮。地上最速の名ハンター・チーター。子育てに密着すると、我が子を狙うハイエナに、母親が獲物をプレゼント！一体なぜ！？",
+    "detail": {
+      "番組内容": "時速100km以上の猛スピードで獲物を狩るチーター。地上最速である一方、走りに特化したスリムな体ゆえに力は弱く、ライオンやハイエナなどの大型肉食獣にはかなわない。天敵ひしめくアフリカのサバンナで、どうやって子どもを守り育てるのか？驚きのテクニックの1つが、子どもを狙うハイエナに自分の獲物を渡して見逃してもらう「取り引き作戦」。持ち前の高い狩りの成功率を生かしたチーターの子育て術に迫る！"
+    },
+    "duration": 600.0,
+    "end_time": "2026-10-30T04:10:00+09:00",
+    "event_id": 5033,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5033",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T04:00:00+09:00",
+    "title": "ダーウィンが来た！10min. 目指せ！最速ハンター チーター子育てのヒミツ[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5034": {
+    "channel_id": "NID32736-SID1024",
+    "description": "初歩的な手話の会話を25回に分けて紹介します。最終的には手話で簡単な自己紹介ができるようになるのが目標です。自転車、バス、電車、地下鉄などの単語を学びます。",
+    "detail": {
+      "出演者": "【出演】河合優子,所智子,石川寛和",
+      "番組内容": "日常生活に欠かせない初歩的な手話の単語や会話を25回に分けて紹介します。通しでごらんいただき、最終的には手話で簡単な自己紹介ができるようになるのが目標です。講師の河合優子さん、サブ講師の所智子さん、生徒役石川寛和さんはいずれも、中途失聴および難聴の当事者です。自転車、バス、電車、地下鉄などの単語を学びます。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-30T04:15:00+09:00",
+    "event_id": 5034,
+    "genres": [
+      {
+        "major": "福祉",
+        "middle": "手話"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5034",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T04:10:00+09:00",
+    "title": "ワンポイント手話(17)乗り物※字幕スーパー[手]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5035": {
+    "channel_id": "NID32736-SID1024",
+    "description": "ロシアの圧倒的な軍事力を前に4年半以上耐え続けているウクライナ。それを可能にしているものとは。ヨーロッパ企業などへの取材を通じ、戦闘の裏側に迫る。",
+    "detail": {
+      "出演者": "【キャスター】辻浩平,藤重博貴,山澤里奈",
+      "番組内容": "ロシアの圧倒的な軍事力を前にウクライナが4年半以上、対抗し続けられる背景には、無人戦術の急速な発展がある。補給路の遮断や長距離無人機でエネルギー・物流施設を攻撃し、ロシア社会に打撃を与え続けている。こうした無人戦術を支えるヨーロッパ企業への取材を通じ、戦闘の裏側に迫る。"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-30T05:00:00+09:00",
+    "event_id": 5035,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5035",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T04:15:00+09:00",
+    "title": "国際報道2026 ウクライナ 進む無人戦術[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5040": {
+    "channel_id": "NID32736-SID1024",
+    "description": "朝までに入っている最新ニュース、押さえておきたいきのう1日のニュースとスポーツ情報を！気になる今日の気象情報も詳しく。 【気象キャスター】檜山靖洋,晴山紋音",
+    "detail": {
+      "出演者": "【キャスター】勝呂恭佑,岩﨑果歩,【気象キャスター】檜山靖洋,晴山紋音"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T06:00:00+09:00",
+    "event_id": 5040,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5040",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T05:00:00+09:00",
+    "title": "NHKニュース おはよう日本",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5045": {
+    "channel_id": "NID32736-SID1024",
+    "description": "1日のスタートに、国内外の最新ニュースをわかりやすく、コンパクトに。気になるニュースの解説、スポーツ情報も。気象情報は詳しくお伝えします。",
+    "detail": {
+      "出演者": "【キャスター】井上二郎,赤木野々花,ホルコムジャック和馬,是永千恵,岩﨑果歩,ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T06:30:00+09:00",
+    "event_id": 5045,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5045",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T06:00:00+09:00",
+    "title": "NHKニュース おはよう日本",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5047": {
+    "channel_id": "NID32736-SID1024",
+    "description": "最新ニュースをコンパクトに！経済情報は「おはBiz」で。ほっこりする各地の話題やクスっと笑えるユニークな世界の話題もピックアップ。気象情報も詳しくお伝えします！",
+    "detail": {
+      "出演者": "【キャスター】井上二郎,赤木野々花,ホルコムジャック和馬,是永千恵,岩﨑果歩,ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T07:00:00+09:00",
+    "event_id": 5047,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5047",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T06:30:00+09:00",
+    "title": "NHKニュース おはよう日本[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5050": {
+    "channel_id": "NID32736-SID1024",
+    "description": "国内外の最新ニュースをわかりやすく。気になるニュースの「なぜ？」を解説。ホットな現場の中継やスポーツ情報、社会の深層に鋭く迫る特集も。気象情報は詳しく。",
+    "detail": {
+      "出演者": "【キャスター】井上二郎,赤木野々花,ホルコムジャック和馬,是永千恵,ほか"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-30T07:45:00+09:00",
+    "event_id": 5050,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5050",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T07:00:00+09:00",
+    "title": "NHKニュース おはよう日本[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5051": {
+    "channel_id": "NID32736-SID1024",
+    "description": "▽首都圏・関東甲信越の最新ニュース▽「傘は必要？服装選びは？」通勤通学・暮らしに役立つ気象情報▽お出かけ前に知っておきたい情報をまとめてお伝えします",
+    "detail": {
+      "出演者": "【キャスター】赤木野々花,井上二郎,【気象キャスター】檜山靖洋",
+      "番組内容": "お出かけ前に知っておきたい情報をまとめてお伝えします！▽首都圏・関東甲信越の最新ニュース▽「傘は必要？服装選びは？洗濯は？」通勤通学・暮らしに役立つ気象情報▽気になるニュースや地域で活躍する人を深掘りした特集も！"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-30T08:00:00+09:00",
+    "event_id": 5051,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "天気"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "交通"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5051",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T07:45:00+09:00",
+    "title": "NHKニュース おはよう首都圏(関東甲信越)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5053": {
+    "channel_id": "NID32736-SID1024",
+    "description": "小説を黒崎(遠藤憲一)に酷評され、落ち込む珠(石橋静河)だが、左(北野秀気)はその勇気を褒める。そんな中、左と仲良く話す珠の姿を保(金子大地)が見つけて…。",
+    "detail": {
+      "出演者": "【出演】石橋静河,金子大地,赤堀雅秋,中村優子,瀬戸さおり,大窪人衛,北野秀気,愛,誠,井浦新,遠藤憲一",
+      "原作・脚本": "【作】櫻井剛",
+      "番組内容": "珠(石橋静河)は自らの書いた短編小説を、一流文芸雑誌の編集長・黒崎(遠藤憲一)に酷評され、落ち込んでいた。しかし、仕事からの帰り道、「悠樂軒」で出会った作家志望の青年・左良太(北野秀気)にその勇気を称賛される。左は珠のことを励まし、珠は「また小説と向き合ってみよう」と前向きな気持ちになる。そんな仲良く喋る二人の様子を、帰りが遅いと心配で迎えに来た保(金子大地)が見つけてしまい…。",
+      "音楽": "【音楽】fox capture plan"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-30T08:15:00+09:00",
+    "event_id": 5053,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5053",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 1024,
+    "start_time": "2026-10-30T08:00:00+09:00",
+    "title": "【連続テレビ小説】ブラッサム(25)第5週「狂騒で、東京」[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5054": {
+    "channel_id": "NID32736-SID1024",
+    "description": "プレミアムトーク 渡辺美里 ▼特選！エンタ  イチオシ映画 ▼「とことんオリーブを楽しもう！」杉井志織",
+    "detail": {
+      "出演者": "【ゲスト】渡辺美里,【VTRインタビューゲスト】増子直純,伊藤俊郎,ほか",
+      "番組内容": "プレミアムトーク 渡辺美里▼21年ぶりの西武スタジアムライブに挑む！今の気持ちは？▼「My Revolution」「恋したっていいじゃない」「センチメンタル カンガルー」名曲の数々▼1966年生まれ 同い年の音楽仲間 怒髪天の増子直純が語る素顔▼18歳でデビューのころ 大ヒットで大忙しの日々 失った音楽仲間への思い▼映画や海外ドラマが大好き！エンタコーナーも楽しみ→▼エンタ映画▼グリーン オリーブ"
+    },
+    "duration": 6000.0,
+    "end_time": "2026-10-30T09:55:00+09:00",
+    "event_id": 5054,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      },
+      {
+        "major": "拡張",
+        "middle": "中断ニュースあり"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5054",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T08:15:00+09:00",
+    "title": "あさイチ プレミアムトーク 渡辺美里[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID5447": {
+    "channel_id": "NID32736-SID1024",
+    "description": "ドキュメント72時間年末SP、投票募集中！みなさんの投票でベスト10を決定。街の人たちのオススメ回を聞きながら、投票方法をご案内。投票期間は11月15日まで。",
+    "detail": {
+      "出演者": "【語り】吹石一恵",
+      "番組内容": "今年もやります、ドキュメント72時間年末スペシャル。みなさんの投票で選ばれたベスト10を年末に一挙アンコール放送。現在、投票募集中！1人3つまで選べます。街の人たちのオススメ回を聞きながら、投票方法をご案内。投票は番組HPから。締め切りは11月15日まで。今年はどの回が1位になるのか！？番組を続けていくためにも、ぜひ、みなさまも投票をお願いします！"
+    },
+    "duration": 120.0,
+    "end_time": "2026-10-30T02:24:00+09:00",
+    "event_id": 5447,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "情報・ワイドショー",
+        "middle": "暮らし・住まい"
+      }
+    ],
+    "id": "NID32736-SID1024-EID5447",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T02:22:00+09:00",
+    "title": "ドキュメント72時間PR 年末スペシャル2026投票募集[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID32736-SID1024-EID7376": {
+    "channel_id": "NID32736-SID1024",
+    "description": "",
+    "detail": {},
+    "duration": 60.0,
+    "end_time": "2026-10-30T00:50:00+09:00",
+    "event_id": 7376,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "宇宙・科学・医学"
+      }
+    ],
+    "id": "NID32736-SID1024-EID7376",
+    "is_free": true,
+    "network_id": 32736,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 1024,
+    "start_time": "2026-10-30T00:49:00+09:00",
+    "title": "新プロジェクトX&タモリ山中伸弥の！？ PR iPS細胞スペシャル",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID10207": {
+    "channel_id": "NID4-SID101",
+    "description": "酒場詩人の吉田類が全国の低山を訪ね、その魅力を堪能！今回の舞台は、登山者数世界一！東京・高尾山。百座目となる節目の登山、人々を惹きつけてきた“特別な聖地”とは？",
+    "detail": {
+      "出演者": "【出演】吉田類,草刈民代",
+      "番組内容": "年間300万人が登る登山者数世界一の山、東京・高尾山。吉田類さんのホームマウンテンでもあり、「にっぽん百低山」記念すべき百座目にふさわしい日本を代表する低山だ。昭和に入り観光客が登り始める前から、薬王院への参詣者や養蚕農家、更には俳人たちが愛した人気の山。ところが奈良時代に修験者が登り始める更に前からある“特別な聖地”だっだという。古からの信仰に根ざし、人々を惹きつけ続けたその秘密とは？"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T12:30:00+09:00",
+    "event_id": 10207,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID4-SID101-EID10207",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T12:00:00+09:00",
+    "title": "にっぽん百低山「高尾山・東京」[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID10750": {
+    "channel_id": "NID4-SID101",
+    "description": "新しくスタートした朝ドラ「ブラッサム」の見どころをお届け。主演の石橋静河さんをはじめ、加賀まりこさん、松たか子さんなどキャスト陣の熱い思いに迫る。",
+    "detail": {
+      "出演者": "【出演】石橋静河,加賀まりこ,松たか子,国仲涼子,渡部篤郎,YOASOBI,綿矢りさ",
+      "番組内容": "新しくスタートした朝ドラ「ブラッサム」の見どころをお届け。主演の石橋静河さんをはじめ、加賀まりこさんや松たか子さんといったキャスト陣の熱い思いに迫る。さらに主題歌を担当するYOASOBIと作家・綿矢りささんの制作秘話も披露。ドラマのモデルとなった作家・宇野千代の言葉に魅了される理由があきらかに。"
+    },
+    "duration": 120.0,
+    "end_time": "2026-10-29T15:00:00+09:00",
+    "event_id": 10750,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID101-EID10750",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T14:58:00+09:00",
+    "title": "連続テレビ小説「ブラッサム」PR [字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID11391": {
+    "channel_id": "NID4-SID101",
+    "description": "10月24日に施行された『改正皇室典範』。皇室はどう変わるのか。関係者や専門家への独自取材で課題に迫るとともに、これからのありようを考える。",
+    "detail": {
+      "出演者": "【出演】名古屋大学大学院 教授…河西秀哉,【キャスター】星麻琴,【語り】中井和哉",
+      "番組内容": "10月24日に施行された『改正皇室典範』。皇族数の確保に向けて、女性皇族は結婚後も皇室に残ることができるようになった他、皇室で旧皇族の男系男子を養子として迎えることが認められた。新たな皇室典範のもと皇室のあり方はどう変わるのか。施行にあたって実務を担う宮内庁はどのような課題と向き合うことになるのか。関係者や専門家への独自取材で迫り、これからの皇室について今後どのような議論が必要なのか考える。"
+    },
+    "duration": 1680.0,
+    "end_time": "2026-10-29T04:58:00+09:00",
+    "event_id": 11391,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "社会・時事"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "定時・総合"
+      }
+    ],
+    "id": "NID4-SID101-EID11391",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T04:30:00+09:00",
+    "title": "クローズアップ現代「改正皇室典範」施行 私たちと皇室の未来は[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID13170": {
+    "channel_id": "NID4-SID101",
+    "description": "江戸・深川の長屋で医者になりたいと夢見て父である医者・松庵(玉木宏)を手伝う,おいち(葵わかな)。彼女には特別な能力があった…。原作・あさのあつこ。",
+    "detail": {
+      "出演者": "【出演】葵わかな,玉木宏,髙嶋政宏",
+      "番組内容": "江戸・深川の長屋で医者になりたいと夢見て父である医者・松庵(玉木宏)を手伝うヒロインおいち(葵わかな)。彼女には特別な力があった。それは無念のうちに亡くなっていった者たちの声を聴き姿を見る力…。明るく前向きなおいちが、岡っ引きの仙五朗親分(髙嶋政宏)とともに、人間の闇に迫り、謎を解いていく。犯人の意外性を味わえる推理時代劇でありつつ、悩みながらも自らの力で道を切り開いていく、おいちの青春成長物語"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-29T14:58:00+09:00",
+    "event_id": 13170,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "時代劇"
+      }
+    ],
+    "id": "NID4-SID101-EID13170",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T14:57:00+09:00",
+    "title": "もうすぐスタート！BS時代劇「おいち不思議がたり」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4692": {
+    "channel_id": "NID4-SID101",
+    "description": "実力派ピアニスト アレクサンダー・コブリンがラフマニノフとチャイコフスキーの絵画的な作品を演奏。深く豊かな情感を表現するダイナミックで壮大な響きをお楽しみ下さい",
+    "detail": {
+      "番組内容": "【曲目】練習曲集「音の絵」作品39(ラフマニノフ) 四季 作品37b から11月「トロイカ」12月 「クリスマス」(チャイコフスキー)【演奏】アレクサンダー・コブリン(ピアノ)【収録】2024年11月1日 浜離宮朝日ホール(東京)"
+    },
+    "duration": 3300.0,
+    "end_time": "2026-10-29T05:55:00+09:00",
+    "event_id": 4692,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "クラシック・オペラ"
+      },
+      {
+        "major": "音楽",
+        "middle": "ライブ・コンサート"
+      }
+    ],
+    "id": "NID4-SID101-EID4692",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T05:00:00+09:00",
+    "title": "クラシック倶楽部 アレクサンダー・コブリン ピアノ・リサイタル",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4693": {
+    "channel_id": "NID4-SID101",
+    "description": "ツィンバロン:斉藤 浩 管弦楽:東京フィルハーモニー交響楽団 指揮:角田 鋼亮【ロケ地】ケチケメート、ブダペスト(ハンガリー)",
+    "detail": {
+      "出演者": "【出演】斉藤浩,東京フィルハーモニー交響楽団,角田鋼亮",
+      "番組内容": "ハンガリーを代表する作曲家・コダーイによる「ハーリ・ヤーノシュ」。主人公・ヤーノシュは竜を退治した、ナポレオンを一人で倒したなど、荒唐無稽なほら話をユーモアたっぷりに語る。コダーイにゆかりのあるハンガリーの美しい風景を巡りながら、愛らしい「ハーリ・ヤーノシュ」の世界をお届けする。"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-29T06:00:00+09:00",
+    "event_id": 4693,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "クラシック・オペラ"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "音楽・美術・工芸"
+      }
+    ],
+    "id": "NID4-SID101-EID4693",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "3/2+LFEモード(3/2.1モード)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T05:55:00+09:00",
+    "title": "名曲アルバム ハーリ・ヤーノシュ コダーイ作曲[SS]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4694": {
+    "channel_id": "NID4-SID101",
+    "description": "▽英BBC,シンガポールCNA,韓国KBS,中国CCTV,東方衛視,香港TVB,タイMCOT,越VTV,豪ABC,印NDTV,カタール・アルジャジーラ,独ZDF",
+    "detail": {},
+    "duration": 4500.0,
+    "end_time": "2026-10-29T07:15:00+09:00",
+    "event_id": 4694,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      }
+    ],
+    "id": "NID4-SID101-EID4694",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T06:00:00+09:00",
+    "title": "ワールドニュース[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4696": {
+    "channel_id": "NID4-SID101",
+    "description": "和歌山県熊野の山間で生まれ育ったヒロイン山中木葉。父譲りの天性の味覚を武器に挑む世界は、厳しい修行が待ち受けている料理の世界。2001年放送の連続テレビ小説。",
+    "detail": {
+      "出演者": "【出演】池脇千鶴,風吹ジュン,根津甚八,小林千登勢,小林幸子,小倉久寛,森下じんせい,佐藤慶,【語り】野際陽子",
+      "原作・脚本": "【作】西荻弓絵",
+      "番組内容": "精密検査の結果、フジは狭心症と判明し、放置すれば命に関わる危険な状態であることが明らかになる。家族は病名を伏せながら支えようとするが、当のフジは退院後も畑仕事をしようとするなど相変わらず元気に振る舞う。進路に悩む木葉は、一路が本当は料理人を目指していた過去を知り、自らの将来と向き合い始める。しかしある朝、フジは突然倒れ、家族に大きな衝撃が走る。",
+      "音楽": "【音楽】千住明"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T07:30:00+09:00",
+    "event_id": 4696,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID101-EID4696",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語+副音声",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "1/0+1/0モード(デュアルモノ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T07:15:00+09:00",
+    "title": "【連続テレビ小説】ほんまもん(4)[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4697": {
+    "channel_id": "NID4-SID101",
+    "description": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、黒崎に自らの短編小説を渡すが…。",
+    "detail": {
+      "出演者": "【出演】石橋静河,金子大地,高良健吾,赤堀雅秋,中村優子,瀬戸さおり,北野秀気,斎藤司,愛,誠,井浦新,遠藤憲一",
+      "原作・脚本": "【作】櫻井剛",
+      "番組内容": "珠(石橋静河)は家事と仕事の合間に小説を書き続けていた。あるとき、珠は黒崎(遠藤憲一)に自分の書いた小説を読んでほしいと思い、仕事中に直接、黒崎に短編小説を渡すことに。黒崎は珠の突然の行動に驚くが…。一方、珠と一緒に暮らしている保(金子大地)は、下宿先の大家・三好辰五郎(赤堀雅秋)とその娘・マキ(中村優子)から、「珠との関係が、恋仲に発展したのか」と問いただされて…。",
+      "音楽": "【音楽】fox capture plan"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T07:45:00+09:00",
+    "event_id": 4697,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID101-EID4697",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T07:30:00+09:00",
+    "title": "【連続テレビ小説】ブラッサム(24)第5週「狂騒で、東京」[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4699": {
+    "channel_id": "NID4-SID101",
+    "description": "▽フランス・F2,ドイツ・ZDF,スペイン・TVE,カタール・アルジャジーラ,中国・CCTV,シンガポール・CNA,印・NDTV,豪・ABC,韓国・KBS",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T09:00:00+09:00",
+    "event_id": 4699,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      }
+    ],
+    "id": "NID4-SID101-EID4699",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T08:00:00+09:00",
+    "title": "ワールドニュース[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4703": {
+    "channel_id": "NID4-SID101",
+    "description": "サンタクロースにはダメ人間の兄フレッドがいた…。そのフレッドが北極にあるサンタのおもちゃ工場を手伝うことになるが、大騒動を巻き起こしてしまう爆笑コメディー。",
+    "detail": {
+      "出演者": "【出演】ヴィンス・ヴォーン,ポール・ジアマッティ,レイチェル・ワイズ,ケビン・スペイシー",
+      "制作": "～2007年 アメリカ制作～",
+      "原作・脚本": "【原案】ジェシー・ネルソン,ダン・フォーゲルマン,【脚本】ダン・フォーゲルマン",
+      "番組内容": "世界中の子どもたちに愛されるサンタクロースにはダメ人間の兄フレッドがいた。ある日、フレッドは悪事を働き逮捕されてしまい、弟のサンタクロース、ニックが保釈金を肩代わりし、北極のおもちゃ工場を手伝って返済することに。しかし、トナカイもエルフもびっくりの大騒動が…。数々のコメディー映画で知られるヴィンス・ヴォーンがフレッド、個性派の名優ポール・ジアマッティが弟のサンタクロースを演じる爆笑コメディー。",
+      "監督・演出": "【監督】デビッド・ドブキン",
+      "音楽": "【音楽】クリストフ・ベック"
+    },
+    "duration": 7020.0,
+    "end_time": "2026-10-29T14:57:00+09:00",
+    "event_id": 4703,
+    "genres": [
+      {
+        "major": "映画",
+        "middle": "洋画"
+      }
+    ],
+    "id": "NID4-SID101-EID4703",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T13:00:00+09:00",
+    "title": "シネマ「ブラザーサンタ」<字幕スーパー><レターボックスサイズ>",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4706": {
+    "channel_id": "NID4-SID101",
+    "description": "▽アメリカ・ABC,アメリカ・PBSニュースアワー,韓国・KBS,カタール・アルジャジーラ,中国・CCTV ▽世界の気象",
+    "detail": {},
+    "duration": 3540.0,
+    "end_time": "2026-10-29T16:59:00+09:00",
+    "event_id": 4706,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      }
+    ],
+    "id": "NID4-SID101-EID4706",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T16:00:00+09:00",
+    "title": "ワールドニュース ▽アメリカ▽アジア[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4708": {
+    "channel_id": "NID4-SID101",
+    "description": "初期ゴシック建築の傑作、パリ・ノートルダム大聖堂。大火災からの復興を見守り、文化と歴史を次世代に引き継ごうとする人々に出会います。語り:永作博美・つぶやきシロー",
+    "detail": {
+      "出演者": "【語り】永作博美,つぶやきシロー",
+      "番組内容": "パリ発祥の地・シテ島にそびえるノートルダム大聖堂。2019年4月に大火災に見舞われ、長い復興作業を経て再び公開が始まった。中世の伝統技法で彫刻を修復する職人、13世紀に生まれた聖歌の多重合唱を学ぶ子どもたち、隣接する学生街ではフランス最古・ソルボンヌ大学で天文台を守る人たちなど、ノートルダムから広がった歴史や文化をこよなく愛する人々とふれあう旅。撮影:2026年5月 語り:永作博美・つぶやきシロー"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T18:00:00+09:00",
+    "event_id": 4708,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "旅バラエティ"
+      }
+    ],
+    "id": "NID4-SID101-EID4708",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T17:00:00+09:00",
+    "title": "世界ふれあい街歩き 大聖堂の鐘の音響く～パリ・ノートルダム[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4710": {
+    "channel_id": "NID4-SID101",
+    "description": "世界の長距離トラックの助手席にカメラを据えて配達先までの風景を味わうワールド・トラックロード。今回の舞台は極寒のモンゴル。旧正月を祝う家族のもとへ。",
+    "detail": {
+      "番組内容": "世界の長距離トラックの助手席にカメラを据えて配達先までの風景を味わうワールド・トラックロード。今回の舞台は極寒のモンゴル。旧正月を祝う家族のもとへ。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T19:00:00+09:00",
+    "event_id": 4710,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID4710",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T18:00:00+09:00",
+    "title": "ワールド・トラックロード ～俺の助手席に乗らないか～モンゴル編(2)※字幕",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4712": {
+    "channel_id": "NID4-SID101",
+    "description": "メキシコのお祭り「死者の日」はとってもカラフル、ここで出会った小さいけれど勇気あるニャンに岩合さん一目ぼれ。丘の上からネコを探し出す岩合さんの秘けつにも注目！",
+    "detail": {
+      "出演者": "【出演】岩合光昭,【語り】塚本高史",
+      "番組内容": "カラフルな旗、道には鮮やかなオレンジの花マリーゴールド、メキシコの都市グアナファトは日本のお盆のような「死者の日」を迎える準備が進んでいた。そこで出会った勇気あるニャンに動物写真家岩合光昭さんは一目ぼれ。さらに岩合さんカラフルな家並みが一望できる丘に上がり、ここからネコを探して、発見したネコを訪ねてみようと思った。何匹ものネコを発見する岩合さんだが、番組の中で、ネコを見つけ出す秘けつを教えてくれた"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T20:00:00+09:00",
+    "event_id": 4712,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "園芸・ペット・手芸"
+      }
+    ],
+    "id": "NID4-SID101-EID4712",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T19:00:00+09:00",
+    "title": "岩合光昭の世界ネコ歩き「メキシコ」[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4714": {
+    "channel_id": "NID4-SID101",
+    "description": "“死んだ人を生き返らせる”そんな言い伝えを持つ植物が韓国に存在する。それが生えるのは、深い霧が出る山中。一攫千金を夢見てお宝を追うスゴ腕のハンターに密着した！",
+    "detail": {
+      "出演者": "【語り】井上二郎",
+      "番組内容": "命の危険をかえりみず、断崖絶壁や海の中、荒野などで“お宝”を探し求めるハンターをドキュメント。今回の舞台は韓国。追い求めるのは「サンサム(山参)」、高麗人参の野生種だ。サンサムは身体に活力を与えるとされ、大モノなら数千万円の値がつく。しかし人知れず山の中でひっそりと自生しているため、めったに出会えない。ハンターたちは時に神に祈り、時にチームプレイで幻の薬草を探していく。何日も山に通い、ついに…？"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T21:00:00+09:00",
+    "event_id": 4714,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID4-SID101-EID4714",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T20:00:00+09:00",
+    "title": "スゴ腕！お宝ハンターズ“人が生き返る”幻の薬草を追え！[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4716": {
+    "channel_id": "NID4-SID101",
+    "description": "U字工事が岩国のディープな魅力を満喫。かつてタングステンを採掘した謎の洞窟テーマパーク。町を元気に盛り上げるチンドン隊。知られざる地元の熱い絆に迫る。",
+    "detail": {
+      "出演者": "【リポーター】U字工事,【語り】冨永みーな",
+      "番組内容": "U字工事が地元ケーブルテレビの案内人と共に、山口県岩国市のディープな魅力に迫る。超古代文明をテーマにした謎の洞窟テーマパークでは、かつて日本経済を支えたタングステン鉱山の歴史、鉱石の神秘的な発光体験に大興奮。江戸時代から昭和にかけて宿場町として栄えた高森地区では、地元を盛り上げようと結成された「高森チンドン隊」と合流。特訓した南京玉すだれの出来栄えは？"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T21:15:00+09:00",
+    "event_id": 4716,
+    "genres": [
+      {
+        "major": "バラエティ",
+        "middle": "旅バラエティ"
+      }
+    ],
+    "id": "NID4-SID101-EID4716",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T21:00:00+09:00",
+    "title": "ザ・穴場ツアー CATVネットワーク 山口県(2)知られざる岩国名物 編[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4717": {
+    "channel_id": "NID4-SID101",
+    "description": "長崎県と佐賀県を走る絶景路線「松浦鉄道」で金子貴俊がぶらり旅。運転士いち押し“桜トンネル”駅や“今より福の生ずるところ”と伝わる町を訪ね、絶品のアジフライに感動",
+    "detail": {
+      "出演者": "【出演】金子貴俊,【語り】松重豊",
+      "番組内容": "松重豊がナビゲート「ニッポンぶらり鉄道旅」。長崎県と佐賀県を走る「松浦鉄道」に乗って金子貴俊が伊万里湾沿いで福めぐり。【浦ノ崎】運転士いち押しの絶景“桜のトンネル”に感動【今福】“今より福の生ずる”と伝わる町は「アジフライの聖地」。フライに使うアジを店主が一本釣りする食堂を訪ねる【たびら平戸口】日本屈指の夕暮れの島といわれる生月島。香川県から移住した家族がいた。父は漁師に転職、漁師飯をいただく。"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T22:00:00+09:00",
+    "event_id": 4717,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "旅バラエティ"
+      }
+    ],
+    "id": "NID4-SID101-EID4717",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T21:15:00+09:00",
+    "title": "ニッポンぶらり鉄道旅 選 春の九州で福めぐり！松浦鉄道[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4719": {
+    "channel_id": "NID4-SID101",
+    "description": "ロシアの圧倒的な軍事力を前に4年半以上耐え続けているウクライナ。それを可能にしているものとは。ヨーロッパ企業などへの取材を通じ、戦闘の裏側に迫る。",
+    "detail": {
+      "出演者": "【キャスター】辻浩平,藤重博貴,山澤里奈",
+      "番組内容": "ロシアの圧倒的な軍事力を前にウクライナが4年半以上、対抗し続けられる背景には、無人戦術の急速な発展がある。補給路の遮断や長距離無人機でエネルギー・物流施設を攻撃し、ロシア社会に打撃を与え続けている。こうした無人戦術を支えるヨーロッパ企業への取材を通じ、戦闘の裏側に迫る。"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-29T22:45:00+09:00",
+    "event_id": 4719,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      },
+      {
+        "major": "ニュース・報道",
+        "middle": "解説"
+      }
+    ],
+    "id": "NID4-SID101-EID4719",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T22:00:00+09:00",
+    "title": "国際報道2026 ウクライナ 進む無人戦術[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4721": {
+    "channel_id": "NID4-SID101",
+    "description": "ブルワーズ初制覇なるか！崖っぷちのレイズスモールベースボールで奇跡を起こせるか！",
+    "detail": {
+      "出演者": "【解説】福留孝介,五十嵐亮太,【キャスター】三宅絹紗"
+    },
+    "duration": 2400.0,
+    "end_time": "2026-10-29T23:25:00+09:00",
+    "event_id": 4721,
+    "genres": [
+      {
+        "major": "スポーツ",
+        "middle": "野球"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "スポーツニュース"
+      }
+    ],
+    "id": "NID4-SID101-EID4721",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T22:45:00+09:00",
+    "title": "ワースポ×MLB ブルワーズ初制覇なるか レイズ連勝は[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4722": {
+    "channel_id": "NID4-SID101",
+    "description": "ガザ“停戦”から1年。がれきの街で生きる子供たちの心に何が起きているのか？半壊の診療所で彼らと向き合い続ける臨床心理士との対話から戦争の本当の代償が浮かび上がる",
+    "detail": {
+      "番組内容": "停戦発効から1年が経っても殺戮が止まないガザ。がれきの街で生き抜く子どもたちの心に何が起きているのか？半壊した診療所で子どもたちと向き合い続ける臨床心理士・ナワール。周囲を気遣い、日頃は気丈に振る舞う子どもたちが、彼女の前でだけ「死んだ家族に会いたい」と素直な心の内を吐露する。両者の対話から浮かび上がるのは、この戦争の本当の代償。ガザへの関心が薄れゆく今こそ耳を傾けるべき、悲痛な“声なき声”だ。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T00:25:00+09:00",
+    "event_id": 4722,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "特集・ドキュメント"
+      }
+    ],
+    "id": "NID4-SID101-EID4722",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T23:25:00+09:00",
+    "title": "BSスペシャル 遺された者たち子どもたちの心の傷と向き合うガザの診療所※字幕",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID4962": {
+    "channel_id": "NID4-SID101",
+    "description": "俳優の遼河はるひと渡部豪太が、ハンガリーの首都ブダペストのノミの市でお宝探し！絶世の美女・王妃エリザベートにゆかりがあり、世界的に有名なハンガリー刺繍をねらう！",
+    "detail": {
+      "出演者": "【出演】遼河はるひ,渡部豪太",
+      "番組内容": "ノミの市でお宝を探す「アンティーク鑑定旅」。今回訪れるハンガリーは、“アンティークの宝庫”。19世紀、ハプスブルク家の絶世の美女、エリザベートが王妃となり大いに繁栄した。とりわけエリザベートが愛した品の一つが刺繍だ。世界的に有名なハンガリーの刺繍。アンティークの名品には高値がつく。それがノミの市なら格安で手に入るかも！買い物はもちろん自腹。買った物はプロが厳しく鑑定する。破格のお宝が続出か！"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T13:00:00+09:00",
+    "event_id": 4962,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "音楽・美術・工芸"
+      }
+    ],
+    "id": "NID4-SID101-EID4962",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T12:30:00+09:00",
+    "title": "お宝を掘り当てろ！！ハンガリーアンティーク鑑定旅 華麗なハンガリー刺繍[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5251": {
+    "channel_id": "NID4-SID101",
+    "description": "海外でも人気のニッポンの焼き肉！本場・韓国とは何が違う？女性客が殺到、ニンニクたっぷり焼き肉日本一の焼き肉の町は長野にあった！肉をおいしく焼くにはコツがいる。",
+    "detail": {
+      "出演者": "【司会】鴻上尚史,関根麻里,【ゲスト】田中ウルヴェ京,【語り】日髙のり子,中井和哉",
+      "番組内容": "いまやラーメン、寿司と並んで世界で人気！日本の焼き肉を特集！外国人が驚く、種類豊富な「たれ」本場・韓国の店とは何が違うのか？女性客が殺到！ニンニクたっぷり焼き肉。これぞ、日本のクール！1人で楽しむ店。長野にあった日本一の焼き肉の町肉をおいしく焼く意外なコツとは？外国人旅行客を呼び込むにはどんな工夫が必要？"
+    },
+    "duration": 2700.0,
+    "end_time": "2026-10-30T01:10:00+09:00",
+    "event_id": 5251,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "カルチャー・伝統文化"
+      },
+      {
+        "major": "バラエティ",
+        "middle": "トークバラエティ"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID5251",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-30T00:25:00+09:00",
+    "title": "COOL JAPAN おいしい！焼き肉[解][字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5254": {
+    "channel_id": "NID4-SID101",
+    "description": "22歳の時チャイコフスキー国際コンクールでフランス人として初めて優勝を果たし、一躍世界が注目するピアニストとなったアレクサンドル・カントロフの演奏会をお届けする",
+    "detail": {
+      "番組内容": "【曲目】ピアノ・ソナタ 第1番 嬰ヘ短調 作品11(シューマン)、巡礼の年 第2年「イタリア」から ソナタ風幻想曲「ダンテを読んで」(リスト)、歌と踊り 第6番(モンポウ)【演奏】アレクサンドル・カントロフ(ピアノ)【収録】2022年6月30日、東京オペラシティ・コンサートホール"
+    },
+    "duration": 3300.0,
+    "end_time": "2026-10-30T05:55:00+09:00",
+    "event_id": 5254,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "クラシック・オペラ"
+      },
+      {
+        "major": "音楽",
+        "middle": "ライブ・コンサート"
+      }
+    ],
+    "id": "NID4-SID101-EID5254",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T05:00:00+09:00",
+    "title": "クラシック倶楽部 アレクサンドル・カントロフ ピアノ・リサイタル",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5255": {
+    "channel_id": "NID4-SID101",
+    "description": "管弦楽:NHK交響楽団 指揮:沼尻竜典【ロケ地】ドッビアーコ(イタリア)",
+    "detail": {
+      "出演者": "【出演】NHK交響楽団,沼尻竜典",
+      "番組内容": "アルプスの雄大な自然に囲まれた町、ドッビアーコ。マーラーは晩年、この地で夏を過ごし、作曲に打ち込んだ。生涯最後に完成させた傑作・交響曲第9番を、今も残る作曲小屋や、マーラーも目にしたであろ山々や湖の風景とともにお届けする。【演奏】管弦楽:NHK交響楽団 指揮:沼尻竜典【ロケ地】ドッビアーコ(イタリア)"
+    },
+    "duration": 300.0,
+    "end_time": "2026-10-30T06:00:00+09:00",
+    "event_id": 5255,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "クラシック・オペラ"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "音楽・美術・工芸"
+      }
+    ],
+    "id": "NID4-SID101-EID5255",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "3/2+LFEモード(3/2.1モード)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T05:55:00+09:00",
+    "title": "名曲アルバム 交響曲第9番 マーラー作曲[SS]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5256": {
+    "channel_id": "NID4-SID101",
+    "description": "▽英BBC,シンガポールCNA,韓国KBS,中国CCTV,東方衛視,香港TVB,タイMCOT,越VTV,豪ABC,印NDTV,カタール・アルジャジーラ,独ZDF",
+    "detail": {},
+    "duration": 4440.0,
+    "end_time": "2026-10-30T07:14:00+09:00",
+    "event_id": 5256,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      }
+    ],
+    "id": "NID4-SID101-EID5256",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-30T06:00:00+09:00",
+    "title": "ワールドニュース[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5258": {
+    "channel_id": "NID4-SID101",
+    "description": "和歌山県熊野の山間で生まれ育ったヒロイン山中木葉。父譲りの天性の味覚を武器に挑む世界は、厳しい修行が待ち受けている料理の世界。2001年放送の連続テレビ小説。",
+    "detail": {
+      "出演者": "【出演】池脇千鶴,風吹ジュン,根津甚八,小林千登勢,小林幸子,小倉久寛,剣太郎セガール,国田栄弥,玉生司朗,桂文枝,佐藤慶,【語り】野際陽子",
+      "原作・脚本": "【作】西荻弓絵",
+      "番組内容": "危篤状態の祖母フジのため、一路は渾身の茶粥とアユ料理を作る。フジは「ホンマにうまかった」と喜び、家族に感謝や思いを語った後、満ち足りた笑顔のまま静かに息を引き取る。その見事な最期は家族に深い感銘を与え、木葉の心にも強く刻まれた。葬儀の後も喪失感は消えず、千里や定道が悲しみに向き合う一方、木葉の中には祖母の死をきっかけに説明できない思いが芽生え始める。",
+      "音楽": "【音楽】千住明"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-30T07:30:00+09:00",
+    "event_id": 5258,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID101-EID5258",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語+副音声",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "1/0+1/0モード(デュアルモノ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T07:15:00+09:00",
+    "title": "【連続テレビ小説】ほんまもん(5)[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5259": {
+    "channel_id": "NID4-SID101",
+    "description": "小説を黒崎(遠藤憲一)に酷評され、落ち込む珠(石橋静河)だが、左(北野秀気)はその勇気を褒める。そんな中、左と仲良く話す珠の姿を保(金子大地)が見つけて…。",
+    "detail": {
+      "出演者": "【出演】石橋静河,金子大地,赤堀雅秋,中村優子,瀬戸さおり,大窪人衛,北野秀気,愛,誠,井浦新,遠藤憲一",
+      "原作・脚本": "【作】櫻井剛",
+      "番組内容": "珠(石橋静河)は自らの書いた短編小説を、一流文芸雑誌の編集長・黒崎(遠藤憲一)に酷評され、落ち込んでいた。しかし、仕事からの帰り道、「悠樂軒」で出会った作家志望の青年・左良太(北野秀気)にその勇気を称賛される。左は珠のことを励まし、珠は「また小説と向き合ってみよう」と前向きな気持ちになる。そんな仲良く喋る二人の様子を、帰りが遅いと心配で迎えに来た保(金子大地)が見つけてしまい…。",
+      "音楽": "【音楽】fox capture plan"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-30T07:45:00+09:00",
+    "event_id": 5259,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID101-EID5259",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-30T07:30:00+09:00",
+    "title": "【連続テレビ小説】ブラッサム(25)第5週「狂騒で、東京」[解][字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID5261": {
+    "channel_id": "NID4-SID101",
+    "description": "▽フランス・F2,ドイツ・ZDF,スペイン・TVE,カタール・アルジャジーラ,中国・CCTV,シンガポール・CNA,印・NDTV,豪・ABC,韓国・KBS",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-30T09:00:00+09:00",
+    "event_id": 5261,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "海外・国際"
+      }
+    ],
+    "id": "NID4-SID101-EID5261",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-30T08:00:00+09:00",
+    "title": "ワールドニュース[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID6932": {
+    "channel_id": "NID4-SID101",
+    "description": "あさひ(倉沢杏菜)の輿入れも功を奏さず、上洛しようとしない家康(松下洸平)。秀長(仲野太賀)と秀吉(池松壮亮)は、母・なか(坂井真紀)を人質に差し出そうとするが",
+    "detail": {
+      "出演者": "【出演】仲野太賀,池松壮亮,迫田孝也,上川周作,山田涼介,松下洸平",
+      "原作・脚本": "【作】八津弘幸",
+      "番組内容": "あさひ(倉沢杏菜)の輿入れも功を奏さず、上洛しようとしない家康(松下洸平)。だが秀吉(池松壮亮)がなか(坂井真紀)まで人質に差し出したことで、ついに根負けする。とはいえ、それは形ばかりの上洛だと察した秀長(仲野太賀)は、謁見前夜に接待の場で家康に胸の内をさらけ出し、豊臣が真に手を取り合うべき相手か見極めてほしいと告げる。しかし家康は、この機に乗じて秀吉の懐刀である秀長を暗殺しようと企てていた。",
+      "音楽": "【音楽】木村秀彬"
+    },
+    "duration": 120.0,
+    "end_time": "2026-10-29T05:00:00+09:00",
+    "event_id": 6932,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "時代劇"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID6932",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T04:58:00+09:00",
+    "title": "大河ドラマ「豊臣兄弟！」2分ダイジェスト (41)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID6936": {
+    "channel_id": "NID4-SID101",
+    "description": "科学特捜隊のハヤタ隊員は、パトロール飛行中に謎の赤い球と衝突。その正体はM78星雲から来たウルトラマンだった。一心同体となった彼らは、怪獣や宇宙人に立ち向かう。",
+    "detail": {
+      "出演者": "【出演】黒部進,桜井浩子,小林昭二",
+      "番組内容": "あらゆる怪事件に対処する特別チーム・科学特捜隊のハヤタ隊員は、パトロール飛行中に謎の赤い球と衝突。その正体はM78星雲から来た宇宙人・ウルトラマンだった。 衝突事故で命を落としたハヤタに、ウルトラマンは自らの命を与え、地球の平和のため働きたいと提案する。 かくして、一心同体となった彼らは、平和を脅かす怪獣や宇宙人に立ち向かう。11月4日(水)午後6時から、毎週2話分放送！"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-29T17:00:00+09:00",
+    "event_id": 6936,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      },
+      {
+        "major": "アニメ・特撮",
+        "middle": "特撮"
+      }
+    ],
+    "id": "NID4-SID101-EID6936",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T16:59:00+09:00",
+    "title": "もうすぐスタート！BS「ウルトラマン」 放送前1分PR",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7371": {
+    "channel_id": "NID4-SID101",
+    "description": "イギリス北部、スコットランドの独自の文化と歴史、自然の絶景を楽しむ。エディンバラの城と大聖堂、ネス湖の城、鉄道の姿も！そして「マクベス」の舞台。",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T02:45:00+09:00",
+    "event_id": 7371,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID7371",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T01:45:00+09:00",
+    "title": "空からクルージング特別編 スコットランド 歴史と自然の旅",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7373": {
+    "channel_id": "NID4-SID101",
+    "description": "スペインの北部バスク地方の都市パンプローナで人々が心待ちにする牛追い祭り。夏の9日間、市民総出で開かれる勇壮な祭りの模様を、迫力の映像と音で届ける。",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T03:45:00+09:00",
+    "event_id": 7373,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID7373",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T02:45:00+09:00",
+    "title": "世界の祭り スペイン・パンプローナ 牛追い祭り",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7375": {
+    "channel_id": "NID4-SID101",
+    "description": "",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T04:15:00+09:00",
+    "event_id": 7375,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID7375",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T03:45:00+09:00",
+    "title": "空中散歩「富士山・北アルプス 雲上の峰々」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7378": {
+    "channel_id": "NID4-SID101",
+    "description": "世界自然遺産・小笠原諸島の母島で、固有種を中心に貴重な生物を撮影。",
+    "detail": {},
+    "duration": 900.0,
+    "end_time": "2026-10-29T04:30:00+09:00",
+    "event_id": 7378,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID7378",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T04:15:00+09:00",
+    "title": "小笠原「母島」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7384": {
+    "channel_id": "NID4-SID101",
+    "description": "神が宿る地として古くから信仰を集める南紀熊野は3種の大地が隆起して生まれた。地層を複雑に折り曲げた力や、巨大な岩体を生んだ超巨大噴火など壮大な大地のドラマを追う",
+    "detail": {
+      "出演者": "【出演】小林千穂,巽好幸,福村成哉,【語り】石丸謙二郎",
+      "番組内容": "紀伊半島南部の南紀熊野。巨石や滝などの絶景の宝庫で、由来の全く異なる3種の大地が隆起して生れた。硬い岩の地層がグニャグニャに折れ曲がる世界的にも貴重な「フェニックス褶曲」や、地球規模の気候変動を起こした巨大噴火の跡「古座川の一枚岩」など、唯一無二の大地の造形は見る人を圧倒する。古くから神々が宿るとされ信仰を集めてきた巨石や滝はどのように形作られたのか、南紀熊野の壮大な大地のドラマを探る"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T16:00:00+09:00",
+    "event_id": 7384,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID4-SID101-EID7384",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T15:00:00+09:00",
+    "title": "ジオ・ジャパン 絶景100の旅 南紀熊野[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7386": {
+    "channel_id": "NID4-SID101",
+    "description": "「ヨーロッパ 絶景の道」シリーズ  ヨーロッパ各地の美しい風景や街並みをお届けします。今回は、イタリアのナポリからローマへの道をたどります。",
+    "detail": {
+      "番組内容": "ベスビオ火山が見えるナポリのサンタルチア港から、山中のフィウッジ温泉へ。のどかな田園地帯を巡りながら白ワインの産地として有名なフラスカーティへ向かいます。ローマ近郊では歴史を感じられる石畳の道を進んでいき、ローマでは、とある建物を訪ねます。そのカギ穴から見えるのは…バチカン サンピエトロ寺院。そして、コロッセオやナヴォーナ広場、サンタンジェロ城に続く道をたどります。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T02:10:00+09:00",
+    "event_id": 7386,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID7386",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T01:10:00+09:00",
+    "title": "ヨーロッパ絶景の道「ナポリからローマへ」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7387": {
+    "channel_id": "NID4-SID101",
+    "description": "小さな小さな島々の絶景を空からの眺めを中心に紹介。今回は10以上の島を巡る。島で起きたできごとを古くは1547年創建されたという神社のある島までさかのぼっていく",
+    "detail": {
+      "番組内容": "美しい自然に恵まれた島々に何が起きていたのか？時をさかのぼって探る。2022年佐賀県松島 2018年沖縄県鳩間島 2000年ごろ香川県小手島 1981年沖縄県水納島 1962年沖縄県前島 1950年代三重県間崎島 1944年鹿児島県奄美大島 加計呂麻島 1944年山口県大津島 1919年長崎県頭ヶ島 1895年広島県似島 1881年神奈川県猿島 1600年代宮城県寒風沢島 1547年岡山県小飛島"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T03:10:00+09:00",
+    "event_id": 7387,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      }
+    ],
+    "id": "NID4-SID101-EID7387",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T02:10:00+09:00",
+    "title": "空の島旅 時をさかのぼって",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7388": {
+    "channel_id": "NID4-SID101",
+    "description": "世界各地の絶景の中を空からゆったりと旅をする紀行番組「空からクルージング」。8Kで撮影した美しい映像の中から、ヨーロッパのさまざまな教会を紹介する。",
+    "detail": {
+      "番組内容": "美しいステンドグラスから光が差し込むフランスの大聖堂。壁全面を覆う精緻なモザイク画に圧倒されるシチリアの大聖堂。イスラム勢力が支配していたときには、モスクとして使われた教会もある。ポルトガルでは大航海時代の栄光を物語る金をふんだんに使った教会や、アズレージョという青と白のタイルを用いた美しい教会、ドイツでは、見事なバロック様式の教会、ノルウェーでは、バイキングの伝統をくむ木造のスターヴ教会を紹介。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T04:10:00+09:00",
+    "event_id": 7388,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID7388",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T03:10:00+09:00",
+    "title": "空からクルージング特別編「ヨーロッパの教会」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7389": {
+    "channel_id": "NID4-SID101",
+    "description": "北アルプスの山々の四季",
+    "detail": {},
+    "duration": 3000.0,
+    "end_time": "2026-10-30T05:00:00+09:00",
+    "event_id": 7389,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "自然・動物・環境"
+      }
+    ],
+    "id": "NID4-SID101-EID7389",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T04:10:00+09:00",
+    "title": "北アルプス「北アルプスの四季」",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7405": {
+    "channel_id": "NID4-SID101",
+    "description": "五感すべてが満たされる！スペイン・バスク、絶景とアート、美食の自転車旅。4回目はバスク地方の大自然を味わいます！",
+    "detail": {
+      "出演者": "【出演】アキラ",
+      "番組内容": "道中、ふと出会ったのは70代の自転車仲間たち。共に走り、一緒に食事をすることを何よりも愛する彼らから、とっておきの林道を教えてもらいました。絶景が続く中、現れたのは歴史を刻んだ石とレンガ造りの古びたトンネル。その暗闇を抜けた先には、ワイルドな砂利道が続いていました。いくつもある滝を目にしながら、ひたすらペダルを漕ぐこと3時間。30キロという道のりの果てに辿り着いた食堂でぺこぺこのお腹を満たします。"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-29T08:00:00+09:00",
+    "event_id": 7405,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID7405",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T07:45:00+09:00",
+    "title": "自転車旅 ユーロヴェロ90000キロミニ スペイン・バスク地方を走る！4[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID7406": {
+    "channel_id": "NID4-SID101",
+    "description": "五感すべてが満たされる！スペイン・バスク、絶景とアート、美食の自転車旅。5回目は牛追い祭りの街、パンプローナをめぐります！",
+    "detail": {
+      "出演者": "【出演】アキラ",
+      "番組内容": "バスク地方の大自然を走りぬき、たどり着いたパンプローナ。牛追い祭りで有名な街です。中世の城壁に守られた旧市街はタイムスリップしたかのような美しさ。なんと、自転車ごとエレベーターで街中へ！少し行くとバロック様式の市役所に到着。「牛追い祭り」の開始が宣言される場所です。向かった闘牛場で行われていたのはクリスマスマーケット。バスクの絶品スイーツをほおばるなど、冬のパンプローナの魅力をお届けします。"
+    },
+    "duration": 900.0,
+    "end_time": "2026-10-30T08:00:00+09:00",
+    "event_id": 7406,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID101-EID7406",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T07:45:00+09:00",
+    "title": "自転車旅 ユーロヴェロ90000キロミニ スペイン・バスク地方を走る！5[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID8614": {
+    "channel_id": "NID4-SID101",
+    "description": "「1人より2人、2人より…」をテーマに、この番組ならではの少年隊の名曲をガッツリ！トークもガッツリ！おなかいっぱいの30分！出演:平野ノラ、錦織一清、植草克秀",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T00:45:00+09:00",
+    "event_id": 8614,
+    "genres": [
+      {
+        "major": "音楽",
+        "middle": "ライブ・コンサート"
+      },
+      {
+        "major": "音楽",
+        "middle": "国内ロック・ポップス"
+      }
+    ],
+    "id": "NID4-SID101-EID8614",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T00:15:00+09:00",
+    "title": "歌える！青春のベストソング(96)錦織一清・植草克秀[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID9158": {
+    "channel_id": "NID4-SID101",
+    "description": "スケボー王国・日本のロス五輪への戦いが始まった！東京・パリのメダリストと超有望若手が競い合い世界を席巻！世界最高峰の大会で超絶技の大興奮バトル！日本勢が大活躍！",
+    "detail": {
+      "番組内容": "世界最高峰ストリートリーグ・パリ大会！ロス五輪「最強日本」伝説へ男子・女子ともに新たな戦いが始まった！世界ランキング上位に日本勢が多数…男子は小野寺吟雲、佐々木音憧、白井空良、堀米雄斗ら。女子はパリ・金、吉沢恋、銀・赤間凛音や東京・金、西矢椛、織田夢海ら。世界のスーパースター、男子・ナイジャ(米)女子・クロエ(豪)らと日本選手との激しい攻防！宙を舞う超絶技！スケボーの凄い進化！大興奮の戦い、超必見"
+    },
+    "duration": 60.0,
+    "end_time": "2026-10-30T07:15:00+09:00",
+    "event_id": 9158,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "番組紹介・お知らせ"
+      },
+      {
+        "major": "スポーツ",
+        "middle": "オリンピック・国際大会"
+      }
+    ],
+    "id": "NID4-SID101-EID9158",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T07:14:00+09:00",
+    "title": "スケートボード ストリートリーグ パリ大会1分PR",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID9235": {
+    "channel_id": "NID4-SID101",
+    "description": "不老不死伝説を謎の3人から解き明かす！▽人魚の肉を食べ800年生きた八百比丘尼は実在？▽3千年の時を超えるサンジェルマン伯爵の正体は？▽「血の伯爵夫人」の真相。",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T01:45:00+09:00",
+    "event_id": 9235,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "宇宙・科学・医学"
+      },
+      {
+        "major": "アニメ・特撮",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID4-SID101-EID9235",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-29T00:45:00+09:00",
+    "title": "ダークサイドミステリー選永遠の若さ！不老不死伝説～八百比丘尼・サンジェルマン[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID9242": {
+    "channel_id": "NID4-SID101",
+    "description": "あなたの知らない地獄めぐり体験ツアーにようこそ！人類究極の絶叫苦しみワンダーランド、日本と西洋の地獄を徹底解説。人間と社会のすべてが詰まった地獄の魅力に迫る！",
+    "detail": {
+      "出演者": "【出演】栗山千明,【ゲスト】京都教育大学名誉教授…西山克,愛知教育大学教授…鷹巣純,【語り】中田譲治,【司会】池間昌人",
+      "番組内容": "人は死んだらどこに行く？そんな疑問に答える「地獄めぐり体験ツアー」にようこそ！地獄とは昔の人々の「こうなったら嫌だ！」な想像力の結晶、究極の絶叫苦しみワンダーランド！生前の悪事に絶妙にマッチした怖くてべらぼうな刑罰の数々。日本人と地獄イメージの変化の歴史に、西洋キリスト教の地獄バリエーションもご案内！愛、欲望、ねたみ、裏切り…。人間の業と社会のすべてが反映された地獄の奥深さ、知られざる魅力に迫る。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T10:00:00+09:00",
+    "event_id": 9242,
+    "genres": [
+      {
+        "major": "ドキュメンタリー・教養",
+        "middle": "歴史・紀行"
+      },
+      {
+        "major": "趣味・教育",
+        "middle": "音楽・美術・工芸"
+      },
+      {
+        "major": "映画",
+        "middle": "アニメ"
+      }
+    ],
+    "id": "NID4-SID101-EID9242",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 101,
+    "start_time": "2026-10-30T09:00:00+09:00",
+    "title": "ダークサイドミステリー ようこそ！地獄ワンダーランド～人類最恐世界のすべて[字][再]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID101-EID9316": {
+    "channel_id": "NID4-SID101",
+    "description": "(試合開始 日本時間 9:00) 【解説】斎藤隆,【アナウンサー】高木修平 ～トロピカーナフィールドから中継～[延伸のとき以降の番組に変更あり]",
+    "detail": {
+      "出演者": "【解説】斎藤隆,【アナウンサー】高木修平"
+    },
+    "duration": 10800.0,
+    "end_time": "2026-10-29T12:00:00+09:00",
+    "event_id": 9316,
+    "genres": [
+      {
+        "major": "スポーツ",
+        "middle": "野球"
+      },
+      {
+        "major": "拡張",
+        "middle": "延長の可能性あり"
+      }
+    ],
+    "id": "NID4-SID101-EID9316",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": "副音声",
+    "secondary_audio_sampling_rate": "48kHz",
+    "secondary_audio_type": "2/0モード(ステレオ)",
+    "service_id": 101,
+    "start_time": "2026-10-29T09:00:00+09:00",
+    "title": "MLB2026 ワールドシリーズ第5戦「ブルワーズ」対「レイズ」[二]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24989": {
+    "channel_id": "NID4-SID260",
+    "description": "「雲が描いた月明り」パク・ボゴム×「運勢ロマンス」リュ・ジュンヨルが恋のバトル！？\r\n笑って泣いて、胸キュン必至のハートフル・ラブコメディ！",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T01:00:00+09:00",
+    "event_id": 24989,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24989",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T00:00:00+09:00",
+    "title": "韓国◇恋のスケッチ～応答せよ1988～ #32 負けず嫌いは誰譲り？(全42話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24990": {
+    "channel_id": "NID4-SID260",
+    "description": "パク・ソジュン主演。パク・ヒョンシク、ミンホ(SHINee)、V(BTS)豪華キャストが奇跡の共演！\r\n花郎<ファラン>たちの愛と成長を描いた青春ロマンス時代劇！",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T02:00:00+09:00",
+    "event_id": 24990,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24990",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T01:00:00+09:00",
+    "title": "韓国◇花郎<ファラン> #7(全24話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24991": {
+    "channel_id": "NID4-SID260",
+    "description": "チョン・イー×チャオ・インズ主演！ひとりの女性の波乱の生涯を描く大型宮廷ロマンス。時代と運命に翻弄されながらも、勇敢に戦う姿を描いた切なくも美しい愛の物語。",
+    "detail": {},
+    "duration": 3600.0,
+    "end_time": "2026-10-29T03:00:00+09:00",
+    "event_id": 24991,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24991",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T02:00:00+09:00",
+    "title": "中国◇長安 賢后伝 #31 因果応報(全61話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24992": {
+    "channel_id": "NID4-SID260",
+    "description": "地域の防災・防犯対策、安心安全な暮らしをおくるためのアイデアや取り組みをご紹介！全国から選りすぐりの7本を集め、各地の「安心安全」をお届けします。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【番組内容】": "▽山口県下関市/花いっぱい運動で高齢者の見守りを実施▽埼玉県小鹿野町/えっ！？歌舞伎で防犯啓発▽千葉県木更津市/コミュニティバスで安否確認！？ ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T03:30:00+09:00",
+    "event_id": 24992,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      }
+    ],
+    "id": "NID4-SID260-EID24992",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T03:00:00+09:00",
+    "title": "こちらJ:COM安心安全課 #56",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24993": {
+    "channel_id": "NID4-SID260",
+    "description": "元スパイの黒木、津川、元新聞記者の風間、スピード狂の島らが所属する、国際警察の秘密捜査グループである“キイハンター”。本邦アクションドラマの草分けにして最高峰！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1971年",
+      "【出演者】": "宮内 洋、坂本 九、千葉 真一、川口 浩、大川 栄子、谷 隼人、丹波 哲郎、団 巌、中丸 忠雄、仲谷 昇、富田 仲次郎、野際 陽子",
+      "【番組内容2】": "テレビ番組の常識を超えたスケール感豊かなストーリーと華麗かつダイナミックなアクションは視聴者の度肝を抜き、5年間・全262話に亘って放送されるほどの大ヒット作となった。",
+      "【番組内容】": "1968年―我が国のテレビ界に、後に伝説となる珠玉のアクションドラマが誕生した。それが、丹波哲郎・千葉真一・野際陽子らの出演による『キイハンター』である。国際警察の秘密捜査グループである彼ら“キイハンター”は、世界の平和を揺るがす陰謀や暴動の渦中に、果敢に飛び込んでいく。",
+      "【監督】": "山内 柏",
+      "【脚本】": "池田 雄一"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T04:30:00+09:00",
+    "event_id": 24993,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24993",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T03:30:00+09:00",
+    "title": "キイハンター #183 九ちゃんのスパイ大作戦(全262話)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24994": {
+    "channel_id": "NID4-SID260",
+    "description": "「リアルに自然を感じ、体験するアウトドア」がブームのこの時代。日本各地の「低山」を登り、山頂での「ご褒美メシ」を紹介。登山の魅力を発信します！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【出演者】": "安涼奈",
+      "【番組内容】": "和歌山県紀美野町と有田川町の境に位置する生石ヶ峰。関西有数の「ススキの名所」として知られ、映画やCMのロケ地としても人気のスポット！一面に広がる黄金色のススキは圧巻です！頂きメシは地の食材をふんだんに使った名物料理を頂きました。"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T05:00:00+09:00",
+    "event_id": 24994,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID260-EID24994",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T04:30:00+09:00",
+    "title": "登山で頂きメシ！#18 生石ヶ峰 和歌山県 安涼奈[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24995": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T05:30:00+09:00",
+    "event_id": 24995,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID24995",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T05:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24996": {
+    "channel_id": "NID4-SID260",
+    "description": "【幸福を拾った娘】主演・杉良太郎！死して屍拾う者なし！徳川家斉の時代を背景に、隠密同心の活躍を描いて大人気となった痛快アクション時代劇！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1970年～73年",
+      "【出演者】": "杉良太郎、瑳川哲朗、梶芽衣子 ほか",
+      "【番組内容】": "隠密支配である旗本寄合席・内藤勘解由から指令を受けた隠密同心の十文字小弥太、井坂十蔵、芸者・小波の三人が江戸市中で巻き起こる事件を解決していく、それまで扱われたことのなかった江戸時代の秘密探偵の活躍を描いた、新しいアクション時代劇。",
+      "【監督】": "磯見忠彦、西山正輝、斉藤光正 ほか",
+      "【脚本】": "山崎巌、中野顕彰、大和久守正 ほか"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T06:30:00+09:00",
+    "event_id": 24996,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "時代劇"
+      }
+    ],
+    "id": "NID4-SID260-EID24996",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T05:30:00+09:00",
+    "title": "【あさ5はん時代劇】大江戸捜査網 #84(全104話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24997": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T07:00:00+09:00",
+    "event_id": 24997,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID24997",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T06:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24998": {
+    "channel_id": "NID4-SID260",
+    "description": "【父親の権利】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "スンナムは病院でユミンの肩を抱くセヒの姿を目撃する。詐欺事件はセヒが仕組んだことだとユミンに訴えるが、ユミンは信じない。あきれたスンナムは自由になりたいなら父親の権利は捨てろとユミンに言い放つ。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T07:30:00+09:00",
+    "event_id": 24998,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24998",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T07:00:00+09:00",
+    "title": "韓国◇白詰草 #31(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID24999": {
+    "channel_id": "NID4-SID260",
+    "description": "【虚偽の自白】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "パンがウソの自白をしたせいで詐欺の共犯者の疑いで警察に連行されるスンナム。セヒはファランにパンのウソは自分の仕業だと打ち明ける。ファランはスンナムをチャ家から追い出すためセヒと手を組むことを誓う。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T08:00:00+09:00",
+    "event_id": 24999,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID24999",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T07:30:00+09:00",
+    "title": "韓国◇白詰草 #32(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25000": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T08:30:00+09:00",
+    "event_id": 25000,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25000",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T08:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25001": {
+    "channel_id": "NID4-SID260",
+    "description": "総合診療医が病名を探り当てるまでの謎解きの面白さをスタジオで展開する、新感覚！病名推理エンターテインメント番組。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年",
+      "【出演者】": "浅草キッド、ナレーション:小野寺一歩、佐竹海莉",
+      "【番組内容2】": "【ドクターG】神戸市立医療センター中央市民病院 医師・金森真紀【ゲスト】前田吟、紺野美沙子",
+      "【番組内容】": "夫と共に、写真店を営む66歳の女性。1か月ほど前から、食べては吐く、を繰り返すようになった。食欲がなくなり、食べる事も怖くなって最近はふらふらと倒れるようになった。写真修整の腕の良い優秀な社員がやめたため、急に忙しくなり、心労も重なっている。近くの病院で胃カメラの検査をしたが、大きな異常は見られない。紹介状を持ってドクターGのもとを訪ねると…。"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T09:30:00+09:00",
+    "event_id": 25001,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      }
+    ],
+    "id": "NID4-SID260-EID25001",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T08:30:00+09:00",
+    "title": "総合診療医 ドクターG 吐き気が続いている",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25002": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T10:00:00+09:00",
+    "event_id": 25002,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25002",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T09:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25003": {
+    "channel_id": "NID4-SID260",
+    "description": "ジン・ボーラン×ソン・ウェイロンほかイケメン俳優が豪華共演！美しき男たちの熱い絆とスリリングな展開に胸躍る、極上のミステリー時代劇！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2023年/全23話",
+      "【出演者】": "ジン・ボーラン、ソン・ウェイロン、ホン・ヤオ ほか",
+      "【原作】": "ダーフォングワグオ「張公案」",
+      "【番組内容】": "張屏は何としてもランカクに会い過去の真相を告げるため、陳籌に置き手紙と食事を残して家を抜け出す。張屏から帰義(きぎ)坊に呼び出されたランカクは、辜清章が侍医になり、式典で皇太后の罪を暴くため手を組まないかと誘われたと打ち明ける。ランカクと張屏にとっても皇太后は不倶戴天(ふぐたいてん)の敵。しかし、国家の安寧を守るため、辜清章の復讐を阻止すべく動き出す。",
+      "【監督】": "ヤン・ファン、ジア・シアオシオン",
+      "【脚本】": "ヤン・ファン"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T11:00:00+09:00",
+    "event_id": 25003,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25003",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T10:00:00+09:00",
+    "title": "【BS初】中国◇君子盟#21(全23話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25004": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T11:30:00+09:00",
+    "event_id": 25004,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25004",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T11:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25005": {
+    "channel_id": "NID4-SID260",
+    "description": "ジュノ(2PM)×イ・セヨン×「仮面の王イ・ソン」脚本家が贈る最高のラブロマンス！愛された宮女、愛した王。2人の袖先が触れ合ったとき、運命の歯車が動き始める。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2021年/全27話",
+      "【出演者】": "ジュノ(2PM)、イ・セヨン、カン・フン ほか",
+      "【原作】": "小説「袖先赤いクットン」",
+      "【番組内容】": "サンは貴重な果物だったミカンを手に入れドギムに渡す。サンの自分に対する想いを知ったドギムは、頑なに受け取らない。サンの心は傷つく。ドギムが王宮の門で男と親しく会話しているのを見たサンは機嫌を悪くする。男は再会したドギムの兄だったのだが…。サンはドギムに、お前のすべては私が決めると言い放って立ち去る。",
+      "【監督】": "チョン・ジイン/ソン・ヨナ",
+      "【脚本】": "チョン・ヘリ"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T12:30:00+09:00",
+    "event_id": 25005,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25005",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T11:30:00+09:00",
+    "title": "韓国◇赤い袖先#11(全27話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25006": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T13:00:00+09:00",
+    "event_id": 25006,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25006",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T12:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25007": {
+    "channel_id": "NID4-SID260",
+    "description": "【業火の祈り】コリン・デクスター原作「主任警部モース」のスピンオフとして制作された大人気英国ミステリー。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【出演者】": "ケヴィン・ウェイトリー、ローレンス・フォックス、クレア・ホルマン ほか",
+      "【原作】": "コリン・デクスター",
+      "【番組内容】": "ある夜、教会の祭壇の前でウィル・マキューアンが自殺する。祭壇には“学びの園”という団体の紙片が置かれていた。その後“学びの園”の主催者たちが次々と殺害され、“炎に生まれる命”というメッセージがすべての現場で発見される。"
+    },
+    "duration": 7200.0,
+    "end_time": "2026-10-29T15:00:00+09:00",
+    "event_id": 25007,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25007",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T13:00:00+09:00",
+    "title": "オックスフォードミステリー ルイス警部 シーズン2#3(全4話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25008": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T15:30:00+09:00",
+    "event_id": 25008,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25008",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T15:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25009": {
+    "channel_id": "NID4-SID260",
+    "description": "【魔の取り引き】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "保釈を手伝う代わりに娘と一緒にチャ家を出るようスンナムに提案するセヒ。スンナムは拒むが、義母のチェ・ボクヒが書堂を処分し保釈金を準備しようとしているのを知り、書堂を守るため取引に応じることにする。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T16:00:00+09:00",
+    "event_id": 25009,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25009",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T15:30:00+09:00",
+    "title": "韓国◇白詰草 #33(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25010": {
+    "channel_id": "NID4-SID260",
+    "description": "【家出】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "ジュニョンを連れて誰にも知らせず家を出るスンナム。スンナムとの取引が成功しユミンとの結婚が叶うとほくそ笑むセヒ。一方、ユミンとの結婚を反対するボンチョルは、セヒの目論見を止めようと焦り始める。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T16:30:00+09:00",
+    "event_id": 25010,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25010",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T16:00:00+09:00",
+    "title": "韓国◇白詰草 #34(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25011": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T17:00:00+09:00",
+    "event_id": 25011,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25011",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T16:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25012": {
+    "channel_id": "NID4-SID260",
+    "description": "アレン・レン×リー・ランディー×シュー・ジェンシー豪華時代劇スター共演！裏の顔をもつ男たちの頭脳戦から、ヒロインをめぐる愛憎の三角関係へ…",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2024年(全43話)",
+      "【出演者】": "アレン・レン、リー・ランディー、シュー・ジェンシー ほか",
+      "【番組内容】": "はいえん、衛昭、洪傑(こうけつ)が率いる椋・月落連合軍と高修(こうしゅう)が率いる尉軍との戦いが始まり、兵力が劣っているにもかかわらず連合軍が勝利した。大きな戦功を上げ、全軍が敬服した衛昭に対し、皇帝の警戒心がより高まったのは必然だった。衛昭は平無傷に頼み、江慈を守るために彼女を遠くへ連れて行かせるが、江慈はそれに気づいて衛昭のもとに戻ってくる。",
+      "【監督】": "ジョウ・ジンタオ、チー・シアオフイ、リアン・バオチュエン"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T18:00:00+09:00",
+    "event_id": 25012,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25012",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T17:00:00+09:00",
+    "title": "【BS初】中国◇流水舞花～遥かなる月落城～#42(全43話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25013": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T18:30:00+09:00",
+    "event_id": 25013,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25013",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T18:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25014": {
+    "channel_id": "NID4-SID260",
+    "description": "名取裕子主演！ツアーコンダクターが、自ら添乗するツアーで起こる殺人事件の謎に迫る人気シリーズ。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1996年",
+      "【出演者】": "名取裕子、布施博、水野久美 ほか",
+      "【番組内容】": "早乙女千春(名取裕子)が担当することになっていた“伊豆デラックスツアー”に、彼女に想いを寄せている長野原警察の近藤保(阿藤海)が参加することになった。彼にしつこく恋のアタックをされていた千春は、このツアーの担当を下りたいと上司の須藤(蟹江敬三)に直訴していた。が、このツアーに参加する戸田浩一郎(布施博)を見た途端、行く気満々に…。",
+      "【監督】": "長尾啓司",
+      "【脚本】": "いとう斗士八"
+    },
+    "duration": 7200.0,
+    "end_time": "2026-10-29T20:30:00+09:00",
+    "event_id": 25014,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "その他"
+      }
+    ],
+    "id": "NID4-SID260-EID25014",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T18:30:00+09:00",
+    "title": "早乙女千春の添乗報告書 伊豆湯けむりツアー殺人事件",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25015": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-29T21:00:00+09:00",
+    "event_id": 25015,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25015",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T20:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25016": {
+    "channel_id": "NID4-SID260",
+    "description": "【恋とパワーと軽井沢】伝説の名作が帰ってきた！特訓、宿敵、そして恋……ひろみの戦いが再び始まる！第1作目のヒットを受け、放送されたリメイク作。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1979年/全25話",
+      "【出演者】": "岡ひろみ(声:高坂真琴)/竜崎麗香(声:池田昌子)/愛川マキ(声:菅谷政子) ほか",
+      "【原作】": "山本鈴美香",
+      "【番組内容】": "全日本ジュニア一次メンバーに登録されたひろみ。だが、新学期の軽井沢合宿では、藤堂への恋心から練習中も上の空だった。そんなひろみに対して、宗方は「目標達成までは恋を忘れろ！」と一喝する。やがて、ひろみは宗方が自分に託そうとしているものに気づき始める。",
+      "【監督】": "岡崎稔、井内秀治、出崎哲 ほか",
+      "【脚本】": "藤川桂介、荒木芳久、杉江慧子"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T21:30:00+09:00",
+    "event_id": 25016,
+    "genres": [
+      {
+        "major": "アニメ・特撮",
+        "middle": "国内アニメ"
+      }
+    ],
+    "id": "NID4-SID260-EID25016",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T21:00:00+09:00",
+    "title": "新・エースをねらえ！#15(全25話)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25017": {
+    "channel_id": "NID4-SID260",
+    "description": "【自信と過保護と例外メンバー】伝説の名作が帰ってきた！特訓、宿敵、そして恋……ひろみの戦いが再び始まる！第1作目のヒットを受け、放送されたリメイク作。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1979年/全25話",
+      "【出演者】": "岡ひろみ(声:高坂真琴)/竜崎麗香(声:池田昌子)/愛川マキ(声:菅谷政子) ほか",
+      "【原作】": "山本鈴美香",
+      "【番組内容】": "合宿から戻ったひろみは、早速、全日本ジュニア選抜の合宿に山中湖へ向かう。そこで遭遇したのは、帰国子女にして自信家の宝力冴子、過保護な母親が同伴する美咲優子といった強豪選手達。自信を喪失したひろみに対して、宗方は「自分の力を信じろ」と諭す。その言葉で立ち直ったひろみは選抜試合に立ち向かっていく。",
+      "【監督】": "岡崎稔、井内秀治、出崎哲 ほか",
+      "【脚本】": "藤川桂介、荒木芳久、杉江慧子"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-29T22:00:00+09:00",
+    "event_id": 25017,
+    "genres": [
+      {
+        "major": "アニメ・特撮",
+        "middle": "国内アニメ"
+      }
+    ],
+    "id": "NID4-SID260-EID25017",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T21:30:00+09:00",
+    "title": "新・エースをねらえ！#16(全25話)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25018": {
+    "channel_id": "NID4-SID260",
+    "description": "森繁久彌主演！大病院を舞台に、患者と病院スタッフ、家族の一喜一憂を名優たちが演じる、思わず笑みを誘われる秀作ドラマ！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1976年～",
+      "【出演者】": "森繁久彌、山岡久乃、井上順 ほか",
+      "【番組内容】": "夫の和之(西田敏行)が最近冷淡になったと、すみれ(泉ピン子)は大五郎(森繁久彌)にこぼした。大五郎は、嘘をついてでも嫉妬心を燃えたたせろと助言した。すみれは、たまたま、弓子(あべ静江)が燃やそうとした高校時代のノートに、弓子あてにテニス部のコーチをしていたOBの書いた詩を発見。そのノートを買いとった。すみれは、それをもとに、和之に架空の思い出をほのめかした。",
+      "【監督】": "脇田時三、本多勝也、橋本信也 ほか",
+      "【脚本】": "高橋玄洋、福田陽一郎、市川森一"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-29T23:00:00+09:00",
+    "event_id": 25018,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25018",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T22:00:00+09:00",
+    "title": "【BS初】三男三女婿一匹 第1シリーズ#21(全29話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25019": {
+    "channel_id": "NID4-SID260",
+    "description": "ジュノ(2PM)×イ・セヨン×「仮面の王イ・ソン」脚本家が贈る最高のラブロマンス！愛された宮女、愛した王。2人の袖先が触れ合ったとき、運命の歯車が動き始める。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2021年/全27話",
+      "【出演者】": "ジュノ(2PM)、イ・セヨン、カン・フン ほか",
+      "【原作】": "小説「袖先赤いクットン」",
+      "【番組内容】": "サンは貴重な果物だったミカンを手に入れドギムに渡す。サンの自分に対する想いを知ったドギムは、頑なに受け取らない。サンの心は傷つく。ドギムが王宮の門で男と親しく会話しているのを見たサンは機嫌を悪くする。男は再会したドギムの兄だったのだが…。サンはドギムに、お前のすべては私が決めると言い放って立ち去る。",
+      "【監督】": "チョン・ジイン/ソン・ヨナ",
+      "【脚本】": "チョン・ヘリ"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T00:00:00+09:00",
+    "event_id": 25019,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25019",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-29T23:00:00+09:00",
+    "title": "韓国◇赤い袖先#11(全27話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25020": {
+    "channel_id": "NID4-SID260",
+    "description": "「雲が描いた月明り」パク・ボゴム×「運勢ロマンス」リュ・ジュンヨルが恋のバトル！？\r\n笑って泣いて、胸キュン必至のハートフル・ラブコメディ！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2015年、韓国、(全42話)",
+      "【出演者】": "パク・ボゴム、リュ・ジュンヨル、ヘリ ほか",
+      "【番組内容】": "ジョンファンの父は腰の骨を折ったことでジョンファンの母に甘え、トイレも食事も介護してもらう毎日。ジョンファンの母もドンリョンものど自慢大会で失格となったが、横町でただひとり合格していたのがノウルだったと知って驚く。テクは、ジョンファンの財布の中にあった写真を見て、ドクソンとの映画の約束を延期。帰国して幼なじみ5人が集まってサッカーをするが、その前日、ドクソンはバイクに足を轢かれ怪我をしていた。",
+      "【監督】": "シン・ウォンホ",
+      "【脚本】": "イ・ウジョン"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T01:00:00+09:00",
+    "event_id": 25020,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25020",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T00:00:00+09:00",
+    "title": "韓国◇恋のスケッチ～応答せよ1988～ #33 人間万事塞翁が馬(全42話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25021": {
+    "channel_id": "NID4-SID260",
+    "description": "パク・ソジュン主演。パク・ヒョンシク、ミンホ(SHINee)、V(BTS)豪華キャストが奇跡の共演！\r\n花郎<ファラン>たちの愛と成長を描いた青春ロマンス時代劇！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2016年、韓国(全24話)",
+      "【出演者】": "パク・ソジュン、パク・ヒョンシク、Ara、ミンホ(SHINee)、V(キム・テヒョン BTS) ほか",
+      "【番組内容2】": "そんな中、花郎たちは「道徳経」を課題とした初の筆記試験に臨む。仙門に残るため、ソヌは最善を尽くして合格を目指すが…。",
+      "【番組内容】": "ジディに口づけをされたアロはソヌがやってきたことに気づき、あわてて医務室に戻る。ソヌは2人の間に流れる妙な雰囲気を感じ取り、ジディを殴って妹に近づくなと警告。だが、ジディは少しもひるまず、アロを好きになったとソヌに宣言する。ソヌはアロの前で兄らしく振る舞うべく、妹への接し方をスホに尋ねて…。",
+      "【監督】": "ユン・ソンシク、キム・ヨンジョ",
+      "【脚本】": "パク・ウニョン"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T02:00:00+09:00",
+    "event_id": 25021,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25021",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T01:00:00+09:00",
+    "title": "韓国◇花郎<ファラン> #8(全24話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25022": {
+    "channel_id": "NID4-SID260",
+    "description": "一人の女性が時代と運命に翻弄されながらも勇敢に戦う姿を描いた切なくも美しい大型宮廷ロマンス",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2019年、中国、(全61話)",
+      "【出演者】": "チョン・イー、チャオ・インズ、ハン・ドン ほか",
+      "【番組内容】": "蕭啓翰(しょうけいかん)は凌蓁児(りょうしんじ)を娶りたいと賀蘭茗玉(がらんめいぎょく)に申し込むが、凌蓁児にその気がないことを承知の賀蘭茗玉は蘭(らん)昭儀の同意を得てほしいと答える。すると、予想通り蘭昭儀はこれに猛反対。凌蓁児を呼びつけて罵るが、凌蓁児はそこで偶然、呪いの人形を作った犯人が蘭昭儀だったことに気づく。そんな中、五皇子が喘息の発作で急逝し…。",
+      "【脚本】": "リウ・ファン、リー・フェイミン"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T03:00:00+09:00",
+    "event_id": 25022,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25022",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T02:00:00+09:00",
+    "title": "中国◇長安 賢后伝 #32 五皇子の死(全61話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25023": {
+    "channel_id": "NID4-SID260",
+    "description": "地域の防災・防犯対策、安心安全な暮らしをおくるためのアイデアや取り組みをご紹介！",
+    "detail": {
+      "【番組内容】": "▽山口県下関市/花いっぱい運動で高齢者の見守りを実施▽埼玉県小鹿野町/えっ！？歌舞伎で防犯啓発▽千葉県木更津市/コミュニティバスで安否確認！？ ほか"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T03:30:00+09:00",
+    "event_id": 25023,
+    "genres": [
+      {
+        "major": "ニュース・報道",
+        "middle": "ローカル・地域"
+      }
+    ],
+    "id": "NID4-SID260-EID25023",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T03:00:00+09:00",
+    "title": "こちらJ:COM安心安全課 #56",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25024": {
+    "channel_id": "NID4-SID260",
+    "description": "元スパイの黒木らが所属する国際警察の秘密捜査グループであるキイハンター。本邦アクションドラマの草分けにして最高峰！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1971年",
+      "【出演者】": "宮内 洋、高杉 玄、杉江 廣太郎、千葉 真一、川口 浩、大川 栄子、谷 隼人、丹波 哲郎、中丸 忠雄、仲谷 昇、牧 紀子、野際 陽子",
+      "【番組内容2】": "テレビ番組の常識を超えたスケール感豊かなストーリーと華麗かつダイナミックなアクションは視聴者の度肝を抜き、5年間・全262話に亘って放送されるほどの大ヒット作となった。",
+      "【番組内容】": "1968年―我が国のテレビ界に、後に伝説となる珠玉のアクションドラマが誕生した。それが、丹波哲郎・千葉真一・野際陽子らの出演による『キイハンター』である。国際警察の秘密捜査グループである彼ら“キイハンター”は、世界の平和を揺るがす陰謀や暴動の渦中に、果敢に飛び込んでいく。",
+      "【監督】": "竹本 弘一",
+      "【脚本】": "近藤 正"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T04:30:00+09:00",
+    "event_id": 25024,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "国内ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25024",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T03:30:00+09:00",
+    "title": "キイハンター #184 決闘！大雪渓のダイヤモンド作戦(全262話)[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25025": {
+    "channel_id": "NID4-SID260",
+    "description": "「リアルに自然を感じ、体験するアウトドア」がブームのこの時代。日本各地の「低山」を登り、山頂での「ご褒美メシ」を紹介。登山の魅力を発信します！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【出演者】": "平山祐介",
+      "【番組内容】": "東京都と神奈川県の都県境に位置する陣馬山。「かながわの景勝50選」「関東の富士見百景」に選定されており山頂では360度大パノラマの絶景が楽しめます。陣馬山には様々な登山コースが用意されており、今回は、古民家や茶畑を通り抜けるコースを登ります！"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T05:00:00+09:00",
+    "event_id": 25025,
+    "genres": [
+      {
+        "major": "趣味・教育",
+        "middle": "旅・釣り・アウトドア"
+      }
+    ],
+    "id": "NID4-SID260-EID25025",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T04:30:00+09:00",
+    "title": "登山で頂きメシ！#19 陣馬山 神奈川県 平山祐介[字]",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25026": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-30T05:30:00+09:00",
+    "event_id": 25026,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25026",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T05:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25027": {
+    "channel_id": "NID4-SID260",
+    "description": "【母の愛に泣いた男】主演・杉良太郎！死して屍拾う者なし！徳川家斉の時代を背景に、隠密同心の活躍を描いて大人気となった痛快アクション時代劇！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "1970年～73年",
+      "【出演者】": "杉良太郎、瑳川哲朗、梶芽衣子 ほか",
+      "【番組内容】": "隠密支配である旗本寄合席・内藤勘解由から指令を受けた隠密同心の十文字小弥太、井坂十蔵、芸者・小波の三人が江戸市中で巻き起こる事件を解決していく、それまで扱われたことのなかった江戸時代の秘密探偵の活躍を描いた、新しいアクション時代劇。",
+      "【監督】": "磯見忠彦、西山正輝、斉藤光正 ほか",
+      "【脚本】": "山崎巌、中野顕彰、大和久守正 ほか"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T06:30:00+09:00",
+    "event_id": 25027,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "時代劇"
+      }
+    ],
+    "id": "NID4-SID260-EID25027",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T05:30:00+09:00",
+    "title": "【あさ5はん時代劇】大江戸捜査網 #85(全104話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25028": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-30T07:00:00+09:00",
+    "event_id": 25028,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25028",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T06:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25029": {
+    "channel_id": "NID4-SID260",
+    "description": "【魔の取り引き】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "保釈を手伝う代わりに娘と一緒にチャ家を出るようスンナムに提案するセヒ。スンナムは拒むが、義母のチェ・ボクヒが書堂を処分し保釈金を準備しようとしているのを知り、書堂を守るため取引に応じることにする。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T07:30:00+09:00",
+    "event_id": 25029,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25029",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T07:00:00+09:00",
+    "title": "韓国◇白詰草 #33(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25030": {
+    "channel_id": "NID4-SID260",
+    "description": "【家出】パク・シウン×チャン・スンジョ×ハン・スヨン共演！復讐ドラマのヒットメーカー達が贈るドロドロ復讐劇の大本命！",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年/全129話",
+      "【出演者】": "パク・シウン、チャン・スンジョ、ハン・スヨン ほか",
+      "【番組内容】": "ジュニョンを連れて誰にも知らせず家を出るスンナム。スンナムとの取引が成功しユミンとの結婚が叶うとほくそ笑むセヒ。一方、ユミンとの結婚を反対するボンチョルは、セヒの目論見を止めようと焦り始める。",
+      "【監督】": "チェ・ウンギョン、キム・ヨンミン",
+      "【脚本】": "チェ・ヨンゴル"
+    },
+    "duration": 1800.0,
+    "end_time": "2026-10-30T08:00:00+09:00",
+    "event_id": 25030,
+    "genres": [
+      {
+        "major": "ドラマ",
+        "middle": "海外ドラマ"
+      }
+    ],
+    "id": "NID4-SID260-EID25030",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T07:30:00+09:00",
+    "title": "韓国◇白詰草 #34(全129話)",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25031": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-30T08:30:00+09:00",
+    "event_id": 25031,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25031",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T08:00:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25032": {
+    "channel_id": "NID4-SID260",
+    "description": "総合診療医が病名を探り当てるまでの謎解きの面白さをスタジオで展開する、新感覚！病名推理エンターテインメント番組。",
+    "detail": {
+      "【X】": "https://x.com/BS260_official",
+      "【公開・放送年】": "2017年",
+      "【出演者】": "浅草キッド、ナレーション:小野寺一歩、佐竹海莉",
+      "【番組内容2】": "【ドクターG】国立国際医療研究センター 医師・忽那賢志【ゲスト】いとうせいこう、山村紅葉",
+      "【番組内容】": "去年定年を迎えた66歳の男性。50代で糖尿病を発症し、週3回の透析に通いながら、今は転籍して子会社で働いている。3日前、耳が痛くなり熱が出た。翌日透析の病院で診てもらったが熱が下がらない。今日は、取引先の都合で急な会議が入り、透析を受けたあと夜に会社に戻った。大事な会議の最中に意識がもうろうとし始め、部下に抱えられて病院へ。その後さらに意識レベルが低下していく…緊急事態だ！"
+    },
+    "duration": 3600.0,
+    "end_time": "2026-10-30T09:30:00+09:00",
+    "event_id": 25032,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "健康・医療"
+      }
+    ],
+    "id": "NID4-SID260-EID25032",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T08:30:00+09:00",
+    "title": "総合診療医 ドクターG ボーっとして反応しない",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  },
+  "NID4-SID260-EID25033": {
+    "channel_id": "NID4-SID260",
+    "description": "おうちでショッピング！毎日選りすぐりの商品をご紹介します。",
+    "detail": {},
+    "duration": 1800.0,
+    "end_time": "2026-10-30T10:00:00+09:00",
+    "event_id": 25033,
+    "genres": [
+      {
+        "major": "情報・ワイドショー",
+        "middle": "ショッピング・通販"
+      }
+    ],
+    "id": "NID4-SID260-EID25033",
+    "is_free": true,
+    "network_id": 4,
+    "primary_audio_language": "日本語",
+    "primary_audio_sampling_rate": "48kHz",
+    "primary_audio_type": "2/0モード(ステレオ)",
+    "secondary_audio_language": null,
+    "secondary_audio_sampling_rate": null,
+    "secondary_audio_type": null,
+    "service_id": 260,
+    "start_time": "2026-10-30T09:30:00+09:00",
+    "title": "テレビショッピング",
+    "video_codec": "MPEG-2",
+    "video_resolution": "1080i",
+    "video_type": "映像1080i(1125i)、アスペクト比16:9 パンベクトルなし"
+  }
+}

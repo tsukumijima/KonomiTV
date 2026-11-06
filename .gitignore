@@ -147,6 +147,7 @@ cython_debug/
 
 # config.yaml
 config.yaml
+config.test.yaml
 
 # docker-compose.yaml
 docker-compose.yaml

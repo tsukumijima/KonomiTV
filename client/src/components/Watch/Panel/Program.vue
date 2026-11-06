@@ -75,6 +75,11 @@
                     <span style="margin-left: 5px;">録画開始 (EDCB 専用)</span>
                 </template>
             </div>
+            <a v-if="channelsStore.channel.current.program_present" v-ripple class="program-info__captures"
+                href="/captures/broadcast" @click.prevent="openCaptures()">
+                <Icon icon="fluent:image-multiple-20-regular" width="17px" height="17px" style="margin-bottom: -1px" />
+                <span style="margin-left: 4.5px;">この番組のキャプチャ</span>
+            </a>
         </section>
         <!-- 録画停止確認ダイアログ -->
         <v-dialog v-model="show_stop_recording_dialog" max-width="715">
@@ -222,6 +227,50 @@ export default defineComponent({
         },
     },
     methods: {
+
+        /**
+         * 現在放送中の番組で撮ったキャプチャの画面へ移る
+         * キャプチャがまだ無くても番組名や局ロゴを出せるよう、番組情報を画面遷移と一緒に渡す
+         */
+        openCaptures(): void {
+            const program = this.channelsStore.channel.current.program_present;
+            const channel = this.channelsStore.channel.current;
+            if (program === null) {
+                return;
+            }
+            // 放送時間未定の番組は duration が Infinity で、end_time には便宜上 start_time と同じ時刻が入っているため、キャプチャの EXIF に書き込むとき (CaptureManager.ts) と同じく、どちらも null にする
+            let endTime: string | null = program.end_time;
+            let duration: number | null = program.duration;
+            if (Number.isFinite(program.duration) === false) {
+                endTime = null;
+                duration = null;
+            }
+            this.$router.push({
+                path: '/captures/broadcast',
+                query: {
+                    network_id: String(program.network_id),
+                    service_id: String(program.service_id),
+                    event_id: String(program.event_id),
+                    start_time: program.start_time,
+                },
+                state: {
+                    capture_program_hint: {
+                        id: 0,
+                        network_id: program.network_id,
+                        service_id: program.service_id,
+                        event_id: program.event_id,
+                        start_time: program.start_time,
+                        end_time: endTime,
+                        duration: duration,
+                        title: program.title,
+                        description: program.description,
+                        channel: { id: channel.id, display_channel_id: channel.display_channel_id, name: channel.name, type: channel.type },
+                        recorded_program_ids: [],
+                    },
+                },
+            });
+        },
+
         /**
          * 現在の番組の録画予約状態をチェックする
          * 全予約を取得し、現在放送中の番組と一致する予約を探す
@@ -635,6 +684,28 @@ export default defineComponent({
                 border-radius: 50%;
                 background-color: #EF5350;
                 box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+            }
+        }
+        .program-info__captures {
+            display: flex;
+            align-items: center;
+            width: fit-content;
+            margin-top: 8px;
+            padding: 5px 8px;
+            color: rgb(var(--v-theme-text-darken-1));
+            font-size: 12.7px;
+            line-height: 170%;
+            background: rgb(var(--v-theme-background-lighten-1));
+            border-radius: 4px;
+            user-select: none;
+            transition: color 0.15s ease;
+            cursor: pointer;
+            @include smartphone-horizontal {
+                font-size: 11.5px;
+            }
+
+            &:hover {
+                color: rgb(var(--v-theme-text));
             }
         }
         .program-info__next {

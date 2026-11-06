@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 import anyio
-import httpx
+import httpx2 as httpx
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse, Response
 from fastapi.security.utils import get_authorization_scheme_param
@@ -44,7 +44,7 @@ async def GetChannel(channel_id: Annotated[str, Path(description='チャンネ�
     if channel is None:
         logging.error(f'[ChannelsRouter][GetChannel] Specified display_channel_id was not found. [display_channel_id: {channel_id}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified display_channel_id was not found',
         )
 

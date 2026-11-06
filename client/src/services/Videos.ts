@@ -1,10 +1,10 @@
 
 import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
-import { CommentUtils } from '@/utils';
+import Utils, { CommentUtils } from '@/utils';
 
-/** ソート順序を表す型 */
-export type SortOrder = 'desc' | 'asc';
+/** ソート順序を表す型 (desc / asc は番組の開始時刻順、file_path_asc / file_path_desc は録画ファイルのパスの自然順) */
+export type SortOrder = 'desc' | 'asc' | 'file_path_asc' | 'file_path_desc';
 
 /** マイリストのソート順序を表す型 */
 export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'recorded_desc' | 'recorded_asc';
@@ -12,7 +12,7 @@ export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'record
 /** 録画ファイル情報を表すインターフェース */
 export interface IRecordedVideo {
     id: number;
-    status: 'Recording' | 'Recorded' | 'AnalysisFailed';
+    status: 'Recording' | 'Recorded' | 'AnalysisFailed' | 'Missing';
     file_path: string;
     file_hash: string;
     file_size: number;
@@ -29,10 +29,10 @@ export interface IRecordedVideo {
     video_resolution_width: number;
     video_resolution_height: number;
     has_video_stream_changes: boolean;
-    primary_audio_codec: 'AAC-LC';
+    primary_audio_codec: 'AAC-LC' | 'HE-AAC';
     primary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch';
     primary_audio_sampling_rate: number;
-    secondary_audio_codec: 'AAC-LC' | null;
+    secondary_audio_codec: 'AAC-LC' | 'HE-AAC' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
     cm_sections: { start_time: number; end_time: number; }[] | null;
@@ -53,6 +53,7 @@ export interface IThumbnailImageInfo {
     format: 'WebP';
     width: number;
     height: number;
+    revision: number;
 }
 
 /** サムネイルタイル情報を表すインターフェース */
@@ -192,12 +193,12 @@ class Videos {
 
     /**
      * 録画番組一覧を取得する
-     * @param order ソート順序 ('desc' or 'asc' or 'ids')
+     * @param order ソート順序 ('desc' or 'asc' or 'file_path_asc' or 'file_path_desc' or 'ids')
      * @param page ページ番号
      * @param ids 録画番組の ID のリスト
      * @returns 録画番組一覧情報 or 録画番組一覧情報の取得に失敗した場合は null
      */
-    static async fetchVideos(order: 'desc' | 'asc' | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
+    static async fetchVideos(order: SortOrder | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos', {
@@ -226,11 +227,11 @@ class Videos {
     /**
      * 録画番組を検索する
      * @param query 検索キーワード
-     * @param order ソート順序 ('desc' or 'asc')
+     * @param order ソート順序 ('desc' or 'asc' or 'file_path_asc' or 'file_path_desc')
      * @param page ページ番号
      * @returns 検索結果の録画番組一覧情報 or 検索に失敗した場合は null
      */
-    static async searchVideos(query: string, order: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
+    static async searchVideos(query: string, order: SortOrder = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<IRecordedPrograms>('/videos/search', {
@@ -319,6 +320,40 @@ class Videos {
                     APIClient.showGenericError(response, 'メタデータの再解析に失敗しました。');
                     break;
             }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * 録画番組の代表サムネイルの URL を返す
+     * 代表サムネイルは30日間キャッシュされるので、サムネイルを作り直すたびに単調増加する revision の値を URL に付加する
+     * @param program 録画番組
+     * @returns 代表サムネイルの URL
+     */
+    static getThumbnailURL(program: IRecordedProgram): string {
+        const revision = program.recorded_video.thumbnail_info?.representative.revision;
+        const query = revision !== undefined ? `?revision=${revision}` : '';
+        return `${Utils.api_base_url}/videos/${program.id}/thumbnail${query}`;
+    }
+
+
+    /**
+     * キャプチャの画像を、録画番組の代表サムネイルにする
+     * @param video_id 録画番組の ID
+     * @param capture_id 代表サムネイルにするキャプチャの ID (その録画番組と同じ番組で撮ったもの)
+     * @returns 設定に成功した場合は true
+     */
+    static async updateThumbnailFromCapture(video_id: number, capture_id: number): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.put(`/videos/${video_id}/thumbnail`, { capture_id });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画番組のサムネイルを変更できませんでした。');
             return false;
         }
 

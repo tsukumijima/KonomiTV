@@ -51,7 +51,7 @@ async def ClientSettingsUpdateAPI(
     if client_settings.last_synced_at < current_client_settings.last_synced_at:
         logging.error(f'[ClientSettingsUpdateAPI] Client settings are outdated! [{client_settings.last_synced_at} < {current_client_settings.last_synced_at}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'The client settings are outdated. Please update the client settings from the server.',
         )
 

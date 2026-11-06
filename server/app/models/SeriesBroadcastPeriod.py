@@ -21,7 +21,7 @@ class SeriesBroadcastPeriod(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'series_broadcast_periods'
 
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     series: fields.ForeignKeyRelation[Series] = \
         fields.ForeignKeyField('models.Series', related_name='broadcast_periods', on_delete=fields.CASCADE)
     series_id: int

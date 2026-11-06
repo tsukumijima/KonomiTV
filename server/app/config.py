@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
-import httpx
+import httpx2 as httpx
 import psutil
 import ruamel.yaml
 import ruamel.yaml.scalarstring
@@ -31,6 +31,7 @@ from app.constants import (
     API_REQUEST_HEADERS,
     BASE_DIR,
     LIBRARY_PATH,
+    TEST_SUFFIX,
 )
 from app.utils.TSInformation import TerrestrialRegion
 
@@ -355,6 +356,7 @@ class _ServerSettingsVideo(BaseModel):
 
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
+    upload_folders_polling_interval: Annotated[float, Field(ge=0, strict=True, allow_inf_nan=False)] = 0.0
 
 class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral = _ServerSettingsGeneral()
@@ -369,7 +371,8 @@ class ServerSettings(BaseModel):
 # _CONFIG には直接アクセスせず、Config() 関数を通してアクセスする
 
 _CONFIG: ServerSettings | None = None
-_CONFIG_YAML_PATH = BASE_DIR.parent / 'config.yaml'
+## テストの実行中は、テストが書き出す config.test.yaml を読み込む
+_CONFIG_YAML_PATH = BASE_DIR.parent / f'config{TEST_SUFFIX}.yaml'
 _DOCKER_PATH_PREFIX = '/host-rootfs'
 
 

@@ -697,17 +697,6 @@ class LiveDataBroadcastingManager implements PlayerManager {
         }
         this.media_element_original_styles.clear();
 
-        // Deinterlacer のラッパーは Shadow DOM から戻した後に intrinsic size だけでは元の高さを復元できないため、DPlayer の映像枠へ合わせ直す
-        const deinterlacer = this.player.plugins.mpeg2toh264?.deinterlacer;
-        if (deinterlacer instanceof Deinterlacer && this.media_element.contains(deinterlacer.container)) {
-            deinterlacer.container.style.width = '100%';
-            deinterlacer.container.style.height = '100%';
-            for (const video of this.media_element.querySelectorAll('video')) {
-                video.style.width = '100%';
-                video.style.height = '100%';
-            }
-        }
-
         this.is_video_element_moved_to_bml_browser = false;
     }
 

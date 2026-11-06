@@ -316,7 +316,7 @@ const toggleSettings = () => {
 
 const onKeyDown = (event: KeyboardEvent) => {
     // 変換中でない場合のみ検索を実行
-    if (event.key === 'Enter' && event.isComposing === false) {
+    if (event.key === 'Enter' && Utils.isIMEComposing(event) === false) {
         performSearchTweets();
     }
 };

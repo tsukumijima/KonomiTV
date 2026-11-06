@@ -12,14 +12,14 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 import ariblib.constants
-import httpx
+import httpx2 as httpx
 from tortoise import Tortoise, connections, exceptions, fields, transactions
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
 
 from app import logging
 from app.config import Config, LoadConfig
-from app.constants import DATABASE_CONFIG, HTTPX_CLIENT, JST
+from app.constants import DATABASE_CONFIG, HTTPX_CLIENT, JST, PROCESS_POOL_CONTEXT
 from app.models.Channel import Channel
 from app.schemas import Genre
 from app.utils import GetMirakurunAPIEndpointURL, ShutdownProcessPoolExecutor
@@ -34,9 +34,9 @@ class Program(TortoiseModel):
     class Meta(TortoiseModel.Meta):
         table: str = 'programs'
 
-    id = fields.CharField(255, pk=True)
+    id = fields.CharField(255, primary_key=True)
     channel: fields.ForeignKeyRelation[Channel] = \
-        fields.ForeignKeyField('models.Channel', related_name='programs', index=True, on_delete=fields.CASCADE)
+        fields.ForeignKeyField('models.Channel', related_name='programs', db_index=True, on_delete=fields.CASCADE)
     channel_id: str
     network_id = fields.IntField()
     service_id = fields.IntField()
@@ -44,8 +44,8 @@ class Program(TortoiseModel):
     title = fields.TextField()
     description = fields.TextField()
     detail = cast(TortoiseField[dict[str, str]], fields.JSONField(default={}, encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
-    start_time = fields.DatetimeField(index=True)
-    end_time = fields.DatetimeField(index=True)
+    start_time = fields.DatetimeField(db_index=True)
+    end_time = fields.DatetimeField(db_index=True)
     duration = fields.FloatField()
     is_free = fields.BooleanField()
     genres = cast(TortoiseField[list[Genre]], fields.JSONField(default=[], encoder=lambda x: json.dumps(x, ensure_ascii=False)))  # type: ignore
@@ -58,6 +58,25 @@ class Program(TortoiseModel):
     secondary_audio_type = cast(TortoiseField[str | None], fields.TextField(null=True))
     secondary_audio_language = cast(TortoiseField[str | None], fields.TextField(null=True))
     secondary_audio_sampling_rate = cast(TortoiseField[str | None], fields.TextField(null=True))
+
+
+    def isOffTheAirProgram(self) -> bool:
+        """
+        この番組が停波中の番組かを返す
+        この番組自身の番組名から判定しているだけで、実際に停波中かを保証するものではない
+
+        Returns:
+            bool: 停波中の番組かどうか
+        """
+
+        if (('番組情報がありません' == self.title) or
+            ('放送休止' in self.title) or
+            ('放送終了' in self.title) or
+            ('休止' in self.title) or
+            ('停波' in self.title)):
+            return True
+
+        return False
 
 
     @classmethod
@@ -81,7 +100,7 @@ class Program(TortoiseModel):
             # マルチプロセス実行用の Executor を初期化
             ## ProcessPoolExecutor のコンテキストマネージャーは、キャンセル時にも __exit__() で子プロセスの終了を同期的に待つ
             ## 番組情報更新中に API リクエストやバックグラウンドタスクがキャンセルされても、イベントループ全体を止めないように明示的に閉じる
-            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+            executor = concurrent.futures.ProcessPoolExecutor(max_workers=1, mp_context=PROCESS_POOL_CONTEXT)
             should_wait_executor = True
             try:
                 # Mirakurun バックエンド
@@ -197,276 +216,259 @@ class Program(TortoiseModel):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         if is_running_multiprocess is True:
 
-            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
-            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
-            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
-            connections.discard('default')
-
             # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)
 
         try:
 
-            # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
-            async with transactions.in_transaction():
+            # 番組情報の取得はトランザクションの外で行い、取得に失敗した場合は DB を変更せずに終了する
+            # Mirakurun / mirakc の API から番組情報を取得する
+            try:
+                mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
+                async with HTTPX_CLIENT() as client:
+                    # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
+                    mirakurun_programs_api_response = await client.get(mirakurun_programs_api_url, timeout=10)
+                if mirakurun_programs_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
+                    logging.error(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                    raise Exception(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
+                programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
+            except httpx.NetworkError as ex:
+                logging.error('Failed to get programs from Mirakurun / mirakc. (Network Error)')
+                raise ex
+            except httpx.TimeoutException as ex:
+                logging.error('Failed to get programs from Mirakurun / mirakc. (Connection Timeout)')
+                raise ex
 
-                # Mirakurun / mirakc の API から番組情報を取得する
-                try:
-                    mirakurun_programs_api_url = GetMirakurunAPIEndpointURL('/api/programs')
-                    async with HTTPX_CLIENT() as client:
-                        # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
-                        mirakurun_programs_api_response = await client.get(mirakurun_programs_api_url, timeout=10)
-                    if mirakurun_programs_api_response.status_code != 200:  # Mirakurun / mirakc からエラーが返ってきた
-                        logging.error(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
-                        raise Exception(f'Failed to get programs from Mirakurun / mirakc. (HTTP Error {mirakurun_programs_api_response.status_code})')
-                    programs: list[dict[str, Any]] = mirakurun_programs_api_response.json()
-                except httpx.NetworkError as ex:
-                    logging.error('Failed to get programs from Mirakurun / mirakc. (Network Error)')
-                    raise ex
-                except httpx.TimeoutException as ex:
-                    logging.error('Failed to get programs from Mirakurun / mirakc. (Connection Timeout)')
-                    raise ex
+            # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
+            ## 変更の有無の判定に使う列だけを取得する (全列を ORM のオブジェクトにすると、2万件前後の番組で数十 MB を使うため)
+            duplicate_programs: dict[str, dict[str, Any]] = {}
+            for row in await Program.all().values('id', 'title', 'description', 'detail', 'start_time', 'end_time'):
+                duplicate_programs[row['id']] = row
 
-                # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
-                duplicate_programs = {temp.id:temp for temp in await Program.all()}
+            # 追加する番組情報と、更新する番組情報 (最後に一括で DB に書き込む)
+            added_programs: list[Program] = []
+            updated_programs: list[Program] = []
 
-                # チャンネル情報を取得
-                # NID32736-SID1024 形式の ID をキーにした辞書にまとめる
-                channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
+            # チャンネル情報を取得
+            # NID32736-SID1024 形式の ID をキーにした辞書にまとめる
+            channels = {temp.id:temp for temp in await Channel.filter(is_watchable=True)}
 
-                # 番組情報ごとに
-                for program_info in programs:
+            # 番組情報ごとに
+            for program_info in programs:
 
-                    # この番組が放送されるチャンネルの情報を取得
-                    channel = channels.get(f'NID{program_info["networkId"]}-SID{program_info["serviceId"]:03d}', None)
+                # この番組が放送されるチャンネルの情報を取得
+                channel = channels.get(f'NID{program_info["networkId"]}-SID{program_info["serviceId"]:03d}', None)
 
-                    # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
-                    if channel is None:
-                        continue
+                # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
+                if channel is None:
+                    continue
 
-                    # メインの番組情報でないなら弾く
-                    if IsMainProgram(program_info) is False:
-                        continue
+                # メインの番組情報でないなら弾く
+                if IsMainProgram(program_info) is False:
+                    continue
 
-                    # 番組タイトルがない（＝サブチャンネルでメインチャンネルの内容をそのまま放送している）を弾く
-                    if 'name' not in program_info:
-                        continue
+                # 番組タイトルがない（＝サブチャンネルでメインチャンネルの内容をそのまま放送している）を弾く
+                if 'name' not in program_info:
+                    continue
 
-                    # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
+                # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
-                    # 番組タイトル・番組概要
-                    title: str = ''  # デフォルト値
-                    description: str = ''  # デフォルト値
-                    if 'name' in program_info:
-                        title = TSInformation.formatString(program_info['name']).strip()
-                    if 'description' in program_info:
-                        description = TSInformation.formatString(program_info['description']).strip()
+                # 番組タイトル・番組概要
+                title: str = ''  # デフォルト値
+                description: str = ''  # デフォルト値
+                if 'name' in program_info:
+                    title = TSInformation.formatString(program_info['name']).strip()
+                if 'description' in program_info:
+                    description = TSInformation.formatString(program_info['description']).strip()
 
-                    # 番組詳細
-                    detail: dict[str, str] = {}  # デフォルト値
-                    if 'extended' in program_info:
+                # 番組詳細
+                detail: dict[str, str] = {}  # デフォルト値
+                if 'extended' in program_info:
 
-                        # 番組詳細の見出しと本文の辞書ごとに
-                        for head, text in program_info['extended'].items():
+                    # 番組詳細の見出しと本文の辞書ごとに
+                    for head, text in program_info['extended'].items():
 
-                            # 見出しと本文
-                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
-                            if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
-                                head_hankaku = '番組内容'
-                            text_hankaku = TSInformation.formatString(text).strip()
-                            detail[head_hankaku] = text_hankaku
+                        # 見出しと本文
+                        head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
+                        if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
+                            head_hankaku = '番組内容'
+                        text_hankaku = TSInformation.formatString(text).strip()
+                        detail[head_hankaku] = text_hankaku
 
-                            # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
-                            # 空でまったく情報がないよりかは良いはず
-                            if description.strip() == '':
-                                description = text_hankaku
+                        # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
+                        # 空でまったく情報がないよりかは良いはず
+                        if description.strip() == '':
+                            description = text_hankaku
 
-                    # 番組開始時刻・番組終了時刻
-                    start_time = MillisecondToDatetime(program_info['startAt'])
-                    end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
+                # 番組開始時刻・番組終了時刻
+                start_time = MillisecondToDatetime(program_info['startAt'])
+                end_time = MillisecondToDatetime(program_info['startAt'] + program_info['duration'])
 
-                    # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
-                    if datetime.now(JST) - end_time > timedelta(hours=12):
-                        continue
+                # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
+                if datetime.now(JST) - end_time > timedelta(hours=12):
+                    continue
 
-                    # ***** ここからは 追加・更新・更新不要 のいずれか *****
+                # ***** ここからは 追加・更新・更新不要 のいずれか *****
 
-                    # DB は読み取りよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
+                # DB は読み取りよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
 
-                    # 番組 ID
-                    program_id = f'NID{program_info["networkId"]}-SID{program_info["serviceId"]:03d}-EID{program_info["eventId"]}'
+                # 番組 ID
+                program_id = f'NID{program_info["networkId"]}-SID{program_info["serviceId"]:03d}-EID{program_info["eventId"]}'
 
-                    # 重複する番組 ID の番組情報があれば取得する
-                    duplicate_program = duplicate_programs.get(program_id)
+                # 重複する番組 ID の番組情報があれば取得する
+                duplicate_program = duplicate_programs.get(program_id)
 
-                    # 重複する番組情報があり、かつタイトル・番組概要・番組詳細・番組開始時刻・番組終了時刻が全て同じ
-                    if (duplicate_program is not None and
-                        duplicate_program.title == title and
-                        duplicate_program.description == description and
-                        len(duplicate_program.detail) == len(detail) and
-                        duplicate_program.start_time == start_time and
-                        duplicate_program.end_time == end_time):
+                # 重複する番組情報があり、かつタイトル・番組概要・番組詳細・番組開始時刻・番組終了時刻が全て同じ
+                if (duplicate_program is not None and
+                    duplicate_program['title'] == title and
+                    duplicate_program['description'] == description and
+                    len(duplicate_program['detail']) == len(detail) and
+                    duplicate_program['start_time'] == start_time and
+                    duplicate_program['end_time'] == end_time):
 
-                        # 更新不要なのでスキップ
-                        del duplicate_programs[program_id]
-                        continue
+                    # 更新不要なのでスキップ
+                    del duplicate_programs[program_id]
+                    continue
 
-                    # 重複する番組情報が存在しない（追加）
-                    if duplicate_program is None:
-                        program = Program()
+                # 重複する番組情報が存在する（更新）場合は、残った古い番組情報として削除されないよう参照を削除する
+                ## 追加・更新のどちらも、すべての列の値を新しく設定した番組情報を作って書き込む
+                if duplicate_program is not None:
+                    del duplicate_programs[program_id]
+                program = Program()
 
-                    # 重複する番組情報が存在する（更新）
-                    else:
-                        del duplicate_programs[program_id]  # 参照を削除
-                        program = duplicate_program
+                # 取得してきた値を設定
+                program.id = program_id
+                program.channel_id = channel.id
+                program.network_id = int(channel.network_id)
+                program.service_id = int(channel.service_id)
+                program.event_id = int(program_info['eventId'])
+                program.title = title
+                program.description = description
+                program.detail = detail
+                program.start_time = start_time
+                program.is_free = bool(program_info['isFree'])
 
-                    # 取得してきた値を設定
-                    program.id = program_id
-                    program.channel_id = channel.id
-                    program.network_id = int(channel.network_id)
-                    program.service_id = int(channel.service_id)
-                    program.event_id = int(program_info['eventId'])
-                    program.title = title
-                    program.description = description
-                    program.detail = detail
-                    program.start_time = start_time
-                    program.is_free = bool(program_info['isFree'])
+                # 番組終了時刻・番組時間
+                # 終了時間未定 (Mirakurun から duration == 1 で示される) の場合、まだ番組情報を取得していないならとりあえず5分とする
+                # すでに番組情報を取得している（番組情報更新）なら以前取得した値をそのまま使う
+                ## Mirakurun の /api/programs API のレスポンスには EIT[schedule] 由来の情報と EIT[p/f] 由来の情報が混ざっている
+                ## さらに EIT[p/f] には番組が延長されたなどの理由で稀に番組時間が「終了時間未定」になることがある
+                ## 基本的には EIT[p/f] 由来の「終了時間未定」が降ってくる前に EIT[schedule] 由来の番組時間を取得しているはず
+                ## 「終了時間未定」だと番組表の整合性が壊れるので、実態と一致しないとしても EIT[schedule] 由来の番組時間を優先したい
+                if program_info['duration'] == 1:
+                    if duplicate_program is None:  # 番組情報をまだ取得していない
+                        program.end_time = start_time + timedelta(minutes=5)
+                    else:  # すでに番組情報を取得しているので以前取得した値をそのまま使う
+                        program.end_time = duplicate_program['end_time']
+                else:
+                    program.end_time = end_time
+                program.duration = (program.end_time - program.start_time).total_seconds()
 
-                    # 番組終了時刻・番組時間
-                    # 終了時間未定 (Mirakurun から duration == 1 で示される) の場合、まだ番組情報を取得していないならとりあえず5分とする
-                    # すでに番組情報を取得している（番組情報更新）なら以前取得した値をそのまま使う
-                    ## Mirakurun の /api/programs API のレスポンスには EIT[schedule] 由来の情報と EIT[p/f] 由来の情報が混ざっている
-                    ## さらに EIT[p/f] には番組が延長されたなどの理由で稀に番組時間が「終了時間未定」になることがある
-                    ## 基本的には EIT[p/f] 由来の「終了時間未定」が降ってくる前に EIT[schedule] 由来の番組時間を取得しているはず
-                    ## 「終了時間未定」だと番組表の整合性が壊れるので、実態と一致しないとしても EIT[schedule] 由来の番組時間を優先したい
-                    if program_info['duration'] == 1:
-                        if program.duration is None:  # 番組情報をまだ取得していない
-                            program.end_time = start_time + timedelta(minutes=5)
-                        else:  # すでに番組情報を取得しているので以前取得した値をそのまま使う
-                            pass
-                    else:
-                        program.end_time = end_time
-                    program.duration = (program.end_time - program.start_time).total_seconds()
+                # ジャンル
+                ## 数字だけでは開発中の視認性が低いのでテキストに変換する
+                program.genres = []  # デフォルト値
+                if 'genres' in program_info:
+                    for genre in program_info['genres']:  # ジャンルごとに
 
-                    # ジャンル
-                    ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                    program.genres = []  # デフォルト値
-                    if 'genres' in program_info:
-                        for genre in program_info['genres']:  # ジャンルごとに
+                        # 大まかなジャンルを取得
+                        genre_tuple = ariblib.constants.CONTENT_TYPE.get(genre['lv1'])
+                        if genre_tuple is not None:
 
-                            # 大まかなジャンルを取得
-                            genre_tuple = ariblib.constants.CONTENT_TYPE.get(genre['lv1'])
-                            if genre_tuple is not None:
+                            # major … 大分類
+                            # middle … 中分類
+                            genre_dict: Genre = {
+                                'major': genre_tuple[0].replace('／', '・'),
+                                'middle': genre_tuple[1].get(genre['lv2'], '未定義').replace('／', '・'),
+                            }
 
-                                # major … 大分類
-                                # middle … 中分類
-                                genre_dict: Genre = {
-                                    'major': genre_tuple[0].replace('／', '・'),
-                                    'middle': genre_tuple[1].get(genre['lv2'], '未定義').replace('／', '・'),
-                                }
-
-                                # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
-                                # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
-                                if genre_dict['major'] == '拡張':
-                                    if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
-                                        user_nibble = (genre['un1'] * 0x10) + genre['un2']
-                                        genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
-                                    # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
-                                    else:
-                                        continue
-
-                                # ジャンルを追加
-                                program.genres.append(genre_dict)
-
-                    # 映像情報
-                    program.video_type = None
-                    program.video_codec = None
-                    program.video_resolution = None
-                    if 'video' in program_info:
-                        if program_info['video']['streamContent'] is not None:
-                            program.video_type = ariblib.constants.COMPONENT_TYPE \
-                                [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
-                        else:
-                            program.video_type = 'Unknown'
-                        program.video_codec = program_info['video']['type']
-                        program.video_resolution = program_info['video']['resolution']
-
-                    # 音声情報
-                    program.primary_audio_type = ''
-                    program.primary_audio_language = ''
-                    program.primary_audio_sampling_rate = ''
-                    program.secondary_audio_type = None
-                    program.secondary_audio_language = None
-                    program.secondary_audio_sampling_rate = None
-                    ## Mirakurun 3.9 以降向け
-                    ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
-                    if 'audios' in program_info:
-
-                        ## 主音声
-                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][0]['componentType'], 'Unknown')
-                        program.primary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][0])
-                        program.primary_audio_sampling_rate = str(int(program_info['audios'][0]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
-                        ## デュアルモノのみ
-                        if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                            if len(program_info['audios'][0]['langs']) == 2:  # 他言語の定義が存在すれば
-                                program.primary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][1])
-                            else:
-                                program.primary_audio_language = program.primary_audio_language + '+副音声'  # 副音声で固定
-
-                        ## 副音声（存在する場合）
-                        if len(program_info['audios']) == 2:
-                            program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][1]['componentType'], 'Unknown')
-                            program.secondary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][0])
-                            program.secondary_audio_sampling_rate = str(int(program_info['audios'][1]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
-                            ## デュアルモノのみ
-                            if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                                if len(program_info['audios'][1]['langs']) == 2:  # 他言語の定義が存在すれば
-                                    program.secondary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][1])
+                            # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                            # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                            if genre_dict['major'] == '拡張':
+                                if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                    user_nibble = (genre['un1'] * 0x10) + genre['un2']
+                                    genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
+                                # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
                                 else:
-                                    program.secondary_audio_language = program.secondary_audio_language + '+副音声'  # 副音声で固定
+                                    continue
 
-                    ## Mirakurun 3.8 以下向け（フォールバック）
+                            # ジャンルを追加
+                            program.genres.append(genre_dict)
+
+                # 映像情報
+                program.video_type = None
+                program.video_codec = None
+                program.video_resolution = None
+                if 'video' in program_info:
+                    if program_info['video']['streamContent'] is not None:
+                        program.video_type = ariblib.constants.COMPONENT_TYPE \
+                            [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
                     else:
+                        program.video_type = 'Unknown'
+                    program.video_codec = program_info['video']['type']
+                    program.video_resolution = program_info['video']['resolution']
 
-                        ## 主音声
-                        ## 副音声の情報は常に存在しないため省略
-                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audio']['componentType'], 'Unknown')
-                        program.primary_audio_sampling_rate = str(int(program_info['audio']['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
-                        ## Mirakurun 3.8 以下では言語コードが取得できないため、日本語で固定する
-                        program.primary_audio_language = '日本語'
+                # 音声情報
+                program.primary_audio_type = ''
+                program.primary_audio_language = ''
+                program.primary_audio_sampling_rate = ''
+                program.secondary_audio_type = None
+                program.secondary_audio_language = None
+                program.secondary_audio_sampling_rate = None
+                ## Mirakurun 3.9 以降向け
+                ## ref: https://github.com/Chinachu/Mirakurun/blob/master/api.d.ts#L88-L105
+                if 'audios' in program_info:
+
+                    ## 主音声
+                    program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][0]['componentType'], 'Unknown')
+                    program.primary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][0])
+                    program.primary_audio_sampling_rate = str(int(program_info['audios'][0]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
+                    ## デュアルモノのみ
+                    if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                        if len(program_info['audios'][0]['langs']) == 2:  # 他言語の定義が存在すれば
+                            program.primary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][0]['langs'][1])
+                        else:
+                            program.primary_audio_language = program.primary_audio_language + '+副音声'  # 副音声で固定
+
+                    ## 副音声（存在する場合）
+                    if len(program_info['audios']) == 2:
+                        program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audios'][1]['componentType'], 'Unknown')
+                        program.secondary_audio_language = TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][0])
+                        program.secondary_audio_sampling_rate = str(int(program_info['audios'][1]['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
                         ## デュアルモノのみ
-                        if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                            program.primary_audio_language = '日本語+英語'  # 日本語+英語で固定
+                        if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                            if len(program_info['audios'][1]['langs']) == 2:  # 他言語の定義が存在すれば
+                                program.secondary_audio_language += '+' + TSInformation.getISO639LanguageCodeName(program_info['audios'][1]['langs'][1])
+                            else:
+                                program.secondary_audio_language = program.secondary_audio_language + '+副音声'  # 副音声で固定
 
-                    # 番組情報をデータベースに保存する
-                    if duplicate_program is None:
-                        logging.debug(f'Add Program: {program.id}')
-                    else:
-                        logging.debug(f'Update Program: {program.id}')
+                ## Mirakurun 3.8 以下向け（フォールバック）
+                else:
 
-                    ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
-                    ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
-                    try:
-                        await program.save()
-                    except exceptions.OperationalError:
-                        try:
-                            await asyncio.sleep(3)
-                            await program.save()
-                        except exceptions.OperationalError:
-                            pass
+                    ## 主音声
+                    ## 副音声の情報は常に存在しないため省略
+                    program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(program_info['audio']['componentType'], 'Unknown')
+                    program.primary_audio_sampling_rate = str(int(program_info['audio']['samplingRate'] / 1000)) + 'kHz'  # kHz に変換
+                    ## Mirakurun 3.8 以下では言語コードが取得できないため、日本語で固定する
+                    program.primary_audio_language = '日本語'
+                    ## デュアルモノのみ
+                    if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                        program.primary_audio_language = '日本語+英語'  # 日本語+英語で固定
 
-                # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
-                # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
-                for duplicate_program in duplicate_programs.values():
-                    logging.debug(f'Delete Program: {duplicate_program.id}')
-                    try:
-                        await duplicate_program.delete()
-                    except exceptions.OperationalError:
-                        try:
-                            await asyncio.sleep(3)
-                            await duplicate_program.delete()
-                        except exceptions.OperationalError:
-                            pass
+                # 番組情報を、最後に一括で DB に書き込むリストに追加する
+                if duplicate_program is None:
+                    logging.debug(f'Add Program: {program.id}')
+                    added_programs.append(program)
+                else:
+                    logging.debug(f'Update Program: {program.id}')
+                    updated_programs.append(program)
+
+            # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
+            # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
+            for program_id in duplicate_programs.keys():
+                logging.debug(f'Delete Program: {program_id}')
+
+            # 追加・更新する番組情報と、削除する番組情報を DB に書き込む
+            await cls.writePrograms(added_programs, updated_programs, list(duplicate_programs.keys()))
 
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
@@ -493,266 +495,249 @@ class Program(TortoiseModel):
         # ref: https://tortoise-orm.readthedocs.io/en/latest/setup.html
         if is_running_multiprocess is True:
 
-            # Tortoise ORM を再初期化する前に、既存のコネクションを破棄
-            ## これをやっておかないとなぜか正常に初期化できず、DB 操作でフリーズする…
-            ## Windows だとこれをやらなくても問題ないが、Linux だと必要 (Tortoise ORM あるいは aiosqlite のマルチプロセス時のバグ？)
-            connections.discard('default')
-
             # Tortoise ORM を再初期化
             await Tortoise.init(config=DATABASE_CONFIG)
 
         try:
 
-            # このトランザクションはパフォーマンス向上と、取得失敗時のロールバックのためのもの
-            async with transactions.in_transaction():
+            # 番組情報の取得はトランザクションの外で行い、取得に失敗した場合は DB を変更せずに終了する
+            # CtrlCmdUtil を初期化
+            edcb = CtrlCmdUtil()
+            edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
 
-                # CtrlCmdUtil を初期化
-                edcb = CtrlCmdUtil()
-                edcb.setConnectTimeOutSec(10)  # 10秒後にタイムアウト (SPHD や CATV も映る環境だと時間がかかるので、少し伸ばす)
+            # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
+            service_event_info_list = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
+            if service_event_info_list is None:
+                logging.error('Failed to get programs from EDCB.')
+                raise Exception('Failed to get programs from EDCB.')
 
-                # 開始時間未定をのぞく全番組を取得する (リスト引数の前2要素は全番組、残り2要素は全期間を意味)
-                service_event_info_list = await edcb.sendEnumPgInfoEx([0xffffffffffff, 0xffffffffffff, 1, 0x7fffffffffffffff])
-                if service_event_info_list is None:
-                    logging.error('Failed to get programs from EDCB.')
-                    raise Exception('Failed to get programs from EDCB.')
+            # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
+            ## 変更の有無の判定に使う列だけを取得する (全列を ORM のオブジェクトにすると、2万件前後の番組で数十 MB を使うため)
+            duplicate_programs: dict[str, dict[str, Any]] = {}
+            for row in await Program.all().values('id', 'title', 'description', 'detail', 'start_time', 'end_time'):
+                duplicate_programs[row['id']] = row
 
-                # この変数から更新or更新不要な番組情報を削除していき、残った古い番組情報を最後にまとめて削除する
-                duplicate_programs = {temp.id:temp for temp in await Program.all()}
+            # 追加する番組情報と、更新する番組情報 (最後に一括で DB に書き込む)
+            added_programs: list[Program] = []
+            updated_programs: list[Program] = []
 
-                # チャンネルごとに
-                for service_event_info in service_event_info_list:
+            # チャンネルごとに
+            for service_event_info in service_event_info_list:
 
-                    # NID・SID・TSID を取得
-                    nid = int(service_event_info['service_info']['onid'])
-                    sid = int(service_event_info['service_info']['sid'])
-                    tsid = int(service_event_info['service_info']['tsid'])
+                # NID・SID・TSID を取得
+                nid = int(service_event_info['service_info']['onid'])
+                sid = int(service_event_info['service_info']['sid'])
+                tsid = int(service_event_info['service_info']['tsid'])
 
-                    # チャンネル情報を取得
-                    ## TSID まで指定することで、NID-SID が同じだが TSID が異なる番組情報が複数降ってきた場合
-                    ## (BS トランスポンダ再編時など) に同一チャンネルの重複追加を回避できる
-                    ## EDCB バックエンド利用時、Channel レコードには必ず TSID が設定されている (Mirakurun バックエンド利用時は常に null)
-                    channel = await Channel.filter(network_id=nid, service_id=sid, transport_stream_id=tsid).first()
-                    if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
+                # チャンネル情報を取得
+                ## TSID まで指定することで、NID-SID が同じだが TSID が異なる番組情報が複数降ってきた場合
+                ## (BS トランスポンダ再編時など) に同一チャンネルの重複追加を回避できる
+                ## EDCB バックエンド利用時、Channel レコードには必ず TSID が設定されている (Mirakurun バックエンド利用時は常に null)
+                channel = await Channel.filter(network_id=nid, service_id=sid, transport_stream_id=tsid).first()
+                if channel is None:  # 登録されていないチャンネルの番組を弾く（ワンセグやデータ放送など）
+                    continue
+
+                # 番組情報ごとに
+                for event_info in service_event_info['event_list']:
+
+                    # メインの番組でないなら弾く
+                    group_info = event_info.get('event_group_info')
+                    if (group_info is not None and len(group_info['event_data_list']) == 1 and
+                    (group_info['event_data_list'][0]['onid'] != nid or
+                        group_info['event_data_list'][0]['tsid'] != tsid or
+                        group_info['event_data_list'][0]['sid'] != sid or
+                        group_info['event_data_list'][0]['eid'] != event_info['eid'])):
                         continue
 
-                    # 番組情報ごとに
-                    for event_info in service_event_info['event_list']:
+                    # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
 
-                        # メインの番組でないなら弾く
-                        group_info = event_info.get('event_group_info')
-                        if (group_info is not None and len(group_info['event_data_list']) == 1 and
-                        (group_info['event_data_list'][0]['onid'] != nid or
-                            group_info['event_data_list'][0]['tsid'] != tsid or
-                            group_info['event_data_list'][0]['sid'] != sid or
-                            group_info['event_data_list'][0]['eid'] != event_info['eid'])):
-                            continue
+                    # 番組タイトル・番組概要
+                    title: str = ''  # デフォルト値
+                    description: str = ''  # デフォルト値
+                    if 'short_info' in event_info:
+                        title = TSInformation.formatString(event_info['short_info']['event_name']).strip()
+                        description = TSInformation.formatString(event_info['short_info']['text_char']).strip()
 
-                        # 重複する番組情報が登録されているかの判定に使うため、ここで先に番組情報を取得する
+                    # 番組詳細
+                    detail: dict[str, str] = {}  # デフォルト値
+                    if 'ext_info' in event_info:
 
-                        # 番組タイトル・番組概要
-                        title: str = ''  # デフォルト値
-                        description: str = ''  # デフォルト値
-                        if 'short_info' in event_info:
-                            title = TSInformation.formatString(event_info['short_info']['event_name']).strip()
-                            description = TSInformation.formatString(event_info['short_info']['text_char']).strip()
+                        # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
+                        for head, text in EDCBUtil.parseProgramExtendedText(event_info['ext_info']['text_char']).items():
 
-                        # 番組詳細
-                        detail: dict[str, str] = {}  # デフォルト値
-                        if 'ext_info' in event_info:
+                            # 見出しと本文
+                            ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
+                            ## strip() では明示的に半角スペースと改行のみを指定している
+                            head_hankaku = TSInformation.formatString(head).replace('◇', '').strip(' \r\n')  # ◇ を取り除く
+                            ## ないとは思うが、万が一この状態で見出しが衝突しうる場合は、見出しの後ろにタブ文字を付加する
+                            while head_hankaku in detail.keys():
+                                head_hankaku += '\t'
+                            ## 見出しが空の場合、固定で「番組内容」としておく
+                            if head_hankaku == '':
+                                head_hankaku = '番組内容'
+                            text_hankaku = TSInformation.formatString(text).strip()
+                            detail[head_hankaku] = text_hankaku
 
-                            # 番組詳細テキストから取得した、見出しと本文の辞書ごとに
-                            for head, text in EDCBUtil.parseProgramExtendedText(event_info['ext_info']['text_char']).items():
+                            # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
+                            # 空でまったく情報がないよりかは良いはず
+                            if description.strip() == '':
+                                description = text_hankaku
 
-                                # 見出しと本文
-                                ## 見出しのみ ariblib 側で意図的に重複防止のためのタブ文字付加が行われる場合があるため、
-                                ## strip() では明示的に半角スペースと改行のみを指定している
-                                head_hankaku = TSInformation.formatString(head).replace('◇', '').strip(' \r\n')  # ◇ を取り除く
-                                ## ないとは思うが、万が一この状態で見出しが衝突しうる場合は、見出しの後ろにタブ文字を付加する
-                                while head_hankaku in detail.keys():
-                                    head_hankaku += '\t'
-                                ## 見出しが空の場合、固定で「番組内容」としておく
-                                if head_hankaku == '':
-                                    head_hankaku = '番組内容'
-                                text_hankaku = TSInformation.formatString(text).strip()
-                                detail[head_hankaku] = text_hankaku
+                    # 番組開始時刻
+                    ## 万が一取得できなかった場合は 1970/1/1 9:00 とする
+                    start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=JST))
 
-                                # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
-                                # 空でまったく情報がないよりかは良いはず
-                                if description.strip() == '':
-                                    description = text_hankaku
+                    # 番組終了時刻
+                    ## 終了時間未定の場合、とりあえず5分とする
+                    end_time = start_time + timedelta(seconds=event_info.get('duration_sec', 300))
 
-                        # 番組開始時刻
-                        ## 万が一取得できなかった場合は 1970/1/1 9:00 とする
-                        start_time = event_info.get('start_time', datetime(1970, 1, 1, 9, tzinfo=JST))
+                    # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
+                    if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=12):
+                        continue
 
-                        # 番組終了時刻
-                        ## 終了時間未定の場合、とりあえず5分とする
-                        end_time = start_time + timedelta(seconds=event_info.get('duration_sec', 300))
+                    # ***** ここからは 追加・更新・更新不要 のいずれか *****
 
-                        # 番組終了時刻が現在時刻より12時間以上前な番組を弾く
-                        if datetime.now(CtrlCmdUtil.TZ) - end_time > timedelta(hours=12):
-                            continue
+                    # DB は読み取りよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
 
-                        # ***** ここからは 追加・更新・更新不要 のいずれか *****
+                    # 番組 ID
+                    program_id = f'NID{nid}-SID{sid:03d}-EID{event_info["eid"]}'
 
-                        # DB は読み取りよりも書き込みの方が負荷と時間がかかるため、不要な書き込みは極力避ける
+                    # 重複する番組 ID の番組情報があれば取得する
+                    duplicate_program = duplicate_programs.get(program_id)
 
-                        # 番組 ID
-                        program_id = f'NID{nid}-SID{sid:03d}-EID{event_info["eid"]}'
+                    # 重複する番組情報があり、かつタイトル・番組概要・番組詳細・番組開始時刻・番組終了時刻が全て同じ
+                    if (duplicate_program is not None and
+                        duplicate_program['title'] == title and
+                        duplicate_program['description'] == description and
+                        len(duplicate_program['detail']) == len(detail) and
+                        duplicate_program['start_time'] == start_time and
+                        duplicate_program['end_time'] == end_time):
 
-                        # 重複する番組 ID の番組情報があれば取得する
-                        duplicate_program = duplicate_programs.get(program_id)
+                        # 更新不要なのでスキップ
+                        del duplicate_programs[program_id]
+                        continue
 
-                        # 重複する番組情報があり、かつタイトル・番組概要・番組詳細・番組開始時刻・番組終了時刻が全て同じ
-                        if (duplicate_program is not None and
-                            duplicate_program.title == title and
-                            duplicate_program.description == description and
-                            len(duplicate_program.detail) == len(detail) and
-                            duplicate_program.start_time == start_time and
-                            duplicate_program.end_time == end_time):
+                    # 重複する番組情報が存在する（更新）場合は、残った古い番組情報として削除されないよう参照を削除する
+                    ## 追加・更新のどちらも、すべての列の値を新しく設定した番組情報を作って書き込む
+                    if duplicate_program is not None:
+                        del duplicate_programs[program_id]
+                    program = Program()
 
-                            # 更新不要なのでスキップ
-                            del duplicate_programs[program_id]
-                            continue
+                    # 取得してきた値を設定
+                    program.id = program_id
+                    program.channel_id = channel.id
+                    program.network_id = channel.network_id
+                    program.service_id = channel.service_id
+                    program.event_id = int(event_info['eid'])
+                    program.title = title
+                    program.description = description
+                    program.detail = detail
+                    program.start_time = start_time
+                    program.end_time = end_time
+                    program.duration = (program.end_time - program.start_time).total_seconds()
+                    program.is_free = bool(event_info['free_ca_flag'] == 0)  # free_ca_flag が 0 であれば無料放送
 
-                        # 重複する番組情報が存在しない（追加）
-                        if duplicate_program is None:
-                            program = Program()
+                    # ジャンル
+                    ## 数字だけでは開発中の視認性が低いのでテキストに変換する
+                    program.genres = []  # デフォルト値
+                    content_info = event_info.get('content_info')
+                    if content_info is not None:
+                        for content_data in content_info['nibble_list']:  # ジャンルごとに
 
-                        # 重複する番組情報が存在する（更新）
-                        else:
-                            del duplicate_programs[program_id]  # 参照を削除
-                            program = duplicate_program
+                            # 大まかなジャンルを取得
+                            genre_tuple = ariblib.constants.CONTENT_TYPE.get(content_data['content_nibble'] >> 8)
+                            if genre_tuple is not None:
 
-                        # 取得してきた値を設定
-                        program.id = program_id
-                        program.channel_id = channel.id
-                        program.network_id = channel.network_id
-                        program.service_id = channel.service_id
-                        program.event_id = int(event_info['eid'])
-                        program.title = title
-                        program.description = description
-                        program.detail = detail
-                        program.start_time = start_time
-                        program.end_time = end_time
-                        program.duration = (program.end_time - program.start_time).total_seconds()
-                        program.is_free = bool(event_info['free_ca_flag'] == 0)  # free_ca_flag が 0 であれば無料放送
+                                # major … 大分類
+                                # middle … 中分類
+                                genre_dict: Genre = {
+                                    'major': genre_tuple[0].replace('／', '・'),
+                                    'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '未定義').replace('／', '・'),
+                                }
 
-                        # ジャンル
-                        ## 数字だけでは開発中の視認性が低いのでテキストに変換する
-                        program.genres = []  # デフォルト値
-                        content_info = event_info.get('content_info')
-                        if content_info is not None:
-                            for content_data in content_info['nibble_list']:  # ジャンルごとに
-
-                                # 大まかなジャンルを取得
-                                genre_tuple = ariblib.constants.CONTENT_TYPE.get(content_data['content_nibble'] >> 8)
-                                if genre_tuple is not None:
-
-                                    # major … 大分類
-                                    # middle … 中分類
-                                    genre_dict: Genre = {
-                                        'major': genre_tuple[0].replace('／', '・'),
-                                        'middle': genre_tuple[1].get(content_data['content_nibble'] & 0xf, '未定義').replace('／', '・'),
-                                    }
-
-                                    # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
-                                    # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
-                                    if genre_dict['major'] == '拡張':
-                                        if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
-                                            user_nibble = (content_data['user_nibble'] >> 8 << 4) | (content_data['user_nibble'] & 0xf)
-                                            genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
-                                        # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
-                                        else:
-                                            continue
-
-                                    # ジャンルを追加
-                                    program.genres.append(genre_dict)
-
-                        # 映像情報
-                        ## テキストにするために ariblib.constants や TSInformation の値を使う
-                        program.video_type = None
-                        program.video_codec = None
-                        program.video_resolution = None
-                        component_info = event_info.get('component_info')
-                        if component_info is not None:
-                            ## 映像の種類
-                            component_types = ariblib.constants.COMPONENT_TYPE.get(component_info['stream_content'])
-                            if component_types is not None:
-                                program.video_type = component_types.get(component_info['component_type'])
-                            ## 映像のコーデック
-                            program.video_codec = TSInformation.STREAM_CONTENT.get(component_info['stream_content'])
-                            ## 映像の解像度
-                            program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'])
-
-                        # 音声情報
-                        program.primary_audio_type = ''
-                        program.primary_audio_language = ''
-                        program.primary_audio_sampling_rate = ''
-                        program.secondary_audio_type = None
-                        program.secondary_audio_language = None
-                        program.secondary_audio_sampling_rate = None
-                        audio_info = event_info.get('audio_info')
-                        if audio_info is not None and len(audio_info['component_list']) > 0:
-
-                            ## 主音声
-                            audio_component_info = audio_info['component_list'][0]
-                            program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
-                            program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
-                            ## 2021/09 現在の EDCB では言語コードが取得できないため、日本語か英語で固定する
-                            ## EpgDataCap3 のパーサー止まりで EDCB 側では取得していないらしい
-                            program.primary_audio_language = '日本語'
-                            ## デュアルモノのみ
-                            if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                                if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
-                                    program.primary_audio_language += '+英語'
-                                else:
-                                    program.primary_audio_language += '+副音声'
-
-                            # 副音声（存在する場合）
-                            if len(audio_info['component_list']) > 1:
-                                audio_component_info = audio_info['component_list'][1]
-                                program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
-                                program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
-                                ## 2021/09 現在の EDCB では言語コードが取得できないため、副音声で固定する
-                                ## 英語かもしれないし解説かもしれない
-                                program.secondary_audio_language = '副音声'
-                                ## デュアルモノのみ
-                                if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
-                                    if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
-                                        program.secondary_audio_language += '+英語'
+                                # BS/地上デジタル放送用番組付属情報がジャンルに含まれている場合、user_nibble から値を取得して書き換える
+                                # たとえば「中止の可能性あり」や「延長の可能性あり」といった情報が取れる
+                                if genre_dict['major'] == '拡張':
+                                    if genre_dict['middle'] == 'BS/地上デジタル放送用番組付属情報':
+                                        user_nibble = (content_data['user_nibble'] >> 8 << 4) | (content_data['user_nibble'] & 0xf)
+                                        genre_dict['middle'] = ariblib.constants.USER_TYPE.get(user_nibble, '未定義')
+                                    # 「拡張」はあるがBS/地上デジタル放送用番組付属情報でない場合はなんの値なのかわからないのでパス
                                     else:
-                                        program.secondary_audio_language += '+副音声'
+                                        continue
 
-                        # 番組情報をデータベースに保存する
-                        if duplicate_program is None:
-                            logging.debug(f'Add Program: {program.id}')
-                        else:
-                            logging.debug(f'Update Program: {program.id}')
+                                # ジャンルを追加
+                                program.genres.append(genre_dict)
 
-                        ## マルチプロセス実行時は、まれに保存する際にメインプロセスにデータベースがロックされている事がある
-                        ## 3秒待ってから再試行し、それでも失敗した場合はスキップ
-                        try:
-                            await program.save()
-                        except exceptions.OperationalError:
-                            try:
-                                await asyncio.sleep(3)
-                                await program.save()
-                            except exceptions.OperationalError:
-                                pass
+                    # 映像情報
+                    ## テキストにするために ariblib.constants や TSInformation の値を使う
+                    program.video_type = None
+                    program.video_codec = None
+                    program.video_resolution = None
+                    component_info = event_info.get('component_info')
+                    if component_info is not None:
+                        ## 映像の種類
+                        component_types = ariblib.constants.COMPONENT_TYPE.get(component_info['stream_content'])
+                        if component_types is not None:
+                            program.video_type = component_types.get(component_info['component_type'])
+                        ## 映像のコーデック
+                        program.video_codec = TSInformation.STREAM_CONTENT.get(component_info['stream_content'])
+                        ## 映像の解像度
+                        program.video_resolution = TSInformation.COMPONENT_TYPE.get(component_info['component_type'])
 
-                # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
-                # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
-                for duplicate_program in duplicate_programs.values():
-                    logging.debug(f'Delete Program: {duplicate_program.id}')
-                    try:
-                        await duplicate_program.delete()
-                    except exceptions.OperationalError:
-                        try:
-                            await asyncio.sleep(3)
-                            await duplicate_program.delete()
-                        except exceptions.OperationalError:
-                            pass
+                    # 音声情報
+                    program.primary_audio_type = ''
+                    program.primary_audio_language = ''
+                    program.primary_audio_sampling_rate = ''
+                    program.secondary_audio_type = None
+                    program.secondary_audio_language = None
+                    program.secondary_audio_sampling_rate = None
+                    audio_info = event_info.get('audio_info')
+                    if audio_info is not None and len(audio_info['component_list']) > 0:
+
+                        ## 主音声
+                        audio_component_info = audio_info['component_list'][0]
+                        program.primary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
+                        program.primary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
+                        ## 2021/09 現在の EDCB では言語コードが取得できないため、日本語か英語で固定する
+                        ## EpgDataCap3 のパーサー止まりで EDCB 側では取得していないらしい
+                        program.primary_audio_language = '日本語'
+                        ## デュアルモノのみ
+                        if program.primary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                            if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
+                                program.primary_audio_language += '+英語'
+                            else:
+                                program.primary_audio_language += '+副音声'
+
+                        # 副音声（存在する場合）
+                        if len(audio_info['component_list']) > 1:
+                            audio_component_info = audio_info['component_list'][1]
+                            program.secondary_audio_type = ariblib.constants.COMPONENT_TYPE[0x02].get(audio_component_info['component_type'], 'Unknown')
+                            program.secondary_audio_sampling_rate = ariblib.constants.SAMPLING_RATE.get(audio_component_info['sampling_rate'], 'Unknown')
+                            ## 2021/09 現在の EDCB では言語コードが取得できないため、副音声で固定する
+                            ## 英語かもしれないし解説かもしれない
+                            program.secondary_audio_language = '副音声'
+                            ## デュアルモノのみ
+                            if program.secondary_audio_type == '1/0+1/0モード(デュアルモノ)':
+                                if audio_component_info['es_multi_lingual_flag'] != 0:  # デュアルモノ時の多言語フラグ
+                                    program.secondary_audio_language += '+英語'
+                                else:
+                                    program.secondary_audio_language += '+副音声'
+
+                    # 番組情報を、最後に一括で DB に書き込むリストに追加する
+                    if duplicate_program is None:
+                        logging.debug(f'Add Program: {program.id}')
+                        added_programs.append(program)
+                    else:
+                        logging.debug(f'Update Program: {program.id}')
+                        updated_programs.append(program)
+
+            # この時点で残存している番組情報は放送が終わって EPG から削除された番組なので、まとめて削除する
+            # ここで削除しないと終了した番組の情報が幽霊のように残り続ける事になり、結果 DB が肥大化して遅くなってしまう
+            for program_id in duplicate_programs.keys():
+                logging.debug(f'Delete Program: {program_id}')
+
+            # 追加・更新する番組情報と、削除する番組情報を DB に書き込む
+            await cls.writePrograms(added_programs, updated_programs, list(duplicate_programs.keys()))
 
         # マルチプロセス実行時は、明示的に例外を拾わないとなぜかメインプロセスも含め全体がフリーズしてしまう
         except Exception as ex:
@@ -806,20 +791,34 @@ class Program(TortoiseModel):
         asyncio.run(cls.updateFromEDCB(is_running_multiprocess=True))
 
 
-    def isOffTheAirProgram(self) -> bool:
+    @classmethod
+    async def writePrograms(cls, added_programs: list[Program], updated_programs: list[Program], deleted_program_ids: list[str]) -> None:
         """
-        この番組が停波中の番組かを返す
-        この番組自身の番組名から判定しているだけで、実際に停波中かを保証するものではない
+        番組情報の更新で追加・更新する番組情報と、削除する番組情報を DB に書き込む
 
-        Returns:
-            bool: 停波中の番組かどうか
+        Args:
+            added_programs (list[Program]): 追加する番組情報
+            updated_programs (list[Program]): 更新する番組情報 (登録済みの番組の ID で、すべての列の値を設定したもの)
+            deleted_program_ids (list[str]): 削除する番組情報の ID
         """
 
-        if (('番組情報がありません' == self.title) or
-            ('放送休止' in self.title) or
-            ('放送終了' in self.title) or
-            ('休止' in self.title) or
-            ('停波' in self.title)):
-            return True
+        # 500件ごとに1つのトランザクションで書き込む
+        ## 1件ずつ書き込むより高速で、全件を1つのトランザクションで書き込むよりもメインプロセスの書き込み (録画のスキャンなど) の待ち時間が短い
+        ## 番組情報の更新処理はマルチプロセスで実行されることがあり、その場合はメインプロセスとは別の DB 接続で書き込む
+        ## SQLite の WAL モードでは、読み取りを行ったトランザクションが書き込みを始めるとき、ほかの接続が書き込み中だと
+        ## ロック待ちのタイムアウト (busy_timeout) を待たずに即座に SQLITE_BUSY エラーになる
+        ## さらに、ほかの接続の書き込みが完了した後もトランザクションのスナップショットが古いままのため、何度再試行しても SQLITE_BUSY_SNAPSHOT エラーで失敗し続ける
+        ## このため、トランザクション内では読み取りを行わずに最初の SQL 文から書き込み、ほかの接続の書き込みの完了を待ってから書き込むようにしている
+        for index in range(0, len(added_programs), 500):
+            async with transactions.in_transaction():
+                for program in added_programs[index:index + 500]:
+                    await program.save()
 
-        return False
+        # 更新する番組情報は DB から読み込んだオブジェクトではないため、INSERT ではなく UPDATE で書き込むよう指定する
+        for index in range(0, len(updated_programs), 500):
+            async with transactions.in_transaction():
+                for program in updated_programs[index:index + 500]:
+                    await program.save(force_update=True)
+        for index in range(0, len(deleted_program_ids), 500):
+            async with transactions.in_transaction():
+                await Program.filter(id__in=deleted_program_ids[index:index + 500]).delete()

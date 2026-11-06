@@ -16,7 +16,6 @@ if sys.platform != 'win32':
 
 import asyncio
 import atexit
-import logging
 import platform
 import subprocess
 from pathlib import Path
@@ -33,17 +32,15 @@ from app.constants import (
     BASE_DIR,
     DATABASE_CONFIG,
     KONOMITV_ACCESS_LOG_PATH,
+    KONOMITV_SERVER_LOG_PATH,
     LIBRARY_PATH,
     LOGGING_CONFIG,
     RESTART_REQUIRED_LOCK_PATH,
+    SERVER_LOG_ARCHIVE_RETENTION_DAYS,
     VERSION,
 )
-from app.utils.LogRotation import SplitServerLogByDate
+from app.utils.LogRotation import SplitLogByDate
 
-
-# passlib が送出する bcrypt のバージョン差異による警告を無視
-# ref: https://github.com/pyca/bcrypt/issues/684
-logging.getLogger('passlib').setLevel(logging.ERROR)
 
 cli = typer.Typer()
 
@@ -58,19 +55,18 @@ def main(
     version: bool = typer.Option(None, '--version', callback=version, is_eager=True, help='Show version information.'),
 ):
 
-    # 前回のログのうち、アクセスログと Akebi のログのみ削除する
-    ## サーバーログは起動時に日付別分割されるため、ここでは削除しない
+    # 前回のログのうち、Akebi のログのみ削除する
+    ## サーバーログとアクセスログは起動時に日付別分割されるため、ここでは削除しない
     try:
-        if KONOMITV_ACCESS_LOG_PATH.exists():
-            KONOMITV_ACCESS_LOG_PATH.unlink()
         if AKEBI_LOG_PATH.exists():
             AKEBI_LOG_PATH.unlink()
     except PermissionError:
         pass
 
-    # サーバーログに過去日付のエントリが含まれている場合、日付別アーカイブに分割する
+    # サーバーログとアクセスログに過去日付のエントリが含まれている場合、日付別アーカイブに分割する
     ## DailyRotatingFileHandler がファイルを開く前に分割を完了させるために、ロガーの初期化前に実行する必要がある
-    SplitServerLogByDate()
+    SplitLogByDate(KONOMITV_SERVER_LOG_PATH, SERVER_LOG_ARCHIVE_RETENTION_DAYS)
+    SplitLogByDate(KONOMITV_ACCESS_LOG_PATH, SERVER_LOG_ARCHIVE_RETENTION_DAYS)
 
     # もし何らかの理由でロックファイルが残っていた場合は削除する
     if RESTART_REQUIRED_LOCK_PATH.exists():

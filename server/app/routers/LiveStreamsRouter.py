@@ -32,7 +32,7 @@ async def ValidateChannelID(display_channel_id: Annotated[str, Path(description=
     if await Channel.filter(display_channel_id=display_channel_id).get_or_none() is None:
         logging.error(f'[LiveStreamsRouter][ValidateChannelID] Specified display_channel_id was not found. [display_channel_id: {display_channel_id}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified display_channel_id was not found',
         )
 
@@ -51,7 +51,7 @@ async def ValidateQuality(
         if channel is not None and channel.is_radiochannel is True:
             logging.error(f'[LiveStreamsRouter][ValidateQuality] Original quality is not available for radio channels. [display_channel_id: {display_channel_id}]')
             raise HTTPException(
-                status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail = 'Original quality is not available for radio channels',
             )
 
@@ -61,7 +61,7 @@ async def ValidateQuality(
     if stream_quality is None:
         logging.error(f'[LiveStreamsRouter][ValidateQuality] Specified quality was not found. [quality: {quality}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified quality was not found',
         )
 

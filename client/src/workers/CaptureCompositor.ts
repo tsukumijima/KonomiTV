@@ -47,10 +47,10 @@ export interface ICaptureExifData {
     description: string;
     // 番組開始時刻 (ISO8601 フォーマット)
     start_time: string;
-    // 番組終了時刻 (ISO8601 フォーマット)
-    end_time: string;
-    // 番組長 (秒)
-    duration: number;
+    // 番組終了時刻 (ISO8601 フォーマット、放送時間未定の場合は null)
+    end_time: string | null;
+    // 番組長 (秒、放送時間未定の場合は null)
+    duration: number | null;
     // 字幕のテキスト (キャプチャされた瞬間に字幕が表示されていない場合は null)
     caption_text: string | null;
     // キャプチャに字幕が合成されているかどうか

@@ -1,12 +1,16 @@
 
 import asyncio
+import hashlib
 import json
 import pathlib
+import re
 from datetime import datetime
 from email.utils import parsedate
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 import anyio
+import cv2
+import numpy as np
 from ariblib.sections import TimeOffsetSection
 from fastapi import (
     APIRouter,
@@ -19,6 +23,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
+from numpy.typing import NDArray
 from starlette.datastructures import Headers
 from tortoise import connections
 
@@ -27,6 +32,7 @@ from app.constants import STATIC_DIR, THUMBNAILS_DIR
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
 from app.metadata.TSInfoAnalyzer import TSInfoAnalyzer
+from app.models.Capture import Capture, CaptureFile, CaptureProgram
 from app.models.RecordedProgram import RecordedProgram
 from app.models.User import User
 from app.routers.UsersRouter import GetCurrentAdminUser
@@ -149,6 +155,59 @@ async def ConvertRowToRecordedProgram(row: dict[str, Any]) -> schemas.RecordedPr
     return schemas.RecordedProgram.model_validate(recorded_program_dict)
 
 
+async def GetRecordedProgramIDsSortedByFilePath(
+    where_clause: str,
+    params: list[Any],
+    order: Literal['file_path_asc', 'file_path_desc'],
+) -> list[int]:
+    """
+    条件に一致する録画番組の ID を、録画ファイルのパスの自然順に並べて取得する
+    パスに含まれる数字の並びは数値として比較し (「#9」→「#10」の順になる) 、それ以外の文字は大文字と小文字を区別せずに比較する
+
+    Args:
+        where_clause (str): rv.status != 'Missing' に AND で続ける WHERE 句 (条件がなければ空文字列)
+        params (list[Any]): WHERE 句のプレースホルダーに渡すパラメータ
+        order (Literal['file_path_asc', 'file_path_desc']): 昇順か降順か
+
+    Returns:
+        list[int]: 並べ替えた録画番組の ID のリスト
+    """
+
+    # 条件に一致する録画番組の ID と録画ファイルのパスだけを取得する
+    ## SQLite には自然順の比較がないため、並べ替えは取得後に Python で行う
+    ## 検索の条件が局名を参照するため、channels テーブルも JOIN する
+    query = f"""
+        SELECT
+            rp.id AS rp_id,
+            rv.file_path
+        FROM recorded_programs rp
+        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        LEFT JOIN channels ch ON rp.channel_id = ch.id
+        WHERE rv.status != 'Missing' {where_clause}
+    """
+    conn = connections.get('default')
+    rows = await conn.execute_query(query, params)
+
+    def SortByNaturalOrder() -> list[int]:
+        # パスを数字の並びとそれ以外に分割し、数字の並びだけを数値として比較する
+        ## re.split() に () 付きのパターンを渡すと、奇数番目に数字の並び、偶数番目にそれ以外の文字列が入るため、同じ位置どうしは必ず同じ型で比較される
+        ## 自然順で同じになるパス (「01」と「1」など) は、元のパスと ID の順で並べる
+        sort_keys: list[tuple[list[int | str], str, int]] = []
+        for row in rows[1]:
+            parts: list[int | str] = []
+            for index, part in enumerate(re.split(r'(\d+)', row['file_path'])):
+                if index % 2 == 1:
+                    parts.append(int(part))
+                else:
+                    parts.append(part.casefold())
+            sort_keys.append((parts, row['file_path'], row['rp_id']))
+        sort_keys.sort(reverse=(order == 'file_path_desc'))
+        return [sort_key[2] for sort_key in sort_keys]
+
+    # 録画が数万件あるとイベントループを止めるほどの CPU 時間がかかるため、並べ替えはスレッドで行う
+    return await asyncio.to_thread(SortByNaturalOrder)
+
+
 async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画番組の ID 。')]) -> RecordedProgram:
     """ 録画番組 ID から録画番組情報を取得する """
 
@@ -157,10 +216,11 @@ async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画�
         .select_related('recorded_video') \
         .select_related('channel') \
         .get_or_none(id=video_id)
-    if recorded_program is None:
+    # 録画ファイルが見つからなくなった (Missing の) 録画番組は、再生も再解析もできないので、存在しない録画番組と同じく扱う
+    if recorded_program is None or recorded_program.recorded_video.status == 'Missing':
         logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'Specified video_id was not found',
         )
 
@@ -319,18 +379,32 @@ async def GetThumbnailResponse(
     response_model = schemas.RecordedPrograms,
 )
 async def VideosAPI(
-    order: Annotated[Literal['desc', 'asc', 'ids'], Query(description='ソート順序 (desc or asc or ids) 。ids を指定すると、ids パラメータで指定された順序を維持する。')] = 'desc',
+    order: Annotated[Literal['desc', 'asc', 'ids', 'file_path_asc', 'file_path_desc'], Query(description='ソート順序 (desc or asc or ids or file_path_asc or file_path_desc) 。ids を指定すると、ids パラメータで指定された順序を維持する。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
     ids: Annotated[list[int] | None, Query(description='録画番組 ID のリスト。指定時は指定された ID の録画番組のみを返す。')] = None,
-):
+) -> schemas.RecordedPrograms:
     """
     すべての録画番組を一度に 30 件ずつ取得する。<br>
-    order には "desc" か "asc" か "ids" を指定する。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
+    order には "desc" か "asc" か "ids" か "file_path_asc" か "file_path_desc" を指定する。"desc" と "asc" は番組の開始時刻順、"file_path_asc" と "file_path_desc" は録画ファイルのパスの自然順 (数字は数値として比較する) に並べる。"ids" を指定すると、ids パラメータで指定された順序を維持する。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     ids には録画番組 ID のリストを指定できる。指定時は指定された ID の録画番組のみを返す。
     """
 
+    # 録画ファイルのパスの自然順では、条件に一致する録画番組の ID を自然順に並べ、表示するページの ID の順序を維持して取得する
+    if order == 'file_path_asc' or order == 'file_path_desc':
+        where_clause = ''
+        where_params: list[Any] = []
+        if ids is not None:
+            where_clause = f'AND rp.id IN ({",".join(["?" for _ in ids])})'
+            where_params = [*ids]
+        sorted_ids = await GetRecordedProgramIDsSortedByFilePath(where_clause, where_params, order)
+        result = await VideosAPI(order='ids', page=1, ids=sorted_ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE])
+        result.total = len(sorted_ids)
+        return result
+
     # 生 SQL クエリを構築
+    ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
+    ## 通常の JOIN では、SQLite が録画ファイルを外側にして全件を並べ替える実行計画を選ぶことがある
     base_query = """
         SELECT
             rp.id AS rp_id,
@@ -402,9 +476,9 @@ async def VideosAPI(
             ch.is_radiochannel,
             ch.is_watchable
         FROM recorded_programs rp
-        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        CROSS JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE 1=1
+        WHERE rv.status != 'Missing'
         {where_clause}
         ORDER BY rp.start_time {order}, rp.id {order}
         LIMIT ? OFFSET ?
@@ -419,7 +493,7 @@ async def VideosAPI(
             target_ids = ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
             if not target_ids:
                 return schemas.RecordedPrograms(
-                    total = await RecordedProgram.all().filter(id__in=ids).count(),
+                    total = await RecordedProgram.filter(id__in=ids).exclude(recorded_video__status='Missing').count(),
                     recorded_programs = [],
                 )
 
@@ -432,7 +506,12 @@ async def VideosAPI(
             params = [*target_ids, str(PAGE_SIZE), '0']  # OFFSET は 0 固定
 
             # 総数を取得
-            total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
+            total_query = """
+                SELECT COUNT(*) as count
+                FROM recorded_programs rp
+                JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+                WHERE rv.status != 'Missing' AND rp.id IN ({})
+            """.format(
                 ','.join(['?' for _ in ids])
             )
             total_params = ids
@@ -446,7 +525,12 @@ async def VideosAPI(
             params = [*ids, str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
             # 総数を取得
-            total_query = 'SELECT COUNT(*) as count FROM recorded_programs WHERE id IN ({})'.format(
+            total_query = """
+                SELECT COUNT(*) as count
+                FROM recorded_programs rp
+                JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+                WHERE rv.status != 'Missing' AND rp.id IN ({})
+            """.format(
                 ','.join(['?' for _ in ids])
             )
             total_params = ids
@@ -460,7 +544,12 @@ async def VideosAPI(
         params = [str(PAGE_SIZE), str((page - 1) * PAGE_SIZE)]
 
         # 総数を取得
-        total_query = 'SELECT COUNT(*) as count FROM recorded_programs'
+        ## 録画番組と録画ファイルは1対1なので、録画ファイルの状態の索引だけで数える
+        total_query = """
+            SELECT COUNT(*) as count
+            FROM recorded_videos
+            WHERE status != 'Missing'
+        """
         total_params = []
 
     try:
@@ -503,13 +592,13 @@ async def VideosAPI(
 )
 async def VideosSearchAPI(
     query: Annotated[str, Query(description='検索キーワード。title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。')] = '',
-    order: Annotated[Literal['desc', 'asc'], Query(description='ソート順序 (desc or asc) 。')] = 'desc',
+    order: Annotated[Literal['desc', 'asc', 'file_path_asc', 'file_path_desc'], Query(description='ソート順序 (desc or asc or file_path_asc or file_path_desc) 。')] = 'desc',
     page: Annotated[int, Query(description='ページ番号。')] = 1,
-):
+) -> schemas.RecordedPrograms:
     """
     指定されたキーワードで録画番組を一度に 30 件ずつ検索する。<br>
     キーワードは title または series_title または subtitle のいずれかに部分一致する録画番組を検索する。<br>
-    order には "desc" か "asc" を指定する。<br>
+    order には "desc" か "asc" か "file_path_asc" か "file_path_desc" を指定する。"desc" と "asc" は番組の開始時刻順、"file_path_asc" と "file_path_desc" は録画ファイルのパスの自然順 (数字は数値として比較する) に並べる。<br>
     page (ページ番号) には 1 以上の整数を指定する。<br>
     半角または全角スペースで区切ることで、複数のキーワードによる AND 検索が可能。
     """
@@ -533,13 +622,15 @@ async def VideosSearchAPI(
         params: list[str] = []
         for keyword in keywords:
             # LIKE 検索用のパラメータを生成（前後に % を付与）
-            param = f'%{keyword.lower()}%'
+            ## 検索語に含まれる % と _ は、ワイルドカードではなくその文字自体として探すよう \ でエスケープする
+            escaped_keyword = keyword.lower().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            param = f'%{escaped_keyword}%'
             conditions.append('''
                 (
-                    LOWER(ch.name) LIKE ? OR
-                    LOWER(rp.title) LIKE ? OR
-                    LOWER(rp.series_title) LIKE ? OR
-                    LOWER(rp.subtitle) LIKE ?
+                    LOWER(ch.name) LIKE ? ESCAPE '\\' OR
+                    LOWER(rp.title) LIKE ? ESCAPE '\\' OR
+                    LOWER(rp.series_title) LIKE ? ESCAPE '\\' OR
+                    LOWER(rp.subtitle) LIKE ? ESCAPE '\\'
                 )
             '''.strip())
             params.extend([param] * 4)  # 4つの検索対象カラムに同じパラメータを使用
@@ -557,7 +648,16 @@ async def VideosSearchAPI(
     if not keywords:  # キーワードが空の場合は全件取得と同じ挙動にする
         return await VideosAPI(order=order, page=page)
 
+    # 録画ファイルのパスの自然順では、検索条件に一致する録画番組の ID を自然順に並べ、表示するページの ID の順序を維持して取得する
+    if order == 'file_path_asc' or order == 'file_path_desc':
+        sorted_ids = await GetRecordedProgramIDsSortedByFilePath(f'AND {where_clause}', params, order)
+        result = await VideosAPI(order='ids', page=1, ids=sorted_ids[(page - 1) * PAGE_SIZE:page * PAGE_SIZE])
+        result.total = len(sorted_ids)
+        return result
+
     # 生 SQL クエリを構築
+    ## CROSS JOIN で録画番組を外側に固定し、録画ファイルの状態で絞り込んでも開始時刻の索引を順にたどって LIMIT の件数で打ち切れるようにする
+    ## 通常の JOIN では、SQLite が録画ファイルを外側にして全件を並べ替える実行計画を選ぶことがある
     base_query = """
         SELECT
             rp.id AS rp_id,
@@ -629,9 +729,9 @@ async def VideosSearchAPI(
             ch.is_radiochannel,
             ch.is_watchable
         FROM recorded_programs rp
-        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
+        CROSS JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE {where_clause}
+        WHERE rv.status != 'Missing' AND {where_clause}
         ORDER BY rp.start_time {order}, rp.id {order}
         LIMIT ? OFFSET ?
     """
@@ -647,8 +747,9 @@ async def VideosSearchAPI(
     total_query = f"""
         SELECT COUNT(*) as count
         FROM recorded_programs rp
+        JOIN recorded_videos rv ON rp.id = rv.recorded_program_id
         LEFT JOIN channels ch ON rp.channel_id = ch.id
-        WHERE {where_clause}
+        WHERE rv.status != 'Missing' AND {where_clause}
     """
     total_params = params[:-2]  # LIMIT と OFFSET を除外
 
@@ -720,7 +821,7 @@ async def VideoDownloadAPI(
             f'[video_id: {recorded_program.id}]'
         )
         raise HTTPException(
-            status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail = 'The recorded video is recording',
         )
 
@@ -912,6 +1013,116 @@ async def VideoThumbnailAPI(
     return await GetThumbnailResponse(request, recorded_program)
 
 
+@router.put(
+    '/{video_id}/thumbnail',
+    summary = '録画番組サムネイル画像更新 API',
+    response_description = '代表サムネイルを差し替えたあとのサムネイル情報。',
+    response_model = schemas.ThumbnailInfo,
+)
+async def VideoThumbnailUpdateAPI(
+    body: schemas.VideoThumbnailUpdateRequest,
+    recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
+):
+    """
+    指定された録画番組の代表サムネイル画像を、同じ放送回で撮ったキャプチャに差し替える。<br>
+    差し替えると representative.revision が1増えるので、サムネイル画像の URL の revision に指定すると新しい画像を取得できる。<br>
+    サムネイルを再生成すると、自動で選ばれた画像に戻る。
+    """
+
+    # サムネイルを一度も生成していない録画には、差し替える代表サムネイルの情報がない
+    thumbnail_info = recorded_program.recorded_video.thumbnail_info
+    if thumbnail_info is None:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail = 'The thumbnails of the recorded program have not been generated yet',
+        )
+
+    # キャプチャの番組キーは、キャプチャ一覧の recorded_program_ids と同じ4項目で照合する
+    capture = await Capture.get_or_none(id=body.capture_id)
+    if capture is None:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail = 'Specified capture_id was not found',
+        )
+    is_same_program = await CaptureProgram.filter(
+        id=capture.capture_program_id,
+        network_id=recorded_program.network_id,
+        service_id=recorded_program.service_id,
+        event_id=recorded_program.event_id,
+        start_time=recorded_program.start_time,
+    ).exists()
+    if is_same_program is False:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail = 'The capture does not belong to the recorded program',
+        )
+
+    # 同じキャプチャの保存先が複数ある場合、実際に読める場所を使用する
+    image_data: bytes | None = None
+    for capture_file in await CaptureFile.filter(capture_id=capture.id, status='Available').order_by('id'):
+        try:
+            data = await anyio.Path(capture_file.file_path).read_bytes()
+        except OSError:
+            # DB 上は利用できる場所でも読めないことがあるので、ほかの場所を試す
+            continue
+        # 登録したあとに別の画像へ置き換えられ、まだスキャンされていない場所もあるので、中身のハッシュが一致した画像だけを使う
+        digest = await asyncio.to_thread(lambda: hashlib.sha256(data).digest())
+        if digest == bytes(capture.file_hash):
+            image_data = data
+            break
+    if image_data is None:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail = 'The capture file was not found or is not readable',
+        )
+
+    # デコードは同期処理なので、イベントループの外で実行する
+    try:
+        image = await asyncio.to_thread(cv2.imdecode, np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    except cv2.error:
+        image = None
+    if image is None:
+        raise HTTPException(
+            status_code = status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail = 'The capture file is not a valid image',
+        )
+    # IMREAD_COLOR の返す画像は、入力形式にかかわらず8ビット BGR の3チャンネルになる
+    image = cast(NDArray[np.uint8], image)
+
+    # 自動生成と同じ寸法・画質の WebP で、代表サムネイルのファイルを上書きする
+    ## 縮小と圧縮は同期処理なので、イベントループの外で実行する
+    output_path = THUMBNAILS_DIR / f'{recorded_program.recorded_video.file_hash}.webp'
+
+    def SaveThumbnail() -> bool:
+        resized_image = cv2.resize(image, ThumbnailGenerator.SCORING_SCALE, interpolation=cv2.INTER_AREA)
+        return cv2.imwrite(str(output_path), resized_image, [
+            cv2.IMWRITE_WEBP_QUALITY, ThumbnailGenerator.WEBP_QUALITY_REPRESENTATIVE,
+        ])
+
+    if await asyncio.to_thread(SaveThumbnail) is False:
+        logging.error(f'[VideoThumbnailUpdateAPI] Failed to write the thumbnail for video_id {recorded_program.id}.')
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = 'Failed to save the thumbnail',
+        )
+
+    # 代表サムネイルを差し替えたので revision を進める
+    ## 差し替えやサムネイルの自動生成が重なっても同じ番号を2回使わないよう、読み込んだ値でなく DB の上の今の値に1を足す
+    ## サムネイルのファイルは中身のハッシュで共有されるので、別のフォルダにある同じ録画の revision も一緒に進める
+    recorded_video = recorded_program.recorded_video
+    await connections.get('default').execute_query("""
+        UPDATE recorded_videos
+        SET thumbnail_info = json_set(
+            thumbnail_info,
+            '$.representative.revision',
+            json_extract(thumbnail_info, '$.representative.revision') + 1
+        )
+        WHERE file_hash = ? AND thumbnail_info IS NOT NULL
+    """, [recorded_video.file_hash])
+    await recorded_video.refresh_from_db(fields=['thumbnail_info'])
+    return recorded_video.thumbnail_info
+
+
 @router.get(
     '/{video_id}/thumbnail/tiled',
     summary = '録画番組シークバー用サムネイルタイル画像取得 API',
@@ -944,7 +1155,7 @@ async def VideoThumbnailRegenerateAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のサムネイル画像を再生成する。<br>
+    指定された録画番組のサムネイル画像（代表サムネイル画像・シークバー用サムネイルタイル画像）を再生成する。<br>
     サムネイル画像の再生成には数分程度かかる場合がある。
     """
 

@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app import logging
-from app.constants import DATA_DIR, QUALITY
+from app.constants import DATA_DIR, QUALITY, TEST_SUFFIX
 from app.schemas import OfflineVideoStreamMetadata
 from app.streams.VideoStream import VideoStream
 
@@ -38,7 +38,7 @@ class OfflineVideoDownloadSegment(BaseModel):
 class OfflineVideoDownload:
     """ 通信切断から独立して変換結果を一時保存し、同じ TS バイト列の再送と期限管理を行う """
 
-    CACHE_DIR: ClassVar[anyio.Path] = anyio.Path(DATA_DIR / 'offline-downloads')
+    CACHE_DIR: ClassVar[anyio.Path] = anyio.Path(DATA_DIR / f'offline-downloads{TEST_SUFFIX}')
     RETENTION_SECONDS: ClassVar[int] = 30 * 60
     MAX_CACHE_BYTES: ClassVar[int] = 50 * 1024 ** 3
     MIN_FREE_BYTES: ClassVar[int] = 2 * 1024 ** 3

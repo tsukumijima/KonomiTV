@@ -1,6 +1,5 @@
-import type { IRecordedProgram } from '@/services/Videos';
-
 import OfflineVideoStorage from '@/services/OfflineVideoStorage';
+import Videos, { type IRecordedProgram } from '@/services/Videos';
 import Utils from '@/utils';
 
 
@@ -339,7 +338,7 @@ export default class OfflineVideos {
                 const cache = await OfflineVideoStorage.openCache();
                 const generationBaseURL = OfflineVideoStorage.getGenerationBaseURL(programSnapshot.id, generationID);
                 const assetRequests = [
-                    {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail`, destination: `${generationBaseURL}/assets/thumbnail.webp`},
+                    {source: Videos.getThumbnailURL(programSnapshot), destination: `${generationBaseURL}/assets/thumbnail.webp`},
                     {source: `${Utils.api_base_url}/videos/${programSnapshot.id}/thumbnail/tiled`, destination: `${generationBaseURL}/assets/thumbnail-tiled.webp`},
                 ];
                 if (programSnapshot.channel !== null) {

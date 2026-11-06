@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal, cast
 import aiofiles
 import aiohttp
 import anyio
-import httpx
+import httpx2 as httpx
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
 
@@ -338,9 +338,12 @@ class LiveEncodingTask:
         max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:250000')
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K --output-thread 0 --lowlatency')
-        ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
+        ## QSVEncC と rkmppenc では 24fps モード以外では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
         if (encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc') and not self.live_stream.encoding_options.is_24fps_mode_enabled:
             options.append('--disable-opencl')
+        ## QSVEncC かつ OpenCL が使われる経路において、OpenCL タスクを従来通りシングルスレッドで実行することで、CPU 使用率を下げる
+        if encoder_type == 'QSVEncC':
+            options.append('--opencl-task-threads 0')
         ## NVEncC では NVML によるモニタリングと DX11, Vulkan を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
             options.append('--disable-nvml 1 --disable-dx11 --disable-vulkan')
@@ -1068,51 +1071,62 @@ class LiveEncodingTask:
 
                 nonlocal chunk_buffer, chunk_written_at, writer_lock, original_quality_bytes_written
 
+                # 188 bytes の TS パケットに満たない、読み取ったデータの端数
+                ## read() は到着済みのデータを長さに関わらず返すため、パケットの途中で区切られることがある
+                ## 端数は次回の読み取りデータと結合し、チャンクバッファには完全な TS パケットだけを貯める
+                incomplete_packet_data = bytearray()
+
                 while True:
-                    try:
 
-                        # エンコーダーからの出力を読み取る
-                        ## TS パケットのサイズが 188 bytes なので、1回の readexactly() で 188 bytes ずつ読み取る
-                        ## read() ではなく厳密な readexactly() を使わないとぴったり 188 bytes にならない場合がある
-                        chunk = await cast(asyncio.StreamReader, encoder.stdout).readexactly(ts.PACKET_SIZE)
+                    # エンコーダーからの出力を、到着済みの分 (最大 64KB) だけまとめて読み取る
+                    ## readexactly() で 188 bytes ずつ読み取ると、パケットごとに await と排他ロックの取得が発生し、CPU 使用率が高くなる
+                    ## read() は指定サイズが揃うのを待たずに返るため、データ量の少ないラジオチャンネルでも遅延は増えない
+                    chunk = await cast(asyncio.StreamReader, encoder.stdout).read(65536)
 
-                        # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
-                        async with writer_lock:
-
-                            # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
-                            chunk_buffer += chunk
-
-                            # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
-                            if len(chunk_buffer) >= 65536:
-
-                                # エンコーダーからの出力をライブストリームの Queue に書き込む
-                                chunk_size = len(chunk_buffer)
-                                self.live_stream.writeStreamData(bytes(chunk_buffer))
-                                # print(f'Writer:    Chunk size: {chunk_size:05} / Time: {time.time()}')
-
-                                # オリジナル画質 ("original") 指定時のみ、エンコーダーログがないため、
-                                # ライブストリームへ書き込んだ TS データ量からバッファリング完了を判定する
-                                if is_original_quality is True:
-                                    live_stream_status = self.live_stream.getStatus()
-                                    if live_stream_status.status == 'Standby':
-                                        original_quality_bytes_written += chunk_size
-                                        if original_quality_bytes_written < self.ORIGINAL_QUALITY_ONAIR_BUFFER_BYTES:
-                                            if live_stream_status.detail != 'ストリーミングを開始しています…':
-                                                self.live_stream.setStatus('Standby', 'ストリーミングを開始しています…')
-                                        else:
-                                            self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
-                                            if self._retry_count > 0:
-                                                self._retry_count = 0
-
-                                # チャンクバッファを空にする（重要）
-                                chunk_buffer = bytearray()
-
-                                # チャンクの最終書き込み時刻を更新
-                                chunk_written_at = time.monotonic()
-
-                    # もし 188 bytes に満たないデータが返ってきたら、エンコーダーが終了したと判断してタスクを終了
-                    except asyncio.IncompleteReadError:
+                    # 空のデータが返ってきたら、エンコーダーが終了したと判断してタスクを終了
+                    ## 188 bytes に満たない最後の端数は、TS パケットとして不完全なので送信しない
+                    if len(chunk) == 0:
                         break
+
+                    # 端数と結合し、完全な TS パケットの部分だけを取り出す
+                    incomplete_packet_data += chunk
+                    complete_packets_size = len(incomplete_packet_data) - (len(incomplete_packet_data) % ts.PACKET_SIZE)
+                    complete_packets = incomplete_packet_data[:complete_packets_size]
+                    del incomplete_packet_data[:complete_packets_size]
+
+                    # 同時に chunk_buffer / chunk_written_at にアクセスするタスクが1つだけであることを保証する (排他ロック)
+                    async with writer_lock:
+
+                        # 188 bytes ごとに区切られた、エンコーダーの出力のチャンクをバッファに貯める
+                        chunk_buffer += complete_packets
+
+                        # チャンクバッファが 65536 bytes (64KB) 以上になった時のみ
+                        if len(chunk_buffer) >= 65536:
+
+                            # エンコーダーからの出力をライブストリームの Queue に書き込む
+                            chunk_size = len(chunk_buffer)
+                            self.live_stream.writeStreamData(bytes(chunk_buffer))
+                            # print(f'Writer:    Chunk size: {chunk_size:05} / Time: {time.time()}')
+
+                            # オリジナル画質 ("original") 指定時のみ、エンコーダーログがないため、
+                            # ライブストリームへ書き込んだ TS データ量からバッファリング完了を判定する
+                            if is_original_quality is True:
+                                live_stream_status = self.live_stream.getStatus()
+                                if live_stream_status.status == 'Standby':
+                                    original_quality_bytes_written += chunk_size
+                                    if original_quality_bytes_written < self.ORIGINAL_QUALITY_ONAIR_BUFFER_BYTES:
+                                        if live_stream_status.detail != 'ストリーミングを開始しています…':
+                                            self.live_stream.setStatus('Standby', 'ストリーミングを開始しています…')
+                                    else:
+                                        self.live_stream.setStatus('ONAir', 'ライブストリームは ONAir です。')
+                                        if self._retry_count > 0:
+                                            self._retry_count = 0
+
+                            # チャンクバッファを空にする（重要）
+                            chunk_buffer = bytearray()
+
+                            # チャンクの最終書き込み時刻を更新
+                            chunk_written_at = time.monotonic()
 
                     # エンコードタスクが終了しているか既にエンコーダープロセスが終了していたら、タスクを終了
                     if is_running is False or tsreadex.returncode is not None or encoder.returncode is not None:

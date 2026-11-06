@@ -289,16 +289,18 @@ KonomiTV は、[QSVEncC](https://github.com/rigaya/QSVEnc) (Intel QSV)・[NVEncC
 #### Windows
 
 - QSVEncC：[Intel Graphics Driver](https://www.intel.co.jp/content/www/jp/ja/support/articles/000005629/graphics/processor-graphics.html)
-- NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx)
-- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support/download/drivers.html)
+- NVEncC：[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) (452.39 以降)
+- VCEEncC：[AMD Graphics Driver](https://www.amd.com/ja/support/download/drivers.html) (Adrenalin Edition 25.10.2 以降)
 
 それぞれのハードウェアエンコーダーを使用するには、対応した GPU ドライバーのインストールが必要です。  
 Windows の場合、基本的にすでにインストール済みのはずです。
 
-> [!NOTE]  
+> [!IMPORTANT]  
 > **古いドライバーを使用している場合は、この機会に最新のドライバーにアップデートしておくことをおすすめします。**  
 > ドライバーが古すぎると、ハードウェアエンコードに失敗する場合があります。  
 > KonomiTV をアップデートした後は、ドライバーも最新のドライバーにアップデートしておくことをおすすめします。
+> 
+> **特に、KonomiTV 0.14.0 以降に同梱されている最新版 VCEEncC を利用するには、AMD Graphics Driver を Adrenalin Edition 25.10.2 以降に更新する必要があります。**
 
 #### Linux - QSVEncC
 
@@ -345,38 +347,89 @@ sudo apt update && sudo apt install -y intel-media-va-driver-non-free intel-open
 
 **NVEncC では、[NVIDIA Graphics Driver](https://www.nvidia.co.jp/Download/index.aspx) のインストールが必要です。**  
 基本的にはすでにインストールされていると思います。個人的には `ubuntu-drivers` コマンドを使って apt でインストールするのがおすすめです。  
+NVEncC 自体は、NVIDIA Graphics Driver 450.51 以降であれば動作します。  
 [NVEncC の公式ドキュメント](https://github.com/rigaya/NVEnc/blob/master/Install.ja.md) もあわせてご確認ください。
 
 **Docker で KonomiTV をインストールする際は、さらに NVIDIA Container Toolkit のインストールが必要です。**  
 インストール手順は [NVIDIA の公式ドキュメント](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) をご確認ください。
 
+> [!IMPORTANT]  
+> **Docker を使ってインストールする場合、ホスト側に nvidia-driver-570 以上のドライバーがインストールされている必要があります。**  
+> KonomiTV の Docker イメージは、RTX 5090 などの Blackwell 世代 GPU をサポートする最低バージョンである CUDA 12.8 をベースにしているためです。
+
 #### Linux - VCEEncC
 
-**VCEEncC では、[AMDGPU-PRO Driver](https://www.amd.com/ja/support/download/linux-drivers.html) のインストールが必要です。**  
+**VCEEncC は、Linux カーネルに標準搭載されている amdgpu ドライバーの上で動作します。AMDGPU-PRO Driver のインストールは必須ではありません。**  
 
-> [!WARNING]  
-> **古いドライバーがインストールされている場合、VCEEncC が動作しない可能性があります。**  
-> KonomiTV をアップデートした後は、AMDGPU-PRO Driver も最新のドライバーにアップデートしてください。
+VCEEncC は、[AMD AMF (Advanced Media Framework)](https://github.com/GPUOpen-LibrariesAndSDKs/AMF) がインストールされていれば AMF を、インストールされていなければ Mesa の VA-API ドライバーを自動的に選んでエンコードします。  
+また、KonomiTV はインターレース解除などに OpenCL フィルターを使うため、エンコード用のドライバーとあわせて OpenCL のドライバーも必要です。
 
-> [!WARNING]  
-> **VCEEncC を使うには AMDGPU-PRO ドライバーが必要です。**  
-> オープンソース版の AMDGPU ドライバーには AMD AMF (Advanced Media Framework) が含まれていないため、VCEEncC を利用できません。
+|  | AMD AMF | VA-API |
+|:--|:--|:--|
+| 対応 GPU | RDNA 世代 (Radeon RX 5000 シリーズ) 以降・Ryzen 5000 シリーズ以降の APU | GCN 世代以降の Radeon (Vega 世代などを含む) |
+| インストール | AMD が配布するパッケージが必要 | Ubuntu の apt パッケージのみ |
+| エンコード設定 | 詳細な設定に対応 | 基本的な設定のみ |
+| OpenCL フィルター | ROCm (AMD が配布) | Mesa の Rusticl |
+
+最新のインストール手順は [VCEEncC の公式ドキュメント](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md) もあわせてご確認ください。
+
+> [!TIP]
+> **Docker を使ってインストールする場合、AMF / VA-API / OpenCL のドライバーはすべて Docker イメージに含まれているため、ホスト側へのインストールは不要です。**  
+> ホスト側で AMD GPU が認識されていれば (`/dev/dri/` 以下に `renderD128` などのデバイスファイルがあれば) 利用できます。  
+> 
+> なお、VCEEncC + AMF でのエンコード時に OpenCL (ROCm) フィルター（インターレース解除など）を利用するには、`/dev/kfd` にアクセスできる必要があります。  
+> KonomiTV のインストーラー/アップデーターは、`/dev/kfd` が存在する環境であれば、自動的に docker-compose.yaml を修正してコンテナにマウントします。  
+> インストーラー/アップデーターを使わずに運用している方は、docker-compose.example.yaml を参考に、`devices:` の下に `- '/dev/kfd:/dev/kfd'` を追記してください。
+
+> [!IMPORTANT]
+> **AMD の Linux ドライバやライブラリ周りのサポートが劣悪な影響で、VCEEncC は現状 Ubuntu 24.04 LTS 以降の環境でのみ動作確認されています。**  
+> 最新版の VCEEncC を Ubuntu 22.04 LTS 以下のバージョンで動作させるのはライブラリの噛み合わせの都合で難易度が高く、そもそも不可能かもしれません。  
+> なお、**上記の通り Docker を使ってインストールする場合は、ユーザーモードドライバが全て Docker コンテナ (Ubuntu 24.04 LTS) に含まれているため、環境依存の影響を受けません。**  
+> VCEEncC を利用したい方は、Docker でのインストールをおすすめします。
+
+まず、以下のコマンドを実行して、VA-API ドライバーと Mesa の OpenCL (Rusticl) をインストールしてください。  
+これだけで、AMF に対応していない Vega 世代 APU なども含め、VA-API 経由で VCEEncC を利用できるようになります。
 
 ```bash
-# Ubuntu 24.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/noble/amdgpu-install_6.4.60404-1_all.deb
-# Ubuntu 22.04 LTS (2025年11月時点で最新の amdgpu-install パッケージの URL)
-curl -LO https://repo.radeon.com/amdgpu-install/6.4.4/ubuntu/jammy/amdgpu-install_6.4.60404-1_all.deb
+# VA-API ドライバーと Mesa の OpenCL (Rusticl) のインストール
+## Ubuntu 26.04 LTS 以降では、VA-API ドライバーは mesa-libgallium に統合されているため、
+## mesa-va-drivers の代わりに mesa-libgallium をインストールする必要がある
+sudo apt update && sudo apt install -y mesa-va-drivers mesa-opencl-icd vainfo clinfo
 
-# AMDGPU-PRO Driver のインストール
-sudo apt install -y ./amdgpu-install_6.4.60404-1_all.deb
-sudo apt update && sudo amdgpu-install -y --accept-eula --usecase=graphics,amf,opencl --opencl=rocr --vulkan=amdvlk --no-32
-
-# 再起動
-sudo reboot
+# GPU の認識状況の確認
+## vainfo で VAEntrypointEncSlice の行があるコーデックが、ハードウェアエンコードに使えるコーデック
+## clinfo で rusticl のプラットフォームに対象の Radeon が表示されれば、OpenCL フィルターを利用できる
+vainfo --display drm --device /dev/dri/renderD128
+RUSTICL_ENABLE=radeonsi clinfo -l
 ```
 
-上記のコマンドを実行して、AMDGPU-PRO Driver をインストールしてください (Ubuntu 22.04 LTS 以降向け) 。
+RDNA 世代以降の AMD GPU が搭載された環境では、以下の手順で AMF をインストールすると、より詳細な設定でエンコードできるようになります。  
+なお、実際の画質はハードウェアエンコーダー自体の品質に依存すると考えられるため、映像品質の差はあまりないと思われます。
+
+```bash
+# ref: https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md#1-%E4%BA%8B%E5%89%8D%E6%BA%96%E5%82%99
+
+# AMD の All-Open スタックと、OpenCL フィルターに使う ROCm のインストール
+## 明示的に --no-dkms を指定し、AMD 版のカーネルモジュールには差し替えずに Linux 標準の amdgpu カーネルドライバーの利用を維持する
+curl -LO https://repo.radeon.com/amdgpu-install/25.35.1/ubuntu/noble/amdgpu-install_7.2.1.70201-1_all.deb
+sudo apt install -y ./amdgpu-install_7.2.1.70201-1_all.deb
+sudo apt update && sudo amdgpu-install -y --no-dkms --opencl=rocr
+
+# 最新の AMF ランタイムは Ubuntu 24.04 でエンコーダーの初期化に失敗することがあるため、
+# AMF ランタイムを 6.4.4 (25.10) 系に差し替え
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amdgpu-pro-core/amdgpu-pro-core_25.10-2203192.24.04_all.deb
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/liba/libamdenc-amdgpu-pro/libamdenc-amdgpu-pro_25.10-2203192.24.04_amd64.deb
+curl -LO https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_1.4.37-2203192.24.04_amd64.deb
+sudo apt remove --purge -y amf-amdgpu-pro libamdenc-amdgpu-pro
+sudo apt install -y --allow-downgrades \
+  ./amdgpu-pro-core_25.10-2203192.24.04_all.deb \
+  ./libamdenc-amdgpu-pro_25.10-2203192.24.04_amd64.deb \
+  ./amf-amdgpu-pro_1.4.37-2203192.24.04_amd64.deb
+sudo apt-mark hold amdgpu-pro-core libamdenc-amdgpu-pro amf-amdgpu-pro
+```
+
+> [!NOTE]  
+> `clinfo` で `Number of platforms 0` と表示され、ROCm の OpenCL が認識されない場合は、[VCEEncC の公式ドキュメント](https://github.com/rigaya/VCEEnc/blob/master/Install.ja.md) に記載の手順で ROCm の OpenCL を登録してください。
 
 #### Linux - rkmppenc
 
@@ -1067,7 +1120,7 @@ VS Code を開発に利用しています。
 サポートは行えませんので、技術的な知識がある方のみお試しください。
 
 - uv (最新版)
-- Node.js 20.16.0 (クライアントの開発やビルドを行う場合のみ)
+- Node.js 22.x (クライアントの開発やビルドを行う場合のみ)
 - yarn 1.x (クライアントの開発やビルドを行う場合のみ)
 
 事前に、上記ソフトウェアをインストールしている必要があります。  
@@ -1234,7 +1287,7 @@ sudo pm2 save
 ### クライアントの開発・ビルド
 
 クライアント (フロントエンド) は Vue.js 3.x の SPA (Single Page Application) で開発されており、コーディングとビルドには少なくとも Node.js が必要です。  
-Node.js 20.16.0 / yarn 1.x で開発しています。
+Node.js 22.x / yarn 1.x で開発しています。
 
 ```bash
 cd /Develop/KonomiTV/client/
