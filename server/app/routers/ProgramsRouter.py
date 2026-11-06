@@ -145,9 +145,12 @@ def DecodeEDCBEventInfo(event_info: EventInfo) -> schemas.Program:
             ## 2つ目以降の項目で見出しが空 (空白と重複防止のタブ文字だけ) の場合、直前の項目の本文の続きとしてつなげる
             ## WOWOW などは長い本文を、見出しが空白だけの別の項目に分けて送出するため、
             ## 「番組内容」として扱うと本来の番組内容を上書きしてしまう
+            ## 分割位置には改行が含まれないため、続きの本文が「【」で始まる見出しのときだけ改行を挟んでつなげる
+            ## (WOWOW では本文の中の「【」は常に行頭にあり、それ以外の分割位置は語や列挙の途中になっている)
             if head_hankaku.strip() == '' and len(detail) > 0:
                 last_head = list(detail.keys())[-1]
-                detail[last_head] += text_hankaku
+                separator = '\n' if text_hankaku.startswith('【') else ''
+                detail[last_head] += separator + text_hankaku
                 continue
             ## 先頭の項目の見出しが空の場合、固定で「番組内容」としておく
             if head_hankaku.strip() == '':
