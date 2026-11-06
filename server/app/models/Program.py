@@ -290,9 +290,17 @@ class Program(TortoiseModel):
 
                         # 見出しと本文
                         head_hankaku = TSInformation.formatString(head).replace('◇', '').strip()  # ◇ を取り除く
-                        if head_hankaku == '':  # 見出しが空の場合、固定で「番組内容」としておく
-                            head_hankaku = '番組内容'
                         text_hankaku = TSInformation.formatString(text).strip()
+                        ## 2つ目以降の項目で見出しが空 (空白だけ) の場合、直前の項目の本文の続きとしてつなげる
+                        ## WOWOW などは長い本文を、見出しが空白だけの別の項目に分けて送出するため、
+                        ## 「番組内容」として扱うと本来の番組内容を上書きしてしまう
+                        if head_hankaku == '' and len(detail) > 0:
+                            last_head = list(detail.keys())[-1]
+                            detail[last_head] += text_hankaku
+                            continue
+                        ## 先頭の項目の見出しが空の場合、固定で「番組内容」としておく
+                        if head_hankaku == '':
+                            head_hankaku = '番組内容'
                         detail[head_hankaku] = text_hankaku
 
                         # 番組概要が空の場合、番組詳細の最初の本文を概要として使う
