@@ -86,10 +86,11 @@
                         :disabled="isRetryingOfflineDownload" @click.prevent.stop="retryOfflineDownload(true)">
                         <Icon icon="fluent:arrow-clockwise-20-regular" width="20px" height="20px" />
                     </v-btn>
-                    <v-btn icon size="36" variant="text" color="text-darken-1"
+                    <v-spacer />
+                    <v-btn icon size="36" variant="text" color="error"
                         aria-label="失敗した保存ジョブと途中データを削除する" v-ftooltip="'途中データを削除'"
-                        :disabled="isRetryingOfflineDownload" @click.prevent.stop="dismissOfflineDownload">
-                        <Icon icon="fluent:dismiss-16-regular" width="22px" height="22px" />
+                        :disabled="isRetryingOfflineDownload" @click.prevent.stop="offlineJobToDismiss = offlineDownloadJob">
+                        <Icon icon="fluent:delete-20-regular" width="20px" height="20px" />
                     </v-btn>
                 </div>
             </div>
@@ -209,6 +210,40 @@
     <RecordedFileInfoDialog :program="program" v-model:show="show_video_info" />
     <OfflineVideoDownloadDialog :program="program" v-model:show="showOfflineDownload" />
 
+    <!-- 失敗した保存ジョブと途中データの削除確認ダイアログ -->
+    <v-dialog :model-value="offlineJobToDismiss !== null" max-width="715" @update:model-value="offlineJobToDismiss = null">
+        <v-card>
+            <v-card-title class="d-flex justify-center pt-6 font-weight-bold">
+                途中データを削除しますか？
+            </v-card-title>
+            <v-card-text class="pt-2 pb-0">
+                <div v-if="offlineJobToDismiss !== null" class="mb-4">
+                    <div class="text-h6 text-text mb-2"
+                        v-html="ProgramUtils.decorateProgramInfo(offlineJobToDismiss.program, 'title')"></div>
+                    <div class="text-body-2 text-text-darken-1">
+                        {{ProgramUtils.getProgramTime(offlineJobToDismiss.program)}}
+                    </div>
+                </div>
+                <v-alert color="warning" variant="tonal">
+                    端末に保存した途中データと、サーバー上の再開用一時データを削除します。<br>
+                    削除すると続きから再開できなくなります。<br>
+                    録画ファイルと保存が完了した動画はそのまま残ります。
+                </v-alert>
+            </v-card-text>
+            <v-card-actions class="pt-4 px-6 pb-6">
+                <v-spacer />
+                <v-btn color="text" variant="text" height="40" @click="offlineJobToDismiss = null">
+                    <Icon icon="fluent:dismiss-16-filled" width="18px" height="18px" />
+                    <span class="ml-1">キャンセル</span>
+                </v-btn>
+                <v-btn class="px-3" color="error" variant="flat" height="40" @click="dismissOfflineDownload">
+                    <Icon icon="fluent:delete-16-regular" width="18px" height="18px" />
+                    <span class="ml-1">途中データを削除</span>
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+
     <!-- オフライン保存削除確認ダイアログ -->
     <v-dialog v-model="showOfflineDeleteConfirmation" max-width="715">
         <v-card>
@@ -311,6 +346,8 @@ const show_delete_confirmation = ref(false);
 const showOfflineDownload = ref(false);
 // オフライン保存削除確認ダイアログの表示状態
 const showOfflineDeleteConfirmation = ref(false);
+// 確認中の対象を保持し、一覧が更新されても確認した保存ジョブを削除する
+const offlineJobToDismiss = ref<IOfflineDownloadJob | null>(null);
 // オフライン保存の削除中は確定ボタンの二重操作を防ぐ
 const isDeletingOfflineVideo = ref(false);
 const isRetryingOfflineDownload = ref(false);
@@ -520,10 +557,12 @@ const cancelOfflineDownload = () => {
     emit('cancelOfflineJob', props.offlineDownloadJob.job_id);
 };
 
-// 失敗した保存ジョブを一覧から消す
+// 確認した保存ジョブと途中データを削除する
 const dismissOfflineDownload = () => {
-    if (props.offlineDownloadJob === null || isRetryingOfflineDownload.value) return;
-    emit('dismissOfflineJob', props.offlineDownloadJob.job_id);
+    if (offlineJobToDismiss.value === null || isRetryingOfflineDownload.value) return;
+    const jobID = offlineJobToDismiss.value.job_id;
+    offlineJobToDismiss.value = null;
+    emit('dismissOfflineJob', jobID);
 };
 
 /** 通常保存は続きから、バックグラウンド保存は先頭から同じ画質で再試行する。 */
