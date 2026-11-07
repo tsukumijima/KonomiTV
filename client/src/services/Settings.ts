@@ -54,6 +54,7 @@ export interface IClientSettings {
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     video_watched_history_max_count: number;
+    video_cm_auto_skip: boolean;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
