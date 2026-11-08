@@ -102,6 +102,12 @@ async def test_mpegts_api_delivers_data_after_input_wait(
 
     # 外部エンコーダーの入力到着だけを置き換え、配信 API と Queue は実装をそのまま通す
     async def Run(encoding_task: LiveEncodingTask) -> None:
+        """
+        API の読み取り開始を待ち、合成データと配信の終端を書き込む
+
+        Args:
+            encoding_task (LiveEncodingTask): 配信を開始したエンコードタスク
+        """
         await asyncio.wait_for(reading.wait(), timeout=3)
         clock.now += input_delay
         encoding_task.live_stream.setStatus('ONAir', 'Test stream is on air.')

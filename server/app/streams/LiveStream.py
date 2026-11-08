@@ -71,6 +71,7 @@ class LiveStreamClient:
         """
         自分自身の Queue からストリームデータを読み取って返す
         Queue 内のストリームデータは writeStreamData() で書き込まれたもの
+        同じクライアントでは逐次的に呼び出し、複数の読み取りを同時に実行しないこと
 
         Args:
             client (LiveStreamClient): ライブストリームクライアントのインスタンス
