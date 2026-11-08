@@ -47,14 +47,24 @@ class LiveStreamClient:
         self._queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         # ストリームデータの最終読み取り時刻のタイミング
-        ## 最終読み取り時刻から 10 秒経過したクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
+        ## 入力待機を終えた後、最終読み取り時刻から 10 秒経過したクライアントは LiveStream.writeStreamData() で回収される
         self._stream_data_read_at: float = time.time()
+
+        # readStreamData() が Queue の入力を待機しているかどうか
+        ## writeStreamData() で、入力待機中のクライアントと消費を停止したクライアントを区別する
+        self._stream_data_read_pending: bool = False
 
 
     @property
     def stream_data_read_at(self) -> float:
         """ ストリームデータの最終読み取り時刻のタイミング (読み取り専用) """
         return self._stream_data_read_at
+
+
+    @property
+    def stream_data_read_pending(self) -> bool:
+        """ ストリームデータの入力を待機中かどうか (読み取り専用) """
+        return self._stream_data_read_pending
 
 
     async def readStreamData(self) -> bytes | None:
@@ -76,11 +86,16 @@ class LiveStreamClient:
         # ストリームデータの最終読み取り時刻を更新
         self._stream_data_read_at = time.time()
 
-        # Queue から読み取ったストリームデータを返す
+        # Queue の入力待機中はクライアントを維持し、読み取ったストリームデータを返す
+        self._stream_data_read_pending = True
         try:
             return await self._queue.get()
         except TypeError:
             return None
+        finally:
+            # 読み取り完了・キャンセルの時刻から、消費停止のタイムアウトを計測する
+            self._stream_data_read_at = time.time()
+            self._stream_data_read_pending = False
 
 
     def writeStreamData(self, stream_data: bytes | None) -> None:
@@ -660,9 +675,10 @@ class LiveStream:
             # タイムアウト秒数は 10 秒
             timeout = 10
 
-            # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+            # 入力待機を終えた後、最終読み取り時刻を指定秒数過ぎたクライアントを回収する
             ## 主にネットワークが切断されたなどの理由で発生する
-            if now - client.stream_data_read_at > timeout:
+            if (client.stream_data_read_pending is False and
+                now - client.stream_data_read_at > timeout):
                 self._clients.remove(client)
                 logging.info(f'{self.log_prefix} Client Disconnected (Timeout). Client ID: {client.client_id}')
                 del client
