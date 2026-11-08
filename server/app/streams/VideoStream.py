@@ -58,9 +58,6 @@ class VideoStreamSegment:
     encode_status: Literal['Pending', 'Encoding', 'Completed']
     # HLS セグメントのエンコード済み MPEG-TS データが返る asyncio.Future
     encoded_segment_ts_future: asyncio.Future[bytes]
-    # HLS セグメントのエンコード済み MPEG-TS データが既にクライアントによって読み取られているかを表すフラグ
-    ## このフラグが True の VideoStreamSegment は、メモリ節約のため順に破棄される (readed と意図的に過去形にしている)
-    is_encoded_segment_ts_future_readed: bool = False
 
     async def resetState(self) -> None:
         """
@@ -75,7 +72,6 @@ class VideoStreamSegment:
         # 新しい Future は、現在実行中のイベントループに明示的に紐付けて再初期化する
         ## これにより「イベントループ上で呼び出す前提」がコード上でも明確になる
         self.encoded_segment_ts_future = asyncio.get_running_loop().create_future()
-        self.is_encoded_segment_ts_future_readed = False
 
 
 class VideoStream:
@@ -85,8 +81,22 @@ class VideoStream:
     # この時間が経過すると、録画視聴セッションのインスタンスは自動的に破棄される
     SESSION_TIMEOUT: ClassVar[float] = float(10)  # 10 秒
 
-    # 一度でも読み取られた HLS セグメントの最大保持数
-    MAX_READED_SEGMENTS: ClassVar[int] = 10
+    # 最後に要求されたセグメントより手前で、エンコード済みデータを保持しておくセグメント数
+    ## プレイヤーは副音声への切り替え時に再生位置の TS を取得し直すため、先読み分 (最大 30 秒) より手前まで残す必要がある
+    ## これより手前のデータは、読み取られたかどうかに関係なく破棄する (読み飛ばされたセグメントも残り続けないようにするため)
+    MAX_RETAINED_PAST_SEGMENTS: ClassVar[int] = 9
+
+    # 最後に要求されたセグメントより先へ、エンコードを進めてよい上限 (秒)
+    ## エンコード済みセグメントはすべてメモリ上に保持されるため、上限がないと実時間より速いエンコーダーが
+    ## 録画の終端まで先行してエンコードし続け、番組の長さに比例してメモリを使い切ってしまう
+    ## 上限に達したエンコードタスクはエンコーダーの出力の読み取りを止め、パイプが詰まることでエンコーダーと tsreadex も停止する
+    MAX_ENCODE_AHEAD_SECONDS: ClassVar[float] = float(120)
+
+    # 先行エンコードの上限で止まったエンコードタスクが、次のセグメント要求を待つ最大時間 (秒)
+    ## 再生中は数秒おきにセグメントが要求されるため、これを超えて要求がないのは再生が一時停止されている場合に限られる
+    ## 一時停止中もエンコーダーや tsreadex のプロセスを止めたまま抱え続けないよう、超えた時点でエンコードタスクを終了する
+    ## 再生が再開されると先行分のエンコード済みセグメントが先に消費され、その先のセグメントが要求された時点でエンコードタスクが再起動される
+    MAX_ENCODE_PAUSE_SECONDS: ClassVar[float] = float(60)
 
     # QSVEncC でエンコードを開始する際、入力 DTS が 33bit ラップアラウンド直前だと時刻補正でフレーム間隔がズレる問題を回避するための余裕
     DTS_WRAP_AVOIDANCE_SECONDS: ClassVar[int] = 60
@@ -143,6 +153,10 @@ class VideoStream:
 
             # HLS セグメントを格納するリスト
             instance._segments = []
+
+            # 最後に要求されたセグメントのシーケンス番号
+            ## エンコードタスクはこの位置を基準に先行エンコードを止め、getSegment() はこの位置より手前のデータを破棄する
+            instance._requested_sequence = 0
 
             # segment_map はシーケンス番号で参照するため、視聴セッション内では辞書として保持する
             ## DB には JSON 配列のまま保存し、検索時だけ辞書化することで保存形式を増やさずに参照コストを下げる
@@ -243,6 +257,7 @@ class VideoStream:
         self.encoding_options: StreamEncodingOptions
         self._segment_duration_seconds: float
         self._segments: list[VideoStreamSegment]
+        self._requested_sequence: int
         self._segment_map_by_sequence: dict[int, SegmentMapEntry]
         self._ts_stream_info: TSStreamInfo | None
         self._ts_source_base_dts: int | None
@@ -271,6 +286,22 @@ class VideoStream:
         基本一度 VideoStream 内部でセットされたら外部から変更されるべきではないので、読み取り専用にしている
         """
         return tuple(self._segments)
+
+
+    def isEncodeAheadLimitReached(self, segment_sequence: int) -> bool:
+        """
+        指定セグメントのエンコードを始めると、最後に要求されたセグメントより MAX_ENCODE_AHEAD_SECONDS 以上先行するかを返す
+
+        Args:
+            segment_sequence (int): これからエンコードするセグメントのシーケンス番号
+
+        Returns:
+            bool: 先行エンコードの上限に達している場合は True
+        """
+
+        segment = self._segments[segment_sequence]
+        requested_segment = self._segments[self._requested_sequence]
+        return segment.playlist_start_seconds - requested_segment.playlist_start_seconds >= self.MAX_ENCODE_AHEAD_SECONDS
 
 
     @property
@@ -778,6 +809,11 @@ class VideoStream:
         if segment_sequence < 0 or segment_sequence >= len(self._segments):
             return None
 
+        # 要求位置を更新し、先行エンコードの上限で待機しているエンコードタスクに再評価させる
+        ## 直前セグメントの完了を待つ前に通知しないと、上限で止まったタスクとこの要求が互いを待ち続けてしまう
+        self._requested_sequence = segment_sequence
+        self._video_encoding_task.notifyPlaybackProgress()
+
         # シーケンス番号に対応する HLS セグメントを取得する
         segment = self._segments[segment_sequence]
 
@@ -889,15 +925,11 @@ class VideoStream:
         if audio == 'secondary':
             result_segment_ts = TSSecondaryAudioExtractor.extract(encoded_segment_ts)
 
-        segment.is_encoded_segment_ts_future_readed = True
-
-        # 読み取り済みのセグメントが MAX_READED_SEGMENTS 個以上ある場合、一番古いセグメントのデータを初期化する
-        readed_segments = [s for s in self._segments if s.is_encoded_segment_ts_future_readed]
-        if len(readed_segments) >= self.MAX_READED_SEGMENTS:
-            # 一番古いセグメントを取得し、状態をリセットする
-            oldest_segment = readed_segments[0]
-            await oldest_segment.resetState()
-            logging.info(f'{self.log_prefix}[Segment {oldest_segment.sequence_index}] Reset segment data to free memory.')
+        # この要求位置から MAX_RETAINED_PAST_SEGMENTS 個より手前にある完了済みセグメントのデータを破棄する
+        for past_segment in self._segments[:max(0, segment_sequence - self.MAX_RETAINED_PAST_SEGMENTS)]:
+            if past_segment.encode_status == 'Completed':
+                await past_segment.resetState()
+                logging.info(f'{self.log_prefix}[Segment {past_segment.sequence_index}] Reset segment data to free memory.')
 
         return result_segment_ts
 

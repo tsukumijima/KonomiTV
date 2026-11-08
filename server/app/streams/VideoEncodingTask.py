@@ -85,6 +85,18 @@ class VideoEncodingTask:
         # エンコードタスクのリトライ回数のカウント
         self._retry_count: int = 0
 
+        # 先行エンコードの上限で待機しているタスクを起こすイベント
+        ## セグメントが要求されたときと、キャンセルされたときにセットされる
+        self._playback_progress_event = asyncio.Event()
+
+
+    def notifyPlaybackProgress(self) -> None:
+        """
+        セグメントが要求されたことを通知し、先行エンコードの上限で待機中であれば上限を再評価させる
+        """
+
+        self._playback_progress_event.set()
+
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
@@ -1290,6 +1302,36 @@ class VideoEncodingTask:
                                             encoded_segment += packet
                                             pmt_cc = (pmt_cc + 1) & 0x0F
 
+                                    # 最後に要求されたセグメントより先行しすぎている場合は、要求位置が追いつくまで出力の読み取りを止める
+                                    ## エンコーダーの stdout パイプが埋まるとエンコーダーと tsreadex も書き込みで止まり、先行分のメモリが増えなくなる
+                                    ## 再生中は1セグメント要求されるごとに上限へ達して止まるのが通常の状態なので、待機と再開はデバッグログに留める
+                                    if self.video_stream.isEncodeAheadLimitReached(current_sequence) is True:
+                                        logging.debug(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding paused until playback catches up.')
+                                        while self._is_cancelled is False:
+                                            self._playback_progress_event.clear()
+                                            if self.video_stream.isEncodeAheadLimitReached(current_sequence) is False:
+                                                break
+                                            try:
+                                                await asyncio.wait_for(
+                                                    self._playback_progress_event.wait(),
+                                                    timeout = self.video_stream.MAX_ENCODE_PAUSE_SECONDS,
+                                                )
+                                            except TimeoutError:
+                                                # 一時停止中と判断し、エンコードタスクを終了する
+                                                ## 現在のセグメントは PAT/PMT しか持たないため、完了扱いにせず Pending に戻して次の要求で再エンコードさせる
+                                                ## cancel() 後の run() は最終セグメントを確定させずに終了するので、このデータが返されることはない
+                                                logging.info(
+                                                    f'{self.video_stream.log_prefix}[Segment {current_sequence}] '
+                                                    f'No segment was requested for {self.video_stream.MAX_ENCODE_PAUSE_SECONDS:.0f}s. '
+                                                    f'Stopping the Encoding Task until playback resumes.'
+                                                )
+                                                await current_segment.resetState()
+                                                self.cancel()
+                                        if self._is_cancelled is False:
+                                            logging.debug(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding resumed.')
+                                        # 待機中は出力を読んでいないため、読み取りタイムアウトの起点を待機明けに置き直す
+                                        last_read_time = asyncio.get_running_loop().time()
+
                             # 現在の映像 PES をパケット化して、現在処理対象のセグメントに追加
                             for packet in packetize_pes(video, False, False, cast(int, video_pid), 0, video_cc):
                                 encoded_segment += packet
@@ -1580,6 +1622,9 @@ class VideoEncodingTask:
             ## この時点でまだ run() やエンコーダーが実行中であれば、run() やエンコーダーはこのフラグを見て自ら終了する
             ## できるだけ早い段階でフラグを立てておくことが重要
             self._is_cancelled = True
+
+            # 先行エンコードの上限で待機中の run() を起こし、キャンセルを検知させる
+            self._playback_progress_event.set()
 
             # 本メソッド全体の所要時間を計測する
             ## 過去にイベントループ (メインスレッド) が固まる事象が起きていたため、ハング再発時にログから即座に検知できるよう残しておく
