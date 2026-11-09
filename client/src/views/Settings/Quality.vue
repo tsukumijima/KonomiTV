@@ -30,8 +30,8 @@
                 </div>
                 <div class="settings__item-label mt-2">
                     画質を [Original (MPEG-2)] に設定すると、<b>放送波の MPEG-2 を再エンコードせず直接 60fps で再生できます！</b><br>
-                    <b>再生遅延・選局待ち時間・サーバー負荷を大幅に削減できるため、家の Wi-Fi で観るときにおすすめです。</b><br>
-                    （ ⚠️ 最大 20Mbps の TS を直接ストリーミングするため、屋外で使うとパケ代が大変なことになります）<br>
+                    <b>再生遅延 / 選局待ち時間 / サーバー負荷を大幅に削減できるため、家の Wi-Fi で観る際におすすめです。</b><br>
+                    （ ⚠️ 最大 20Mbps の TS を直接ストリーミングするため、屋外で使うと「ギガ」を大量に消費します）<br>
                     実験的機能のため、微妙にカクついたり、低スペックな端末では再生が重くなる可能性があります。<br>
                 </div>
                 <div class="settings__item-label mt-2">
@@ -80,7 +80,7 @@
                     低遅延ストリーミングをオンにすると、<b>放送波との遅延を最短 0.9 秒に抑えて視聴できます！</b><br>
                     また、約 3 秒以上遅延したときに少しだけ再生速度を早める (1.1x) ことで、滑らかにストリーミングの遅延を取り戻します。<br>
                     <div class="mt-1"></div>
-                    映像がカクつきやすくなるため、<b>通信が不安定になりがちなモバイル回線やフリー Wi-Fi から視聴するときは、オフにすることをおすすめします。</b><br>
+                    映像がカクつきやすくなるため、<b>通信が不安定になりがちなモバイル回線・フリー Wi-Fi から視聴する際はオフにするのがおすすめです。</b><br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_low_latency_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_low_latency_mode">
@@ -97,9 +97,7 @@
                     映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
                     画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
                     <div class="mt-1"></div>
-                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
-                    <div class="mt-1"></div>
-                    画質で [Original (MPEG-2)] を選択している場合は、若干描画が不安定になる可能性があります。<br>
+                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.tv_24fps_mode">
@@ -120,8 +118,8 @@
                 </div>
                 <div class="settings__item-label mt-2">
                     画質を [Original (MPEG-2)] に設定すると、<b>録画 TS の MPEG-2 を再エンコードせず直接 60fps で再生できます！</b><br>
-                    <b>シーク待ち時間とサーバー負荷を大幅に削減できるため、家の Wi-Fi で観るときにおすすめです。</b><br>
-                    （ ⚠️ 数 GB ある録画ファイルを直接ストリーミングするため、屋外で使うとパケ代が大変なことになります）<br>
+                    <b>シーク待ち時間 / サーバー負荷を大幅に削減できるため、家の Wi-Fi で観る際におすすめです。</b><br>
+                    （ ⚠️ 数 GB ある録画ファイルを直接ストリーミングするため、屋外で使うと「ギガ」を大量に消費します）<br>
                 </div>
                 <div class="settings__item-label mt-1">
                     現時点では H.264 / HEVC 録画の直接再生には対応していません。デフォルト画質を [Original (MPEG-2)] にしていても、該当録画では自動的に 1080p (60fps) / 1080p (24fps モード有効時) が選択されます。<br>
@@ -173,9 +171,7 @@
                     映画やアニメなど 24fps で制作された映像を検出し、本来の動きに近づけます。<br>
                     画質で [1080p (60fps)] を選択している場合は、常に 60fps が優先されます。<br>
                     <div class="mt-1"></div>
-                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。<br>
-                    <div class="mt-1"></div>
-                    画質で [Original (MPEG-2)] を選択している場合は、若干描画が不安定になる可能性があります。<br>
+                    CM やニュースなど 30fps の区間は基本的にそのまま再生されます。テロップなど一部の映像では効果が安定しないことがあります。サーバーのエンコード設定によっては利用できません。
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="video_24fps_mode" hide-details v-if="network_circuit !== 'モバイル回線時'"
                     v-model="settingsStore.settings.video_24fps_mode">
