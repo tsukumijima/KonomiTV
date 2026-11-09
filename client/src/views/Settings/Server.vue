@@ -359,6 +359,29 @@
                 <span class="ml-2">データベースを更新</span>
             </v-btn>
             <div class="settings__item">
+                <div class="settings__item-heading">録画ファイルのバックグラウンド解析タスクを再実行</div>
+                <div class="settings__item-label">
+                    録画ファイルのメタデータ解析やサムネイル作成が完了していない場合に、これらの処理を再度実行します。<br>
+                    PC のシャットダウンなどで途中で中断してしまった場合は、このボタンから処理を再開できます。<br>
+                </div>
+                <div class="settings__item-label mt-1">
+                    <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
+                </div>
+            </div>
+            <div v-if="background_analysis_status.is_running" class="task-progress mt-5">
+                <div class="task-progress__label">
+                    <span>バックグラウンド解析タスクを実行しています...</span>
+                    <span>{{ formatTaskProgress(background_analysis_status) }}</span>
+                </div>
+                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
+                    :indeterminate="background_analysis_status.total_count === 0" :model-value="getTaskProgressPercent(background_analysis_status)" />
+            </div>
+            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
+                :disabled="background_analysis_status.is_running" @click="startBackgroundAnalysis()">
+                <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
+                <span class="ml-2">バックグラウンド解析タスクを再実行</span>
+            </v-btn>
+            <div class="settings__item">
                 <div class="settings__item-heading">録画フォルダの一括スキャンを手動実行</div>
                 <div class="settings__item-label">
                     録画フォルダ内のファイルは、通常 KonomiTV サーバーの起動時に自動的にスキャンされます。<br>
@@ -381,29 +404,6 @@
                 :disabled="batch_scan_status.is_running" @click="runBatchScan()">
                 <Icon icon="fluent:folder-sync-20-regular" height="20px" />
                 <span class="ml-2">録画フォルダの一括スキャンを手動実行</span>
-            </v-btn>
-            <div class="settings__item">
-                <div class="settings__item-heading">録画ファイルのバックグラウンド解析タスクを再実行</div>
-                <div class="settings__item-label">
-                    録画ファイルのメタデータ解析やサムネイル作成が完了していない場合に、これらの処理を再度実行します。<br>
-                    PC のシャットダウンなどで途中で中断してしまった場合は、このボタンから処理を再開できます。<br>
-                </div>
-                <div class="settings__item-label mt-1">
-                    <strong>大量の録画ファイルが保存されている環境では、処理完了まで数時間〜数日以上かかることがあります。</strong><br>
-                </div>
-            </div>
-            <div v-if="background_analysis_status.is_running" class="task-progress mt-5">
-                <div class="task-progress__label">
-                    <span>バックグラウンド解析タスクを実行しています...</span>
-                    <span>{{ formatTaskProgress(background_analysis_status) }}</span>
-                </div>
-                <v-progress-linear class="task-progress__bar" color="secondary" height="6" rounded
-                    :indeterminate="background_analysis_status.total_count === 0" :model-value="getTaskProgressPercent(background_analysis_status)" />
-            </div>
-            <v-btn class="settings__save-button mt-5" color="background-lighten-2" variant="flat"
-                :disabled="background_analysis_status.is_running" @click="startBackgroundAnalysis()">
-                <Icon icon="fluent:book-arrow-clockwise-20-regular" height="20px" />
-                <span class="ml-2">バックグラウンド解析タスクを再実行</span>
             </v-btn>
             <div class="settings__item">
                 <div class="settings__item-heading">キャプチャフォルダの一括スキャンを手動実行</div>
@@ -433,12 +433,12 @@
             <div class="settings__item">
                 <div class="settings__item-heading">データベースを最適化</div>
                 <div class="settings__item-label">
-                    KonomiTV のデータベースを再構築し、キャプチャや録画番組の検索・一覧表示を高速化します。<br>
-                    キャプチャフォルダや録画フォルダの初回スキャンが完了した後、検索や一覧表示が遅い場合にのみ実行してみてください。<br>
+                    KonomiTV の SQLite データベースを最適化し、録画番組やキャプチャの検索・一覧表示を高速化します。<br>
+                    長期間利用していて、検索や一覧表示など動作が遅くなってきた場合に実行してみてください。<br>
                 </div>
                 <div class="settings__item-label mt-1">
                     <strong>最適化中は、処理完了まで KonomiTV にアクセスできなくなります。</strong>視聴中のセッションは切断されません。<br>
-                    大量のキャプチャや録画ファイルが保存されている環境では、処理完了まで数分以上かかることがあります。<br>
+                    大量の録画ファイルやキャプチャが保存されている環境では、処理完了まで数分以上かかることがあります。<br>
                 </div>
             </div>
             <div v-if="database_vacuum_status.is_running" class="task-progress mt-5">
