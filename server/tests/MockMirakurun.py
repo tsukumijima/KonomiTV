@@ -1,15 +1,22 @@
 
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 
 class MockMirakurun:
     """
     テストで放送のバックエンドの代わりに使う、Mirakurun の API の一部だけを返す HTTP サーバー
-    サーバーの起動時のチャンネル情報と番組情報の更新が、実際の Mirakurun と同じ経路で動くようにする
+    サーバーの起動時のチャンネル情報と番組情報の更新と、ライブ視聴の放送波の受信が、実際の Mirakurun と同じ経路で動くようにする
     """
+
+    # 放送波の TS を送信するときに、1回に送信するバイト数と送信の間隔 (秒)
+    ## 188 バイトの TS パケット 80 個を 0.1 秒ごとに送信し、テスト用の録画 (約 75KB/s) をおよそ2倍の速度で流す
+    STREAM_CHUNK_SIZE: int = 188 * 80
+    STREAM_CHUNK_INTERVAL: float = 0.1
 
     # 返すチャンネル (Mirakurun の /api/services の形式)
     ## テスト用の録画ファイル (tests/fixtures/recorded/) と番組情報 (tests/fixtures/programs/) の放送局に合わせている
@@ -60,10 +67,39 @@ class MockMirakurun:
 
         class Handler(BaseHTTPRequestHandler):
             """
-            Mirakurun の API のうち、KonomiTV がサーバーの起動時に使うものだけを返すハンドラー
+            Mirakurun の API のうち、KonomiTV がサーバーの起動時とライブ視聴の放送波の受信に使うものだけを返すハンドラー
             """
 
             def do_GET(self) -> None:
+
+                # サービスのストリーム (/api/services/{id}/stream) へのリクエストには、放送波の TS を送信し続ける
+                ## チューナーの起動に時間がかかる環境を再現するため、ヘッダーを返してから stream_start_delay 秒待って TS を送信する
+                ## 送信先が接続を閉じるまで、stream_ts_path の TS を先頭から繰り返し送信する
+                if self.path.startswith('/api/services/') and self.path.split('?')[0].endswith('/stream'):
+                    if mock.stream_ts_path is None:
+                        self.send_error(404)
+                        return
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'video/MP2T')
+                    self.send_header('Server', 'Mirakurun/3.9.0-rc.4')
+                    self.end_headers()
+                    stream_data = mock.stream_ts_path.read_bytes()
+                    with mock.open_stream_count_lock:
+                        mock.open_stream_count += 1
+                    try:
+                        time.sleep(mock.stream_start_delay)
+                        while True:
+                            for offset in range(0, len(stream_data), mock.STREAM_CHUNK_SIZE):
+                                self.wfile.write(stream_data[offset:offset + mock.STREAM_CHUNK_SIZE])
+                                time.sleep(mock.STREAM_CHUNK_INTERVAL)
+                    except (BrokenPipeError, ConnectionResetError):
+                        # 送信先 (KonomiTV のエンコードタスク) が接続を閉じたら送信を終える
+                        pass
+                    finally:
+                        with mock.open_stream_count_lock:
+                            mock.open_stream_count -= 1
+                    return
+
                 # パスごとに返す内容を決める (チューナーは空にする)
                 body: Any
                 if self.path == '/api/services':
@@ -102,6 +138,19 @@ class MockMirakurun:
         # /api/programs へのリクエストを受け付けたときにセットするイベント
         ## 別プロセスで実行される番組情報の更新処理が、番組情報の取得まで到達したことをテスト側で検知するために使う
         self.programs_requested = threading.Event()
+
+        # サービスのストリームとして送信する放送波の TS のパス
+        ## None のときはストリームへのリクエストに 404 を返す。ライブ視聴のテスト側で tests/fixtures/recorded/ の録画を設定する
+        self.stream_ts_path: Path | None = None
+
+        # サービスのストリームへのリクエストを受け付けてから、TS の送信を始めるまでの秒数
+        ## チューナーの起動に時間がかかる環境を再現するために、ライブ視聴のテスト側で設定する
+        self.stream_start_delay: float = 0.0
+
+        # TS を送信中のストリームの数と、増減するときに取得するロック
+        ## 送信先が接続を閉じると減るため、ライブ視聴のテストの後処理で、エンコードタスクが受信を終えたことを検知するために使う
+        self.open_stream_count: int = 0
+        self.open_stream_count_lock = threading.Lock()
 
 
     @property

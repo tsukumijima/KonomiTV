@@ -48,13 +48,25 @@ class LiveStreamClient:
 
         # ストリームデータの最終読み取り時刻のタイミング
         ## 最終読み取り時刻から 10 秒経過したクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
+        ## readStreamData() で Queue からストリームデータを取り出した直後に更新する
         self._stream_data_read_at: float = time.time()
+
+        # Queue にストリームデータが届くのを待機しているかどうか
+        ## readStreamData() で Queue の読み取りを待機している間だけ True になり、LiveStream.writeStreamData() のタイムアウト判定で参照される
+        ## 待機中のクライアントは送信先の読み取りが滞っているのではなく、チューナーやエンコーダーの出力を待っているだけなので、タイムアウトの対象から外す
+        self._is_waiting_stream_data: bool = False
 
 
     @property
     def stream_data_read_at(self) -> float:
         """ ストリームデータの最終読み取り時刻のタイミング (読み取り専用) """
         return self._stream_data_read_at
+
+
+    @property
+    def is_waiting_stream_data(self) -> bool:
+        """ Queue にストリームデータが届くのを待機しているかどうか (読み取り専用) """
+        return self._is_waiting_stream_data
 
 
     async def readStreamData(self) -> bytes | None:
@@ -73,14 +85,20 @@ class LiveStreamClient:
         if self.client_type != 'mpegts':
             return None
 
-        # ストリームデータの最終読み取り時刻を更新
-        self._stream_data_read_at = time.time()
-
         # Queue から読み取ったストリームデータを返す
+        ## Queue の読み取りは書き込まれるまでブロックするため、待機中はタイムアウトの対象から外し、取り出した直後に最終読み取り時刻を更新する
+        ## 待機を始めた時刻を最終読み取り時刻にすると、チューナーやエンコーダーの起動に 10 秒以上かかったときに、
+        ## 最初のストリームデータを書き込んだ時点でタイムアウトと判断され、視聴を始めたばかりのクライアントが削除されてしまう
+        self._is_waiting_stream_data = True
         try:
-            return await self._queue.get()
+            stream_data = await self._queue.get()
+            self._stream_data_read_at = time.time()
+            return stream_data
         except TypeError:
             return None
+        finally:
+            # 接続の切断によるキャンセルで待機を終えた場合も、待機中の状態を解除する
+            self._is_waiting_stream_data = False
 
 
     def writeStreamData(self, stream_data: bytes | None) -> None:
@@ -655,16 +673,24 @@ class LiveStream:
         now = time.time()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self._clients:
+        ## ループの中でタイムアウトしたクライアントをリストから削除するため、リストのコピーに対してループする
+        ## 元のリストに対してループすると、削除したクライアントの次のクライアントが飛ばされ、ストリームデータが書き込まれなくなる
+        for client in self._clients.copy():
 
             # タイムアウト秒数は 10 秒
             timeout = 10
 
-            # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
-            ## 主にネットワークが切断されたなどの理由で発生する
-            if now - client.stream_data_read_at > timeout:
+            # Queue の読み取りを待機していないのに、最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
+            ## 主にネットワークが切断され、送信先がストリームデータを受け取れなくなった場合に発生する
+            ## Queue の読み取りを待機しているクライアントは、ストリームデータが届くのを待っているだけなので、タイムアウトの対象から外す
+            if client.is_waiting_stream_data is False and now - client.stream_data_read_at > timeout:
                 self._clients.remove(client)
                 logging.info(f'{self.log_prefix} Client Disconnected (Timeout). Client ID: {client.client_id}')
+
+                # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
+                ## 通知しないと、ネットワークが復帰して溜まったストリームデータを読み終えた後も、Queue の読み取りを待機し続けてしまう
+                if client.client_type == 'mpegts':
+                    client.writeStreamData(None)
                 del client
                 continue
 
