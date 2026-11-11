@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.13.*"
 
 [[package]]
@@ -876,7 +876,7 @@ requires-dist = [
     { name = "elevate", specifier = ">=0.1.3,<1.0.0" },
     { name = "fastapi", specifier = ">=0.162.0,<1.0.0" },
     { name = "hashids", specifier = ">=1.3.1" },
-    { name = "httpx2", extras = ["http2"], specifier = ">=2.13.1,<3.0.0" },
+    { name = "httpx2", extras = ["http2"], specifier = ">=2.13.1" },
     { name = "opencv-contrib-python-headless", specifier = ">=5.0.0.93,<6.0.0" },
     { name = "pillow", specifier = ">=11.3.0" },
     { name = "ping3", specifier = ">=4.0.8" },
@@ -908,7 +908,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "asgi-lifespan", specifier = ">=2.1.0" },
-    { name = "pyright", specifier = ">=1.1.403,<2" },
+    { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.1" },
     { name = "pytest-env", specifier = ">=1.8.1" },
