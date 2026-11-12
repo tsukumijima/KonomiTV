@@ -32,6 +32,7 @@ uv run python -m misc.FixtureTSFileConverter <元の録画ファイル> tests/fi
 - 用途:
   - 地デジの番組情報・映像/音声情報など SDT / EIT の解析処理のテスト
   - 録画フォルダのスキャンからサムネイルの生成・録画削除までの E2E テスト
+  - 偽の Mirakurun から放送波として送信し、ライブ視聴のエンコードから配信までを通す E2E テスト
 
 ### bs-aac-misaligned-pes.ts
 
