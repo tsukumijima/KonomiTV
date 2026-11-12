@@ -7,7 +7,7 @@ import httpx2 as httpx
 import pytest_asyncio
 
 from app.models.Channel import Channel
-from app.streams.LiveStream import LiveStream
+from app.streams.LiveStream import LiveStream, LiveStreamClient
 from tests.conftest import FAKE_MIRAKURUN, FIXTURES_DIR
 
 
@@ -118,3 +118,35 @@ async def test_live_stream__disconnects_client_that_stops_reading(live_stream: L
         viewing_task.cancel()
         live_stream.disconnect(stalled_client)
         live_stream.disconnect(viewing_client)
+
+
+async def test_live_stream__notifies_all_clients_when_stream_goes_offline(live_stream: LiveStream) -> None:
+    """
+    ライブストリームが Offline になってエンコードタスクが終了したときは、視聴しているすべてのクライアントに接続の切断を通知する
+    """
+
+    # 2台のクライアントが、どちらもストリームデータを受け取れる状態にする
+    live_stream_clients = [
+        await live_stream.connect('mpegts'),
+        await live_stream.connect('mpegts'),
+    ]
+
+    async def ReadUntilDisconnected(live_stream_client: LiveStreamClient) -> None:
+        while (await live_stream_client.readStreamData()) is not None:
+            pass
+
+    try:
+        for live_stream_client in live_stream_clients:
+            stream_data = await asyncio.wait_for(live_stream_client.readStreamData(), timeout=30)
+            assert stream_data is not None
+
+        # サーバーの終了時と同じくライブストリームを Offline にすると、エンコードタスクが終了してすべてのクライアントを切断する
+        live_stream.setStatus('Offline', 'ライブストリームは Offline です。', True)
+
+        # どちらのクライアントも、溜まっていたストリームデータを読み終えると、接続の切断 (None) を受け取る
+        for live_stream_client in live_stream_clients:
+            await asyncio.wait_for(ReadUntilDisconnected(live_stream_client), timeout=10)
+        assert live_stream.getStatus().client_count == 0
+    finally:
+        for live_stream_client in live_stream_clients:
+            live_stream.disconnect(live_stream_client)

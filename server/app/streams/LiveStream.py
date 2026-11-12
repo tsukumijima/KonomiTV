@@ -558,7 +558,9 @@ class LiveStream:
         """
 
         # すべてのクライアントの接続を切断する
-        for client in self._clients:
+        ## disconnect() がクライアントをリストから削除するため、リストのコピーに対してループする
+        ## 元のリストに対してループすると、1台おきにクライアントが飛ばされ、接続切断が通知されなくなる
+        for client in self._clients.copy():
             # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
             if client.client_type == 'mpegts':
                 client.writeStreamData(None)
