@@ -66,7 +66,8 @@ const autoRefreshInterval = ref<number | null>(null);
 
 // 自動更新の間隔 (ミリ秒)
 const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
-const ITEMS_PER_PAGE = 25;
+// 1ページに表示する件数 (ReservationList のページ数の計算と同じ件数にする)
+const ITEMS_PER_PAGE = 30;
 
 /**
  * 録画予約一覧を取得する
