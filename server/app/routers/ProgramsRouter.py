@@ -780,7 +780,7 @@ async def ToruCountsAPI():
 @router.get(
     '/toru-ranking',
     summary = 'トル数ランキング API',
-    response_description = 'トル数の多い順に並んだ番組情報のリスト。',
+    response_description = 'トル数が基準値の何倍かの大きい順に並んだ番組情報のリスト。',
     response_model = schemas.Programs,
 )
 async def ToruRankingAPI(
@@ -789,7 +789,8 @@ async def ToruRankingAPI(
     page: Annotated[int, Query(description='ページ番号。', ge=1)] = 1,
 ):
     """
-    放送が終了していない番組のうち、トル数の多い順に上位 100 件までを、一度に 20 件ずつ取得する。<br>
+    放送が終了していない番組のうち、トル数が基準値 (トル数取得 API の highlight_base) の何倍かの大きい順に上位 100 件までを、一度に 20 件ずつ取得する。<br>
+    同じ放送波の番組だけを比べる場合は、トル数の多い順と同じ並びになる。<br>
     genre を指定した場合は、最初のジャンルの大分類が一致する番組だけを対象にする。<br>
     total にはランキング全体の件数 (最大 100 件) が入る。番組ごとのトル数は、トル数取得 API のレスポンスから番組 ID で取得できる。
     """
@@ -807,14 +808,21 @@ async def ToruRankingAPI(
             continue
         start_times[program_id] = start_time
 
-    # トル数を取得できている番組を、トル数の多い順 (同じトル数なら放送開始時刻の早い順) に並べ、上位 100 件に絞る
+    # トル数を取得できている番組を、トル数が基準値の何倍かの大きい順に並べ、上位 100 件に絞る
+    ## 地上波のトル数はその地域の利用者だけの数で、BS・CS のトル数は全国の合計とみられるため、トル数そのものは放送波をまたいで比較できない
+    ## トル数の順に並べると、関東・近畿・東海を除く地域ではランキングが BS の番組だけになってしまう
+    ## そこで、放送波ごとの分布から算出した基準値に対する倍率で並べ、どの地域でも地上波と BS・CS の番組が混ざるようにしている
+    ## 倍率が同じ場合はトル数の多い順に、トル数も同じ場合は放送開始時刻の早い順に並べる
     toru_counts = TorneClient.getToruCounts()
-    ranked_program_ids: list[str] = []
-    for program_id in start_times:
-        if program_id in toru_counts:
-            ranked_program_ids.append(program_id)
-    ranked_program_ids.sort(key=lambda program_id: (-toru_counts[program_id].count, start_times[program_id]))
-    ranked_program_ids = ranked_program_ids[:100]
+    ranking_keys: dict[str, tuple[float, int, datetime]] = {}
+    for program_id, start_time in start_times.items():
+        toru_count = toru_counts.get(program_id)
+        if toru_count is None:
+            continue
+        # 基準値を算出できない放送波の番組は、基準値のある番組の後ろに並べる
+        ratio = toru_count.count / toru_count.highlight_base if toru_count.highlight_base is not None else 0.0
+        ranking_keys[program_id] = (-ratio, -toru_count.count, start_time)
+    ranked_program_ids = sorted(ranking_keys, key=lambda program_id: ranking_keys[program_id])[:100]
 
     # 指定されたページの 20 件の番組情報を取得し、順位の順に並べて返す
     page_program_ids = ranked_program_ids[(page - 1) * 20:page * 20]
