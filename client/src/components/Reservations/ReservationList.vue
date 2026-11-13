@@ -19,6 +19,7 @@
             <div class="reservation-list__actions">
                 <v-btn v-if="filterButtonLabel !== undefined"
                     variant="flat"
+                    rounded="lg"
                     class="reservation-list__filter-button"
                     @click="$emit('filter')">
                     <Icon icon="fluent:filter-20-filled" width="16px" height="16px" class="mr-1" />
@@ -36,6 +37,7 @@
                     color="primary"
                     bg-color="background-lighten-1"
                     variant="solo"
+                    rounded="lg"
                     density="comfortable"
                     hide-details
                     @update:model-value="$emit('update:sortOrder', $event)">
@@ -382,7 +384,6 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         margin-left: 12px;
         height: 40px;
         padding: 0px 12px;
-        border-radius: 6px;
         color: rgb(var(--v-theme-text));
         background: rgb(var(--v-theme-background-lighten-1));
         font-size: 14px;

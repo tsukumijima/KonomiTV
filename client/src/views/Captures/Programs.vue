@@ -17,10 +17,10 @@
             <div class="capture-programs__selects">
                 <v-select v-model="recordedFilter" class="capture-programs__select"
                     :items="[{ title: 'すべての番組', value: null }, { title: '録画番組あり', value: true }, { title: '録画番組なし', value: false }]"
-                    color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
+                    color="primary" bg-color="background-lighten-1" variant="solo" rounded="lg" density="comfortable" hide-details flat />
                 <v-select v-model="order" class="capture-programs__select capture-programs__select--order"
                     :items="[{ title: '放送が新しい順', value: 'BroadcastAtDesc' }, { title: '放送が古い順', value: 'BroadcastAtAsc' }]"
-                    color="primary" bg-color="background-lighten-1" variant="solo" density="comfortable" hide-details flat />
+                    color="primary" bg-color="background-lighten-1" variant="solo" rounded="lg" density="comfortable" hide-details flat />
             </div>
         </div>
 

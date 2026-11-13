@@ -34,6 +34,7 @@
                     color="primary"
                     bg-color="background-lighten-1"
                     variant="solo"
+                    rounded="lg"
                     density="comfortable"
                     hide-details
                     @update:model-value="$emit('update:sortOrder', $event)">
