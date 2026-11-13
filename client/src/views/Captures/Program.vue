@@ -221,7 +221,7 @@ const activeFilterChips = computed(() => filterMenuRef.value?.activeFilterChips 
 // 字幕のあるキャプチャが1枚でもあれば、タイルの下にセリフを出す (絵コンテのように場面を追えるように)
 const hasCaptions = computed(() => captures.value.some(capture => capture.caption_text));
 
-// 読み込みごとに増やす番号 (並べ替えを続けて変えたときに、最新の読み込みの応答だけを反映するため)
+// 読み込みごとに増やす番号 (並べ替えを続けて変えたときに、最新の読み込みのレスポンスだけを反映するため)
 let loadGeneration = 0;
 
 const load = async () => {

@@ -176,7 +176,7 @@ const filteredTags = computed(() => {
 
 const isCreateOpen = ref(false);
 const newTagName = ref('');
-// タグの作成・名前の変更・削除の応答を待っている間か (待つ間はボタンを押せないようにする)
+// タグの作成・名前の変更・削除のレスポンスを待っている間か (待つ間はボタンを押せないようにする)
 const isCreating = ref(false);
 const isRenaming = ref(false);
 const isDeleting = ref(false);
@@ -201,7 +201,7 @@ const createTag = async (event?: KeyboardEvent) => {
         return;
     }
     const name = newTagName.value.trim();
-    // 応答を待つ間にボタンや Enter キーが続けて押されたときは、最初の作成だけを送る
+    // レスポンスを待つ間にボタンや Enter キーが続けて押されたときは、最初の作成だけを送る
     if (name === '' || isCreating.value) {
         return;
     }
@@ -227,7 +227,7 @@ const renameTag = async (event?: KeyboardEvent) => {
     if (event !== undefined && Utils.isIMEComposing(event)) {
         return;
     }
-    // 応答を待つ間にボタンや Enter キーが続けて押されたときは、最初の変更だけを送る
+    // レスポンスを待つ間にボタンや Enter キーが続けて押されたときは、最初の変更だけを送る
     if (renamingTag.value === null || renameInput.value.trim() === '' || isRenaming.value) {
         return;
     }
@@ -245,7 +245,7 @@ const renameTag = async (event?: KeyboardEvent) => {
     await load();
 };
 const deleteTag = async () => {
-    // 応答を待つ間にボタンが続けて押されたときは、最初の削除だけを送る
+    // レスポンスを待つ間にボタンが続けて押されたときは、最初の削除だけを送る
     if (deletingTag.value === null || isDeleting.value) {
         return;
     }
