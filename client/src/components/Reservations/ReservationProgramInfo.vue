@@ -41,6 +41,8 @@
                     <Icon icon="fluent:headphones-sound-wave-20-filled" height="17px" style="margin-left: -2px; margin-right: -1.7px; margin-bottom: -3px;" />
                     <span class="ml-2">副音声: {{displayProgram.secondary_audio_type}} {{displayProgram.secondary_audio_sampling_rate || 'Unknown'}} / {{displayProgram.secondary_audio_language}}</span>
                 </div>
+                <!-- 予約数 (トル数を取得できている番組のみ表示する) -->
+                <ToruCount :program="displayProgram" variant="reservation" class="program-info__toru-count" />
             </div>
         </section>
         <section class="program-detail-container">
@@ -56,6 +58,7 @@
 
 import { defineComponent, PropType } from 'vue';
 
+import ToruCount from '@/components/Programs/ToruCount.vue';
 import { type IChannel } from '@/services/Channels';
 import { type IProgram } from '@/services/Programs';
 import { type IReservation } from '@/services/Reservations';
@@ -63,6 +66,7 @@ import Utils, { ProgramUtils } from '@/utils';
 
 export default defineComponent({
     name: 'ReservationProgramInfo',
+    components: { ToruCount },
     props: {
         // 予約情報（予約がある場合に使用）
         reservation: {
@@ -211,6 +215,23 @@ export default defineComponent({
             line-height: 170%;
             @include smartphone-horizontal {
                 font-size: 11.5px;
+            }
+        }
+
+        // 予約数 (映像・音声情報とは性質の異なる情報のため、間隔を空けて、少し大きい文字で表示する)
+        .program-info__toru-count {
+            display: flex;
+            margin-top: 12px;
+            font-size: 13.5px;
+            @include smartphone-horizontal {
+                font-size: 12.5px;
+            }
+
+            // アイコンの左端と数値の開始位置を、上に並ぶ映像・音声情報のアイコンと文字に揃える
+            :deep(.toru-count__icon) {
+                margin-top: -1px;
+                margin-left: -1.5px;
+                margin-right: -2.7px;
             }
         }
     }

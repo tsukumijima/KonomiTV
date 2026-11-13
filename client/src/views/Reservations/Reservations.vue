@@ -31,7 +31,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
@@ -40,18 +40,19 @@ import Navigation from '@/components/Navigation.vue';
 import ReservationList from '@/components/Reservations/ReservationList.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import Reservations, { IReservation } from '@/services/Reservations';
+import useToruCountStore, { ProgramSortOrder } from '@/stores/ToruCountStore';
 
 const route = useRoute();
 const router = useRouter();
+const toruCountStore = useToruCountStore();
 
-// 録画予約リスト
-const reservations = ref<IReservation[]>([]);
-// 全体の録画予約数
-const total = ref<number>(0);
 // 現在のページ番号
-const page = ref<number>(1);
+const page = computed(() => {
+    const page_number = typeof route.query.page === 'string' ? Number.parseInt(route.query.page, 10) : 1;
+    return Number.isFinite(page_number) && page_number > 0 ? page_number : 1;
+});
 // 並び順
-const sortOrder = ref<'desc' | 'asc'>('asc');
+const sortOrder = computed<ProgramSortOrder>(() => route.query.order === 'toru' ? 'toru' : 'asc');
 // 読み込み中かどうか
 const isLoading = ref<boolean>(true);
 
@@ -69,6 +70,15 @@ const AUTO_REFRESH_INTERVAL = 30 * 1000;  // 30秒
 // 1ページに表示する件数 (ReservationList のページ数の計算と同じ件数にする)
 const ITEMS_PER_PAGE = 30;
 
+const total = computed(() => allReservations.value.length);
+const sortedReservations = computed(() => toruCountStore.sortPrograms(
+    allReservations.value, (reservation) => reservation.program, sortOrder.value,
+));
+const reservations = computed(() => {
+    const start_index = (page.value - 1) * ITEMS_PER_PAGE;
+    return sortedReservations.value.slice(start_index, start_index + ITEMS_PER_PAGE);
+});
+
 /**
  * 録画予約一覧を取得する
  */
@@ -80,36 +90,9 @@ async function fetchAllReservations() {
 }
 
 /**
- * 表示用データを計算する（クライアント側ソート・ページング）
- */
-function updateDisplayData() {
-    if (allReservations.value.length === 0) {
-        reservations.value = [];
-        total.value = 0;
-        return;
-    }
-
-    // 並び順に応じてソート
-    let sortedReservations = [...allReservations.value];
-    if (sortOrder.value === 'asc') {
-        sortedReservations.sort((a, b) => new Date(a.program.start_time).getTime() - new Date(b.program.start_time).getTime());
-    } else {
-        sortedReservations.sort((a, b) => new Date(b.program.start_time).getTime() - new Date(a.program.start_time).getTime());
-    }
-
-    // ページネーション用の計算
-    const startIndex = (page.value - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-
-    reservations.value = sortedReservations.slice(startIndex, endIndex);
-    total.value = sortedReservations.length;
-}
-
-/**
  * ページ番号を更新する
  */
 async function updatePage(new_page: number) {
-    page.value = new_page;
     // クエリパラメータを更新（データの再取得はしない）
     await router.replace({
         query: {
@@ -117,15 +100,12 @@ async function updatePage(new_page: number) {
             page: new_page.toString(),
         },
     });
-    // updateDisplayData は watch によって自動的に呼び出されるため、ここでは呼び出さない
 }
 
 /**
  * 並び順を更新する
  */
-async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
-    sortOrder.value = new_sort_order;
-    page.value = 1; // ページを1に戻す
+async function updateSortOrder(new_sort_order: ProgramSortOrder) {
     // クエリパラメータを更新（データの再取得はしない）
     await router.replace({
         query: {
@@ -134,7 +114,6 @@ async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
             page: '1',
         },
     });
-    // updateDisplayData は watch によって自動的に呼び出されるため、ここでは呼び出さない
 }
 
 /**
@@ -143,8 +122,6 @@ async function updateSortOrder(new_sort_order: 'desc' | 'asc') {
 function handleReservationDeleted(reservation_id: number) {
     // 削除された予約を all_reservations から除去
     allReservations.value = allReservations.value.filter(reservation => reservation.id !== reservation_id);
-    // 表示データを更新
-    updateDisplayData();
     // 削除イベントを受けたらリストを即時更新
     console.log(`Reservation ${reservation_id} deleted, refreshing list...`);
     updateAllSections();
@@ -179,40 +156,8 @@ const stopAutoRefresh = () => {
     }
 };
 
-// クエリパラメータが変更されたら表示データを更新（再取得はしない）
-watch(() => route.query, async (newQuery) => {
-    // ページ番号を同期
-    if (newQuery.page) {
-        const page_number = parseInt(String(newQuery.page), 10);
-        if (Number.isFinite(page_number) && page_number > 0) {
-            page.value = page_number;
-        }
-    }
-    // ソート順を同期
-    if (newQuery.order) {
-        const order = String(newQuery.order);
-        if (order === 'asc' || order === 'desc') {
-            sortOrder.value = order;
-        }
-    }
-    updateDisplayData();
-}, { deep: true });
-
-// allReservations の変更を監視して表示データを更新
-watch(() => allReservations.value, () => {
-    updateDisplayData();
-}, { deep: true });
-
 // コンポーネントがマウントされた時
-onMounted(async () => {
-    // クエリパラメータから初期値を設定
-    if (route.query.page && typeof route.query.page === 'string') {
-        page.value = parseInt(route.query.page, 10);
-    }
-    if (route.query.order && typeof route.query.order === 'string') {
-        sortOrder.value = route.query.order as 'desc' | 'asc';
-    }
-
+onMounted(() => {
     // 自動更新を開始
     startAutoRefresh();
 });

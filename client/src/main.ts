@@ -21,6 +21,7 @@ import useSettingsStore, {
     hashClientSettings,
     setLocalStorageSettings,
 } from '@/stores/SettingsStore';
+import useToruCountStore from '@/stores/ToruCountStore';
 import Utils from '@/utils';
 
 
@@ -166,3 +167,13 @@ window.setInterval(async () => {
         await settings_store.syncClientSettingsFromServer();
     }
 }, 3 * 1000);  // 3秒おき
+
+// ***** トル数の取得 *****
+
+// ページ遷移に関わらず、起動時と1時間おきに、サーバーから番組ごとのトル数 (予約数) を取得する
+// サーバー側のトル数は3時間おきにしか更新されないため、クライアントも長めの間隔で取得する
+const toru_count_store = useToruCountStore();
+void toru_count_store.update();
+window.setInterval(() => {
+    void toru_count_store.update();
+}, 60 * 60 * 1000);  // 1時間おき

@@ -38,7 +38,12 @@
                     <span class="ml-2">勢い:</span>
                     <span class="ml-2">{{channelsStore.channel.current.jikkyo_force ?? '--'}} コメ/分</span>
                 </div>
-                <div class="program-info__status-viewers ml-5">
+                <div class="program-info__status-toru">
+                    <Icon icon="fluent:timer-16-filled" height="15px" />
+                    <span class="ml-2">予約数:</span>
+                    <span class="ml-2">{{toruCountStore.getToruCount(channelsStore.channel.current.program_present?.id ?? null)?.count.toLocaleString() ?? '--'}}<span class="program-info__status-toru-unit">トル</span></span>
+                </div>
+                <div class="program-info__status-viewers">
                     <Icon icon="fa-solid:eye" height="14px" />
                     <span class="ml-2">視聴数:</span>
                     <span class="ml-1">{{channelsStore.channel.current.viewer_count}}</span>
@@ -136,6 +141,7 @@ import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
+import useToruCountStore from '@/stores/ToruCountStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
@@ -158,7 +164,7 @@ export default defineComponent({
             // 外部からの予約追加や番組変更を検知するためのバックグラウンドポーリングタイマー ID (60秒間隔)
             background_polling_timer_id: null as ReturnType<typeof setInterval> | null,
             // バックグラウンドポーリングの実行中かどうか
-            // API 応答遅延時にポーリング処理が多重実行されるのを防ぐ
+            // API レスポンス遅延時にポーリング処理が多重実行されるのを防ぐ
             is_background_polling_in_progress: false,
             // 録画予約状態取得の最新リクエストを識別するトークン
             // 非同期通信の完了順が前後しても、最新の番組状態だけを反映するために使う
@@ -166,7 +172,7 @@ export default defineComponent({
         };
     },
     computed: {
-        ...mapStores(useChannelsStore, useServerSettingsStore),
+        ...mapStores(useChannelsStore, useServerSettingsStore, useToruCountStore),
 
         // EDCB バックエンドかどうか
         // サーバー設定がまだ取得されていない場合は EDCB と判定しない
@@ -452,7 +458,7 @@ export default defineComponent({
                 if (this.polling_timer_id !== null || this.is_starting_recording === true) {
                     return;
                 }
-                // API 応答が遅い環境では次周期が先に到来して多重実行されるため、実行中はスキップする
+                // API レスポンスが遅い環境では次周期が先に到来して多重実行されるため、実行中はスキップする
                 if (this.is_background_polling_in_progress === true) {
                     return;
                 }
@@ -751,6 +757,10 @@ export default defineComponent({
         .program-info__status {
             display: flex;
             align-items: center;
+            // パネルの幅に勢い・予約数・視聴数が収まらない場合は、後ろの項目から次の行へ送る
+            flex-wrap: wrap;
+            column-gap: 20px;
+            row-gap: 6px;
             margin-top: 16px;
             font-size: 14px;
             color: rgb(var(--v-theme-text-darken-1));
@@ -759,11 +769,19 @@ export default defineComponent({
                 font-size: 12px;
             }
 
-            &-force, &-viewers {
+            &-force, &-toru, &-viewers {
                 display: flex;
                 align-items: center;
+                white-space: nowrap;
             }
 
+            // 単位の「トル」は、数値とベースラインを揃えたまま少し小さく表示する
+            &-toru-unit {
+                margin-left: 3px;
+                font-size: 0.85em;
+            }
+
+            // 視聴中は、今の盛り上がりを示す実況勢いだけを色分けし、放送前の期待を示す予約数は視聴数と同じ色で表示する
             &-force--festival {
                 color: #E7556E;
             }

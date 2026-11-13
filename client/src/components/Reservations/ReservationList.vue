@@ -2,6 +2,7 @@
     <div class="reservation-list" :class="{
         'reservation-list--show-sort': !hideSort,
         'reservation-list--empty': displayTotal === 0 && showEmptyMessage,
+        'reservation-list--with-filter': filterButtonLabel !== undefined,
     }">
         <div class="reservation-list__header" v-if="!hideHeader">
             <h2 class="reservation-list__title">
@@ -26,11 +27,12 @@
                     {{ filterButtonLabel }}
                 </v-btn>
                 <v-select v-if="!hideSort"
-                    v-model="sortOrder"
+                    :model-value="sortOrder"
                     :items="[
-                        { title: '放送が近い順', value: 'asc' },
-                        { title: '放送が遠い順', value: 'desc' },
+                        { title: '放送時間順', value: 'asc' },
+                        { title: '予約数順', value: 'toru' },
                     ]"
+                    aria-label="並び順"
                     item-title="title"
                     item-value="value"
                     class="reservation-list__sort"
@@ -38,6 +40,7 @@
                     bg-color="background-lighten-1"
                     variant="solo"
                     rounded="lg"
+                    :flat="filterButtonLabel !== undefined"
                     density="comfortable"
                     hide-details
                     @update:model-value="$emit('update:sortOrder', $event)">
@@ -106,6 +109,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Reservation from '@/components/Reservations/Reservation.vue';
 import ReservationDetailDrawer from '@/components/Reservations/ReservationDetailDrawer.vue';
 import { IReservation } from '@/services/Reservations';
+import { ProgramSortOrder } from '@/stores/ToruCountStore';
 import Utils, { dayjs } from '@/utils';
 
 // Props
@@ -114,7 +118,7 @@ const props = withDefaults(defineProps<{
     reservations: IReservation[];
     total: number;
     page?: number;
-    sortOrder?: 'desc' | 'asc';
+    sortOrder?: ProgramSortOrder;
     hideHeader?: boolean;
     hideSort?: boolean;
     hidePagination?: boolean;
@@ -131,7 +135,7 @@ const props = withDefaults(defineProps<{
     isProgramSearchResult?: boolean;
 }>(), {
     page: 1,
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     hideHeader: false,
     hideSort: false,
     hidePagination: false,
@@ -151,9 +155,6 @@ const props = withDefaults(defineProps<{
 // 現在のページ番号
 const currentPage = ref(props.page);
 
-// 並び順
-const sortOrder = ref<'desc' | 'asc'>(props.sortOrder);
-
 // 内部で管理する予約リスト
 const displayReservations = ref<IReservation[]>([...props.reservations]);
 // 内部で管理する合計数
@@ -170,11 +171,6 @@ watch(() => props.page, (newPage) => {
     currentPage.value = newPage;
 });
 
-// props の sortOrder が変更されたら sortOrder を更新
-watch(() => props.sortOrder, (newOrder) => {
-    sortOrder.value = newOrder;
-});
-
 // props の reservations が変更されたら displayReservations を更新
 watch(() => props.reservations, (newReservations) => {
     displayReservations.value = [...newReservations];
@@ -188,7 +184,7 @@ watch(() => props.total, (newTotal) => {
 // Emits
 const emit = defineEmits<{
     (e: 'update:page', page: number): void;
-    (e: 'update:sortOrder', order: 'desc' | 'asc'): void;
+    (e: 'update:sortOrder', order: ProgramSortOrder): void;
     (e: 'more'): void;
     (e: 'delete', reservation_id: number): void;
     (e: 'added', reservation: IReservation): void;
@@ -274,6 +270,46 @@ const handleReservationSave = (updatedReservation: IReservation) => {
         .reservation-list__grid {
             @include smartphone-vertical {
                 margin-top: 3px;
+            }
+        }
+    }
+
+    &--with-filter {
+        .reservation-list__actions {
+            gap: 6px;
+        }
+
+        .reservation-list__sort :deep(.v-field__input) {
+            min-height: 40px !important;
+        }
+
+        @include smartphone-vertical {
+            .reservation-list__header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .reservation-list__title {
+                padding-bottom: 8px;
+            }
+
+            .reservation-list__actions {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-left: 0;
+            }
+
+            .reservation-list__sort {
+                width: 100%;
+                min-width: 0;
+                :deep(.v-field__input) {
+                    padding-left: 12px !important;
+                }
+            }
+
+            .reservation-list__grid {
+                margin-top: 10px;
             }
         }
     }
@@ -364,13 +400,10 @@ const handleReservationSave = (updatedReservation: IReservation) => {
             padding-left: 12px !important;
             padding-right: 0px !important;
         }
-
-        .v-select {
-            width: 129px;
-        }
     }
 
     &__sort {
+        width: 129px;
         :deep(.v-field__input) {
             font-size: 14px !important;
             padding-top: 6px !important;
@@ -381,7 +414,6 @@ const handleReservationSave = (updatedReservation: IReservation) => {
 
     &__filter-button {
         min-width: 103px;
-        margin-left: 12px;
         height: 40px;
         padding: 0px 12px;
         color: rgb(var(--v-theme-text));

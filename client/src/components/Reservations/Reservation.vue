@@ -117,15 +117,23 @@
                             <span class="reservation__content-description-comment-text">{{ reservation.comment }}</span>
                         </div>
                         <div class="reservation__content-description-size">
-                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
-                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                            <span class="reservation__content-description-size-value">
+                                <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
+                                約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                            </span>
+                            <ToruCount :program="reservation.program" variant="reservation" />
                         </div>
                     </div>
                     <!-- PC・タブレット横版：概要行の右側に推定録画容量を表示 -->
                     <div v-if="!shouldShowProgramSearchAddButton" class="reservation__content-description-size-pc">
-                        <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
-                        約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                        <span class="reservation__content-description-size-value">
+                            <Icon icon="fluent:hard-drive-20-filled" width="14px" height="14px" class="reservation__content-description-size-icon" />
+                            約 {{ Utils.formatBytes(reservation.estimated_recording_file_size, 1, true) }}
+                        </span>
+                        <ToruCount :program="reservation.program" variant="reservation" />
                     </div>
+                    <ToruCount v-if="shouldShowProgramSearchAddButton" :program="reservation.program"
+                        variant="reservation" class="reservation__content-description-toru-search" />
                 </div>
             </div>
         </div>
@@ -135,6 +143,7 @@
 
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+import ToruCount from '@/components/Programs/ToruCount.vue';
 import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
 import Utils, { ProgramUtils, dayjs } from '@/utils';
@@ -1177,6 +1186,7 @@ const handleSwitchClick = (event: Event) => {
         &-description-size {
             display: flex;
             align-items: center;
+            gap: 8px;
             grid-column: 2;
             justify-self: end;
             flex-shrink: 0;
@@ -1187,6 +1197,8 @@ const handleSwitchClick = (event: Event) => {
         // PC・タブレット横版：概要行の容量表示（右側）
         &-description-size-pc {
             display: none;  // デフォルトは非表示
+            align-items: center;
+            gap: 8px;
             @include desktop {
                 display: flex;
                 align-items: center;
@@ -1218,6 +1230,17 @@ const handleSwitchClick = (event: Event) => {
         .reservation__content-description-size-icon {
             flex-shrink: 0;
             margin-right: 4px;
+        }
+
+        &-description-size-value {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.2;
+        }
+
+        &-description-toru-search {
+            grid-column: 2;
+            justify-self: end;
         }
     }
 

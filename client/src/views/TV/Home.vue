@@ -43,12 +43,12 @@
                                                 <span class="ml-1">{{channel.jikkyo_force ?? '--'}}</span>
                                                 <span style="margin-left: 3px;"> コメ/分</span>
                                             </div>
-                                            <div class="channel__broadcaster-status-viewers ml-4">
-                                                <svg class="iconify iconify--fa-solid" width="15.75px" height="14px" viewBox="0 0 576 512">
-                                                    <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144a143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79a47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
+                                            <div class="channel__broadcaster-status-toru ml-4"
+                                                :class="`channel__broadcaster-status-toru--${toruCountStore.getToruCountLevel(channel.program_present?.id ?? null)}`">
+                                                <svg class="iconify iconify--fluent" width="14px" height="14px" viewBox="0 0 16 16">
+                                                    <path fill="currentColor" d="M5 1.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M7.5 15a6 6 0 1 0 0-12a6 6 0 0 0 0 12m0-10a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 1 .5-.5m4.953-2.358a.5.5 0 1 0-.707.707l1.403 1.403a.5.5 0 1 0 .707-.707z"></path>
                                                 </svg>
-                                                <span class="ml-1">視聴数:</span>
-                                                <span class="ml-1">{{channel.viewer_count}}</span>
+                                                <span class="ml-1">{{toruCountStore.getToruCount(channel.program_present?.id ?? null)?.count.toLocaleString() ?? '--'}}<span class="channel__broadcaster-status-toru-unit">トル</span></span>
                                             </div>
                                         </div>
                                     </div>
@@ -132,6 +132,7 @@ import Message from '@/message';
 import { ILiveChannel } from '@/services/Channels';
 import useChannelsStore from '@/stores/ChannelsStore';
 import useSettingsStore from '@/stores/SettingsStore';
+import useToruCountStore from '@/stores/ToruCountStore';
 import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 
 export default defineComponent({
@@ -171,7 +172,7 @@ export default defineComponent({
         };
     },
     computed: {
-        ...mapStores(useChannelsStore, useSettingsStore),
+        ...mapStores(useChannelsStore, useSettingsStore, useToruCountStore),
     },
     watch: {
         active_tab_index() {
@@ -657,7 +658,7 @@ export default defineComponent({
                         top: -1.5px;
                         flex-shrink: 0;
                         align-items: center;
-                        // 横幅が足りない狭い画面では、勢いと視聴数を途中で折り返さず、重要度の低い視聴数を次の行へ送って隠す
+                        // 横幅が足りない狭い画面では、勢いと予約数を途中で折り返さず、予約数を次の行へ送って隠す
                         // 高さを1行分 (line-height と同じ 1.5em) に固定し、はみ出した2行目以降を表示しない
                         flex-wrap: wrap;
                         height: 1.5em;
@@ -679,10 +680,19 @@ export default defineComponent({
                             font-size: 11px;
                         }
 
-                        &-force, &-viewers {
+                        &-force, &-toru {
                             display: flex;
                             align-items: center;
                             white-space: nowrap;
+                        }
+
+                        // 単位の「トル」は、数値とベースラインを揃えたまま少し小さく表示する
+                        &-toru-unit {
+                            margin-left: 3px;
+                            font-size: 0.85em;
+                        }
+
+                        &-force {
                             @include smartphone-horizontal {
                                 span:nth-child(2), span:nth-child(4) {
                                     display: none;
@@ -691,18 +701,18 @@ export default defineComponent({
                         }
 
                         @include smartphone-horizontal {
-                            &-viewers {
+                            &-toru {
                                 margin-left: 12px !important;
                             }
                         }
 
-                        &-force--festival {
+                        &-force--festival, &-toru--festival {
                             color: #E7556E;
                         }
-                        &-force--so-many {
+                        &-force--so-many, &-toru--so-many {
                             color: #E76B55;
                         }
-                        &-force--many {
+                        &-force--many, &-toru--many {
                             color: #E7A355;
                         }
                     }

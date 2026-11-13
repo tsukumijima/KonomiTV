@@ -22,7 +22,7 @@
         <div class="timetable-program-cell__highlight"></div>
         <!-- メインコンテンツ -->
         <div class="timetable-program-cell__content">
-            <!-- 開始分表示 + 予約アイコン -->
+            <!-- 開始分表示 + 予約アイコン + 予約数 -->
             <div class="timetable-program-cell__header">
                 <span class="timetable-program-cell__start-minute">{{ startMinute }}</span>
                 <div class="timetable-program-cell__reservation-icon" v-if="hasReservation">
@@ -31,6 +31,10 @@
                     <Icon v-if="isPartialRecording" icon="fluent:warning-16-filled" width="12px" class="timetable-program-cell__warning-icon" />
                     <Icon v-if="isUnavailableRecording" icon="fluent:dismiss-circle-16-filled" width="12px" class="timetable-program-cell__error-icon" />
                 </div>
+                <!-- 予約数は、この番組の録画予約の状態を示す予約アイコンとは別の情報のため、セルの右上に離して表示する -->
+                <!-- すべてのセルにアイコンが並ぶと番組表が読みにくくなるため、数値と単位だけを表示する -->
+                <ToruCount v-if="cellHeight >= 28 || isExpanded"
+                    class="timetable-program-cell__toru-count" :program="program" variant="timetable" :show-icon="false" />
             </div>
             <!-- タイトル -->
             <div class="timetable-program-cell__title" v-html="decoratedTitle"></div>
@@ -63,6 +67,7 @@
 
 import { computed, nextTick, ref, watch } from 'vue';
 
+import ToruCount from '@/components/Programs/ToruCount.vue';
 import { ITimeTableChannel, ITimeTableProgram } from '@/services/Programs';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore from '@/stores/TimeTableStore';
@@ -617,8 +622,15 @@ watch(isExpanded, async (value) => {
     // 開始分 + 予約アイコンの行
     &__header {
         display: flex;
+        flex-shrink: 0;
         align-items: center;
         gap: 4px;
+    }
+
+    // 予約数 (セルの右上に寄せる)
+    &__toru-count {
+        flex-shrink: 0;
+        margin-left: auto;
     }
 
     // 開始分
