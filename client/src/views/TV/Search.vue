@@ -34,6 +34,7 @@
                             keep-deleted-items
                             compact-reservations-on-tablet-horizontal
                             is-program-search-result
+                            :add-availability="addAvailability"
                             @filter="isFilterDrawerOpen = true"
                             @added="updateReservedProgramIds"
                             @delete="updateReservedProgramIds"
@@ -74,7 +75,7 @@ import useChannelsStore from '@/stores/ChannelsStore';
 import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useToruCountStore, { ProgramSortOrder } from '@/stores/ToruCountStore';
 import useUserStore from '@/stores/UserStore';
-import Utils, { ReservationUtils } from '@/utils';
+import Utils, { ReservationAddAvailability, ReservationUtils } from '@/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -123,6 +124,21 @@ const hasSearched = ref(false);
 const isFilterDrawerOpen = ref(false);
 const defaultRecordSettings = ref<IRecordSettings | null>(null);
 const reservationMap = ref<Map<string, IReservation>>(new Map());
+// 録画予約の一覧を1回でも取得できたかどうか
+const isReservationsLoaded = ref(false);
+
+// 録画予約のない番組に、録画予約を追加できる状態かどうか
+// 既存の録画予約と録画設定の既定値を取得できるまでは、予約済みの番組への重複した予約や、
+// EDCB の既定値とは異なる設定での予約を防ぐため、追加できない状態にする
+const addAvailability = computed<ReservationAddAvailability>(() => {
+    if (serverSettingsStore.is_loaded === false) {
+        return 'Preparing';
+    }
+    if (isEDCBBackend.value === false) {
+        return 'EDCBOnly';
+    }
+    return isReservationsLoaded.value === true && defaultRecordSettings.value !== null ? 'Available' : 'Preparing';
+});
 const searchedKeyword = ref('');
 const viewportRevision = ref(0);
 
@@ -307,6 +323,7 @@ const updateReservedProgramIds = async () => {
     const reservations = await Reservations.fetchReservations();
     if (reservations !== null) {
         reservationMap.value = new Map(reservations.reservations.map((reservation) => [reservation.program.id, reservation]));
+        isReservationsLoaded.value = true;
     }
 };
 
