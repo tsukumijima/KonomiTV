@@ -77,7 +77,7 @@ export interface IPrograms {
 export interface IToruCount {
     // トル数
     count: number;
-    // トル数の多さを色で示すときの基準値 (トル数がこの値以上の番組に色を付ける)
+    // トル数の多さを色で示すときの基準値 (トル数がこの値の何倍かで色を決める)
     // 同じ放送波の番組のトル数の分布から算出した値で、算出できない場合は null
     highlight_base: number | null;
 }
@@ -268,17 +268,21 @@ class Programs {
 
 
     /**
-     * 放送が終了していない番組のうち、トル数の多い順に上位 100 件までを、一度に 20 件ずつ取得する
+     * 放送が終了していない番組のうち、トル数が基準値の何倍かの大きい順に上位 100 件までを、一度に 20 件ずつ取得する
      * @param channel_type チャンネルタイプ (省略時は全種別)
+     * @param genre ジャンルの大分類 (省略時は全ジャンル)
      * @param page ページ番号
-     * @returns トル数の多い順に並んだ番組情報リスト (total はランキング全体の件数) 、取得失敗時は null
+     * @returns 順位の順に並んだ番組情報リスト (total はランキング全体の件数) 、取得失敗時は null
      */
-    static async fetchToruRanking(channel_type?: 'GR' | 'BS' | 'CS', page: number = 1): Promise<IPrograms | null> {
+    static async fetchToruRanking(channel_type?: 'GR' | 'BS' | 'CS', genre?: string, page: number = 1): Promise<IPrograms | null> {
 
         // API リクエストのパラメータを構築
         const params = new URLSearchParams();
         if (channel_type !== undefined) {
             params.set('channel_type', channel_type);
+        }
+        if (genre !== undefined) {
+            params.set('genre', genre);
         }
         params.set('page', page.toString());
 
