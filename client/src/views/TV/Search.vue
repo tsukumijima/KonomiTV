@@ -152,6 +152,7 @@ const displayReservations = computed<IReservation[]>(() => {
 });
 
 const resultTitle = computed(() => {
+    viewportRevision.value;
     if (Utils.isSmartphoneVertical() === true) {
         return '検索結果';
     }
