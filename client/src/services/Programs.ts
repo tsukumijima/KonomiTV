@@ -72,6 +72,17 @@ export interface IPrograms {
 }
 
 /**
+ * 番組のトル数 (torne の利用者がその番組を録画予約している数)
+ */
+export interface IToruCount {
+    // トル数
+    count: number;
+    // トル数の多さを色で示すときの基準値 (トル数がこの値以上の番組に色を付ける)
+    // 同じ放送波の番組のトル数の分布から算出した値で、算出できない場合は null
+    highlight_base: number | null;
+}
+
+/**
  * 番組検索条件
  */
 export interface IProgramSearchCondition {
@@ -233,6 +244,49 @@ class Programs {
 
         if (response.type === 'error') {
             APIClient.showGenericError(response, '番組表データの取得に失敗しました。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * 番組ごとのトル数を取得する
+     * @returns 番組 ID をキーにしたトル数の辞書、取得失敗時は null
+     */
+    static async fetchToruCounts(): Promise<Record<string, IToruCount> | null> {
+        const response = await APIClient.get<Record<string, IToruCount>>('/programs/toru-counts');
+
+        // トル数は番組情報に添える補助的な表示で定期的に取得し直すため、取得に失敗してもエラーメッセージは表示しない
+        if (response.type === 'error') {
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * 放送が終了していない番組のうち、トル数の多い順に上位 100 件までを、一度に 20 件ずつ取得する
+     * @param channel_type チャンネルタイプ (省略時は全種別)
+     * @param page ページ番号
+     * @returns トル数の多い順に並んだ番組情報リスト (total はランキング全体の件数) 、取得失敗時は null
+     */
+    static async fetchToruRanking(channel_type?: 'GR' | 'BS' | 'CS', page: number = 1): Promise<IPrograms | null> {
+
+        // API リクエストのパラメータを構築
+        const params = new URLSearchParams();
+        if (channel_type !== undefined) {
+            params.set('channel_type', channel_type);
+        }
+        params.set('page', page.toString());
+
+        // API リクエストを実行
+        const response = await APIClient.get<IPrograms>(`/programs/toru-ranking?${params.toString()}`);
+
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '予約数ランキングの取得に失敗しました。');
             return null;
         }
 
