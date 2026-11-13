@@ -11,21 +11,27 @@ from rich.padding import Padding
 from Utils import (
     CreateBasicInfiniteProgress,
     CreateTable,
-    CustomConfirm,
-    CustomPrompt,
+    InstallerAnswers,
     IsDockerComposeV2,
     IsDockerInstalled,
     KillProcessesUnderDirectory,
     RemoveDirectory,
     RunSubprocess,
     ShowPanel,
+    ShowStep,
     ShowSubProcessErrorLog,
 )
 
 
-def Uninstaller() -> None:
+def Uninstaller(answers: InstallerAnswers) -> bool:
     """
     KonomiTV のアンインストーラーの実装
+
+    Args:
+        answers (InstallerAnswers): 質問への回答
+
+    Returns:
+        bool: アンインストールに成功したかどうか (キャンセルした場合も False)
     """
 
     # プラットフォームタイプ
@@ -50,14 +56,14 @@ def Uninstaller() -> None:
     while True:
 
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        uninstall_path = Path(CustomPrompt.ask('アンインストール対象の KonomiTV のフォルダのパス'))
+        uninstall_path = Path(answers.ask('uninstall_path', 'アンインストール対象の KonomiTV のフォルダのパス'))
 
         # バリデーション
         if uninstall_path.is_absolute() is False:
-            print(Padding('[red]アンインストール対象の KonomiTV のフォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            answers.showInvalidInput('アンインストール対象の KonomiTV のフォルダは絶対パスで入力してください。')
             continue
         if uninstall_path.exists() is False:
-            print(Padding('[red]アンインストール対象の KonomiTV のフォルダが存在しません。', (0, 2, 0, 2)))
+            answers.showInvalidInput('アンインストール対象の KonomiTV のフォルダが存在しません。')
             continue
 
         # 指定されたフォルダが KonomiTV のフォルダ/ファイル配置と異なる
@@ -75,7 +81,7 @@ def Uninstaller() -> None:
             (uninstall_path / 'server/static/').exists() and
             (uninstall_path / 'server/thirdparty/').exists()
         ):
-            print(Padding('[red]指定されたフォルダは KonomiTV のフォルダ/ファイル配置と異なります。', (0, 2, 0, 2)))
+            answers.showInvalidInput('指定されたフォルダは KonomiTV のフォルダ/ファイル配置と異なります。')
             continue
 
         # すべてのバリデーションを通過したのでループを抜ける
@@ -93,7 +99,7 @@ def Uninstaller() -> None:
                 'この KonomiTV は Docker を使ってインストールされていますが、現在 Docker が',
                 'インストールされていないため、アンインストールすることができません。',
             ])
-            return  # 処理中断
+            return False  # 処理中断
 
         # プラットフォームタイプを Linux-Docker にセット
         platform_type = 'Linux-Docker'
@@ -115,10 +121,14 @@ def Uninstaller() -> None:
     ], padding=(1, 2, 1, 2))
 
     ## 誤実行防止のため、デフォルトは N にしておく
-    confirm_uninstall = bool(CustomConfirm.ask('KonomiTV のアンインストール', default=False))
+    ## 非対話モードでは、--yes が指定されたときだけアンインストールする
+    confirm_uninstall = answers.confirm('yes', 'KonomiTV のアンインストール', default=False)
+    if confirm_uninstall is False and answers.is_non_interactive is True:
+        # 非対話モードでは、--yes を指定し忘れたことを呼び出し元のアプリケーションに伝える (終了コード 2)
+        answers.showInvalidInput('アンインストールするには、--yes を指定してください。')
     if confirm_uninstall is False:
         print(Padding('KonomiTV のアンインストールをキャンセルしました。', (1, 2, 0, 2)))
-        return  # 処理を中断
+        return False  # 処理を中断
 
     # ***** Windows: Windows サービスの終了・アンインストール *****
 
@@ -129,7 +139,7 @@ def Uninstaller() -> None:
         venv_python_executable_path = uninstall_path / 'server/.venv/Scripts/python.exe'
 
         # Windows サービスを終了
-        print(Padding('Windows サービスを終了しています…', (1, 2, 0, 2)))
+        ShowStep('Windows サービスを終了しています…')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -148,14 +158,14 @@ def Uninstaller() -> None:
                 error_message = 'Windows サービスの終了中に予期しないエラーが発生しました。',
                 error_log = service_stop_result.stdout.strip(),
             )
-            return  # 処理中断
+            return False  # 処理中断
 
         # サービスの停止要求はサーバー本体やエンコーダーの終了を待たずに完了するため、
         # KonomiTV のフォルダ内のファイルを使うプロセスがすべて終了するまで待つ (残っていれば強制終了する)
         KillProcessesUnderDirectory(uninstall_path)
 
         # Windows サービスをアンインストール
-        print(Padding('Windows サービスをアンインストールしています…', (1, 2, 0, 2)))
+        ShowStep('Windows サービスをアンインストールしています…')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -172,7 +182,7 @@ def Uninstaller() -> None:
                 error_message = 'Windows サービスのアンインストール中に予期しないエラーが発生しました。',
                 error_log = service_uninstall_result.stdout.strip(),
             )
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** Linux: PM2 サービスの終了・アンインストール *****
 
@@ -187,7 +197,7 @@ def Uninstaller() -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # PM2 サービスをアンインストール
         result = RunSubprocess(
@@ -198,7 +208,7 @@ def Uninstaller() -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # PM2 サービスの状態を保存
         result = RunSubprocess(
@@ -209,7 +219,7 @@ def Uninstaller() -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** Linux-Docker: Docker イメージ/コンテナの削除 *****
 
@@ -229,7 +239,7 @@ def Uninstaller() -> None:
             error_log_name = 'Docker Compose のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # docker compose up -d --force-recreate で Docker コンテナを削除
         ## アンインストールなので、Docker イメージも同時に削除する
@@ -241,13 +251,13 @@ def Uninstaller() -> None:
             error_log_name = 'Docker Compose のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** Windows: Windows Defender ファイアウォールから受信規則を削除 *****
 
     if platform_type == 'Windows':
 
-        print(Padding('Windows Defender ファイアウォールから受信規則を削除しています…', (1, 2, 0, 2)))
+        ShowStep('Windows Defender ファイアウォールから受信規則を削除しています…')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -261,7 +271,7 @@ def Uninstaller() -> None:
 
     # アンインストール対象の KonomiTV のフォルダを削除
     ## サービスを終了・アンインストールしたあとなので、心置きなく削除できる
-    print(Padding('インストールされているファイルを削除しています…', (1, 2, 0, 2)))
+    ShowStep('インストールされているファイルを削除しています…')
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
@@ -273,3 +283,5 @@ def Uninstaller() -> None:
         'KonomiTV のアンインストールが完了しました。',
         '今まで利用していただきありがとうございました！',
     ])
+
+    return True

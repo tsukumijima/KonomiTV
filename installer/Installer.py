@@ -21,24 +21,30 @@ from rich import print
 from rich.padding import Padding
 
 from Utils import (
+    AskWindowsServiceAccount,
     CreateBasicInfiniteProgress,
     CreateDownloadInfiniteProgress,
     CreateDownloadProgress,
     CreateRule,
     CreateTable,
     CtrlCmdConnectionCheckUtil,
-    CustomConfirm,
-    CustomPrompt,
+    EmitJSONProgress,
+    GetLogFileSizes,
     GetNetworkInterfaceInformation,
+    InstallerAnswers,
+    InstallWindowsService,
     IsDockerComposeV2,
     IsDockerInstalled,
     IsGitInstalled,
+    IsNetworkPath,
     RemoveEmojiIfLegacyTerminal,
     RunKonomiTVServiceWaiter,
     RunSubprocess,
     RunSubprocessDirectLogOutput,
     SaveConfig,
     ShowPanel,
+    ShowStep,
+    WindowsServiceAccount,
 )
 
 
@@ -66,12 +72,16 @@ NVIDIA_GPU_NAMES_WITHOUT_NVENC: tuple[str, ...] = (
 )
 
 
-def Installer(version: str) -> None:
+def Installer(version: str, answers: InstallerAnswers) -> bool:
     """
     KonomiTV のインストーラーの実装
 
     Args:
         version (str): KonomiTV をインストールするバージョン
+        answers (InstallerAnswers): 質問への回答
+
+    Returns:
+        bool: インストールに成功したかどうか
     """
 
     # プラットフォームタイプ
@@ -101,7 +111,7 @@ def Installer(version: str) -> None:
                 '[cyan]設定 → プライバシーとセキュリティ → Windows セキュリティ → アプリとブラウザーの制御 → スマートアプリコントロールの設定[/cyan]',
                 'から「オフ」に変更してから、もう一度インストーラーを実行してください。',
             ])
-            return  # 処理中断
+            return False  # 処理中断
 
     # Linux: Docker がインストールされている場合、Docker + Docker Compose を使ってインストールするかを訊く
     if platform_type == 'Linux':
@@ -111,6 +121,15 @@ def Installer(version: str) -> None:
         # Docker + Docker Compose がインストールされているかを検出
         ## 現状 ARM 環境では Docker を使ったインストール方法はサポートしていない
         is_docker_installed = IsDockerInstalled()
+
+        # --docker が指定されたが Docker を利用できない場合は、指定と異なる構成でインストールせずに入力の不正として扱う
+        ## 対話モードでは理由を表示し、Docker を使わずにインストールする
+        if (is_docker_installed is False or is_arm_device is True) and answers.answers.pop('docker', None) is True:
+            answers.showInvalidInput(
+                '--docker が指定されましたが、この PC では Docker + Docker Compose を使ったインストールを利用できません。\n'
+                'Docker と Docker Compose がインストールされているか確認してください (ARM 環境では Docker を使ったインストールに対応していません)。'
+            )
+
         if is_docker_installed is True and is_arm_device is False:
             ShowPanel([
                 f'お使いの PC には Docker と Docker Compose {"V2 以降" if IsDockerComposeV2() else "V1"} がインストールされています。',
@@ -118,7 +137,7 @@ def Installer(version: str) -> None:
             ], padding=(1, 2, 1, 2))
 
             # Docker を使ってインストールするかを訊く (Y/N)
-            is_install_with_docker = bool(CustomConfirm.ask('Docker + Docker Compose でインストールする', default=True))
+            is_install_with_docker = answers.confirm('docker', 'Docker + Docker Compose でインストールする', default=True)
             if is_install_with_docker is True:
 
                 # プラットフォームタイプを Linux-Docker にセット
@@ -146,7 +165,7 @@ def Installer(version: str) -> None:
                     'PM2 は、KonomiTV サービスのプロセスマネージャーとして利用しています。',
                     'Node.js が導入されていれば、[cyan]sudo npm install -g pm2[/cyan] でインストールできます。',
                 ])
-                return  # 処理中断
+                return False  # 処理中断
 
     # Docker Compose V2 かどうかでコマンド名を変える
     ## Docker Compose V1 は docker-compose 、V2 は docker compose という違いがある
@@ -173,14 +192,14 @@ def Installer(version: str) -> None:
     while True:
 
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        install_path = Path(CustomPrompt.ask('KonomiTV をインストールするフォルダのパス'))
+        install_path = Path(answers.ask('install_path', 'KonomiTV をインストールするフォルダのパス'))
 
         # バリデーション
         if install_path.is_absolute() is False:
-            print(Padding('[red]インストール先のフォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            answers.showInvalidInput('インストール先のフォルダは絶対パスで入力してください。')
             continue
         if '#' in str(install_path):
-            print(Padding('[red]インストール先のパスには # を含めないでください。', (0, 2, 0, 2)))
+            answers.showInvalidInput('インストール先のパスには # を含めないでください。')
             continue
         if install_path.exists():
             # 指定されたフォルダが空フォルダだったときは、ユーザーがわざわざ手動でインストール先のフォルダを
@@ -194,7 +213,7 @@ def Installer(version: str) -> None:
                 # 削除に失敗した場合は中身が空でないフォルダ (=インストールしてはいけないフォルダ) という事が
                 # 確定するので、もう一度パスを入力させる
                 ## 中身が空でないフォルダにインストールしようとすると、当然ながら大変なことになる
-                print(Padding('[red]インストール先のフォルダがすでに存在します。', (0, 2, 0, 2)))
+                answers.showInvalidInput('インストール先のフォルダがすでに存在します。')
                 continue
 
         # インストール先のフォルダを作成できるかテスト
@@ -202,7 +221,7 @@ def Installer(version: str) -> None:
             install_path.mkdir(parents=True, exist_ok=False)
         except Exception as ex:
             print(ex)
-            print(Padding('[red]インストール先のフォルダを作成できませんでした。', (0, 2, 0, 2)))
+            answers.showInvalidInput('インストール先のフォルダを作成できませんでした。')
             continue
         install_path.rmdir()  # フォルダを作成できるか試すだけなので一旦消す
 
@@ -225,7 +244,7 @@ def Installer(version: str) -> None:
     print(Padding(table_03, (1, 2, 1, 2)))
 
     # 利用するバックエンドを取得
-    backend = cast(Literal['EDCB', 'Mirakurun'], CustomPrompt.ask('利用するバックエンド', default='EDCB', choices=['EDCB', 'Mirakurun']))
+    backend = cast(Literal['EDCB', 'Mirakurun'], answers.ask('backend', '利用するバックエンド', default='EDCB', choices=['EDCB', 'Mirakurun']))
 
     # ***** EDCB (EpgTimerNW) の TCP API の URL *****
 
@@ -247,7 +266,7 @@ def Installer(version: str) -> None:
 
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
-            edcb_url: str = CustomPrompt.ask('EDCB (EpgTimerNW) の TCP API の URL').rstrip('/') + '/'
+            edcb_url: str = answers.ask('edcb_url', 'EDCB (EpgTimerNW) の TCP API の URL').rstrip('/') + '/'
             ## localhost を 127.0.0.1 に置き換え (localhost だと一部 Windows 環境で TCP API への接続が遅くなる)
             edcb_url = edcb_url.replace('localhost', '127.0.0.1')
 
@@ -255,24 +274,29 @@ def Installer(version: str) -> None:
             ## 入力された URL がちゃんとパースできるかを確認
             edcb_url_parse = urllib.parse.urlparse(edcb_url)
             if edcb_url_parse.scheme != 'tcp':
-                print(Padding('[red]URL が不正です。EDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
+                answers.showInvalidInput('URL が不正です。EDCB の URL を間違えている可能性があります。')
+                continue
+            ## ポートが数値でない場合や範囲外の場合は、port の取得時に ValueError が送出される
+            try:
+                edcb_port = edcb_url_parse.port
+            except ValueError:
+                answers.showInvalidInput('URL 内のポートが不正です。EDCB の URL を間違えている可能性があります。')
                 continue
             if ((edcb_url_parse.hostname is None) or
-                (edcb_url_parse.port is None and edcb_url_parse.hostname != 'edcb-namedpipe')):
-                print(Padding('[red]URL 内にホスト名またはポートが指定されていません。\nEDCB の URL を間違えている可能性があります。', (0, 2, 0, 2)))
+                (edcb_port is None and edcb_url_parse.hostname != 'edcb-namedpipe')):
+                answers.showInvalidInput('URL 内にホスト名またはポートが指定されていません。\nEDCB の URL を間違えている可能性があります。')
                 continue
             edcb_host = edcb_url_parse.hostname
-            edcb_port = edcb_url_parse.port
             ## 接続できたかの確認として、現在の EpgTimerSrv の動作ステータスを取得できるか試してみる
             edcb = CtrlCmdConnectionCheckUtil(edcb_host, edcb_port)
             result = asyncio.run(edcb.sendGetNotifySrvStatus())
             if result is None:
-                print(Padding(str(
-                    f'[red]EDCB ({edcb_url}) にアクセスできませんでした。\n'
+                answers.showInvalidInput(str(
+                    f'EDCB ({edcb_url}) にアクセスできませんでした。\n'
                     'EDCB が起動していないか、URL を間違えている可能性があります。\n'
                     'また、EDCB の設定で [ネットワーク接続を許可する (EpgTimerNW 用)] に\n'
                     'チェックが入っているか確認してください。',
-                ), (0, 2, 0, 2)))
+                ))
                 continue
 
             # すべてのバリデーションを通過したのでループを抜ける
@@ -294,7 +318,7 @@ def Installer(version: str) -> None:
 
             # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
             ## 末尾のスラッシュは常に付与する
-            mirakurun_url = CustomPrompt.ask('Mirakurun / mirakc の HTTP API の URL').rstrip('/') + '/'
+            mirakurun_url = answers.ask('mirakurun_url', 'Mirakurun / mirakc の HTTP API の URL').rstrip('/') + '/'
             ## localhost を 127.0.0.1 に置き換え (localhost だと一部 Windows 環境で TCP API への接続が遅くなる)
             mirakurun_url = mirakurun_url.replace('localhost', '127.0.0.1')
 
@@ -304,16 +328,16 @@ def Installer(version: str) -> None:
             try:
                 response = requests.get(f'{mirakurun_url.rstrip("/")}/api/version', timeout=20)
             except Exception:
-                print(Padding(str(
-                    f'[red]Mirakurun / mirakc ({mirakurun_url}) にアクセスできませんでした。\n'
+                answers.showInvalidInput(str(
+                    f'Mirakurun / mirakc ({mirakurun_url}) にアクセスできませんでした。\n'
                     'Mirakurun / mirakc が起動していないか、URL を間違えている可能性があります。',
-                ), (0, 2, 0, 2)))
+                ))
                 continue
             if response.status_code != 200:
-                print(Padding(str(
-                    f'[red]{mirakurun_url} は Mirakurun / mirakc の URL ではありません。\n'
+                answers.showInvalidInput(str(
+                    f'{mirakurun_url} は Mirakurun / mirakc の URL ではありません。\n'
                     'Mirakurun / mirakc の URL を間違えている可能性があります。',
-                ), (0, 2, 0, 2)))
+                ))
                 continue
 
             # すべてのバリデーションを通過したのでループを抜ける
@@ -440,12 +464,12 @@ def Installer(version: str) -> None:
     if is_arm_device is False:
         encoder = cast(
             Literal['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC'],
-            CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']),
+            answers.ask('encoder', '利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'QSVEncC', 'NVEncC', 'VCEEncC']),
         )
     else:
         encoder = cast(
             Literal['FFmpeg', 'rkmppenc'],
-            CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'rkmppenc']),
+            answers.ask('encoder', '利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'rkmppenc']),
         )
 
     # ***** 録画済み番組の保存先フォルダのパス *****
@@ -466,13 +490,13 @@ def Installer(version: str) -> None:
     # 録画フォルダを1つずつ入力
     while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        recorded_folder = CustomPrompt.ask('録画フォルダのパス')
+        recorded_folder = answers.askListItem('recorded_folder', '録画フォルダのパス')
 
         # 何も入力されなかった場合は入力を終了
         if recorded_folder == '':
             # 1つも入力されていない場合は再度入力を促す
             if len(recorded_folders) == 0:
-                print(Padding('[red]少なくとも1つの録画フォルダを指定してください。', (0, 2, 0, 2)))
+                answers.showInvalidInput('少なくとも1つの録画フォルダを指定してください。')
                 continue
             break
 
@@ -481,13 +505,13 @@ def Installer(version: str) -> None:
 
         # バリデーション
         if recorded_folder_path.is_absolute() is False:
-            print(Padding('[red]録画フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'録画フォルダ ({recorded_folder}) は絶対パスで入力してください。')
             continue
         if recorded_folder_path.exists() is False:
-            print(Padding('[red]指定された録画フォルダが存在しません。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'指定された録画フォルダ ({recorded_folder}) が存在しません。')
             continue
         if recorded_folder_path.is_dir() is False:
-            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'指定されたパス ({recorded_folder}) はフォルダではありません。')
             continue
 
         # 現在指定されているフォルダの一覧を表示
@@ -514,13 +538,13 @@ def Installer(version: str) -> None:
     # 録画フォルダを1つずつ入力
     while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        capture_upload_folder = CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス')
+        capture_upload_folder = answers.askListItem('capture_upload_folder', 'アップロードしたキャプチャ画像の保存先フォルダのパス')
 
         # 何も入力されなかった場合は入力を終了
         if capture_upload_folder == '':
             # 1つも入力されていない場合は再度入力を促す
             if len(capture_upload_folders) == 0:
-                print(Padding('[red]少なくとも1つのキャプチャ画像の保存先フォルダを指定してください。', (0, 2, 0, 2)))
+                answers.showInvalidInput('少なくとも1つのキャプチャ画像の保存先フォルダを指定してください。')
                 continue
             break
 
@@ -529,18 +553,38 @@ def Installer(version: str) -> None:
 
         # バリデーション
         if capture_upload_folder_path.is_absolute() is False:
-            print(Padding('[red]キャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'キャプチャ画像の保存先フォルダ ({capture_upload_folder}) は絶対パスで入力してください。')
             continue
         if capture_upload_folder_path.exists() is False:
-            print(Padding('[red]指定されたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'指定されたキャプチャ画像の保存先フォルダ ({capture_upload_folder}) が存在しません。')
             continue
         if capture_upload_folder_path.is_dir() is False:
-            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
+            answers.showInvalidInput(f'指定されたパス ({capture_upload_folder}) はフォルダではありません。')
             continue
 
         # 現在指定されているフォルダの一覧を表示
         capture_upload_folders.append(str(capture_upload_folder_path))
         print(Padding(f'[green]現在指定されているキャプチャ画像の保存先フォルダ: {", ".join(capture_upload_folders)}', (0, 2, 0, 2)))
+
+    # ***** Windows: Windows サービスの実行アカウント *****
+
+    # 実行アカウントの選択とパスワードの検証は、インストール先にファイルを配置する前に済ませる
+    ## ファイルを配置した後にパスワードの不足や間違いで中断すると、インストール先が空でないため同じ引数で再実行できなくなる
+    service_account: WindowsServiceAccount | None = None
+    network_folders: list[str] = []
+    is_account_selection_supported = False
+    if platform_type == 'Windows':
+
+        # 録画フォルダとキャプチャ画像の保存先のうち、ネットワーク上にあるフォルダを取得する
+        ## ネットワーク上のフォルダがある場合は、ユーザーの権限で実行するのを既定の実行アカウントにする
+        for folder in [*recorded_folders, *capture_upload_folders]:
+            if IsNetworkPath(folder) is True:
+                network_folders.append(folder)
+
+        # LocalSystem での実行に対応したサービス管理スクリプトは、開発版と 0.15.0 以降にだけ含まれる
+        ## それより前のバージョンをインストールする場合は、従来どおりユーザーの権限で実行する
+        is_account_selection_supported = version == 'latest' or tuple(int(part) for part in version.split('.')) >= (0, 15, 0)
+        service_account = AskWindowsServiceAccount(answers, 8, network_folders, is_account_selection_supported)
 
     # ***** ソースコードのダウンロード *****
 
@@ -561,14 +605,14 @@ def Installer(version: str) -> None:
             error_log_name = 'Git のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # Git コマンドがインストールされていない場合: zip でダウンロード
     else:
 
         # ソースコードを随時ダウンロードし、進捗を表示
         # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
-        print(Padding('KonomiTV のソースコードをダウンロードしています…', (1, 2, 0, 2)))
+        ShowStep('KonomiTV のソースコードをダウンロードしています…')
         progress = CreateDownloadInfiniteProgress()
 
         # GitHub からソースコードをダウンロード
@@ -627,7 +671,7 @@ def Installer(version: str) -> None:
 
     # ***** サーバー設定ファイル (config.yaml) の生成 *****
 
-    print(Padding('サーバー設定ファイル (config.yaml) を生成しています…', (1, 2, 0, 2)))
+    ShowStep('サーバー設定ファイル (config.yaml) を生成しています…')
     progress = CreateBasicInfiniteProgress()
     progress.add_task('', total=None)
     with progress:
@@ -664,7 +708,7 @@ def Installer(version: str) -> None:
 
         # サードパーティーライブラリを随時ダウンロードし、進捗を表示
         # ref: https://github.com/Textualize/rich/blob/master/examples/downloader.py
-        print(Padding('サードパーティーライブラリをダウンロードしています…', (1, 2, 0, 2)))
+        ShowStep('サードパーティーライブラリをダウンロードしています…')
         progress = CreateDownloadProgress()
 
         # GitHub からサードパーティーライブラリをダウンロード
@@ -692,7 +736,7 @@ def Installer(version: str) -> None:
         thirdparty_compressed_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
         # サードパーティーライブラリを解凍して展開
-        print(Padding('サードパーティーライブラリを展開しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
+        ShowStep('サードパーティーライブラリを展開しています… (数秒～数十秒かかります)')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -741,14 +785,14 @@ def Installer(version: str) -> None:
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # Linux-Docker: docker-compose.yaml を生成し、Docker イメージをビルド
     elif platform_type == 'Linux-Docker':
 
         # ***** docker-compose.yaml の生成 *****
 
-        print(Padding('docker-compose.yaml を生成しています…', (1, 2, 0, 2)))
+        ShowStep('docker-compose.yaml を生成しています…')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -826,7 +870,7 @@ def Installer(version: str) -> None:
             error_message = 'Docker イメージのビルド中に予期しないエラーが発生しました。',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** Linux / Linux-Docker: QSVEncC / NVEncC / VCEEncC の動作チェック *****
 
@@ -1051,7 +1095,7 @@ def Installer(version: str) -> None:
 
     if platform_type == 'Windows':
 
-        print(Padding('Windows Defender ファイアウォールに受信規則を追加しています…', (1, 2, 0, 2)))
+        ShowStep('Windows Defender ファイアウォールに受信規則を追加しています…')
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
@@ -1074,123 +1118,25 @@ def Installer(version: str) -> None:
                 stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
             )
 
+    # サービスの起動を待つ処理で今回の起動のログだけを読むため、サービスを起動する前のログファイルのサイズを取得しておく
+    initial_log_sizes = GetLogFileSizes(install_path)
+
     # ***** Windows: Windows サービスのインストール・起動 *****
 
-    if platform_type == 'Windows':
+    if platform_type == 'Windows' and service_account is not None:
 
-        # Windows サービス管理スクリプトはパッケージマネージャー経由ではなく、仮想環境の Python 実行ファイルを直接実行する
-        ## 以前 Poetry 経由で実行していた際、Windows で shell 解釈の影響を受けてパスワード中の記号が崩れる問題があったため
-        venv_python_executable_path = install_path / 'server/.venv/Scripts/python.exe'
-
-        # 現在ログオン中のユーザー名を取得
-        ## PowerShell の [Environment]::UserDomainName と [Environment]::UserName を使う
-        current_user_name_default = subprocess.run(
-            args = ['powershell', '-Command', r'"$([Environment]::UserDomainName)\$([Environment]::UserName)"'],
-            stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-            stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-            text = True,  # 出力をテキストとして取得する
-        ).stdout.strip()
-
-        while True:
-
-            table_08 = CreateTable()
-            table_08.add_column('08. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
-            table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-            table_08.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
-            table_08.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
-            print(Padding(table_08, (0, 2, 0, 2)))
-
-            # ユーザー名を入力 (サービスのインストールに失敗し続ける限り何度でも表示される)
-            current_user_name: str = CustomPrompt.ask('KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
-
-            table_09 = CreateTable()
-            table_09.add_column(f'09. ユーザー ({current_user_name}) のパスワードを入力してください。')
-            table_09.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-            table_09.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
-            table_09.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
-            table_09.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-            table_09.add_row('なお、PIN などのほかの認証方法には対応していません。')
-            table_09.add_row(CreateRule())
-            table_09.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
-            table_09.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
-            table_09.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
-            table_09.add_row(CreateRule())
-            table_09.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
-            table_09.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
-            table_09.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
-            table_09.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
-            print(Padding(table_09, (1, 2, 1, 2)))
-
-            # ユーザーのパスワードを取得
-            # 入力プロンプト
-            ## バリデーションのしようがないので、バリデーションは行わない
-            current_user_password = CustomPrompt.ask(f'ログオン中のユーザー ({current_user_name}) のパスワード')
-
-            if current_user_password == '':
-                print(Padding(f'[red]ログオン中のユーザー ({current_user_name}) のパスワードが空です。', (0, 2, 0, 2)))
-                continue
-
-            # 入力された資格情報をもとに、Windows サービスをインストール
-            ## すでに KonomiTV Service がインストールされている場合は上書きされる
-            print(Padding('Windows サービスをインストールしています…', (1, 2, 0, 2)))
-            progress = CreateBasicInfiniteProgress()
-            progress.add_task('', total=None)
-            with progress:
-                service_install_result = subprocess.run(
-                    args = [
-                        venv_python_executable_path, 'KonomiTV-Service.py', 'install',
-                        '--username', current_user_name, '--password', current_user_password,
-                    ],
-                    cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                    text = True,  # 出力をテキストとして取得する
-                )
-            if 'Error: ' in service_install_result.stdout:
-                print(Padding(
-                    '[red]Windows サービスのインストールに失敗しました。\n'\
-                    '入力されたユーザーが存在しないか、コンピューター名または\n'\
-                    'ドメイン名が間違っている可能性があります。\n'\
-                    'ユーザーが存在するにもかかわらず失敗する場合は、コンピューター名\n'\
-                    'またはドメイン名を明示してユーザー名を入力してみてください。\n'\
-                    '例: コンピューター名\\ユーザー名、.\\ユーザー名 (ローカル)\n'\
-                    '　　ドメイン名\\ユーザー名 (ドメイン)'\
-                , (1, 2, 0, 2)))
-                print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
-                continue
-
-            if 'Error installing service' in service_install_result.stdout:
-                print(Padding(
-                    '[red]Windows サービスのインストールに失敗しました。\n'\
-                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'\
-                    'すでに KonomiTV がインストールされている可能性があります。'\
-                , (1, 2, 0, 2)))
-                print(Padding('[red]エラーログ:\n' + service_install_result.stdout.strip(), (1, 2, 1, 2)))
-                continue
-
-            # Windows サービスを起動
-            print(Padding('Windows サービスを起動しています…', (1, 2, 0, 2)))
-            progress = CreateBasicInfiniteProgress()
-            progress.add_task('', total=None)
-            with progress:
-                service_start_result = subprocess.run(
-                    args = [venv_python_executable_path, 'KonomiTV-Service.py', 'start'],
-                    cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-                    stdout = subprocess.PIPE,  # 標準出力をキャプチャする
-                    stderr = subprocess.DEVNULL,  # 標準エラー出力を表示しない
-                    text = True,  # 出力をテキストとして取得する
-                )
-            if 'Error starting service' in service_start_result.stdout:
-                print(Padding(
-                    '[red]Windows サービスの起動に失敗しました。\n'\
-                    '入力されたログオン中ユーザーのパスワードが間違っているか、\n'\
-                    'すでに KonomiTV がインストールされている可能性があります。'\
-                , (1, 2, 0, 2)))
-                print(Padding('[red]エラーログ:\n' + service_start_result.stdout.strip(), (1, 2, 1, 2)))
-                continue
-
-            # エラーが出ていなければおそらく正常にサービスがインストールできているはずなので、ループを抜ける
-            break
+        # 選ばれた実行アカウントで Windows サービスをインストールし、起動する
+        ## サービスの実行アカウントの変更と共通の処理
+        result = InstallWindowsService(
+            install_path,
+            answers,
+            service_account,
+            question_number = 8,
+            network_folders = network_folders,
+            is_account_selection_supported = is_account_selection_supported,
+        )
+        if result is False:
+            return False  # 処理中断
 
     # ***** Linux: PM2 サービスのインストール・起動 *****
 
@@ -1207,7 +1153,7 @@ def Installer(version: str) -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # PM2 のスタートアップ設定を行う
         ## これにより、PM2 サービスは OS 起動時に自動的に起動されるようになる
@@ -1219,7 +1165,7 @@ def Installer(version: str) -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # PM2 への変更を保存
         result = RunSubprocess(
@@ -1230,7 +1176,7 @@ def Installer(version: str) -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
         # PM2 サービスを起動
         result = RunSubprocess(
@@ -1241,7 +1187,7 @@ def Installer(version: str) -> None:
             error_log_name = 'PM2 のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** Linux-Docker: Docker コンテナの起動 *****
 
@@ -1256,12 +1202,13 @@ def Installer(version: str) -> None:
             error_log_name = 'Docker Compose のエラーログ',
         )
         if result is False:
-            return  # 処理中断
+            return False  # 処理中断
 
     # ***** サービスの起動を待機 *****
 
     # KonomiTV サービスの起動を監視して起動完了を待機する処理はアップデーターと共通
-    RunKonomiTVServiceWaiter(platform_type, install_path)
+    if RunKonomiTVServiceWaiter(platform_type, install_path, initial_log_sizes) is False:
+        return False  # 処理中断
 
     # ***** インストール完了 *****
 
@@ -1287,3 +1234,6 @@ def Installer(version: str) -> None:
         table_done.add_row(f'[bright_blue]{url: <{urls_max_length}}[/bright_blue] ({nic_infos[index][1]})')
 
     print(Padding(table_done, (1, 2, 0, 2)))
+    EmitJSONProgress('access_urls', urls=[f'https://my.local.konomi.tv:{server_port}/', *urls])
+
+    return True
