@@ -97,11 +97,11 @@ uv run python -m misc.FixtureProgramsCapturer tests/fixtures/programs --service 
 - 元データ: 開発機の Mirakurun 3.9.0-rc.4 と EDCB / 2026/10/29 09:47:15 に取得 / 取得時刻から24時間以内に開始する番組
   - チャンネル: NHK総合1・東京 (32736-1024)・NHK総合2・東京 (32736-1025)・NHK BS (4-101)・J:COM BS (4-260)
   - テストは取得時刻を現在時刻として番組情報を更新する (更新処理は12時間以上前に終了した番組を除外するため)
-- `mirakurun-programs.json`: Mirakurun の `/api/programs` の応答から、4つのチャンネルの番組を応答の順序を保ったまま抽出したもの
+- `mirakurun-programs.json`: Mirakurun の `/api/programs` のレスポンスから、4つのチャンネルの番組をレスポンスの順序を保ったまま抽出したもの
   - NHK総合1・東京の 2026/10/28 23:50 からの「ニュース」は、終了時刻未定 (`duration` が 1) の番組
   - NHK総合2・東京の番組は、番組名のない番組と、NHK総合1・東京と番組を共有するサブチャンネルの番組 (`relatedItems` の `shared`) だけ
   - NHK BS には、デュアルモノラルの番組とイベントリレーの番組が含まれる
-- `edcb-programs.bin`: EDCB (EpgTimerSrv) の番組情報一覧の取得 (CtrlCmd 1029) の応答の本体を、KonomiTV の CtrlCmdUtil が受け取るバイト列のまま保存したもの
+- `edcb-programs.bin`: EDCB (EpgTimerSrv) の番組情報一覧の取得 (CtrlCmd 1029) のレスポンス本体を、KonomiTV の CtrlCmdUtil が受け取るバイト列のまま保存したもの
   - テストでは偽の EDCB (`tests/MockEDCB.py`) が、リクエストの内容にかかわらずこのバイト列を返す
 - 用途:
   - Mirakurun と EDCB から番組情報を更新したときに保存される内容 (番組名・番組詳細・ジャンル・映像と音声の情報・メインの番組の判定) を、スナップショットで固定するテスト

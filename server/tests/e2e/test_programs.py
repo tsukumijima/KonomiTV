@@ -200,10 +200,10 @@ async def test_update_programs__in_another_process_while_main_process_writes(bac
 
     async def WriteFromMainProcess() -> None:
         """
-        ニコニコ実況の勢いの更新や録画のスキャンのように、メインプロセスから DB への書き込みを続ける
+        ニコニコ実況の勢い更新や録画のスキャンのように、メインプロセスから DB への書き込みを続ける
         """
 
-        # 書き込みのたびに、チャンネルの実況の勢いを前回と異なる値に更新する
+        # 書き込みのたびに、チャンネルの実況勢いを前回と異なる値に更新する
         ## SQLite は値が変わらない UPDATE ではデータベースを変更しないため、別プロセスのスナップショットが古くならず、書き込みの衝突を再現できない
         jikkyo_force = 0
 

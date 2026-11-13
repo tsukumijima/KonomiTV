@@ -7,10 +7,10 @@ import threading
 class MockEDCB:
     """
     テストで放送バックエンドの代わりに使用する、EDCB (EpgTimerSrv) の CtrlCmd のうち番組情報一覧の取得コマンドのみに応答する TCP サーバー
-    番組情報の更新処理を、実際の EDCB を使う場合と同じ通信処理と応答の解析処理を経由して実行できるようにする
+    番組情報の更新処理を、実際の EDCB を使う場合と同じ通信処理とレスポンスの解析処理を経由して実行できるようにする
     """
 
-    # EpgTimerSrv の CtrlCmd のコマンド番号と応答コード (app/utils/edcb/CtrlCmdUtil.py と同じ値)
+    # EpgTimerSrv の CtrlCmd のコマンド番号とレスポンスコード (app/utils/edcb/CtrlCmdUtil.py と同じ値)
     CMD_SUCCESS = 1
     CMD_ERR = 0
     CMD_EPG_SRV_ENUM_PG_INFO_EX = 1029
@@ -30,11 +30,11 @@ class MockEDCB:
 
             def handle(self) -> None:
                 # 先頭の8バイト (コマンド番号と本体のサイズ) を読み込み、本体は読み飛ばす
-                ## 引数で指定されたチャンネルや期間に関わらず、保存済みの応答をそのまま返す
+                ## 引数で指定されたチャンネルや期間に関わらず、保存済みのレスポンスをそのまま返す
                 cmd, size = struct.unpack('<ii', self.rfile.read(8))
                 self.rfile.read(size)
 
-                # 番組情報一覧の取得コマンドには、保存済みの応答の本体をそのまま返す
+                # 番組情報一覧の取得コマンドには、保存済みのレスポンスの本体をそのまま返す
                 if cmd == MockEDCB.CMD_EPG_SRV_ENUM_PG_INFO_EX:
                     mock.programs_requested.set()
                     self.wfile.write(struct.pack('<ii', MockEDCB.CMD_SUCCESS, len(mock.programs)) + mock.programs)
@@ -49,7 +49,7 @@ class MockEDCB:
         # リクエストを受け付けるスレッド (start() で作成し、stop() で終了を待つ)
         self.thread: threading.Thread | None = None
 
-        # 番組情報一覧の取得コマンドに返す応答の本体 (CtrlCmdUtil が受け取るバイト列)
+        # 番組情報一覧の取得コマンドに返すレスポンスの本体 (CtrlCmdUtil が受け取るバイト列)
         ## テスト側で tests/fixtures/programs/ の edcb-programs.bin の内容を設定する
         self.programs: bytes = struct.pack('<ii', 8, 0)
 
