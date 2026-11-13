@@ -13,12 +13,14 @@ from app import logging, schemas
 from app.config import Config
 from app.constants import JST
 from app.models.Channel import Channel
+from app.models.Program import Program
 from app.routers.ReservationConditionsRouter import EncodeEDCBSearchKeyInfo
 from app.routers.ReservationsRouter import GetCtrlCmdUtil
 from app.utils import NormalizeToJSTDatetime, ParseDatetimeStringToJST
 from app.utils.edcb import EventInfo, ReserveDataRequired, SearchKeyInfo
 from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
 from app.utils.edcb.EDCBUtil import EDCBUtil
+from app.utils.TorneClient import TorneClient
 from app.utils.TSInformation import TSInformation
 
 
@@ -756,4 +758,62 @@ async def TimeTableAPI(
     return schemas.TimeTable(
         channels=validated_channels,
         date_range=schemas.TimeTableDateRange(earliest=earliest, latest=latest),
+    )
+
+
+@router.get(
+    '/toru-counts',
+    summary = 'トル数取得 API',
+    response_description = '番組 ID をキーにした、番組ごとのトル数の辞書。',
+    response_model = dict[str, schemas.ToruCount],
+)
+async def ToruCountsAPI():
+    """
+    番組ごとのトル数 (torne の利用者がその番組を録画予約している数) を取得する。<br>
+    取得対象は受信できる地上波・BS・CS チャンネルの、1週間先までの番組（ケーブルテレビの自主放送も含む）。<br>
+    サーバーの起動直後など、まだトル数を取得できていない場合は空の辞書を返す。
+    """
+
+    return TorneClient.getToruCounts()
+
+
+@router.get(
+    '/toru-ranking',
+    summary = 'トル数ランキング API',
+    response_description = 'トル数の多い順に並んだ番組情報のリスト。',
+    response_model = schemas.Programs,
+)
+async def ToruRankingAPI(
+    channel_type: Annotated[Literal['GR', 'BS', 'CS'] | None, Query(description='チャンネル種別。省略時は全種別。')] = None,
+    page: Annotated[int, Query(description='ページ番号。', ge=1)] = 1,
+):
+    """
+    放送が終了していない番組のうち、トル数の多い順に上位 100 件までを、一度に 20 件ずつ取得する。<br>
+    total にはランキング全体の件数 (最大 100 件) が入る。番組ごとのトル数は、トル数取得 API のレスポンスから番組 ID で取得できる。
+    """
+
+    # 放送が終了していない番組の ID と放送開始時刻を取得する
+    programs_query = Program.filter(end_time__gt=datetime.now(JST))
+    if channel_type is not None:
+        programs_query = programs_query.filter(channel__type=channel_type)
+    start_times: dict[str, datetime] = dict(await programs_query.values_list('id', 'start_time'))
+
+    # トル数を取得できている番組を、トル数の多い順 (同じトル数なら放送開始時刻の早い順) に並べ、上位 100 件に絞る
+    toru_counts = TorneClient.getToruCounts()
+    ranked_program_ids: list[str] = []
+    for program_id in start_times:
+        if program_id in toru_counts:
+            ranked_program_ids.append(program_id)
+    ranked_program_ids.sort(key=lambda program_id: (-toru_counts[program_id]['count'], start_times[program_id]))
+    ranked_program_ids = ranked_program_ids[:100]
+
+    # 指定されたページの 20 件の番組情報を取得し、順位の順に並べて返す
+    page_program_ids = ranked_program_ids[(page - 1) * 20:page * 20]
+    programs: dict[str, schemas.Program] = {}
+    for program in await Program.filter(id__in=page_program_ids):
+        programs[program.id] = schemas.Program.model_validate(program, from_attributes=True)
+
+    return schemas.Programs(
+        total = len(ranked_program_ids),
+        programs = [programs[program_id] for program_id in page_program_ids],
     )
