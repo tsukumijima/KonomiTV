@@ -251,10 +251,11 @@ class KonomiTVServiceFramework(win32serviceutil.ServiceFramework):
 
 app = typer.Typer(help='KonomiTV Windows Service Launcher.')
 
-@app.command(help='Install KonomiTV service.')
+@app.command(help='Install KonomiTV service. If the service is already installed, only the account is changed.')
 def install(
-    username: str = typer.Option(..., help='Username under which KonomiTV service runs.'),
-    password: str = typer.Option(..., help='Password of the user under which KonomiTV service runs.'),
+    username: str | None = typer.Option(None, help='Username under which KonomiTV service runs.'),
+    password: str | None = typer.Option(None, help='Password of the user under which KonomiTV service runs.'),
+    local_system: bool = typer.Option(False, '--local-system', help='Run KonomiTV service as LocalSystem instead of a user account.'),
 ):
     def SamAccountNameHelper(account_name: str) -> str:
         """
@@ -444,12 +445,28 @@ def install(
         win32security.LsaAddAccountRights(policy_handle, account_sid, ('SeServiceLogonRight',))
         win32security.LsaClose(policy_handle)
 
+    # LocalSystem で実行する場合は、ユーザーアカウントの確認と権限の付与を省略してインストールする
+    ## すでにユーザーの権限でインストールされている場合も実行アカウントを LocalSystem に戻せるよう、
+    ## アカウント名を省略せずに LocalSystem (パスワードは空) を明示する
+    ## HandleCommandLine() は失敗しても例外を送出せずにエラーコードを返すため、終了コードとして呼び出し元に伝える
+    if local_system is True:
+        sys.exit(win32serviceutil.HandleCommandLine(
+            cls = KonomiTVServiceFramework,
+            # 「自動 (遅延開始)」(delayed) でインストールする (理由はユーザーの権限でインストールする場合と同じ)
+            argv = [sys.argv[0], '--startup', 'delayed', '--username', 'LocalSystem', '--password', '', 'install'],
+        ))
+
+    # ユーザーの権限で実行する場合は、ユーザー名とパスワードが必須
+    if username is None or password is None:
+        print('Error: --username and --password are required unless --local-system is specified.')
+        sys.exit(1)
+
     # SAM アカウント名を取得
     account_name = SamAccountNameHelper(username)
     if not account_name or '\\' not in account_name:
         # 取得できなかったときは終了する (念のため)
         print('Error: Failed to parse SAM account name.')
-        return
+        sys.exit(1)
 
     # 指定されたユーザーアカウントに "サービスとしてログオン" (SeServiceLogonRight) 権限を付与する
     ## "サービスとしてログオン" 権限が付与されていないと、ユーザー権限で Windows サービスを起動することができない
@@ -457,13 +474,14 @@ def install(
     AddLogOnAsAServicePrivilege(account_name)
 
     # HandleCommandLine に直接引数を指定して、サービスのインストールを実行
-    win32serviceutil.HandleCommandLine(
+    ## HandleCommandLine() は失敗しても例外を送出せずにエラーコードを返すため、終了コードとして呼び出し元に伝える
+    sys.exit(win32serviceutil.HandleCommandLine(
         cls = KonomiTVServiceFramework,
         # 「自動 (遅延開始)」(delayed) でインストールする
         ## 「自動」(auto) だと EDCB や Mirakurun のサービスが起動していない段階で実行されてしまい、EDCB または Mirakurun にアクセスできず起動に失敗する
         ## 「自動 (遅延開始)」だとシステム起動から2分ほど遅れて実行されるが、上記の問題があるため致し方ない
         argv = [sys.argv[0], '--startup', 'delayed', '--username', account_name, '--password', password, 'install'],
-    )
+    ))
 
 @app.command(help='Uninstall KonomiTV service.')
 def uninstall():
@@ -471,7 +489,8 @@ def uninstall():
 
 @app.command(help='Start KonomiTV service.')
 def start():
-    win32serviceutil.HandleCommandLine(cls=KonomiTVServiceFramework, argv=[sys.argv[0], 'start'])
+    # 失敗したときのエラーコードを、終了コードとして呼び出し元に伝える
+    sys.exit(win32serviceutil.HandleCommandLine(cls=KonomiTVServiceFramework, argv=[sys.argv[0], 'start']))
 
 @app.command(help='Stop KonomiTV service.')
 def stop():
