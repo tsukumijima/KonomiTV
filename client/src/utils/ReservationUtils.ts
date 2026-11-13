@@ -7,6 +7,15 @@ import { IRecordSettings, IRecordSettingsDefault, IReservation } from '@/service
 
 
 /**
+ * 録画予約のない番組に、録画予約を追加できる状態かどうか
+ * - Available: 追加できる
+ * - Preparing: 追加に必要な情報 (既存の録画予約・録画設定の既定値) を取得している途中で、まだ追加できない
+ * - EDCBOnly: EDCB バックエンドではないため追加できない
+ */
+export type ReservationAddAvailability = 'Available' | 'Preparing' | 'EDCBOnly';
+
+
+/**
  * 録画予約周りのユーティリティ
  */
 export class ReservationUtils {

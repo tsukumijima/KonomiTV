@@ -5,8 +5,16 @@
     }"
         @click="handleContentClick">
         <div class="reservation__container">
-            <!-- 左側：優先度と有効・無効スイッチ -->
+            <!-- 左側：優先度と有効・無効スイッチ (予約数ランキングでは、優先度の代わりに順位を表示する) -->
             <div class="reservation__controls">
+                <div v-if="rank !== undefined" class="reservation__rank">
+                    <div class="reservation__rank-badge" :class="{
+                        'reservation__rank-badge--gold': rank === 1,
+                        'reservation__rank-badge--silver': rank === 2,
+                        'reservation__rank-badge--bronze': rank === 3,
+                        'reservation__rank-badge--three-digits': rank >= 100,
+                    }">{{ rank }}</div>
+                </div>
                 <div v-if="shouldShowProgramSearchAddButton" class="reservation__program-search-action" @click="handleAddButtonClick">
                     <v-btn
                         class="reservation__program-search-add"
@@ -20,7 +28,7 @@
                         <Icon :icon="programSearchActionIcon" width="18px" height="18px" />
                     </v-btn>
                 </div>
-                <div v-else class="reservation__priority">
+                <div v-else-if="rank === undefined" class="reservation__priority">
                     <div class="reservation__priority-badge">{{ reservation.record_settings.priority }}</div>
                     <div class="reservation__priority-label">優先度</div>
                 </div>
@@ -146,13 +154,17 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ToruCount from '@/components/Programs/ToruCount.vue';
 import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
-import Utils, { ProgramUtils, dayjs } from '@/utils';
+import Utils, { ProgramUtils, ReservationAddAvailability, dayjs } from '@/utils';
 
 // Props
 const props = defineProps<{
     reservation: IReservation;
     compactOnTabletHorizontal?: boolean;
     isProgramSearchResult?: boolean;
+    // 予約数ランキングでの順位 (指定した場合のみ、優先度の代わりに順位を表示する)
+    rank?: number;
+    // 録画予約のない番組に、録画予約を追加できる状態かどうか (省略時は追加できるものとして扱う)
+    addAvailability?: ReservationAddAvailability;
 }>();
 
 // Emits
@@ -177,9 +189,10 @@ const shouldShowProgramSearchAddButton = computed(() => {
     return props.reservation.id === -1;
 });
 
-// 検索結果の予約追加ボタンは、放送済み・送信中の状態で操作を止める
+// 検索結果の予約追加ボタンは、放送済み・送信中の状態と、追加に必要な情報を取得している間は操作を止める
+// 録画設定の既定値を取得する前に追加すると、EDCB の既定値ではなくクライアントの固定値で予約してしまう
 const isProgramSearchActionDisabled = computed(() => {
-    return isPastProgram.value === true || isAddingReservation.value === true;
+    return isPastProgram.value === true || isAddingReservation.value === true || props.addAvailability === 'Preparing';
 });
 
 // 録画予約一覧では無効予約だけ薄くし、番組検索では終了済みの番組だけ状態を弱める
@@ -403,6 +416,12 @@ const handleAddButtonClick = async (event: Event) => {
         return;
     }
 
+    // EDCB バックエンドではない場合は、必ず失敗する録画予約 API を呼び出さずに、利用できない理由を案内する
+    if (props.addAvailability === 'EDCBOnly') {
+        Message.warning('録画予約機能は EDCB バックエンド選択時のみ利用できます。');
+        return;
+    }
+
     isAddingReservation.value = true;
     try {
         const isSuccess = await Reservations.addReservation(props.reservation.program.id, props.reservation.record_settings);
@@ -482,6 +501,75 @@ const handleSwitchClick = (event: Event) => {
         }
         @include smartphone-vertical {
             padding: 8px 0px;
+        }
+    }
+
+    // 予約数ランキングでの順位 (優先度と同じ位置に表示する)
+    &__rank {
+        display: flex;
+        justify-content: center;
+        // 録画予約の有無にかかわらず左側の幅をカード間でそろえるため、予約追加ボタンと同じ幅にする
+        width: 42px;
+        margin-bottom: 8px;
+        @include smartphone-vertical {
+            width: 39px;
+        }
+
+        &-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgb(var(--v-theme-text-darken-3));
+            color: #FFFFFF;
+            font-size: 19px;
+            font-weight: 800;
+            line-height: 1;
+            // Open Sans の数字は行の高さの中心より約 0.025em 下に字面の中心があるため、その分だけ数字を上へずらして丸の中央に合わせる
+            padding-bottom: 0.05em;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            @include smartphone-vertical {
+                width: 28px;
+                height: 28px;
+                font-size: 18px;
+            }
+
+            // 3桁の順位は、丸の中に収まるよう数字を小さくする
+            &--three-digits {
+                font-size: 14px;
+                @include smartphone-vertical {
+                    font-size: 13px;
+                }
+            }
+
+            // 1〜3位は金・銀・銅のメダルとして、ひとまわり大きく、光沢と縁を付けて表示する
+            &--gold, &--silver, &--bronze {
+                width: 36px;
+                height: 36px;
+                border: 2px solid rgba(255, 255, 255, 0.6);
+                box-shadow:
+                    0 2px 6px rgba(0, 0, 0, 0.45),
+                    inset 0 3px 4px rgba(255, 255, 255, 0.4),
+                    inset 0 -4px 5px rgba(0, 0, 0, 0.22);
+                font-size: 22px;
+                text-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
+                @include smartphone-vertical {
+                    width: 34px;
+                    height: 34px;
+                    font-size: 21px;
+                }
+            }
+            &--gold {
+                background: linear-gradient(150deg, #FFD95A 0%, #E7A30A 52%, #B47600 100%);
+            }
+            &--silver {
+                background: linear-gradient(150deg, #DDE4EC 0%, #98A4B3 52%, #6B7787 100%);
+            }
+            &--bronze {
+                background: linear-gradient(150deg, #F2B482 0%, #C5733A 52%, #8F4C1C 100%);
+            }
         }
     }
 

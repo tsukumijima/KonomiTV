@@ -12,6 +12,33 @@ import { dayjs } from '@/utils';
 export type ProgramSortOrder = 'asc' | 'toru';
 
 /**
+ * 予約数ランキングを絞り込むチャンネルタイプ ('All' は、すべての放送波の番組を合わせた総合ランキング)
+ */
+export type ToruRankingChannelType = 'All' | 'GR' | 'BS' | 'CS';
+
+/**
+ * 予約数ランキングを絞り込めるジャンル (番組情報のジャンルの大分類) と、絞り込みの選択欄での表示名
+ * 録画予約の多いジャンルだけを、予約数の多い順に並べている
+ * 並び順は、2026/11 時点の関東の1週間分の番組について、ジャンルごとに上位 20 番組のトル数の平均を比べて決めた
+ */
+export const TORU_RANKING_GENRES = [
+    { title: 'アニメ', value: 'アニメ・特撮' },
+    { title: 'バラエティ', value: 'バラエティ' },
+    { title: 'ドラマ', value: 'ドラマ' },
+    { title: 'ドキュメンタリー', value: 'ドキュメンタリー・教養' },
+    { title: 'スポーツ', value: 'スポーツ' },
+    { title: '音楽', value: '音楽' },
+    { title: '映画', value: '映画' },
+] as const;
+export type ToruRankingGenre = typeof TORU_RANKING_GENRES[number]['value'];
+
+/**
+ * 予約数ランキングの絞り込み (チャンネルタイプとジャンルのどちらか一方で絞り込む)
+ */
+export type ToruRankingFilter = ToruRankingChannelType | ToruRankingGenre;
+
+
+/**
  * 番組ごとのトル数 (torne の利用者がその番組を録画予約している数) を管理するストア
  * 画面上では「予約数」として、番組表・番組リスト・録画予約などの番組情報に添えて表示する
  */

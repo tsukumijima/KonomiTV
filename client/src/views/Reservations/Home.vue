@@ -27,6 +27,12 @@
                         :emptySubMessage="'番組表から録画予約を追加できます。'"
                         @more="$router.push('/reservations/all')"
                         @delete="handleReservationDeleted" />
+                    <!-- 予約数ランキングセクション -->
+                    <ToruRanking ref="toruRanking"
+                        :limit="10"
+                        :show-more-button="true"
+                        @more="$router.push('/reservations/ranking')"
+                        @changed="updateAllSections" />
                 </div>
             </div>
         </main>
@@ -40,6 +46,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
 import ReservationList from '@/components/Reservations/ReservationList.vue';
+import ToruRanking from '@/components/Reservations/ToruRanking.vue';
 import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import Reservations, { IReservation } from '@/services/Reservations';
 import { dayjs } from '@/utils';
@@ -49,6 +56,9 @@ const upcomingReservations = ref<IReservation[]>([]);
 const totalUpcomingReservations = ref(0);
 
 const isLoading = ref(true);
+
+// 予約数ランキングのコンポーネントの参照
+const toruRanking = ref<InstanceType<typeof ToruRanking>>();
 
 // 自動更新用の interval ID を保持
 const autoRefreshInterval = ref<number | null>(null);
@@ -108,6 +118,8 @@ const handleReservationDeleted = (deleted_reservation_id: number) => {
     // 削除イベントを受けたらリストを即時更新
     console.log(`Reservation ${deleted_reservation_id} deleted, refreshing list...`);
     updateAllSections();
+    // 削除した録画予約の番組が予約数ランキングにも含まれる場合に備えて、ランキング側の録画予約済みの表示も更新する
+    void toruRanking.value?.updateReservations();
 };
 
 // 自動更新を開始

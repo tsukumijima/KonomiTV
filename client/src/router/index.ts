@@ -70,6 +70,11 @@ const router = createRouter({
             component: () => import('@/views/Reservations/Reservations.vue'),
         },
         {
+            path: '/reservations/ranking',
+            name: 'Reservations Ranking',
+            component: () => import('@/views/Reservations/Ranking.vue'),
+        },
+        {
             path: '/captures/',
             name: 'Captures',
             component: () => import('@/views/Captures/Timeline.vue'),
