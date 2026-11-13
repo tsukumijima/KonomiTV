@@ -127,6 +127,77 @@ def IsRunningAsWindowsService() -> bool:
     return hWnd == 0
 
 
+def ValidateFolderAccessible(folder: str, folder_label: str) -> None:
+    """
+    指定されたフォルダに、KonomiTV サーバーを実行しているアカウントからアクセスできるかを検証する
+    アクセスが拒否されたフォルダや、LocalSystem で実行されている Windows サービスから見えないフォルダは、理由と対処方法を示すエラーにする
+    アクセスできるフォルダと、存在しないだけのフォルダは何もせずに終了する (存在するかどうかは呼び出し元で検証する)
+
+    Args:
+        folder (str): 検証するフォルダのパス
+        folder_label (str): エラーメッセージに表示するフォルダの種類 (「録画フォルダ」など)
+
+    Raises:
+        ValueError: フォルダにアクセスできない場合
+    """
+
+    def IsRunningAsWindowsLocalSystem() -> bool:
+        """
+        KonomiTV サーバーが、LocalSystem アカウントで実行されている Windows サービスとして動作しているかどうか
+        LocalSystem で実行されている場合、ネットワークドライブや NAS 上のフォルダにはアクセスできない
+
+        Returns:
+            bool: LocalSystem アカウントで動作していれば True 、それ以外 (Windows 以外を含む) なら False
+        """
+
+        if sys.platform != 'win32':
+            return False
+
+        import ctypes
+        from ctypes import wintypes
+
+        # LocalSystem の SID (S-1-5-18) を作成し、現在のプロセスのアクセストークンに含まれているかを確認する
+        ## 22: WinLocalSystemSid 、68: SECURITY_MAX_SID_SIZE
+        advapi32 = ctypes.WinDLL('advapi32', use_last_error=True)
+        local_system_sid = ctypes.create_string_buffer(68)
+        local_system_sid_size = wintypes.DWORD(68)
+        if advapi32.CreateWellKnownSid(22, None, local_system_sid, ctypes.byref(local_system_sid_size)) == 0:
+            raise ctypes.WinError(ctypes.get_last_error())
+        is_member = wintypes.BOOL()
+        if advapi32.CheckTokenMembership(None, local_system_sid, ctypes.byref(is_member)) == 0:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return bool(is_member.value)
+
+    # フォルダの情報を取得し、アクセスが拒否されたかどうかを判定する
+    ## Pydantic の DirectoryPath の検証が使う Path.is_dir() は、アクセスが拒否されると PermissionError を送出して 500 エラーや起動時のクラッシュになる
+    ## アクセスできるフォルダと、存在しないだけのフォルダは、ここでは何もせずに呼び出し元の検証に任せる
+    try:
+        Path(folder).stat()
+        return
+    except PermissionError:
+        is_access_denied = True
+    except OSError:
+        is_access_denied = False
+
+    # LocalSystem で実行されている場合は、UNC パスや、LocalSystem から見えないドライブ (ネットワークドライブなど) にアクセスできない
+    ## LocalSystem で動作するサービスには、ログオン中のユーザーが割り当てたネットワークドライブは存在せず、NAS の共有フォルダへのアクセスは拒否される
+    drive = Path(folder).drive
+    is_network_folder = folder.startswith('\\\\') or (drive != '' and Path(drive + '\\').exists() is False)
+    if (is_access_denied is True or is_network_folder is True) and IsRunningAsWindowsLocalSystem() is True:
+        raise ValueError(
+            f'{folder_label} ({folder}) に、KonomiTV のサービスからアクセスできません。\n'
+            'KonomiTV のサービスは LocalSystem アカウントで実行されているため、ネットワークドライブや NAS 上のフォルダにはアクセスできません。\n'
+            'インストーラーの [サービスの実行アカウントを変更] から、実行アカウントを User に切り替えてください。'
+        )
+
+    # それ以外のアカウントでアクセスが拒否された場合は、フォルダの権限を見直してもらう
+    if is_access_denied is True:
+        raise ValueError(
+            f'{folder_label} ({folder}) にアクセスする権限がありません。\n'
+            'KonomiTV を実行しているユーザーに、このフォルダを読み取る権限があるかを確認してください。'
+        )
+
+
 background_tasks: set[asyncio.Task[None]] = set()
 def SetTimeout(callback: Callable[[], Any], delay: float) -> Callable[[], None]:
     """

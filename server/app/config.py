@@ -354,9 +354,41 @@ class _ServerSettingsVideo(BaseModel):
     exclude_scan_paths: list[str] = []
     recorded_folders_polling_interval: Annotated[float, Field(ge=0.1, strict=True, allow_inf_nan=False)] = 5.0
 
+    @field_validator('recorded_folders', mode='before')
+    def validate_recorded_folders(cls, recorded_folders: Any, info: ValidationInfo) -> Any:
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return recorded_folders
+        # 録画フォルダに KonomiTV サーバーからアクセスできるかを検証する
+        ## config.yaml から読み込んだ値は list のサブクラス (ruamel.yaml の CommentedSeq) のため、isinstance() で判定する
+        ## フォルダが存在するかどうかの検証は、DirectoryPath の検証に任せる
+        if isinstance(recorded_folders, list) is True:
+            # 循環参照を避けるために遅延インポート
+            from app.utils import ValidateFolderAccessible
+            for folder in cast(list[Any], recorded_folders):
+                if type(folder) is str:
+                    ValidateFolderAccessible(folder, '録画フォルダ')
+        return recorded_folders
+
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
     upload_folders_polling_interval: Annotated[float, Field(ge=0, strict=True, allow_inf_nan=False)] = 0.0
+
+    @field_validator('upload_folders', mode='before')
+    def validate_upload_folders(cls, upload_folders: Any, info: ValidationInfo) -> Any:
+        # バリデーションをスキップする場合はここで終了
+        if type(info.context) is dict and info.context.get('bypass_validation') is True:
+            return upload_folders
+        # キャプチャ画像の保存先フォルダに KonomiTV サーバーからアクセスできるかを検証する
+        ## config.yaml から読み込んだ値は list のサブクラス (ruamel.yaml の CommentedSeq) のため、isinstance() で判定する
+        ## フォルダが存在するかどうかの検証は、DirectoryPath の検証に任せる
+        if isinstance(upload_folders, list) is True:
+            # 循環参照を避けるために遅延インポート
+            from app.utils import ValidateFolderAccessible
+            for folder in cast(list[Any], upload_folders):
+                if type(folder) is str:
+                    ValidateFolderAccessible(folder, 'キャプチャ画像の保存先フォルダ')
+        return upload_folders
 
 class ServerSettings(BaseModel):
     general: _ServerSettingsGeneral = _ServerSettingsGeneral()
