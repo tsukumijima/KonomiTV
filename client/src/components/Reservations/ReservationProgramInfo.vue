@@ -227,11 +227,14 @@ export default defineComponent({
                 font-size: 12.5px;
             }
 
-            // アイコンの左端と数値の開始位置を、上に並ぶ映像・音声情報のアイコンと文字に揃える
+            // アイコンの大きさ・左端・数値の開始位置を、上に並ぶ映像・音声情報のアイコンと文字に揃える
+            // 映像・音声情報のアイコンは 17px で左右に -2px・-1.7px の余白、文字との間隔は 8px (ml-2) のため、
+            // 右の余白は、ToruCount の gap (3px) を差し引いた値にする
             :deep(.toru-count__icon) {
-                margin-top: -1px;
-                margin-left: -1.5px;
-                margin-right: -2.7px;
+                width: 17px;
+                height: 17px;
+                margin-left: -2px;
+                margin-right: 3.3px;
             }
         }
     }
