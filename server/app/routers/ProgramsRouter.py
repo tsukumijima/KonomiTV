@@ -785,18 +785,27 @@ async def ToruCountsAPI():
 )
 async def ToruRankingAPI(
     channel_type: Annotated[Literal['GR', 'BS', 'CS'] | None, Query(description='チャンネル種別。省略時は全種別。')] = None,
+    genre: Annotated[str | None, Query(description='ジャンルの大分類 (例: アニメ・特撮) 。省略時は全ジャンル。')] = None,
     page: Annotated[int, Query(description='ページ番号。', ge=1)] = 1,
 ):
     """
     放送が終了していない番組のうち、トル数の多い順に上位 100 件までを、一度に 20 件ずつ取得する。<br>
+    genre を指定した場合は、最初のジャンルの大分類が一致する番組だけを対象にする。<br>
     total にはランキング全体の件数 (最大 100 件) が入る。番組ごとのトル数は、トル数取得 API のレスポンスから番組 ID で取得できる。
     """
 
-    # 放送が終了していない番組の ID と放送開始時刻を取得する
+    # 放送が終了していない番組の ID・放送開始時刻・ジャンルを取得する
     programs_query = Program.filter(end_time__gt=datetime.now(JST))
     if channel_type is not None:
         programs_query = programs_query.filter(channel__type=channel_type)
-    start_times: dict[str, datetime] = dict(await programs_query.values_list('id', 'start_time'))
+    start_times: dict[str, datetime] = {}
+    for program_id, start_time, genres in await programs_query.values_list('id', 'start_time', 'genres'):
+
+        # ジャンルが指定されている場合は、最初のジャンル (その番組の主なジャンル) の大分類が一致する番組だけを対象にする
+        ## 2つ目以降のジャンルには「福祉 / 文字(字幕)」のような補助的な分類が入るため、絞り込みには使わない
+        if genre is not None and (len(genres) == 0 or genres[0]['major'] != genre):
+            continue
+        start_times[program_id] = start_time
 
     # トル数を取得できている番組を、トル数の多い順 (同じトル数なら放送開始時刻の早い順) に並べ、上位 100 件に絞る
     toru_counts = TorneClient.getToruCounts()

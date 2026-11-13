@@ -96,7 +96,7 @@ class Genre(TypedDict):
 class ToruCount(BaseModel):
     # トル数 (torne の利用者がその番組を録画予約している数)
     count: int
-    # トル数の多さを色で示すときの基準値 (トル数がこの値以上の番組に色を付ける)
+    # トル数の多さを色で示すときの基準値 (トル数がこの値の何倍かで色を決める)
     ## 同じ放送波の番組のトル数の分布から算出した値で、算出できない場合は None
     highlight_base: int | None
 
