@@ -176,7 +176,7 @@ class TorneClient:
                 ## このため、ほかの地域の放送局の番組も少ないトル数で含まれるが、放送対象の地域のレスポンスが最も多いトル数を持つ
                 program_id = f'NID{network_id}-SID{service_id:03d}-EID{event_id}'
                 current_toru_count = toru_counts.get(program_id)
-                if current_toru_count is None or count > current_toru_count['count']:
+                if current_toru_count is None or count > current_toru_count.count:
                     toru_counts[program_id] = schemas.ToruCount(
                         count = count,
                         highlight_base = highlight_bases.get(broadcast_group),

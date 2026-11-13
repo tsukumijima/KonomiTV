@@ -804,7 +804,7 @@ async def ToruRankingAPI(
     for program_id in start_times:
         if program_id in toru_counts:
             ranked_program_ids.append(program_id)
-    ranked_program_ids.sort(key=lambda program_id: (-toru_counts[program_id]['count'], start_times[program_id]))
+    ranked_program_ids.sort(key=lambda program_id: (-toru_counts[program_id].count, start_times[program_id]))
     ranked_program_ids = ranked_program_ids[:100]
 
     # 指定されたページの 20 件の番組情報を取得し、順位の順に並べて返す
