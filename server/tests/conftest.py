@@ -161,18 +161,10 @@ async def client() -> AsyncGenerator[httpx.AsyncClient]:
 
     # サーバー設定を読み込んだ後で、FastAPI のアプリケーションを読み込む
     from app.app import app
-    from app.utils.JikkyoClient import JikkyoClient
 
-    with pytest.MonkeyPatch.context() as monkeypatch:
-
-        # ニコニコ実況の状態の取得はインターネット上の API を使うため、何もしない処理に差し替える
-        async def UpdateStatuses() -> None:
-            return
-        monkeypatch.setattr(JikkyoClient, 'updateStatuses', UpdateStatuses)
-
-        async with LifespanManager(app, startup_timeout=60, shutdown_timeout=60) as manager:
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=manager.app), base_url='http://test') as client:
-                yield client
+    async with LifespanManager(app, startup_timeout=60, shutdown_timeout=60) as manager:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=manager.app), base_url='http://test') as client:
+            yield client
 
 
 @pytest_asyncio.fixture(scope='session', loop_scope='session')
