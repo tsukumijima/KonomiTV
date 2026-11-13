@@ -390,7 +390,7 @@ const performSearchTweets = async () => {
         const blueskyPageTweets = [...(bluesky_result?.tweets ?? [])];
 
         // Twitter の新着方向カーソルは表示対象の有無に関係なく、実レスポンスが進んだときだけ更新する
-        // 制限による空応答では既存カーソルを維持し、次回も同じ位置から検索更新できるようにする
+        // 制限による空レスポンスでは既存カーソルを維持し、次回も同じ位置から検索更新できるようにする
         if (isCursorConsumed(twitter_result) === true && twitter_result?.newer_cursor_id) {
             twitterNewerCursorId.value = twitter_result.newer_cursor_id;
         }
@@ -494,7 +494,7 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     addFetchedTweetsToSearch(twitterPageTweets, blueskyPageTweets, existingIds);
 
     // Twitter の中央 gap は Twitter 側が実際に進んだ場合だけ消費する
-    // 空応答や通信失敗では同じ検索範囲を後から再取得できるように残す
+    // 空レスポンスや通信失敗では同じ検索範囲を後から再取得できるように残す
     if (isCursorConsumed(twitter_result) === true) {
         removeTwitterGapById(loadMoreTargets.consumed_twitter_gap_id);
     }

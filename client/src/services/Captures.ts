@@ -632,7 +632,7 @@ class Captures {
      */
     static async deleteCaptures(capture_ids: number[]): Promise<ICaptureDeleteResult | null> {
         // サーバーは1回のリクエストで受け取ったキャプチャをすべて削除してから応答し、1回に削除できる枚数に上限はない
-        // ネットワーク上の保存先では1枚の削除に約 50ms かかるので、既定の30秒に、その2倍の 100ms を枚数分だけ加えた時間まで応答を待つ
+        // ネットワーク上の保存先では1枚の削除に約 50ms かかるので、既定の30秒に、その2倍の 100ms を枚数分だけ加えた時間までレスポンスを待つ
         // 数百枚をまとめて削除したときも、サーバーが削除し終えるまで待って、その結果を表示する
         const response = await APIClient.delete<ICaptureDeleteResult>('/captures', {
             data: { capture_ids },

@@ -267,7 +267,7 @@ interface ITweetPostSettledResult {
 }
 
 // 投稿ボタン押下時点の送信先を固定したスナップショット
-// API 応答待ちの間にトグルが変わっても、送信処理と通知文が現在の UI 状態へ引っ張られないようにする
+// API レスポンス待ちの間にトグルが変わっても、送信処理と通知文が現在の UI 状態へ引っ張られないようにする
 interface ITweetPostTargetSnapshot {
     twitter_screen_name: string | null;
     bluesky_handle: string | null;
@@ -961,10 +961,10 @@ export default defineComponent({
                 });
             }
 
-            // API リクエストを開始した時点で次の投稿を受け付け、各サービスの応答待ちを入力操作へ影響させない
+            // API リクエストを開始した時点で次の投稿を受け付け、各サービスのレスポンス待ちを入力操作へ影響させない
             this.is_tweet_sending = false;
 
-            // 投稿結果の通知は入力フォームと独立して継続し、Twitter と Bluesky の応答が揃うまで次の投稿を待たせない
+            // 投稿結果の通知は入力フォームと独立して継続し、Twitter と Bluesky のレスポンスが揃うまで次の投稿を待たせない
             void this.notifyTweetPostResults(send_results);
 
             // API リクエストの開始後にパネルを閉じ、Bluesky 対応前と同じ操作タイミングを保つ

@@ -40,7 +40,7 @@ interface IOfflineVideoStreamMetadata {
 }
 
 /**
- * 録画番組のオフライン保存ジョブとダウンロード応答の展開を管理する。
+ * 録画番組のオフライン保存ジョブとダウンロードレスポンスの展開を管理する。
  */
 export default class OfflineVideos {
 
@@ -240,7 +240,7 @@ export default class OfflineVideos {
             // オフや未対応環境ではページ内 Fetch で保存し、複数本の同時ダウンロードを優先する
             const shouldUseBackgroundFetch = useBackgroundFetch === true && await this.isBackgroundFetchSupported() === true;
 
-            // Background Fetch は一時応答と展開後キャッシュが併存するため、前景保存の2倍を空き容量判定へ使う
+            // Background Fetch は一時レスポンスと展開後キャッシュが併存するため、前景保存の2倍を空き容量判定へ使う
             const storageEstimate = await navigator.storage?.estimate() ?? {};
             const availableBytes = (storageEstimate.quota ?? 0) - (storageEstimate.usage ?? 0);
             const requiredBytes = requiredStorageBytes * (shouldUseBackgroundFetch === true ? 2 : 1);
@@ -301,7 +301,7 @@ export default class OfflineVideos {
                     }
                 }));
 
-                // 実況 API は応答が遅くなりがちで、保存開始自体はコメントがなくても問題ないため、動画転送の登録を待たせない
+                // 実況 API はレスポンスが遅くなりがちで、保存開始自体はコメントがなくても問題ないため、動画転送の登録を待たせない
                 void (async () => {
                     const jikkyoSource = `${Utils.api_base_url}/videos/${programSnapshot.id}/jikkyo`;
                     const jikkyoDestination = `${generationBaseURL}/assets/jikkyo.json`;
@@ -370,7 +370,7 @@ export default class OfflineVideos {
                 return job;
             }
 
-            // バックグラウンド保存を使わない場合は、ページが存続している間だけ通常の Fetch で同じ応答を保存する
+            // バックグラウンド保存を使わない場合は、ページが存続している間だけ通常の Fetch で同じレスポンスを保存する
             try {
                 job.state = 'Downloading';
                 if (await OfflineVideoStorage.updateActiveJob(job) === false) {
@@ -439,9 +439,9 @@ export default class OfflineVideos {
     }
 
     /**
-     * Background Fetch または前景 Fetch の応答を CacheStorage へ展開する。
+     * Background Fetch または前景 Fetch のレスポンスを CacheStorage へ展開する。
      * @param jobID 保存ジョブ ID
-     * @param response オフライン保存 API の応答
+     * @param response オフライン保存 API のレスポンス内容
      */
     static async finalizeResponse(jobID: string, response: Response): Promise<void> {
 
@@ -522,13 +522,13 @@ export default class OfflineVideos {
         };
 
         try {
-            // 固定マジック値が一致しない応答は、サーバーのエラーページや未知の将来形式なので保存しない
+            // 固定マジック値が一致しないレスポンスは、サーバーのエラーページや未知の将来形式なので保存しない
             const magic = await readBytes(this.STREAM_MAGIC.byteLength);
             if (magic.some((value, index) => value !== this.STREAM_MAGIC[index])) {
                 throw new Error('オフライン保存データの形式を認識できません。');
             }
 
-            // 先頭 JSON から録画ファイルと画質を検証し、別リクエストの応答を混在させない
+            // 先頭 JSON から録画ファイルと画質を検証し、別リクエストのレスポンスを混在させない
             const metadataLength = new DataView((await readBytes(4)).buffer).getUint32(0);
             if (metadataLength === 0 || metadataLength > 1024 * 1024) {
                 throw new Error('オフライン保存データのメタデータ長が不正です。');
@@ -608,7 +608,7 @@ export default class OfflineVideos {
             }
             this.notifyChange();
         } catch (error) {
-            // 破損応答や保存キャンセルでは未読部分の受信を打ち切り、ネットワーク接続とストリームロックを解放する
+            // 破損レスポンスや保存キャンセルでは未読部分の受信を打ち切り、ネットワーク接続とストリームロックを解放する
             try {
                 await reader.cancel();
             } catch (cancelError) {

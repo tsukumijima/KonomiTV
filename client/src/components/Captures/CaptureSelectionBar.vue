@@ -97,7 +97,7 @@ const toggleFavorite = async () => {
     if (!requireLogin()) {
         return;
     }
-    // 応答を待つ間に選択が変わっても、送ったキャプチャにだけ結果を反映する
+    // レスポンスを待つ間に選択が変わっても、送ったキャプチャにだけ結果を反映する
     const targets = selectedList.value;
     const next = !allFavorite.value;
     const ids = targets.map(capture => capture.id);
@@ -116,7 +116,7 @@ const openTagDialog = () => {
     }
 };
 const onTagsUpdated = (captures: ICapture[]) => {
-    // 応答を待つ間に選択が変わっても、選択から外したキャプチャを選び直さないよう、まだ選ばれているキャプチャの分だけ差し替える
+    // レスポンスを待つ間に選択が変わっても、選択から外したキャプチャを選び直さないよう、まだ選ばれているキャプチャの分だけ差し替える
     props.selection.setMany(captures.filter(capture => props.selection.isSelected(capture)), true);
     emit('updated', captures);
 };

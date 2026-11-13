@@ -1105,7 +1105,7 @@ const toggleFavorite = async () => {
     if (props.capture === null) {
         return;
     }
-    // 応答を待つ間に隣のキャプチャへ送られても、お気に入りのボタンを押したキャプチャに結果を反映する
+    // レスポンスを待つ間に隣のキャプチャへ送られても、お気に入りのボタンを押したキャプチャに結果を反映する
     const target = props.capture;
     const next = !target.is_favorite;
     if (await Captures.updateFavorites([target.id], next)) {
@@ -1135,7 +1135,7 @@ const download = async () => {
 };
 const onTagsUpdated = async (captures: ICapture[]) => {
     if (captures[0] !== undefined) {
-        // 応答を待つ間に隣のキャプチャへ送られても、戻ったときに新しいタグで出るよう、隣として覚えているキャプチャも差し替える
+        // レスポンスを待つ間に隣のキャプチャへ送られても、戻ったときに新しいタグで出るよう、隣として覚えているキャプチャも差し替える
         const updated = captures[0];
         for (const neighbor of [prevCapture, nextCapture]) {
             if (neighbor.value?.id === updated.id) {
@@ -1161,7 +1161,7 @@ const deleteCapture = async () => {
     if (props.capture === null || isDeleting.value) {
         return;
     }
-    // 選択中のバーと同じく、応答が返るまでは確認のダイアログを開いたまま削除のボタンを読み込み中にする
+    // 選択中のバーと同じく、レスポンスが返るまでは確認のダイアログを開いたまま削除のボタンを読み込み中にする
     isDeleting.value = true;
     const current = props.capture;
     const result = await Captures.deleteCaptures([current.id]);
@@ -1176,7 +1176,7 @@ const deleteCapture = async () => {
     }
     Message.success('キャプチャを削除しました。');
     // 削除したら次のキャプチャへ送り、なければ閉じる
-    // 削除の応答を待つ間に閉じたり別のキャプチャを開いたりしたときは、一覧への通知だけにして、今の表示はそのまま保つ
+    // 削除のレスポンスを待つ間に閉じたり別のキャプチャを開いたりしたときは、一覧への通知だけにして、今の表示はそのまま保つ
     const neighbor = (await props.navigate(current, 1)) ?? (await props.navigate(current, -1)) ?? null;
     emit('deleted', [current.id]);
     if (props.capture?.id !== current.id) {

@@ -100,7 +100,7 @@ const stateOf = (tag: ICaptureTag): 'All' | 'Some' | 'None' => {
 };
 
 // 全部に付いていれば外し、それ以外 (一部・なし) なら全部に付ける
-// 応答を待つ間にダイアログを閉じて別のキャプチャで開き直しても、押したときのキャプチャに結果を反映する
+// レスポンスを待つ間にダイアログを閉じて別のキャプチャで開き直しても、押したときのキャプチャに結果を反映する
 const toggleTag = async (tag: ICaptureTag, targets: ICapture[] = workingCaptures.value) => {
     if (isBusy.value) {
         return;

@@ -450,7 +450,7 @@ const restorePendingSeenTweetIds = (
         return;
     }
 
-    // Twitter 側の 30 秒制限で空応答になった場合、サーバーには seenTweetIds が届いていても Twitter には転送されない
+    // Twitter 側の 30 秒制限で空レスポンスになった場合、サーバーには seenTweetIds が届いていても Twitter には転送されない
     // 新しく溜まった閲覧済み情報を優先して残すため、上限超過時は古い側から切り落とす
     state.pendingSeenTweetIds = [...seenTweetIds, ...state.pendingSeenTweetIds].slice(-SEEN_TWEET_IDS_LIMIT);
 };
@@ -644,7 +644,7 @@ const fetchTimelineTweets = async () => {
         const blueskyPageTweets = bluesky_result?.tweets ?? [];
 
         // Twitter の新着方向カーソルは表示対象の有無に関係なく、実レスポンスが進んだときだけ更新する
-        // 30 秒制限の空応答では既存カーソルを維持し、次回も同じ位置から更新できるようにする
+        // 30 秒制限の空レスポンスでは既存カーソルを維持し、次回も同じ位置から更新できるようにする
         if (isCursorConsumed(twitter_result) === true && twitter_result?.newer_cursor_id) {
             twitterNewerCursorId.value = twitter_result.newer_cursor_id;
         }
@@ -715,7 +715,7 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
     const bluesky_result = getTimelineFetchResult(bluesky_settled_result);
 
     // 続き取得中にアカウントが切り替わった場合、旧アカウントのページを現在の表示へ差し込まない
-    // Twitter 取得が空応答や失敗だった場合は、消費した seenTweetIds だけ元アカウントへ戻す
+    // Twitter 取得が空レスポンスや失敗だった場合は、消費した seenTweetIds だけ元アカウントへ戻す
     if (getTimelineAccountIdentity(selected_account.value) !== requestAccountIdentity) {
         if (isCursorConsumed(twitter_result) === false || (shouldFetchTwitter === true && twitter_result === null)) {
             restorePendingSeenTweetIds(seenTweetIds, twitterScreenName);
@@ -724,7 +724,7 @@ const handleLoadMore = async (item: ILoadMoreItem) => {
         return;
     }
 
-    // Twitter の空応答や通信失敗では seenTweetIds が Twitter に反映されない
+    // Twitter の空レスポンスや通信失敗では seenTweetIds が Twitter に反映されない
     // 取得範囲も進めず同じカーソルを再利用するため、閲覧済み情報も次回へ戻す
     if (isCursorConsumed(twitter_result) === false || (shouldFetchTwitter === true && twitter_result === null)) {
         restorePendingSeenTweetIds(seenTweetIds);
