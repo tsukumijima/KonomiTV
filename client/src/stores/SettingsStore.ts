@@ -84,6 +84,7 @@ export interface ILocalClientSettings extends IClientSettings {
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
     video_watched_history_max_count: number;
+    video_cm_auto_skip: boolean;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
@@ -237,6 +238,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // 視聴履歴の保持件数 (Default: 50件)
     // この値を超えると、最も古い視聴履歴から自動的に削除される
     video_watched_history_max_count: 50,
+    // 録画番組の CM 区間を自動でスキップする (Default: オン)
+    video_cm_auto_skip: true,
 
     // ***** 設定 → 画質 *****
 
@@ -395,6 +398,7 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'tv_panel_active_tab',
     'video_panel_active_tab',
     'video_watched_history_max_count',
+    'video_cm_auto_skip',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
