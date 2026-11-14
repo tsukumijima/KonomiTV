@@ -458,14 +458,19 @@ const handleSwitchClick = (event: Event) => {
     user-select: none;
     box-sizing: border-box;
     content-visibility: auto;
+    // 画面外で描画を省略している間も、カードの高さを確保してスクロール時のレイアウトのずれを防ぐ
+    // 一度描画したカードは、auto により実際の高さが使われる
+    contain-intrinsic-height: auto 90px;
     @include tablet-vertical {
         padding: 0px 12px;
     }
     @include smartphone-horizontal {
         padding: 0px 12px;
+        contain-intrinsic-height: auto 85px;
     }
     @include smartphone-vertical {
         padding: 0px 9px;
+        contain-intrinsic-height: auto 105px;
     }
 
     // タッチデバイスでは hover 効果を設定しない

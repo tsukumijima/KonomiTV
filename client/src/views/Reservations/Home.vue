@@ -184,24 +184,27 @@ onUnmounted(() => {
 
 
 
+    // セクション間の余白は、ビデオをみるのホームに合わせる
     :deep(.reservation-list) {
         & + .reservation-list {
-            margin-top: 40px;
+            margin-top: 28px;
             @include smartphone-vertical {
-                margin-top: 32px;
+                margin-top: 16px;
             }
         }
     }
 
-
-
-
-    &__upcoming-reservations--loading,
-    &__recently-finished-reservations--loading,
-    &__all-reservations--loading {
-        :deep(.reservation-list__table-container),
-        :deep(.reservation-list__empty) {
-            min-height: 180px;
+    &__upcoming-reservations--loading {
+        // ローディング中にちらつかないよう、表示上限の 10 件分の高さを確保する
+        // 予約カード 1 件の高さは、Reservation.vue の contain-intrinsic-height に合わせている
+        :deep(.reservation-list__grid) {
+            min-height: calc(90px * 10);
+            @include smartphone-horizontal {
+                min-height: calc(85px * 10);
+            }
+            @include smartphone-vertical {
+                min-height: calc(105px * 10);
+            }
         }
     }
 }

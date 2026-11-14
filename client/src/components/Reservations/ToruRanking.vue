@@ -1,5 +1,8 @@
 <template>
     <ReservationList
+        class="toru-ranking"
+        :class="{'toru-ranking--loading': isLoading && displayReservations.length === 0}"
+        :style="{'--toru-ranking-loading-count': Math.min(limit, 20)}"
         title="予約数ランキング"
         :reservations="displayReservations"
         :total="rankingTotal"
@@ -258,3 +261,20 @@ onMounted(() => {
 defineExpose({ updateReservations });
 
 </script>
+<style lang="scss" scoped>
+
+.toru-ranking--loading {
+    // 初回のローディング中にちらつかないよう、表示する件数分 (1ページあたり最大 20 件) の高さを確保する
+    // 予約カード 1 件の高さは、Reservation.vue の contain-intrinsic-height に合わせている
+    :deep(.reservation-list__grid) {
+        min-height: calc(90px * var(--toru-ranking-loading-count));
+        @include smartphone-horizontal {
+            min-height: calc(85px * var(--toru-ranking-loading-count));
+        }
+        @include smartphone-vertical {
+            min-height: calc(105px * var(--toru-ranking-loading-count));
+        }
+    }
+}
+
+</style>
