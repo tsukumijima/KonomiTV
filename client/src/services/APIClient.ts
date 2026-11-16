@@ -50,6 +50,15 @@ export interface IErrorResponseData {
  */
 class APIClient {
 
+    /** 接続確認中とページ遷移中の重複実行を防ぐ */
+    private static is_reconnecting = false;
+
+    /**
+     * 再認証後のループを防ぐため、ページ遷移をまたいで保持するタブ単位の一時状態
+     * ユーザー設定ではなく認証フローの状態なので、SettingsStore の永続化・同期対象にはしない
+     */
+    private static readonly reconnect_attempt_key = 'KonomiTV-ReconnectAttempted';
+
     /**
      * Axios で HTTP リクエストを送信し、レスポンスを受け取る
      * @param request AxiosRequestConfig
@@ -97,6 +106,9 @@ class APIClient {
         // Axios で HTTP リクエストを送信し、レスポンスを受け取る
         const result: AxiosResponse<T> | AxiosError<IErrorResponseData> = await axios.request(request).catch((error) => error);
 
+        // 接続確認を待たずに従来のレスポンスを返し、必要な場合だけページ遷移で復帰する
+        void APIClient.reconnectIfRedirected(request, result);
+
         // エラーが発生した場合は IErrorResponse を返す
         if (result instanceof AxiosError) {
             console.error(result);
@@ -130,6 +142,69 @@ class APIClient {
                 status: result.status,
                 data: result.data,
             };
+        }
+    }
+
+
+    /**
+     * 接続失敗がリダイレクトによるものなら、キャッシュを経由しないページ遷移で復帰する
+     * @param request 元の API リクエスト
+     * @param result API レスポンスまたは通信エラー
+     * @returns 接続確認が完了したときに解決する Promise
+     */
+    private static async reconnectIfRedirected(
+        request: AxiosRequestConfig,
+        result: AxiosResponse<unknown> | AxiosError<IErrorResponseData>,
+    ): Promise<void> {
+
+        // Worker と重複した接続確認は対象外にし、遷移開始後のレスポンスによる状態解除も防ぐ
+        if (typeof window === 'undefined' || APIClient.is_reconnecting === true) {
+            return;
+        }
+        try {
+            // 同一オリジンの KonomiTV API だけを対象にする (開発用の別ポート・外部 API は対象外)
+            const request_url = new URL(axios.getUri(request), window.location.href);
+            if (request_url.origin !== window.location.origin || !request_url.href.startsWith(`${Utils.api_base_url}/`)) {
+                return;
+            }
+            const version_url = `${Utils.api_base_url}/version`;
+
+            // KonomiTV API が正常な JSON を返したら、次の接続障害で再び復帰を試せるようにする
+            if (!(result instanceof AxiosError)) {
+                const content_type = result.headers['content-type'];
+                if (typeof content_type === 'string' && content_type.split(';', 1)[0].trim() === 'application/json' &&
+                    typeof result.data === 'object' && result.data !== null) {
+                    window.sessionStorage.removeItem(APIClient.reconnect_attempt_key);
+                }
+                return;
+            }
+
+            // 通常のエラー応答・タイムアウト・復帰後も続く失敗は、既存のエラー処理に戻す
+            if (result.code !== AxiosError.ERR_NETWORK || navigator.onLine === false ||
+                window.sessionStorage.getItem(APIClient.reconnect_attempt_key) !== null) {
+                return;
+            }
+            APIClient.is_reconnecting = true;
+
+            // 通常は転送されない API を、追加ヘッダーなしで確認する
+            // manual により認証先への CORS 通信を避け、転送先を読まずにリダイレクトの有無だけを調べる
+            const response = await fetch(version_url, {
+                cache: 'no-store',
+                redirect: 'manual',
+                signal: AbortSignal.timeout(5000),
+            });
+            // 転送された場合だけ遷移まで状態を保持し、それ以外では次の接続確認を許可する
+            APIClient.is_reconnecting = response.type === 'opaqueredirect';
+            if (APIClient.is_reconnecting === true) {
+                // /api 以下は既存 Service Worker のページキャッシュ対象外なので、前段の認証を通せる
+                const reconnect_url = new URL(`${Utils.api_base_url}/reconnect`);
+                reconnect_url.searchParams.set('return_to', window.location.pathname + window.location.search + window.location.hash);
+                window.sessionStorage.setItem(APIClient.reconnect_attempt_key, '1');
+                window.location.replace(reconnect_url.href);
+            }
+        } catch {
+            // 通信断・確認のタイムアウト・ストレージの利用不可は、通常の通信エラーとして扱う
+            APIClient.is_reconnecting = false;
         }
     }
 
