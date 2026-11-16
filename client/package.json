@@ -10,7 +10,8 @@
         "build": "vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
         "lint": "eslint . --fix --ignore-path .gitignore",
-        "typecheck": "vue-tsc --noEmit"
+        "typecheck": "vue-tsc --noEmit",
+        "test": "node --test tests/*.test.cjs"
     },
     "engines": {
         "node": ">=22.21.1"
