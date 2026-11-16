@@ -60,6 +60,10 @@ class LiveCommentManager implements PlayerManager {
     // 再接続中かどうか
     private reconnecting = false;
 
+    // 最後に正常に接続できてから、連続して再接続を試みた回数
+    // reconnect() で加算し、コメントセッションで過去コメントを受信し終えた時点 (正常に接続できた時点) で 0 に戻す
+    private reconnect_count = 0;
+
     // 破棄済みかどうか
     private destroyed = false;
 
@@ -79,6 +83,25 @@ class LiveCommentManager implements PlayerManager {
 
 
     /**
+     * 接続の切断や再接続に関する通知をプレイヤーに表示すべきかどうか
+     * コメントサーバーが停止している間は再接続の失敗が 3 秒ごとに続き、そのたびに通知が表示されてしまう
+     * 実況を利用しない利用者にとっても煩わしいため、連続して 3 回再接続を試みても接続できない場合は、
+     * 裏では再接続を続けたまま (復旧したら即座にコメントを受信できるようにしたまま) 通知だけを表示しないようにする
+     */
+    private get should_show_connection_notice(): boolean {
+        // 連続して 3 回再接続を試みても接続できていない
+        if (this.reconnect_count >= 3) {
+            return false;
+        }
+        // 「再起動しています…」の通知を上書きしないようにする
+        if (this.player.template.notice.textContent!.includes('再起動しています…') === true) {
+            return false;
+        }
+        return true;
+    }
+
+
+    /**
      * ニコニコ実況または NX-Jikkyo に接続し、セッションを初期化する
      */
     public async init(): Promise<void> {
@@ -87,6 +110,9 @@ class LiveCommentManager implements PlayerManager {
 
         // 破棄済みかどうかのフラグを下ろす
         this.destroyed = false;
+
+        // チャンネル切り替えなどで新たに接続し直すので、再接続を試みた回数をリセットする
+        this.reconnect_count = 0;
 
         // ユーザー情報を事前にキャッシュさせておく
         await user_store.fetchUser();
@@ -179,7 +205,9 @@ class LiveCommentManager implements PlayerManager {
             // ニコニコ生放送からエラーが返された: 普通発生しないため警告メッセージとして表示
             } else if (websocket_info.nicolive_watch_session_error !== null) {
                 console.warn(`[LiveCommentManager][WatchSession] Failed to get Nicolive watch session URL. (${websocket_info.nicolive_watch_session_error})`);
-                this.player.notice(`${websocket_info.nicolive_watch_session_error}代わりに NX-Jikkyo にコメントします。`, undefined, undefined, '#FFA86A');
+                if (this.should_show_connection_notice === true) {
+                    this.player.notice(`${websocket_info.nicolive_watch_session_error}代わりに NX-Jikkyo にコメントします。`, undefined, undefined, '#FFA86A');
+                }
             }
         }
 
@@ -203,7 +231,7 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // 視聴セッションの接続が閉じられたとき（ネットワークが切断された場合など）
-        const on_close = async (event: CloseEvent | Event) => {
+        const on_close = async (event: CloseEvent) => {
 
             // すでに disconnect メッセージが送られてきている場合は何もしない
             if (is_disconnect_message_received === true) {
@@ -211,8 +239,8 @@ class LiveCommentManager implements PlayerManager {
             }
 
             // 接続切断の理由を表示
-            const code = (event instanceof CloseEvent) ? event.code : 'Error';
-            if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+            const code = event.code;
+            if (this.should_show_connection_notice === true) {
                 this.player.notice(`${this.watch_session_type}との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
             console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${code})`);
@@ -223,8 +251,9 @@ class LiveCommentManager implements PlayerManager {
             await this.reconnect();
 
         };
+        // error イベントは接続に失敗したときに close イベントの直前に必ず発火し、失敗の詳細も持たないため、close イベントだけで処理する
+        // error イベントでも処理すると、1回の切断で切断の通知が2回表示され、reconnect() も2回呼ばれる
         this.watch_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
-        this.watch_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 視聴セッション WebSocket からメッセージを受信したとき
         // 視聴セッションはコメント送信時のために維持し続ける必要がある
@@ -299,7 +328,7 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // エラー情報を表示
-                    if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+                    if (this.should_show_connection_notice === true) {
                         this.player.notice(error, undefined, undefined, '#FF6F6A');
                     }
                     console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
@@ -358,7 +387,7 @@ class LiveCommentManager implements PlayerManager {
                     }
 
                     // 接続切断の理由を表示
-                    if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+                    if (this.should_show_connection_notice === true) {
                         this.player.notice(disconnect_reason, undefined, undefined, '#FF6F6A');
                     }
                     console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
@@ -479,11 +508,11 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // コメントセッションの接続が閉じられたとき（ネットワークが切断された場合など）
-        const on_close = async (event: CloseEvent | Event) => {
+        const on_close = async (event: CloseEvent) => {
 
             // 接続切断の理由を表示
-            const code = (event instanceof CloseEvent) ? event.code : 'Error';
-            if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+            const code = event.code;
+            if (this.should_show_connection_notice === true) {
                 this.player.notice(`NX-Jikkyo との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
             console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${code})`);
@@ -494,8 +523,9 @@ class LiveCommentManager implements PlayerManager {
             await Utils.sleep(3);
             await this.reconnect();
         };
+        // error イベントは接続に失敗したときに close イベントの直前に必ず発火し、失敗の詳細も持たないため、close イベントだけで処理する
+        // error イベントでも処理すると、1回の切断で切断の通知が2回表示され、reconnect() も2回呼ばれる
         this.comment_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
-        this.comment_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 受信したコメントをイベントリスナーに送信する関数
         // スロットルを設定し、333ms 未満の間隔でイベントが発火しないようにする
@@ -532,6 +562,11 @@ class LiveCommentManager implements PlayerManager {
             // この時点で初期コメントを一気にイベントリスナーに送信する
             if (message.ping !== undefined && message.ping.content === 'rf:0') {
                 initial_comments_received = true;
+
+                // コメントサーバーに正常に接続できたので、再接続を試みた回数をリセットする
+                // 以降に接続が切断された場合は、再び切断や再接続の通知が表示される
+                this.reconnect_count = 0;
+
                 if (this.destroyed === false) {  // まだ破棄されていない場合のみイベントを発火
                     player_store.event_emitter.emit('CommentReceived', {
                         is_initial_comments: true,
@@ -777,9 +812,13 @@ class LiveCommentManager implements PlayerManager {
         // 再接続を開始
         this.reconnecting = true;
         console.warn('[LiveCommentManager] Reconnecting...');
-        if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+        if (this.should_show_connection_notice === true) {
             this.player.notice(`${this.watch_session_type}に再接続しています…`);
         }
+
+        // 再接続を試みた回数を加算する
+        // 通知を表示するかの判定より後に加算し、切断と再接続の通知がそれぞれ 3 回ずつ表示されるようにする
+        this.reconnect_count++;
 
         // 前の視聴セッション・コメントセッションを破棄
         await this.destroy();
