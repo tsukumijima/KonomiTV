@@ -163,6 +163,18 @@ class TorneClient:
                     threshold = int(statistics.fmean(counts) + 2 * statistics.pstdev(counts))
                     highlight_bases[broadcast_group] = min(threshold, max_count - 1) + 1
 
+            # CS の番組には、CS の分布から求めた値ではなく、BS の基準値を使う
+            ## CS は契約者しか視聴できず、トル数が全体的に少ないため、CS の分布から求めた基準値は BS の 1/10 以下になる
+            ## CS の分布から求めた基準値の倍率で並べると、契約者の一部だけが録画予約している番組が、ランキングや予約数順で地上波・BS の人気番組より上に来てしまう
+            ## CS のトル数は BS と同じく全国の合計とみられるため、BS と同じ基準値で割り、トル数の値どおりに比較されるようにする
+            ## CS の番組だけを比べる場合は、どちらの基準値でもトル数の多い順と同じ並びになる
+            ## BS の基準値を算出できない場合は、CS の番組も基準値なしとして扱う
+            bs_highlight_base = highlight_bases.get(cls.BROADCAST_GROUPS['BS'])
+            if bs_highlight_base is not None:
+                highlight_bases[cls.BROADCAST_GROUPS['CS']] = bs_highlight_base
+            else:
+                highlight_bases.pop(cls.BROADCAST_GROUPS['CS'], None)
+
             for (broadcast_group, service_id, event_id), count in region_counts.items():
 
                 # 受信できるチャンネルの番組だけを保持する

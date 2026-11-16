@@ -119,6 +119,7 @@ const useToruCountStore = defineStore('toruCount', () => {
                 if (toruCount !== undefined) {
                     // 地デジのトル数はその地域の利用者だけの数で、BS・CS のトル数は全国の合計とみられるため、トル数そのものは放送波をまたいで比較できない
                     // 予約数ランキングと同じく、放送波ごとの基準値に対する倍率で並べる (色分けも同じ倍率で決まるため、並び順と色が食い違わない)
+                    // CS の番組の基準値にはサーバーが BS の基準値を入れているため、CS の番組はトル数の値どおりに BS の番組と比較される
                     ratio = toruCount.highlight_base !== null ? toruCount.count / toruCount.highlight_base : 0;
                     count = toruCount.count;
                 }

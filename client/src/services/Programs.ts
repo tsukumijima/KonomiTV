@@ -78,7 +78,7 @@ export interface IToruCount {
     // トル数
     count: number;
     // トル数の多さを色で示すときの基準値 (トル数がこの値の何倍かで色を決める)
-    // 同じ放送波の番組のトル数の分布から算出した値で、算出できない場合は null
+    // 同じ放送波の番組のトル数の分布から算出した値 (CS の番組には BS の値が入る) で、算出できない場合は null
     highlight_base: number | null;
 }
 
