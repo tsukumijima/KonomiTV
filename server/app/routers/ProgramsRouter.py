@@ -795,18 +795,32 @@ async def ToruRankingAPI(
     total にはランキング全体の件数 (最大 100 件) が入る。番組ごとのトル数は、トル数取得 API のレスポンスから番組 ID で取得できる。
     """
 
-    # 放送が終了していない番組の ID・放送開始時刻・ジャンルを取得する
-    programs_query = Program.filter(end_time__gt=datetime.now(JST))
+    # 放送が終了していない番組の ID と放送開始時刻を取得する
+    ## 1週間分の番組は CS を含めると2万件ほどになり、Tortoise ORM で1行ずつモデルの値に変換すると古い CPU では 0.7 秒ほどかかるため、生の SQL で取得する
+    ## 日時の列は「2026-01-01 00:00:00+09:00」の形式の文字列で保存されているため、同じ形式の文字列と比較する
+    ## 放送開始時刻も文字列のまま取得する (形式が揃っているため、文字列の順序が時刻の順序と一致する)
+    conditions = ['p.end_time > ?']
+    params: list[Any] = [datetime.now(JST).isoformat(sep=' ', timespec='seconds')]
     if channel_type is not None:
-        programs_query = programs_query.filter(channel__type=channel_type)
-    start_times: dict[str, datetime] = {}
-    for program_id, start_time, genres in await programs_query.values_list('id', 'start_time', 'genres'):
+        conditions.append('c.type = ?')
+        params.append(channel_type)
 
-        # ジャンルが指定されている場合は、最初のジャンル (その番組の主なジャンル) の大分類が一致する番組だけを対象にする
-        ## 2つ目以降のジャンルには「福祉 / 文字(字幕)」のような補助的な分類が入るため、絞り込みには使わない
-        if genre is not None and (len(genres) == 0 or genres[0]['major'] != genre):
-            continue
-        start_times[program_id] = start_time
+    # ジャンルが指定されている場合は、最初のジャンル (その番組の主なジャンル) の大分類が一致する番組だけを対象にする
+    ## 2つ目以降のジャンルには「福祉 / 文字(字幕)」のような補助的な分類が入るため、絞り込みには使わない
+    if genre is not None:
+        conditions.append("json_extract(p.genres, '$[0].major') = ?")
+        params.append(genre)
+
+    programs_query = f"""
+        SELECT p.id, p.start_time
+        FROM programs p
+        JOIN channels c ON c.id = p.channel_id
+        WHERE {' AND '.join(conditions)}
+    """
+    connection = connections.get('default')
+    start_times: dict[str, str] = {}
+    for row in await connection.execute_query_dict(programs_query, params):
+        start_times[row['id']] = row['start_time']
 
     # トル数を取得できている番組を、トル数が基準値の何倍かの大きい順に並べ、上位 100 件に絞る
     ## 地上波のトル数はその地域の利用者だけの数で、BS・CS のトル数は全国の合計とみられるため、トル数そのものは放送波をまたいで比較できない
@@ -814,7 +828,7 @@ async def ToruRankingAPI(
     ## そこで、放送波ごとの分布から算出した基準値に対する倍率で並べ、どの地域でも地上波と BS・CS の番組が混ざるようにしている
     ## 倍率が同じ場合はトル数の多い順に、トル数も同じ場合は放送開始時刻の早い順に並べる
     toru_counts = TorneClient.getToruCounts()
-    ranking_keys: dict[str, tuple[float, int, datetime]] = {}
+    ranking_keys: dict[str, tuple[float, int, str]] = {}
     for program_id, start_time in start_times.items():
         toru_count = toru_counts.get(program_id)
         if toru_count is None:
