@@ -107,8 +107,10 @@ target-version = "py313"
 extend-exclude = ["data/", "thirdparty/"]
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 # flake8, pycodestyle, pyupgrade, isort, Ruff 固有のルールを使う
-select = ["F", "E", "W", "UP", "I", "RUF", "TID251"]
+select = ["F", "E", "W", "UP", "I", "RUF", "TID251", "PLW1514"]
 ignore = [
     "E501",    # 1行の長さを超えている場合の警告を抑制
     "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
