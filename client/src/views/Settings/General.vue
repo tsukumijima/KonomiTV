@@ -149,6 +149,16 @@
                     v-model.number="settingsStore.settings.video_watched_history_max_count">
                 </v-text-field>
             </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="video_cm_auto_skip">録画番組の CM を自動でスキップする</label>
+                <label class="settings__item-label" for="video_cm_auto_skip">
+                    CM 区間が分かっている録画番組では、CM に入ると本編の続きまで自動で飛ばします。デフォルトはオンです。<br>
+                    スキップした直後に表示される［戻る］を押すと、CM の頭に戻れます。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="video_cm_auto_skip" hide-details
+                    v-model="settingsStore.settings.video_cm_auto_skip">
+                </v-switch>
+            </div>
             <v-divider class="mt-6"></v-divider>
             <div class="settings__item">
                 <div class="settings__item-heading">設定をエクスポート</div>
